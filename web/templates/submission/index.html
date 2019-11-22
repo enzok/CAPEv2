@@ -382,6 +382,10 @@ $(document).ready( function() {
                                                     <td><code>arguments - for service package</code></td>
                                                     <td>Service arguments</td>
                                                 </tr>
+                                                <tr>
+                                                    <td><code>posname</code></td>
+                                                    <td>Specify the name for the fake pos process, must have ccgen.exe installed and enabled in config</td>
+                                                </tr>
                                             </tbody>
                                         </table>
                                     </div>
@@ -483,6 +487,13 @@ $(document).ready( function() {
                                     <input type="checkbox" name="oldloader" /> Old loader <span class="text-muted"><small>(Use legacy (spender) loader)</small></span>
                                 </label>
                             </div>
+                            {% if config.posproc %}
+                            <div class="checkbox">
+                                <label>
+                                    <input type="checkbox" name="posproc" /> Enable Fake POS process for analysis
+                                </label>
+                            </div>
+                            {% endif %}
                         </div>
                     </div>
                 </div>

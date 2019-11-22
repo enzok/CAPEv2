@@ -38,6 +38,7 @@ HAVE_DIST = False
 repconf = Config("reporting")
 cfg = Config("cuckoo")
 processing = Config("processing")
+aux_conf = Config("auxiliary")
 
 if repconf.distributed.enabled:
     try:
@@ -198,6 +199,11 @@ def index(request, resubmit_hash=False):
             if options:
                 options += ","
             options += "unpack=yes"
+
+        if request.POST.get("posproc"):
+            if options:
+                options += ","
+            options += "posproc=1"
 
         orig_options = options
 
@@ -497,6 +503,7 @@ def index(request, resubmit_hash=False):
         enabledconf["dlnexec"] = settings.DLNEXEC
         enabledconf["tags"] = False
         enabledconf["dist_master_storage_only"] = repconf.distributed.master_storage_only
+        enabledconf["posproc"] = aux_conf.posproc.get("enabled")
 
         all_tags = load_vms_tags()
         if all_tags:
