@@ -15,14 +15,12 @@
 
 from __future__ import print_function
 
+from __future__ import absolute_import
 import os
 import sys
 import hashlib
 import argparse
-if sys.version_info.major >= 3:
-    from urllib.request import urlopen
-else:
-    from urllib import urlopen
+from urllib.request import urlopen
 import zipfile
 import tempfile
 
