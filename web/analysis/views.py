@@ -318,7 +318,12 @@ def chunk(request, task_id, pid, pagenum):
             )
 
         if es_as_db:
-            record = es.search(index=fullidx, doc_type="analysis", q="behavior.processes.process_id: \"%s\" and info.id:" "\"%s\"" % (pid, task_id))['hits']['hits'][0]['_source']
+            record = es.search(
+                        index=fullidx,
+                        doc_type="analysis",
+                        q="behavior.processes.process_id: \"%s\" and info.id:"\
+                          "\"%s\"" % (pid, task_id)
+                     )['hits']['hits'][0]['_source']
 
         if not record:
             raise PermissionDenied
@@ -337,7 +342,11 @@ def chunk(request, task_id, pid, pagenum):
                 chunk = results_db.calls.find_one({"_id": ObjectId(objectid)})
 
             if es_as_db:
-                chunk = es.search(index=fullidx, doc_type="calls", q="_id: \"%s\"" % objectid)["hits"]["hits"][0]["_source"]
+                chunk = es.search(
+                            index=fullidx,
+                            doc_type="calls",
+                            q="_id: \"%s\"" % objectid,
+                        )["hits"]["hits"][0]["_source"]
         else:
             chunk = dict(calls=[])
 
@@ -1111,7 +1120,15 @@ def full_memory_dump_strings(request, analysis_number):
 
 def perform_search(term, value):
     if enabledconf["mongodb"] and enabledconf["elasticsearchdb"] and essearch and not term:
-        return es.search(index=fullidx, doc_type="analysis", q="%s*" % value, sort='task_id:desc')["hits"]["hits"]
+        numhits = es.search(index=fullidx,
+                            doc_type="analysis",
+                            q="%s" % value,
+                            size=0)['hits']['total']
+        return es.search(index=fullidx,
+                         doc_type="analysis",
+                         q="%s" % value,
+                         sort='task_id:desc',
+                         size=numhits)["hits"]["hits"]
     term_map = {
         "name": "target.file.name",
         "type": "target.file.type",
@@ -1240,7 +1257,7 @@ def search(request):
             new = None
             if enabledconf["mongodb"] and enabledconf["elasticsearchdb"] and essearch and not term:
                 new = get_analysis_info(db, id=int(result["_source"]["task_id"]))
-            if enabledconf["mongodb"] and new is None:
+            if enabledconf["mongodb"] and term:
                 new = get_analysis_info(db, id=int(result["info"]["id"]))
             if es_as_db:
                 new = get_analysis_info(db, id=int(result["_source"]["info"]["id"]))
@@ -1280,7 +1297,6 @@ def remove(request, task_id):
                         results_db.calls.remove({"_id": ObjectId(call)})
                 # Delete analysis data.
                 results_db.analysis.remove({"_id": ObjectId(analysis["_id"])})
-
             analyses_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id)
             if os.path.exists(analyses_path):
                 shutil.rmtree(analyses_path)
@@ -1316,13 +1332,33 @@ def remove(request, task_id):
                     doc_type="analysis",
                     id=esid,
                 )
+    elif essearch:
+        # remove es search data
+        analyses = es.search(
+                       index=fullidx,
+                       doc_type="analysis",
+                       q="info.id: \"%s\"" % task_id
+                   )["hits"]["hits"]
+        if len(analyses) > 1:
+            message = "Multiple tasks with this ID deleted."
+        elif len(analyses) == 1:
+            message = "Task deleted."
+        if len(analyses) > 0:
+            for analysis in analyses:
+                esidx = analysis["_index"]
+                esid = analysis["_id"]
+                # Delete the analysis results
+                es.delete(
+                    index=esidx,
+                    doc_type="analysis",
+                    id=esid,
+                )
 
     # Delete from SQL db.
     db = Database()
     db.delete_task(task_id)
 
-    return render(request, "success_simple.html",
-                              {"message": message})
+    return render(request, "success_simple.html", {"message": message})
 
 @require_safe
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
