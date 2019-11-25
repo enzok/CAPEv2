@@ -10,7 +10,7 @@ import sys
 import copy
 import logging
 import logging.handlers
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import modules.auxiliary
 import modules.processing
@@ -24,7 +24,8 @@ from lib.cuckoo.common.constants import CUCKOO_ROOT, CUCKOO_VERSION
 from lib.cuckoo.common.exceptions import CuckooStartupError
 from lib.cuckoo.common.exceptions import CuckooOperationalError
 from lib.cuckoo.common.utils import create_folders, store_temp_file, delete_folder
-from lib.cuckoo.core.database import Database, Task, TASK_RUNNING, TASK_PENDING, TASK_FAILED_ANALYSIS, TASK_FAILED_PROCESSING, TASK_FAILED_REPORTING, TASK_RECOVERED, TASK_REPORTED
+from lib.cuckoo.core.database import Database, Task, TASK_RUNNING, TASK_PENDING, TASK_FAILED_ANALYSIS,\
+    TASK_FAILED_PROCESSING, TASK_FAILED_REPORTING, TASK_RECOVERED, TASK_REPORTED
 from lib.cuckoo.core.plugins import import_plugin, import_package, list_plugins
 import socket
 from lib.cuckoo.core.rooter import rooter, vpns, socks5s
@@ -35,6 +36,7 @@ cuckoo = Config()
 vpn = Config("vpn")
 
 rep_config = Config("reporting")
+
 
 def check_python_version():
     """Checks if Python version is supported by Cuckoo.
@@ -90,6 +92,7 @@ def create_structure():
     except CuckooOperationalError as e:
         raise CuckooStartupError(e)
 
+
 class DatabaseHandler(logging.Handler):
     """Logging to database handler.
     Used to log errors related to tasks in database.
@@ -99,6 +102,7 @@ class DatabaseHandler(logging.Handler):
         if hasattr(record, "task_id"):
             db = Database()
             db.add_error(record.msg, int(record.task_id))
+
 
 class ConsoleHandler(logging.StreamHandler):
     """Logging to console handler."""
@@ -118,13 +122,16 @@ class ConsoleHandler(logging.StreamHandler):
 
         logging.StreamHandler.emit(self, colored)
 
+
 def init_logging():
     """Initializes logging."""
     formatter = logging.Formatter("%(asctime)s [%(name)s] %(levelname)s: %(message)s")
 
     if cuckoo.logging.enabled:
         days = cuckoo.logging.backupCount
-        fh = logging.handlers.TimedRotatingFileHandler(os.path.join(CUCKOO_ROOT, "log", "cuckoo.log"), when="midnight", backupCount=days)
+        interval = cuckoo.logging.interval
+        fh = logging.handlers.TimedRotatingFileHandler(os.path.join(CUCKOO_ROOT, "log", "cuckoo.log"),
+                                                       when=interval, backupCount=days)
     else:
         fh = logging.handlers.WatchedFileHandler(os.path.join(CUCKOO_ROOT, "log", "cuckoo.log"))
     fh.setFormatter(formatter)
@@ -142,6 +149,7 @@ def init_logging():
 
     logging.getLogger("urllib3").setLevel(logging.WARNING)
 
+
 def init_console_logging():
     """Initializes logging only to console."""
     formatter = logging.Formatter("%(asctime)s [%(name)s] %(levelname)s: %(message)s")
@@ -151,6 +159,7 @@ def init_console_logging():
     log.addHandler(ch)
 
     log.setLevel(logging.INFO)
+
 
 def init_tasks():
     """Check tasks and reschedule uncompleted ones."""
@@ -167,6 +176,7 @@ def init_tasks():
         else:
             db.set_status(task.id, TASK_FAILED_ANALYSIS)
             log.info("Updated running task ID {0} status to failed_analysis".format(task.id))
+
 
 def init_modules():
     """Initializes plugins."""
@@ -194,6 +204,7 @@ def init_modules():
                 log.debug("\t `-- %s", entry.__name__)
             else:
                 log.debug("\t |-- %s", entry.__name__)
+
 
 def init_yara():
     """Generates index for yara signatures."""
@@ -249,7 +260,6 @@ def init_yara():
             log.debug("\t |-- %s", entry)
 
 
-
 def connect_to_mongo():
     conn = False
     mdb = ""
@@ -274,6 +284,7 @@ def connect_to_mongo():
 
     return conn, mdb
 
+
 def connect_to_es():
     es = None
     delidx = None
@@ -292,6 +303,7 @@ def connect_to_es():
         log.warning("Unable to connect to ElasticSearch")
 
     return es, delidx
+
 
 def cuckoo_clean():
     """Clean up cuckoo setup.
@@ -378,10 +390,10 @@ def cuckoo_clean():
             except (IOError, OSError) as e:
                 log.warning("Error removing file %s: %s", path, e)
 
+
 def cuckoo_clean_failed_tasks():
     """Clean up failed tasks
-    It deletes all stored data from file system and configured databases (SQL
-    and MongoDB for failed tasks.
+    It deletes all stored data from file system and configured databases (SQL and MongoDB for failed tasks.
     """
     # Init logging.
     # This need to init a console logger handler, because the standard
@@ -410,6 +422,7 @@ def cuckoo_clean_failed_tasks():
                 delete_folder(os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % int(new["id"])))
             else:
                 print(("failed to remove failed task %s from DB" % (int(new["id"]))))
+
 
 def cuckoo_clean_bson_suri_logs():
     """Clean up raw suri log files probably not needed if storing in mongo. Does not remove extracted files
@@ -444,6 +457,7 @@ def cuckoo_clean_bson_suri_logs():
                         except Exception as Err:
                             print(("failed to remove sorted_pcap from disk %s" % (Err)))
 
+
 def cuckoo_clean_failed_url_tasks():
     """Clean up failed tasks
     It deletes all stored data from file system and configured databases (SQL
@@ -465,14 +479,16 @@ def cuckoo_clean_failed_url_tasks():
 
     done = False
     while not done:
-        rtmp = results_db.analysis.find({"info.category": "url", "network.http.0": {"$exists": False}},{"info.id": 1},sort=[("_id", -1)]).limit( 100 )
+        rtmp = results_db.analysis.find({"info.category": "url",
+                                         "network.http.0": {"$exists": False}},
+                                        {"info.id": 1},
+                                        sort=[("_id", -1)]).limit(100)
         if rtmp and rtmp.count() > 0:
             for e in rtmp:
                 if e["info"]["id"]:
                     print((e["info"]["id"]))
                     if db.delete_task(e["info"]["id"]):
-                        delete_folder(os.path.join(CUCKOO_ROOT, "storage", "analyses",
-                                    "%s" % e["info"]["id"]))
+                        delete_folder(os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % e["info"]["id"]))
                     else:
                         print(("failed to remove %s" % (e["info"]["id"])))
                     try:
@@ -483,6 +499,7 @@ def cuckoo_clean_failed_url_tasks():
                     done = True
         else:
             done = True
+
 
 def cuckoo_clean_before_day(args):
     """Clean up failed tasks
@@ -526,13 +543,17 @@ def cuckoo_clean_before_day(args):
 
     print(("number of matching records %s before suri/custom filter " % len(id_arr)))
     if id_arr and args.suricata_zero_alert_filter:
-        result = list(results_db.analysis.find({"suricata.alerts.alert": {"$exists": False}, "$or": id_arr},{"info.id":1}))
+        result = list(results_db.analysis.find({"suricata.alerts.alert": {"$exists": False},
+                                                "$or": id_arr},
+                                               {"info.id": 1}))
         tmp_arr = []
         for entry in result:
             tmp_arr.append(entry["info"]["id"])
         id_arr = tmp_arr
     if id_arr and args.custom_include_filter:
-        result = list(results_db.analysis.find({"info.custom": {"$regex": args.custom_include_filter},"$or": id_arr},{"info.id":1}))
+        result = list(results_db.analysis.find({"info.custom": {"$regex": args.custom_include_filter},
+                                                "$or": id_arr},
+                                               {"info.id": 1}))
         tmp_arr = []
         for entry in result:
             tmp_arr.append(entry["info"]["id"])
@@ -549,10 +570,10 @@ def cuckoo_clean_before_day(args):
         else:
             print(("failed to remove faile task %s from DB" % (e)))
 
+
 def cuckoo_clean_sorted_pcap_dump():
     """Clean up failed tasks
-    It deletes all stored data from file system and configured databases (SQL
-    and MongoDB for failed tasks.
+    It deletes all stored data from file system and configured databases (SQL and MongoDB for failed tasks.
     """
     # Init logging.
     # This need to init a console logger handler, because the standard
@@ -567,17 +588,24 @@ def cuckoo_clean_sorted_pcap_dump():
 
     done = False
     while not done:
-        rtmp = results_db.analysis.find({"network.sorted_pcap_id": {"$exists": True}},{"info.id": 1},sort=[("_id", -1)]).limit( 100 )
+        rtmp = results_db.analysis.find({"network.sorted_pcap_id": {"$exists": True}},
+                                        {"info.id": 1},
+                                        sort=[("_id", -1)]).limit(100)
         if rtmp and rtmp.count() > 0:
             for e in rtmp:
                 if e["info"]["id"]:
                     print((e["info"]["id"]))
                     try:
-                        results_db.analysis.update({"info.id": int(e["info"]["id"])},{ "$unset": { "network.sorted_pcap_id": ""}})
+                        results_db.analysis.update({"info.id": int(e["info"]["id"])},
+                                                   {"$unset": {"network.sorted_pcap_id": ""}})
                     except:
                         print(("failed to remove sorted pcap from db for id %s" % (e["info"]["id"])))
                     try:
-                        path = os.path.join(CUCKOO_ROOT, "storage", "analyses","%s" % (e["info"]["id"]), "dump_sorted.pcap")
+                        path = os.path.join(CUCKOO_ROOT,
+                                            "storage",
+                                            "analyses",
+                                            "%s" % (e["info"]["id"]),
+                                            "dump_sorted.pcap")
                         os.remove(path)
                     except Exception as e:
                         print(("failed to remove sorted_pcap from disk %s" % (e)))
@@ -585,6 +613,7 @@ def cuckoo_clean_sorted_pcap_dump():
                     done = True
         else:
             done = True
+
 
 def cuckoo_clean_pending_tasks():
     """Clean up pending tasks
@@ -617,6 +646,7 @@ def cuckoo_clean_pending_tasks():
             delete_folder(os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % int(new["id"])))
         else:
             print(("failed to remove pending task %s from DB" % (int(new["id"]))))
+
 
 def init_rooter():
     """If required, check whether the rooter is running and whether we can
@@ -664,6 +694,7 @@ def init_rooter():
     rooter("forward_drop")
     rooter("state_disable")
     rooter("state_enable")
+
 
 def init_routing():
     """Initialize and check whether the routing information is correct."""

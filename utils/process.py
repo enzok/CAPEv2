@@ -36,12 +36,13 @@ if repconf.elasticsearchdb.enabled and not repconf.elasticsearchdb.searchonly:
     baseidx = repconf.elasticsearchdb.index
     fullidx = baseidx + "-*"
     es = Elasticsearch(
-         hosts = [{
+         hosts=[{
              "host": repconf.elasticsearchdb.host,
              "port": repconf.elasticsearchdb.port,
          }],
-         timeout = 60
+         timeout=60
      )
+
 
 def process(target=None, copy_path=None, task=None, report=False, auto=False, capeproc=False):
     # This is the results container. It's what will be used by all the
@@ -63,11 +64,11 @@ def process(target=None, copy_path=None, task=None, report=False, auto=False, ca
             host = repconf.mongodb.host
             port = repconf.mongodb.port
             db = repconf.mongodb.db
-            conn = MongoClient( host,
-                                port=port,
-                                username=repconf.mongodb.get("username", None),
-                                password=repconf.mongodb.get("password", None),
-                                authSource=db)
+            conn = MongoClient(host,
+                               port=port,
+                               username=repconf.mongodb.get("username", None),
+                               password=repconf.mongodb.get("password", None),
+                               authSource=db)
             mdata = conn[db]
             analyses = mdata.analysis.find({"info.id": int(task_id)})
             if analyses.count() > 0:
@@ -100,11 +101,7 @@ def process(target=None, copy_path=None, task=None, report=False, auto=False, ca
                                     id=call,
                                 )
                     # Delete the analysis results
-                    es.delete(
-                        index=esidx,
-                        doc_type="analysis",
-                        id=esid,
-                    )
+                    es.delete(index=esidx, doc_type="analysis", id=esid)
         if auto or capeproc:
             reprocess = False
         else:
@@ -120,8 +117,10 @@ def process(target=None, copy_path=None, task=None, report=False, auto=False, ca
             if cfg.cuckoo.delete_bin_copy and os.path.exists(copy_path):
                 os.unlink(copy_path)
 
+
 def init_worker():
     signal.signal(signal.SIGINT, signal.SIG_IGN)
+
 
 def init_logging(auto=False, tid=0, debug=False):
     formatter = logging.Formatter("%(asctime)s [%(name)s] %(levelname)s: %(message)s")
@@ -133,7 +132,9 @@ def init_logging(auto=False, tid=0, debug=False):
     if auto:
         if cfg.logging.enabled:
             days = cfg.logging.backupCount
-            fh = logging.handlers.TimedRotatingFileHandler(os.path.join(CUCKOO_ROOT, "log", "process.log"), when="midnight", backupCount=days)
+            interval = cfg.logging.interval
+            fh = logging.handlers.TimedRotatingFileHandler(os.path.join(CUCKOO_ROOT, "log", "process.log"),
+                                                           when=interval, backupCount=days)
         else:
             fh = logging.handlers.WatchedFileHandler(os.path.join(CUCKOO_ROOT, "log", "process.log"))
     else:
@@ -200,9 +201,7 @@ def autoprocess(parallel=1, failed_processing=False):
 
                 if task.category == "file":
                     sample = db.view_sample(task.sample_id)
-
-                    copy_path = os.path.join(CUCKOO_ROOT, "storage",
-                                             "binaries", sample.sha256)
+                    copy_path = os.path.join(CUCKOO_ROOT, "storage", "binaries", sample.sha256)
                 else:
                     copy_path = None
 
@@ -231,15 +230,21 @@ def autoprocess(parallel=1, failed_processing=False):
         pool.terminate()
         pool.join()
 
+
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("id", type=str, help="ID of the analysis to process (auto for continuous processing of unprocessed tasks).")
-    parser.add_argument("-c", "--caperesubmit", help="Allow CAPE resubmit processing.", action="store_true", required=False)
+    parser.add_argument("id", type=str,
+                        help="ID of the analysis to process (auto for continuous processing of unprocessed tasks).")
+    parser.add_argument("-c", "--caperesubmit", help="Allow CAPE resubmit processing.", action="store_true",
+                        required=False)
     parser.add_argument("-d", "--debug", help="Display debug messages", action="store_true", required=False)
     parser.add_argument("-r", "--report", help="Re-generate report", action="store_true", required=False)
-    parser.add_argument("-s", "--signatures", help="Re-execute signatures on the report", action="store_true", required=False)
-    parser.add_argument("-p", "--parallel", help="Number of parallel threads to use (auto mode only).", type=int, required=False, default=1)
-    parser.add_argument("-fp", "--failed-processing", help="reprocess failed processing", action="store_true", required=False, default=False)
+    parser.add_argument("-s", "--signatures", help="Re-execute signatures on the report", action="store_true",
+                        required=False)
+    parser.add_argument("-p", "--parallel", help="Number of parallel threads to use (auto mode only).", type=int,
+                        required=False, default=1)
+    parser.add_argument("-fp", "--failed-processing", help="reprocess failed processing", action="store_true",
+                        required=False, default=False)
     args = parser.parse_args()
 
     init_yara()
@@ -263,6 +268,7 @@ def main():
                 RunSignatures(task=task.to_dict(), results=results).run()
         else:
             process(task=task, report=args.report, capeproc=args.caperesubmit)
+
 
 if __name__ == "__main__":
 
