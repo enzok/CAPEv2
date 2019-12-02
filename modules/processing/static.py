@@ -75,7 +75,7 @@ try:
     HAVE_OLEFILE = True
 except ImportError:
     HAVE_OLEFILE = False
-    print("Missed olefile dependency: pip install olefile")
+    print("Missed olefile dependency: pip3 install olefile")
 
 try:
     from oletools import oleobj
@@ -90,19 +90,19 @@ try:
     from oletools.msodde import process_file as extract_dde
     HAVE_OLETOOLS = True
 except ImportError:
-    print("Ensure oletools are installed")
+    print("Missed oletools dependency: pip3 install oletools")
     HAVE_OLETOOLS = False
 
 from lib.cuckoo.common.utils import convert_to_printable
 from lib.cuckoo.common.pdftools.pdfid import PDFiD, PDFiD2JSON
+"""
 try:
     from lib.cuckoo.common.peepdf.PDFCore import PDFParser
     from lib.cuckoo.common.peepdf.JSAnalysis import analyseJS
     HAVE_PEEPDF = True
 except ImportError as e:
-    print(e)
     HAVE_PEEPDF = False
-
+"""
 log = logging.getLogger(__name__)
 processing_conf = Config("processing")
 
@@ -1579,8 +1579,9 @@ class Static(Processing):
                 static = PortableExecutable(self.file_path, self.results).run()
                 if static and "Mono" in thetype:
                     static.update(DotNETExecutable(self.file_path, self.results).run())
-            elif "PDF" in thetype or self.task["target"].endswith(".pdf"):
-                static = PDF(self.file_path).run()
+            #Somepone port peepdf to py3?
+            #elif "PDF" in thetype or self.task["target"].endswith(".pdf"):
+            #    static = PDF(self.file_path).run()
             elif HAVE_OLETOOLS and package in ("doc", "ppt", "xls", "pub"):
                 static = Office(self.file_path, self.results).run()
             elif "Java Jar" in thetype or self.task["target"].endswith(".jar"):
