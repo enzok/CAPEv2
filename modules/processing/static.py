@@ -41,10 +41,10 @@ except ImportError:
     HAVE_PEFILE = False
 
 try:
-    import PyV8
-    HAVE_PYV8 = True
+    import v8py
+    HAVE_V8PY = True
 except ImportError:
-    HAVE_PYV8 = False
+    HAVE_V8PY = False
 
 try:
     from M2Crypto import m2, BIO, X509, SMIME
@@ -938,7 +938,7 @@ class PDF(object):
                 if details.type == 'stream':
                     encoded_stream = details.encodedStream
                     decoded_stream = details.decodedStream
-                    if HAVE_PYV8:
+                    if HAVE_V8PY:
                         jsdata = None
                         try:
                             jslist, unescapedbytes, urlsfound, errors, ctxdummy = analyseJS(decoded_stream.strip())
