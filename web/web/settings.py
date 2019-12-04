@@ -54,7 +54,7 @@ vtdl_cfg = aux_cfg.virustotaldl
 zip_cfg = aux_cfg.zipped_download
 
 DLNEXEC = aux_cfg.dlnexec.get("enabled", False)
-ZIP_PWD = zip_cfg.get("zip_pwd", "infected")
+ZIP_PWD = zip_cfg.get("zip_pwd", "inf3ct3d")
 MOLOCH_BASE = moloch_cfg.get("base", None)
 MOLOCH_NODE = moloch_cfg.get("node", None)
 MOLOCH_ENABLED = moloch_cfg.get("enabled", False)
@@ -178,7 +178,7 @@ TEMPLATES = [
 ]
 
 
-MIDDLEWARE = [
+MIDDLEWARE_CLASSES = (
     'django.middleware.common.CommonMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -188,7 +188,7 @@ MIDDLEWARE = [
     'web.headers.CuckooHeaders',
     #'web.middleware.ExceptionMiddleware',
     #'ratelimit.middleware.RatelimitMiddleware',
-]
+)
 
 ROOT_URLCONF = 'web.urls'
 
