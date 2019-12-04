@@ -361,6 +361,7 @@ def tasks_delete(task_id):
 def tasks_report(task_id, report_format="json"):
     formats = {
         "json": "report.json",
+        "refinedjson": "refined-report.json",
         "html": "report.html",
         "htmlsumary": "summary-report.html",
         "pdf": "report.pdf",

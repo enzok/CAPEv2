@@ -1573,6 +1573,7 @@ def tasks_report(request, task_id, report_format="json"):
 
     formats = {
         "json": "report.json",
+        "refinedjson": "refined-report.json",
         "html": "report.html",
         "htmlsummary": "summary-report.html",
         "pdf": "report.pdf",
@@ -1587,6 +1588,9 @@ def tasks_report(request, task_id, report_format="json"):
                                    formats[report_format.lower()])
         if os.path.exists(report_path):
             if report_format in ("json", "maec5"):
+                content = "application/json; charset=UTF-8"
+                ext = "json"
+            elif report_format == "refinedjson":
                 content = "application/json; charset=UTF-8"
                 ext = "json"
             elif report_format.startswith("html"):
