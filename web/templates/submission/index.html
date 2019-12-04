@@ -177,7 +177,7 @@ $(document).ready( function() {
                                     <div class="form-group">
                                         <label for="form_machine">Machine</label>
                                         <select class="form-control" id="form_machine" name="machine">
-                                            {% for id,label in machines %}
+                                            {% for id,label in machines|dictsort:"0.lower" %}
                                             <option value="{{id}}">{{label}}</option>
                                             {% endfor %}
                                         </select>
@@ -223,7 +223,7 @@ $(document).ready( function() {
                                         {% for vpn in vpns %}
                                             <option value="{{ vpn.name }}"{% if route == vpn.name %} selected{% endif %}>{{ vpn.description }} (VPN, {{ vpn.interface }})</option>
                                         {% endfor %}
-                                        {% for socks5 in socks5s %}
+                                        {% for socks5 in socks5s|dictsort:"0.lower" %}
                                             <option value="{{ socks5.name }}"{% if route == socks5.name %} selected{% endif %}>{{ socks5.description }} (socks5)</option>
                                         {% endfor %}
                                         {% if socks5s_random %}
