@@ -1640,3 +1640,29 @@ class Database(object, metaclass=Singleton):
         finally:
             session.close()
         return errors
+
+    @classlock
+    def reprocess(self, task_id):
+        """Reprocess a task.
+        @param task_id: ID of the task to reprocess.
+        @return: True if success.
+        """
+        task = self.view_task(task_id)
+
+        if not task:
+            return None
+
+        session = self.Session()
+        if self.cfg.cuckoo.process_results:
+            return None
+        else:
+            session.query(Task).get(task_id).status = TASK_COMPLETED
+        try:
+            session.commit()
+        except SQLAlchemyError as e:
+            log.debug("Database error reprocessing task: {0}".format(e))
+            session.rollback()
+            return False
+        finally:
+            session.close()
+        return True
