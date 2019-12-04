@@ -28,6 +28,9 @@
                 <tr>
                     <th>Category</th>
                     <th>Package</th>
+                    {% if analysis.info.options.submitter %}
+                        <th>Submitter</th>
+                    {% endif %}
                     <th>Started</th>
                     <th>Completed</th>
                     <th>Duration</th>
@@ -44,6 +47,9 @@
                 <tr>
                     <td>{{analysis.info.category|upper}}</td>
                     <td>{{analysis.info.package}}</td>
+                    {% if analysis.info.options.submitter %}
+                        <td>{{analysis.info.options.submitter}}</td>
+                    {% endif %}
                     <td>{{analysis.info.started}}</td>
                     <td>{{analysis.info.ended}}</td>
                     <td>{{analysis.info.duration}} seconds</td>
@@ -62,7 +68,7 @@
     {% if analysis.debug.errors %}
         <ul style="font-size: 16px;">
         {% for error in analysis.debug.errors %}
-            <li class="text-info"><b>Info:</b> {{error}}</li>
+            <li class="text-danger"><b>Error:</b> {{error}}</li>
         {% endfor %}
         </ul>
     {% endif %}
