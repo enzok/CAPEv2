@@ -3,7 +3,6 @@ from __future__ import absolute_import
 import json
 import os
 import sys
-import time
 import socket
 import tarfile
 from datetime import datetime, timedelta
@@ -18,9 +17,10 @@ from django.shortcuts import render, redirect
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_safe
 from ratelimit.decorators import ratelimit
-from io import StringIO
+from io import StringIO, BytesIO
 from bson.objectid import ObjectId
 from django.contrib.auth.decorators import login_required
+import csv
 
 sys.path.append(settings.CUCKOO_PATH)
 from lib.cuckoo.common.config import Config
@@ -116,9 +116,9 @@ def createProcessTreeNode(process):
     """Creates a single ProcessTreeNode corresponding to a single node in the tree observed cuckoo.
     @param process: process from cuckoo dict.
     """
-    process_node_dict = {"pid" : process["pid"],
-                         "name" : process["name"],
-                         "spawned_processes" : [createProcessTreeNode(child_process) for child_process in process["children"]]
+    process_node_dict = {"pid": process["pid"],
+                         "name": process["name"],
+                         "spawned_processes": [createProcessTreeNode(child_process) for child_process in process["children"]]
                         }
     return process_node_dict
 
@@ -2596,3 +2596,79 @@ def tasks_procdumpfiles(request, task_id):
 def limit_exceeded(request, exception):
     resp = {"error": True, "error_value": "Rate limit exceeded for this API"}
     return jsonize(resp, response=True)
+
+if apiconf.malreport.get("enabled"):
+    raterps = apiconf.malreport.get("rps")
+    raterpm = apiconf.malreport.get("rpm")
+    rateblock = limiter
+@ratelimit(key="ip", rate=raterps, block=rateblock)
+@ratelimit(key="ip", rate=raterpm, block=rateblock)
+def malreport(request, numdays=30, startfrom=0):
+    if request.method != "GET":
+        resp = {"error": True, "error_value": "Method not allowed"}
+        return jsonize(resp, response=True)
+
+    if not apiconf.malreport.get("enabled"):
+        resp = {"error": True,
+                "error_value": "Malware report API is disabled"}
+        return jsonize(resp, response=True)
+
+    if repconf.mongodb.enabled:
+
+        if numdays < 0:
+            numdays = 0
+        if startfrom <= 0:
+            startfrom = numdays
+
+        try:
+            start = datetime.now() - timedelta(days=int(startfrom))
+            end = start + timedelta(days=int(numdays))
+        except ValueError as e:
+            resp = {"error": True, "error_value": e}
+            return jsonize(resp, response=True)
+        records = results_db.analysis.find({"$expr": {
+            "$and": [{"$gte": [{"$dateFromString": {"dateString": "$info.ended"}}, start]},
+                     {"$lte": [{"$dateFromString": {"dateString": "$info.ended"}}, end]}]}},
+            {"target.file.md5": 1,
+             "target.file.name": 1,
+             "target.file.clamav": 1,
+             "target.file.type": 1,
+             "virustotal_summary": 1,
+             "malfamily": 1,
+             "info.ended": 1,
+             "cape": 1,
+             "malscore": 1,
+             "_id": 0},
+            sort=[("_id", pymongo.DESCENDING)])
+
+        results = dict()
+        records = list(records)
+        output = BytesIO()
+        fieldnames = ["md5", "name", "cape", "malfamily", "clamav", "virustotal_summary", "type", "malscore", "date"]
+        writer = csv.DictWriter(output, fieldnames=fieldnames, extrasaction='ignore')
+        writer.writeheader()
+
+        for rec in records:
+            results = rec.get('target', False).get('file', {})
+            if not results:
+                continue
+            else:
+                del rec['target']
+            results['date'] = rec.get('info', False).get('ended', "")
+            if results['date']:
+                del rec['info']
+            results.update(rec)
+            if results.get('name', False):
+                results['name'] = convert_to_printable(results['name'])
+            if results:
+                writer.writerow(results)
+
+        content = "application/text; charset=UTF-8"
+        resp = HttpResponse(output.getvalue(), content_type=content)
+        resp["Content-Length"] = str(len(output.getvalue()))
+        resp["Content-Disposition"] = "attachment; filename=malware_report_{}.csv".format(
+            datetime.now().strftime("%Y-%m-%d_%H-%M-%S"))
+        return resp
+    else:
+        resp = {"error": True, "error_value": "Mongodb not enabled"}
+        return jsonize(resp, response=True)
