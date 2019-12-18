@@ -110,7 +110,7 @@ def fix_section_permission(path):
 # Submission hooks to set options based on some naming patrons
 def recon(filename, orig_options, timeout, enforce_timeout):
     filename = filename.lower()
-    if "name" in filename :
+    if "name" in filename:
         orig_options += ",timeout=400,enforce_timeout=1,procmemdump=1,procdump=1"
         timeout = 400
         enforce_timeout = True
@@ -186,12 +186,14 @@ def download_file(api, content, request, db, task_ids, url, params, headers, ser
             magic_type = get_magic_type(filename)
             if magic_type and ("x86-64" in magic_type or "PE32+" in magic_type):
                 if len(request.FILES) == 1:
-                    return "error", render(request, "error.html",
-                            {"error": "Sorry no x64 support yet"})
+                    return "error", render(request, "error.html", {"error": "Sorry no x64 support yet"})
 
     orig_options, timeout, enforce_timeout = recon(filename, orig_options, timeout, enforce_timeout)
     for entry in task_machines:
-        task_ids_new = db.demux_sample_and_add_to_db(file_path=filename.encode("utf-8"), package=package, timeout=timeout, options=options, priority=priority,
+        #ToDo find the root of the problem, vt vs resubmit as example
+        if isinstance(filename, str):
+            filename = filename.encode("utf-8")
+        task_ids_new = db.demux_sample_and_add_to_db(file_path=filename, package=package, timeout=timeout, options=options, priority=priority,
                                                         machine=entry, custom=custom, memory=memory, enforce_timeout=enforce_timeout, tags=tags, clock=clock, static=static)
         if isinstance(task_ids, list):
             task_ids.extend(task_ids_new)
