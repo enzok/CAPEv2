@@ -29,7 +29,7 @@ from lib.cuckoo.common.quarantine import unquarantine
 from lib.cuckoo.common.saztopcap import saz_to_pcap
 from lib.cuckoo.common.exceptions import CuckooDemuxError
 from lib.cuckoo.common.utils import store_temp_file, delete_folder, sanitize_filename, generate_fake_name
-from lib.cuckoo.common.utils import convert_to_printable, validate_referrer, get_user_filename, get_options, check_file_uniq
+from lib.cuckoo.common.utils import convert_to_printable, validate_referrer, get_user_filename, get_options
 from lib.cuckoo.common.web_utils import _download_file
 from lib.cuckoo.core.database import Database, Task
 from lib.cuckoo.core.database import TASK_REPORTED
@@ -438,7 +438,7 @@ def tasks_create_file(request):
         shrike_msg = request.POST.get("shrike_msg", None)
         shrike_sid = request.POST.get("shrike_sid", None)
         shrike_refer = request.POST.get("shrike_refer", None)
-        unique = bool(request.form.get("unique", 0))
+        unique = bool(request.POST.get("unique", False))
 
         if request.POST.get("process_dump"):
             if options:
@@ -492,7 +492,7 @@ def tasks_create_file(request):
 
 
                 tmp_path = store_temp_file(sample.read(), sample.name)
-                if unique and check_file_uniq(File(tmp_path).get_sha256()):
+                if unique and db.check_file_uniq(File(tmp_path).get_sha256()):
                     #Todo handle as for VTDL submitted and omitted
                     continue
 
@@ -545,26 +545,26 @@ def tasks_create_file(request):
                             continue
                 for entry in task_machines:
                     try:
-                        task_ids_new = db.demux_sample_and_add_to_db(file_path=path,
-                                          package=package,
-                                          timeout=timeout,
-                                          priority=priority,
-                                          options=options,
-                                          machine=entry,
-                                          platform=platform,
-                                          tags=tags,
-                                          custom=custom,
-                                          memory=memory,
-                                          enforce_timeout=enforce_timeout,
-                                          clock=clock,
-                                          shrike_url=shrike_url,
-                                          shrike_msg=shrike_msg,
-                                          shrike_sid=shrike_sid,
-                                          shrike_refer=shrike_refer
-                                          )
+                        task_ids_new = db.demux_sample_and_add_to_db(
+                            file_path=path,
+                            package=package,
+                            timeout=timeout,
+                            priority=priority,
+                            options=options,
+                            machine=entry,
+                            platform=platform,
+                            tags=tags,
+                            custom=custom,
+                            memory=memory,
+                            enforce_timeout=enforce_timeout,
+                            clock=clock,
+                            shrike_url=shrike_url,
+                            shrike_msg=shrike_msg,
+                            shrike_sid=shrike_sid,
+                            shrike_refer=shrike_refer
+                        )
                     except CuckooDemuxError as e:
-                        resp = {"error": True,
-                                "error_value": e}
+                        resp = {"error": True, "error_value": e}
                         return jsonize(resp, response=True)
 
                     if task_ids_new:
@@ -572,7 +572,7 @@ def tasks_create_file(request):
         else:
             # Grab the first file
             sample = request.FILES.getlist("file")[0]
-            if unique and check_file_uniq(File(tmp_path).get_sha256()):
+            if unique and db.check_file_uniq(File(tmp_path).get_sha256()):
                 resp = {"error": True,
                         "error_value": "Duplicated file, disable unique option to force submission"}
                 return jsonize(resp, response=True)
@@ -630,8 +630,6 @@ def tasks_create_file(request):
                         return jsonize({"error":True, "error_value": "Sorry no x64 support yet"}, response=True)
 
             options, timeout, enforce_timeout = recon(path, options, timeout, enforce_timeout)
-            if "pony" in path:
-                fix_section_permission(path)
 
             for entry in task_machines:
                 if not pcap:

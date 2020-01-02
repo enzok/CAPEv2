@@ -23,7 +23,7 @@ from django.contrib.auth.decorators import login_required
 sys.path.append(settings.CUCKOO_PATH)
 
 from lib.cuckoo.common.config import Config
-from lib.cuckoo.common.utils import store_temp_file, validate_referrer, sanitize_filename, get_user_filename, generate_fake_name, check_file_uniq
+from lib.cuckoo.common.utils import store_temp_file, validate_referrer, sanitize_filename, get_user_filename, generate_fake_name
 from lib.cuckoo.common.quarantine import unquarantine
 from lib.cuckoo.common.saztopcap import saz_to_pcap
 from lib.cuckoo.common.exceptions import CuckooDemuxError
@@ -35,10 +35,13 @@ from lib.cuckoo.common.objects import File
 # this required for hash searches
 FULL_DB = False
 HAVE_DIST = False
-repconf = Config("reporting")
 cfg = Config("cuckoo")
+routing = Config("routing")
+repconf = Config("reporting")
 processing = Config("processing")
 aux_conf = Config("auxiliary")
+
+db = Database()
 
 if repconf.distributed.enabled:
     try:
@@ -56,12 +59,13 @@ logger = logging.getLogger(__name__)
 
 if repconf.mongodb.enabled:
     import pymongo
-    results_db = pymongo.MongoClient( repconf.mongodb.host,
-                                port=repconf.mongodb.port,
-                                username=repconf.mongodb.get("username", None),
-                                password=repconf.mongodb.get("password", None),
-                                authSource=repconf.mongodb.db
-                                )[repconf.mongodb.db]
+    results_db = pymongo.MongoClient(
+        repconf.mongodb.host,
+        port=repconf.mongodb.port,
+        username=repconf.mongodb.get("username", None),
+        password=repconf.mongodb.get("password", None),
+        authSource=repconf.mongodb.db
+        )[repconf.mongodb.db]
     FULL_DB = True
 
 if HAVE_DIST:
@@ -71,15 +75,15 @@ def load_vms_tags():
     all_tags = list()
     if HAVE_DIST and repconf.distributed.enabled:
         try:
-            db = session()
-            for vm in db.query(Machine).all():
+            tmp_db = session()
+            for vm in tmp_db.query(Machine).all():
                 all_tags += vm.tags
             all_tags = sorted([_f for _f in all_tags if _f])
-            db.close()
+            tmp_db.close()
         except Exception as e:
             print(e)
 
-    for machine in Database().list_machines():
+    for machine in db.list_machines():
         for tag in machine.tags:
             all_tags.append(tag.name)
 
@@ -216,7 +220,6 @@ def index(request, resubmit_hash=False):
 
         orig_options = options
 
-        db = Database()
         task_ids = []
         task_machines = []
 
@@ -287,7 +290,7 @@ def index(request, resubmit_hash=False):
                 # let it persist between reboot (if user like to configure it in that way).
                 path = store_temp_file(sample.read(), filename)
 
-                if unique and check_file_uniq(File(path).get_sha256()):
+                if unique and db.check_file_uniq(File(path).get_sha256()):
                     return render(request, "error.html", {"error": "Duplicated file, disable unique option to force submission"})
                 if disable_x64 is True:
                     magic_type = get_magic_type(path)
@@ -547,7 +550,7 @@ def index(request, resubmit_hash=False):
 
         # Prepare a list of VM names, description label based on tags.
         machines = []
-        for machine in Database().list_machines():
+        for machine in db.list_machines():
             tags = []
             for tag in machine.tags:
                 tags.append(tag.name)
@@ -574,10 +577,10 @@ def index(request, resubmit_hash=False):
             "vpns": list(vpns.values()),
             "socks5s": list(socks5s.values()),
             "socks5s_random": socks5s_random,
-            "route": cfg.routing.route,
-            "internet": cfg.routing.internet,
-            "inetsim": cfg.routing.inetsim,
-            "tor": cfg.routing.tor,
+            "route": routing.routing.route,
+            "internet": routing.routing.internet,
+            "inetsim": routing.inetsim.enabled,
+            "tor": routing.tor.enabled,
             "config": enabledconf,
             "resubmit": resubmit_hash,
             "tags": sorted(list(set(all_tags))),
@@ -585,7 +588,7 @@ def index(request, resubmit_hash=False):
 
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def status(request, task_id):
-    task = Database().view_task(task_id)
+    task = db.view_task(task_id)
     if not task:
         return render(request, "error.html",
                                   {"error": "The specified task doesn't seem to exist."})

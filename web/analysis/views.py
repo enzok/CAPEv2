@@ -895,6 +895,10 @@ def file(request, category, task_id, dlfile):
 
     if category == "sample":
         path = os.path.join(CUCKOO_ROOT, "storage", "binaries", dlfile)
+    elif category == "bingraph":
+        path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "bingraph", file_name+"-ent.svg")
+        file_name = file_name+"-ent.svg"
+        cd = "image/svg+xml"
     elif category in ("samplezip", "dropped", "droppedzip", "CAPE", "CAPEZIP", "procdump", "procdumpzip", "memdumpzip"):
         # ability to download password protected zip archives
         path = ""
@@ -910,11 +914,9 @@ def file(request, category, task_id, dlfile):
             else:
                 path = buf
         elif category.startswith("procdump"):
-            buf = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "procdump", file_name)
-            path = buf
+            path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "procdump", file_name)
         elif category.startswith("memdumpzip"):
-            buf = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "memory", file_name)
-            path = buf
+            path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "memory", file_name)
             file_name += ".dmp"
         TMPDIR = "/tmp"
         if path and category in ("samplezip", "droppedzip", "CAPEZIP", "procdumpzip", "memdumpzip"):
@@ -932,8 +934,7 @@ def file(request, category, task_id, dlfile):
         path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "rtf_objects", file_name)
     elif category == "pcap":
         file_name += ".pcap"
-        path = os.path.join(CUCKOO_ROOT, "storage", "analyses",
-                            task_id, "dump.pcap")
+        path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "dump.pcap")
         cd = "application/vnd.tcpdump.pcap"
     elif category == "screenshot":
         file_name += ".jpg"
