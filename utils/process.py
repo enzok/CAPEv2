@@ -212,8 +212,7 @@ def autoprocess(parallel=1, failed_processing=False, maxtasksperchild=7,  memory
             # For loop to add only one, nice. (reason is that we shouldn't overshoot maxcount)
             for task in tasks:
                 # Not-so-efficient lock.
-                if task.id in [tid for ar, tid, target, copy_path
-                               in pending_results]:
+                if task.id in [tid for ar, tid, target, copy_path in pending_results]:
                     continue
 
                 log.info("Processing analysis data for Task #%d", task.id)

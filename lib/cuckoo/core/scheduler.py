@@ -44,7 +44,7 @@ machine_lock = None
 latest_symlink_lock = threading.Lock()
 
 active_analysis_count = 0
-
+routing_cfg = Config("routing")
 
 class CuckooDeadMachine(Exception):
     """Exception thrown when a machine turns dead.
@@ -531,9 +531,9 @@ class AnalysisManager(threading.Thread):
             self.interface = self.routing.inetsim.interface
         elif self.route == "tor":
             self.interface = self.routing.tor.interface
-        elif self.route == "internet" and self.cfg.routing.internet != "none":
-            self.interface = self.cfg.routing.internet
-            self.rt_table = self.cfg.routing.rt_table
+        elif self.route == "internet" and routing_cfg.routing.internet != "none":
+            self.interface = routing_cfg.routing.internet
+            self.rt_table = routing_cfg.routing.rt_table
         elif self.route in vpns:
             self.interface = vpns[self.route].interface
             self.rt_table = vpns[self.route].rt_table
@@ -755,9 +755,9 @@ class Scheduler:
                        vpn.interface, machine.ip)
 
             # Drop forwarding rule to the internet / dirty line.
-            if self.cfg.routing.internet != "none":
+            if routing_cfg.routing.internet != "none":
                 rooter("forward_disable", machine.interface,
-                       self.cfg.routing.internet, machine.ip)
+                       routing_cfg.routing.internet, machine.ip)
 
     def stop(self):
         """Stop scheduler."""
