@@ -17,7 +17,6 @@ try:
     from sflock.unpack.office import OfficeFile
     from sflock.abstracts import File as sfFile
     from sflock.exception import UnpackException
-
     HAS_SFLOCK = True
 except ImportError:
     print("Warning: sflock not installed; archives will not be handled.\n"
@@ -159,6 +158,8 @@ def demux_sample(filename, package, options):
     if "Microsoft" in magic:
         if "Outlook" in magic or "Message" in magic:
             log.debug("Extracting msg file - {}".format(filename))
+            pass
+        elif "Disk Image" in magic:
             pass
         elif "Composite Document File" in magic or "CDFV2 Encrypted" in magic:
             password = False
