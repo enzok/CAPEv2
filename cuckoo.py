@@ -69,7 +69,6 @@ def cuckoo_init(quiet=False, debug=False, artwork=False, test=False):
         return
 
     ResultServer()
-
     os.chdir(cur_path)
 
 
@@ -95,13 +94,12 @@ if __name__ == "__main__":
     parser.add_argument("-a", "--artwork", help="Show artwork", action="store_true", required=False)
     parser.add_argument("-t", "--test", help="Test startup", action="store_true", required=False)
     parser.add_argument("-m", "--max-analysis-count", help="Maximum number of analyses", type=int, required=False)
-    parser.add_argument("-md", "--memory-debugging", help="Debug memory usage", default=False, required=False)
     args = parser.parse_args()
 
     try:
         cuckoo_init(quiet=args.quiet, debug=args.debug, artwork=args.artwork, test=args.test)
         if not args.artwork and not args.test:
-            cuckoo_main(max_analysis_count=args.max_analysis_count, memory_debugging=args.memory_debugging)
+            cuckoo_main(max_analysis_count=args.max_analysis_count)
     except CuckooCriticalError as e:
         message = "{0}: {1}".format(e.__class__.__name__, e)
         if len(log.handlers):

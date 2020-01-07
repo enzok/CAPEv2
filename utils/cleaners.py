@@ -86,14 +86,14 @@ def delete_data(tid):
         elif "id" in tid:
             tid = tid["id"]
     try:
-        print(("removing %s from analysis db" % (id)))
-        delete_mongo_data(id)
+        print(("removing %s from analysis db" % (tid)))
+        delete_mongo_data(tid)
     except:
-        print(("failed to remove analysis info (may not exist) %s" % (id)))
-    if db.delete_task(e):
-        delete_folder(os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % id))
+        print(("failed to remove analysis info (may not exist) %s" % (tid)))
+    if db.delete_task(tid):
+        delete_folder(os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % tid))
     else:
-         print(("failed to remove faile task %s from DB" % (id)))
+         print(("failed to remove faile task %s from DB" % (tid)))
 
 def delete_mongo_data(tid):
     try:
@@ -459,8 +459,8 @@ if __name__ == "__main__":
     parser.add_argument("--custom-include-filter",help="Only include jobs that match the custom field DELETE AFTER ONLY", required=False)
     parser.add_argument("--bson-suri-logs-clean",help="clean bson and suri logs from analysis dirs",required=False, action="store_true")
     parser.add_argument("--pending-clean",help="Remove all tasks marked as failed",required=False, action="store_true")
-    parser.add_argument("--malscore-clean",help="Remove all tasks with malscore <= X",required=False, action="store", type=int)
-    parser.add_argument("-drs", "--delete-range-start", help="First job in range to delete, should be used with --delete-range-end", raction="store", type=int, equired=False)
+    parser.add_argument("--malscore",help="Remove all tasks with malscore <= X",required=False, action="store", type=int)
+    parser.add_argument("-drs", "--delete-range-start", help="First job in range to delete, should be used with --delete-range-end", action="store", type=int, required=False)
     parser.add_argument("-dre", "--delete-range-end", help="Last job in range to delete, should be used with --delete-range-start", action="store", type=int, required=False)
     parser.add_argument("-ddc", "--deduplicated-cluster-queue", help="Remove all pending duplicated jobs for our cluster, leave only 1 copy of task", action="store_true", required=False)
     args = parser.parse_args()
@@ -493,8 +493,8 @@ if __name__ == "__main__":
         cuckoo_clean_pending_tasks()
         sys.exit(0)
 
-    if args.malscore_clean:
-        cuckoo_clean_lower_score()
+    if args.malscore:
+        cuckoo_clean_lower_score(args)
         sys.exit(0)
 
     if args.delete_range_start and args.delete_range_end:
