@@ -272,6 +272,11 @@ def main():
                         required=False, default=1)
     parser.add_argument("-fp", "--failed-processing", help="reprocess failed processing", action="store_true",
                         required=False, default=False)
+    parser.add_argument("-mc", "--maxtasksperchild", help="Max children tasks per worker", action="store", type=int,
+                        required=False, default=7)
+    parser.add_argument("-md", "--memory-debugging", help="Enable logging garbage collection related info",
+                        action="store_true", required=False, default=False)
+
     args = parser.parse_args()
 
     init_yara()
