@@ -27,7 +27,7 @@ try:
     from pymisp import MISPEvent, MISPAttribute
     HAVE_PYMISP = True
 except ImportError:
-    HAVE_PYMISP = True
+    HAVE_PYMISP = False
     print("pip3 install pymisp")
 
 log = logging.getLogger(__name__)
