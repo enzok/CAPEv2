@@ -28,7 +28,6 @@ try:
     HAVE_PYMISP = True
 except ImportError:
     HAVE_PYMISP = False
-    print("pip3 install pymisp")
 
 log = logging.getLogger(__name__)
 logging.getLogger('pymisp').setLevel(logging.WARNING)
