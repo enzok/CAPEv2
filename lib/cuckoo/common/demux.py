@@ -21,7 +21,7 @@ try:
 except ImportError:
     print("Warning: sflock not installed; archives will not be handled.\n"
           "sudo apt-get install p7zip-full rar unace-nonfree cabextract\n"
-          "pip install -U sflock")
+          "pip3 install -U sflock")
     HAS_SFLOCK = False
 
 log = logging.getLogger(__name__)
@@ -39,7 +39,7 @@ demux_extensions_list = [
 whitelist_extensions = ("doc", "xls", "ppt", "pub", "jar")
 
 # list of valid file types to extract - TODO: add more types
-valid_types = ["PE32", "Java Jar", "Outlook", "Message"]
+VALID_TYPES = ["PE32", "Java Jar", "Outlook", "Message"]
 
 
 def options2passwd(options):
@@ -85,7 +85,7 @@ def demux_office(filename, password):
 
 def is_valid_type(magic):
     # check for valid file types and don't rely just on file extentsion
-    for ftype in valid_types:
+    for ftype in VALID_TYPES:
         if ftype in magic:
             return True
     return False
@@ -106,7 +106,7 @@ def get_filenames(retlist, tmp_dir, children):
             elif 'container' in at['type'] and child.package not in whitelist_extensions:
                 get_filenames(retlist, tmp_dir, child.children)
     except Exception as err:
-        log.error("Error getting file names: {}".format(err))
+        pass
 
     return retlist
 
@@ -136,7 +136,7 @@ def demux_sflock(filename, options):
                 unpacked.extract(tmp_dir)
 
     except Exception as err:
-        log.error("Error unpacking file: {} - {}".format(filename, err))
+        pass
 
     return retlist
 
@@ -184,7 +184,6 @@ def demux_sample(filename, package, options):
     # original file
     if not retlist:
         retlist.append(filename)
-        log.warn("Not an archive file or does not contain valid files- {}".format(filename))
     else:
         if len(retlist) > 10:
             retlist = retlist[:10]
