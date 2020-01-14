@@ -28,7 +28,7 @@ class HandleInfo:
         return hash(self.__repr__())
 
     def set_file_pos(self, buffer):
-        self.fpos = struct.unpack_from(b"Q", buffer)[0]
+        self.fpos = struct.unpack_from("Q", bytes(buffer))[0]
 
     def read(self, len):
         self.fpos = self.fpos + len
