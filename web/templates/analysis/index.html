@@ -40,7 +40,6 @@
                 <tr>
                     <th width="5%">ID</th>
                     <th width="10%">Timestamp</th>
-                    <th width="7%">Machine</th>
                     <th width="8%">Package</th>
                     <th width="33%">Filename</th>
                     <th width="18%">MD5</th>
@@ -56,7 +55,7 @@
                     {% endif %}
                     {% if config.suricata %}
                     <th width="7%">SuriAlert
-                        {% if config.expanded_dashboard %}
+                        {% if config.expanded_dashboard_2 %}
                         /HTTP/TLS/Files
                         {% endif %}
                     </th>
@@ -89,9 +88,6 @@
                         {% else %}
                             <span class="muted">{{analysis.added_on}} (added on)</span>
                         {% endif %}
-                        </td>
-                        <td>
-                        {{analysis.machine}}
                         </td>
                         <td>
                         {{analysis.package}}
@@ -148,28 +144,26 @@
                         <td>
                             <span class="mono">
                             {% if analysis.suri_alert_cnt %}
-                            <a href="{% url "surialert" analysis.id %}" target="_blank">{{analysis.suri_alert_cnt}}</a><!--
-                            {% else %}
-                            0<!--
-                            {% endif %}
-                            {% if config.expanded_dashboard %}
-                                {% if analysis.suri_http_cnt %}
-                                -->/<a href="{% url "surihttp" analysis.id %}" target="_blank">{{analysis.suri_http_cnt}}</a><!--
-                                {% else %}
-                                -->/0<!--
-                                {% endif %}
-                                {% if analysis.suri_tls_cnt %}
-                                -->/<a href="{% url "suritls" analysis.id %}" target="_blank">{{analysis.suri_tls_cnt}}</a><!--
-                                {% else %}
-                                -->/0<!--
-                                {% endif %}
-                                {% if analysis.suri_file_cnt %}
-                                -->/<a href="{% url "surifiles" analysis.id %}" target="_blank">{{analysis.suri_file_cnt}}</a><!--
-                                {% else %}
-                                -->/0<!--
+                                <a href="{% url "surialert" analysis.id %}" target="_blank">{{analysis.suri_alert_cnt}}</a>
+                                {% if config.expanded_dashboard_2 %}
+                                    {% if analysis.suri_http_cnt %}
+                                        /<a href="{% url "surihttp" analysis.id %}" target="_blank">{{analysis.suri_http_cnt}}</a>
+                                    {% else %}
+                                        /0
+                                    {% endif %}
+                                    {% if analysis.suri_tls_cnt %}
+                                        <a href="{% url "suritls" analysis.id %}" target="_blank">{{analysis.suri_tls_cnt}}</a>
+                                    {% else %}
+                                        /0
+                                    {% endif %}
+                                    {% if analysis.suri_file_cnt %}
+                                        /<a href="{% url "surifiles" analysis.id %}" target="_blank">{{analysis.suri_file_cnt}}</a>
+                                    {% else %}
+                                        /0
+                                    {% endif %}
                                 {% endif %}
                             {% endif %}
-                            --></span>
+                            </span>
                         </td>
                         {% endif %}
                         {% if config.virustotal %}
@@ -343,7 +337,10 @@
                     <th width="5%">Martians</th>
                     {% endif %}
                     {% if config.suricata %}
-                    <th width="10%">Suricata Alerts/HTTP/TLS/Files</th>
+                    <th width="10%">SuriAlert</th>
+                        {% if config.expanded_dashboard_2 %}
+                            /HTTP/TLS/Files
+                        {% endif %}
                     {% endif %}
                     {% if config.virustotal %}
                     <th width="5%">VT</th>
@@ -369,6 +366,9 @@
                     {% endif %}
                     {% if config.suricata %}
                     <th width="7%">SuriAlert</th>
+                        {% if config.expanded_dashboard_2 %}
+                            /HTTP/TLS/Files
+                        {% endif %}
                     {% endif %}
                     {% if config.virustotal %}
                     <th width="5%">VT</th>
@@ -426,29 +426,27 @@
                         {% if config.suricata %}
                         <td>
                             <span class="mono">
-                                {% if analysis.suri_alert_cnt %}
-                                <a href="{% url "surialert" analysis.id %}" target="_blank">{{analysis.suri_alert_cnt}}</a><!--
-                                {% else %}
-                                0<!--
-                                {% endif %}
-                                {% if config.expanded_dashboard %}
+                            {% if analysis.suri_alert_cnt %}
+                                <a href="{% url "surialert" analysis.id %}" target="_blank">{{analysis.suri_alert_cnt}}</a>
+                                {% if config.expanded_dashboard_2 %}
                                     {% if analysis.suri_http_cnt %}
-                                    -->/<a href="{% url "surihttp" analysis.id %}" target="_blank">{{analysis.suri_http_cnt}}</a><!--
+                                        /<a href="{% url "surihttp" analysis.id %}" target="_blank">{{analysis.suri_http_cnt}}</a>
                                     {% else %}
-                                    -->/0<!--
+                                        /0
                                     {% endif %}
                                     {% if analysis.suri_tls_cnt %}
-                                    -->/<a href="{% url "suritls" analysis.id %}" target="_blank">{{analysis.suri_tls_cnt}}</a><!--
+                                        <a href="{% url "suritls" analysis.id %}" target="_blank">{{analysis.suri_tls_cnt}}</a>
                                     {% else %}
-                                    -->/0<!--
+                                        /0
                                     {% endif %}
                                     {% if analysis.suri_file_cnt %}
-                                    -->/<a href="{% url "surifiles" analysis.id %}" target="_blank">{{analysis.suri_file_cnt}}</a><!--
+                                        /<a href="{% url "surifiles" analysis.id %}" target="_blank">{{analysis.suri_file_cnt}}</a>
                                     {% else %}
-                                    -->/0<!--
+                                        /0
                                     {% endif %}
                                 {% endif %}
-                            --></span>
+                            {% endif %}
+                            </span>
                         </td>
                         {% endif %}
                         {% if config.virustotal %}
@@ -613,7 +611,10 @@
                     <th width="5%">Moloch</th>
                     {% endif %}
                     {% if config.suricata %}
-                    <th width="10%">Suricata Alerts/HTTP/TLS/Files</th>
+                    <th width="10%">SuriAlert</th>
+                        {% if config.expanded_dashboard_2 %}
+                            /HTTP/TLS/Files
+                        {% endif %}
                     {% endif %}
                     <th width="5%">MalScore</th>
                     <th width="10%">MalFamily</th>
@@ -632,7 +633,11 @@
                     <th width="5%">Moloch</th>
                     {% endif %}
                     {% if config.suricata %}
+                    {% if config.suricata %}
                     <th width="7%">SuriAlert</th>
+                        {% if config.expanded_dashboard_2 %}
+                            /HTTP/TLS/Files
+                        {% endif %}
                     {% endif %}
                     <th width="5%">MalScore</th>
                     {% if config.display_shrike %}
@@ -680,28 +685,26 @@
                     <td>
                         <span class="mono">
                             {% if analysis.suri_alert_cnt %}
-                            <a href="{% url "surialert" analysis.id %}" target="_blank">{{analysis.suri_alert_cnt}}</a><!--
-                            {% else %}
-                            0<!--
+                                <a href="{% url "surialert" analysis.id %}" target="_blank">{{analysis.suri_alert_cnt}}</a>
+                                {% if config.expanded_dashboard_2 %}
+                                    {% if analysis.suri_http_cnt %}
+                                        /<a href="{% url "surihttp" analysis.id %}" target="_blank">{{analysis.suri_http_cnt}}</a>
+                                    {% else %}
+                                        /0
+                                    {% endif %}
+                                    {% if analysis.suri_tls_cnt %}
+                                        <a href="{% url "suritls" analysis.id %}" target="_blank">{{analysis.suri_tls_cnt}}</a>
+                                    {% else %}
+                                        /0
+                                    {% endif %}
+                                    {% if analysis.suri_file_cnt %}
+                                        /<a href="{% url "surifiles" analysis.id %}" target="_blank">{{analysis.suri_file_cnt}}</a>
+                                    {% else %}
+                                        /0
+                                    {% endif %}
+                                {% endif %}
                             {% endif %}
-                            {% if config.expanded_dashboard %}
-                                {% if analysis.suri_http_cnt %}
-                                -->/<a href="{% url "surihttp" analysis.id %}" target="_blank">{{analysis.suri_http_cnt}}</a><!--
-                                {% else %}
-                                -->/0<!--
-                                {% endif %}
-                                {% if analysis.suri_tls_cnt %}
-                                -->/<a href="{% url "suritls" analysis.id %}" target="_blank">{{analysis.suri_tls_cnt}}</a><!--
-                                {% else %}
-                                -->/0<!--
-                                {% endif %}
-                                {% if analysis.suri_file_cnt %}
-                                -->/<a href="{% url "surifiles" analysis.id %}" target="_blank">{{analysis.suri_file_cnt}}</a><!--
-                                {% else %}
-                                -->/0<!--
-                                {% endif %}
-                           {% endif %}
-                           -->
+                            </span>
                         </span>
                     </td>
                     {% endif %}
