@@ -145,23 +145,24 @@
                             <span class="mono">
                             {% if analysis.suri_alert_cnt %}
                                 <a href="{% url "surialert" analysis.id %}" target="_blank">{{analysis.suri_alert_cnt}}</a>
-                                {% if config.expanded_dashboard_2 %}
-                                    {% if analysis.suri_http_cnt %}
-                                        /<a href="{% url "surihttp" analysis.id %}" target="_blank">{{analysis.suri_http_cnt}}</a>
-                                    {% else %}
-                                        /0
-                                    {% endif %}
-                                    {% if analysis.suri_tls_cnt %}
-                                        <a href="{% url "suritls" analysis.id %}" target="_blank">{{analysis.suri_tls_cnt}}</a>
-                                    {% else %}
-                                        /0
-                                    {% endif %}
-                                    {% if analysis.suri_file_cnt %}
-                                        /<a href="{% url "surifiles" analysis.id %}" target="_blank">{{analysis.suri_file_cnt}}</a>
-                                    {% else %}
-                                        /0
-                                    {% endif %}
+                            {% else %}
+                                /0
+                            {% endif %}
+                            {% if config.expanded_dashboard_2 %}
+                                {% if analysis.suri_http_cnt %}
+                                    /<a href="{% url "surihttp" analysis.id %}" target="_blank">{{analysis.suri_http_cnt}}</a>
+                                {% else %}
+                                    /0
                                 {% endif %}
+                                {% if analysis.suri_tls_cnt %}
+                                    <a href="{% url "suritls" analysis.id %}" target="_blank">{{analysis.suri_tls_cnt}}</a>
+                                {% else %}
+                                    /0
+                                {% endif %}
+                                {% if analysis.suri_file_cnt %}
+                                    /<a href="{% url "surifiles" analysis.id %}" target="_blank">{{analysis.suri_file_cnt}}</a>
+                                {% else %}
+                                    /0
                                 {% endif %}
                             {% endif %}
                             </span>
@@ -431,22 +432,24 @@
                             <span class="mono">
                             {% if analysis.suri_alert_cnt %}
                                 <a href="{% url "surialert" analysis.id %}" target="_blank">{{analysis.suri_alert_cnt}}</a>
-                                {% if config.expanded_dashboard_2 %}
-                                    {% if analysis.suri_http_cnt %}
-                                        /<a href="{% url "surihttp" analysis.id %}" target="_blank">{{analysis.suri_http_cnt}}</a>
-                                    {% else %}
-                                        /0
-                                    {% endif %}
-                                    {% if analysis.suri_tls_cnt %}
-                                        <a href="{% url "suritls" analysis.id %}" target="_blank">{{analysis.suri_tls_cnt}}</a>
-                                    {% else %}
-                                        /0
-                                    {% endif %}
-                                    {% if analysis.suri_file_cnt %}
-                                        /<a href="{% url "surifiles" analysis.id %}" target="_blank">{{analysis.suri_file_cnt}}</a>
-                                    {% else %}
-                                        /0
-                                    {% endif %}
+                            {% else %}
+                                /0
+                            {% endif %}
+                            {% if config.expanded_dashboard_2 %}
+                                {% if analysis.suri_http_cnt %}
+                                    /<a href="{% url "surihttp" analysis.id %}" target="_blank">{{analysis.suri_http_cnt}}</a>
+                                {% else %}
+                                    /0
+                                {% endif %}
+                                {% if analysis.suri_tls_cnt %}
+                                    <a href="{% url "suritls" analysis.id %}" target="_blank">{{analysis.suri_tls_cnt}}</a>
+                                {% else %}
+                                    /0
+                                {% endif %}
+                                {% if analysis.suri_file_cnt %}
+                                    /<a href="{% url "surifiles" analysis.id %}" target="_blank">{{analysis.suri_file_cnt}}</a>
+                                {% else %}
+                                    /0
                                 {% endif %}
                             {% endif %}
                             </span>
@@ -688,26 +691,28 @@
                     {% if config.suricata %}
                     <td>
                         <span class="mono">
-                            {% if analysis.suri_alert_cnt %}
-                                <a href="{% url "surialert" analysis.id %}" target="_blank">{{analysis.suri_alert_cnt}}</a>
-                                {% if config.expanded_dashboard_2 %}
-                                    {% if analysis.suri_http_cnt %}
-                                        /<a href="{% url "surihttp" analysis.id %}" target="_blank">{{analysis.suri_http_cnt}}</a>
-                                    {% else %}
-                                        /0
-                                    {% endif %}
-                                    {% if analysis.suri_tls_cnt %}
-                                        <a href="{% url "suritls" analysis.id %}" target="_blank">{{analysis.suri_tls_cnt}}</a>
-                                    {% else %}
-                                        /0
-                                    {% endif %}
-                                    {% if analysis.suri_file_cnt %}
-                                        /<a href="{% url "surifiles" analysis.id %}" target="_blank">{{analysis.suri_file_cnt}}</a>
-                                    {% else %}
-                                        /0
-                                    {% endif %}
-                                {% endif %}
+                        {% if analysis.suri_alert_cnt %}
+                            <a href="{% url "surialert" analysis.id %}" target="_blank">{{analysis.suri_alert_cnt}}</a>
+                        {% else %}
+                            /0
+                        {% endif %}
+                        {% if config.expanded_dashboard_2 %}
+                            {% if analysis.suri_http_cnt %}
+                                /<a href="{% url "surihttp" analysis.id %}" target="_blank">{{analysis.suri_http_cnt}}</a>
+                            {% else %}
+                                /0
                             {% endif %}
+                            {% if analysis.suri_tls_cnt %}
+                                <a href="{% url "suritls" analysis.id %}" target="_blank">{{analysis.suri_tls_cnt}}</a>
+                            {% else %}
+                                /0
+                            {% endif %}
+                            {% if analysis.suri_file_cnt %}
+                                /<a href="{% url "surifiles" analysis.id %}" target="_blank">{{analysis.suri_file_cnt}}</a>
+                            {% else %}
+                                /0
+                            {% endif %}
+                        {% endif %}
                         </span>
                     </td>
                     {% endif %}
