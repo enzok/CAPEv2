@@ -1,5 +1,6 @@
+from __future__ import absolute_import
 import os
-import json
+import simplejson as json
 import codecs
 
 from lib.cuckoo.common.abstracts import Report
