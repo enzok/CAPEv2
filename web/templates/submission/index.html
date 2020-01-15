@@ -70,13 +70,13 @@ $(document).ready( function() {
                         <li class="active"><a href="#resubmit" data-toggle="tab"><span class="glyphicon glyphicon-file"></span> File resubmission</a></li>
                     {% else %}
                         <li class="active"><a href="#file" data-toggle="tab"><span class="glyphicon glyphicon-file"></span> File</a></li>
+                        {% if config.vt %}
+                            <li><a href="#vtdl" data-toggle="tab"><span class="glyphicon glyphicon-cloud-download"></span>VirusTotal</a></li>
+                        {% endif %}
                         <li><a href="#quarantine" data-toggle="tab"><span class="glyphicon glyphicon-fire"></span> Quarantine File</a></li>
                         <!--<li><a href="#url" data-toggle="tab"><span class="glyphicon glyphicon-globe"></span> URL</a></li>-->
                         {% if config.dlnexec %}
                             <li><a href="#dlurl" data-toggle="tab"><span class="glyphicon glyphicon glyphicon-download-alt"></span> DL&Exec</a></li>
-                        {% endif %}
-                        {% if config.vt %}
-                            <li><a href="#vtdl" data-toggle="tab"><span class="glyphicon glyphicon-cloud-download"></span>VirusTotal</a></li>
                         {% endif %}
                         <li><a href="#pcap" data-toggle="tab"><span class="glyphicon glyphicon-transfer"></span> PCAP</a></li>
                         <li><a href="#static" data-toggle="tab"><span class="glyphicon glyphicon-tasks"></span> Static</a></li>
