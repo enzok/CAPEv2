@@ -39,6 +39,7 @@ cfg = Config("cuckoo")
 routing = Config("routing")
 repconf = Config("reporting")
 processing = Config("processing")
+aux_conf = Config("auxiliary")
 
 db = Database()
 
