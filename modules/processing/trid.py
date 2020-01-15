@@ -28,9 +28,13 @@ class TrID(Processing):
             trid_binary = os.path.join(CUCKOO_ROOT, self.options.get("identifier", "trid/trid"))
             definitions = os.path.join(CUCKOO_ROOT, self.options.get("definitions", "trid/triddefs.trd"))
 
-        output = subprocess.check_output([ trid_binary, "-d:%s" % definitions, self.file_path],
-                                         stderr=subprocess.STDOUT)
-        strings = output.split(b'\n')
-        # trim data
-        strings = strings[6:-1]
+            result = []
+            output = subprocess.check_output([trid_binary, "-d:%s" % definitions, self.file_path],
+                                             stderr=subprocess.STDOUT)
+            result = output.split(b'\n')
+            # trim data
+            result = result[6:-1]
+            for v in result:
+                strings.append(v.decode("utf-8"))
+
         return strings
