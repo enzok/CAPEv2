@@ -178,7 +178,7 @@ TEMPLATES = [
 ]
 
 
-MIDDLEWARE_CLASSES = (
+MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -188,7 +188,7 @@ MIDDLEWARE_CLASSES = (
     'web.headers.CuckooHeaders',
     #'web.middleware.ExceptionMiddleware',
     #'ratelimit.middleware.RatelimitMiddleware',
-)
+]
 
 ROOT_URLCONF = 'web.urls'
 
