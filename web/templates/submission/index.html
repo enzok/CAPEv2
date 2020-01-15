@@ -101,6 +101,14 @@ $(document).ready( function() {
                                 </span>
                             </div>
                         </div>
+                        {% if config.vt %}
+                        <div class="tab-pane fade" id="vtdl">
+                            <div class="input-group col-md-12">
+                                <label class="sr-only" form="form_vtdl"> VirusTotal</label>
+                                <input type="text" class="form-control" id="form_vtdl" name="vtdl" placeholder="Enter comma separated hashes or just a hash" />
+                            </div>
+                        </div>
+                        {% endif %}
                         <div class="tab-pane fade" id="quarantine">
                             <div class="input-group col-md-6">
                                 <span class="input-group-btn">
@@ -122,14 +130,6 @@ $(document).ready( function() {
                             <div class="input-group col-md-12">
                                 <label class="sr-only" form="form_url">URL</label>
                                 <input type="text" class="form-control" id="form_url" name="dlnexec" placeholder="URL to download sample from" />
-                            </div>
-                        </div>
-                        {% endif %}
-                        {% if config.vt %}
-                        <div class="tab-pane fade" id="vtdl">
-                            <div class="input-group col-md-12">
-                                <label class="sr-only" form="form_vtdl"> VirusTotal</label>
-                                <input type="text" class="form-control" id="form_vtdl" name="vtdl" placeholder="Enter comma separated hashes or just a hash" />
                             </div>
                         </div>
                         {% endif %}
