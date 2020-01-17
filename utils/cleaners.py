@@ -440,7 +440,7 @@ def cuckoo_dedup_cluster_queue():
 
     resolver_pool.map(lambda sha256: dist_delete_data(hash_dict[sha256][1:], dist_db), hash_dict)
 
-def cuckoo_clean_range(tasks):
+def cuckoo_clean_range(args):
     """Clean up pending tasks
     It deletes all stored data from file system and configured databases (SQL
     and MongoDB for listed tasks.
@@ -451,8 +451,8 @@ def cuckoo_clean_range(tasks):
     create_structure()
     init_console_logging()
 
-    task = tasks[0]
-    end_task = tasks[1]
+    task = args[0]
+    end_task = args[1]
 
     if end_task < task:
         print("No tasks deleted. Ending task greater than starting task.")
@@ -467,7 +467,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--clean", help="Remove all tasks and samples and their associated data", action='store_true',
                         required=False)
-    parser.add_argument("--tasks-clean", help="Remove range of tasks STARTING_TASK through ENDING_TASK", nargs=2,
+    parser.add_argument("--range-clean", help="Remove range of tasks STARTING_TASK through ENDING_TASK", nargs=2,
                         metavar=('STARTING_TASK', 'ENDING_TASK'), type=int, required=False)
     parser.add_argument("--failed-clean",
                         help="Remove all tasks marked as failed", action='store_true', required=False)
@@ -542,4 +542,8 @@ if __name__ == "__main__":
 
     if args.deduplicated_cluster_queue:
         cuckoo_dedup_cluster_queue()
+        sys.exit(0)
+
+    if args.range_clean:
+        cuckoo_clean_range(args.range_clean)
         sys.exit(0)
