@@ -17,13 +17,12 @@ from multiprocessing.pool import ThreadPool
 CUCKOO_ROOT = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..")
 sys.path.append(CUCKOO_ROOT)
 
-from sqlalchemy import desc
 from lib.cuckoo.common.dist_db import create_session
 from lib.cuckoo.common.dist_db import Task as DTask
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.utils import delete_folder
 from lib.cuckoo.core.startup import create_structure, init_console_logging
-from lib.cuckoo.core.database import Database, Task, Sample, TASK_RUNNING, TASK_PENDING, TASK_FAILED_ANALYSIS, TASK_FAILED_PROCESSING, TASK_FAILED_REPORTING, TASK_RECOVERED, TASK_REPORTED
+from lib.cuckoo.core.database import Database, Task, Sample, TASK_PENDING, TASK_FAILED_ANALYSIS, TASK_FAILED_PROCESSING, TASK_FAILED_REPORTING, TASK_RECOVERED, TASK_REPORTED
 
 
 log = logging.getLogger()
@@ -66,11 +65,11 @@ def connect_to_es():
     delidx = rep_config.elasticsearchdb.index + "-*"
     try:
         es = Elasticsearch(
-                    hosts = [{
+                    hosts=[{
                         "host": rep_config.elasticsearchdb.host,
                         "port": rep_config.elasticsearchdb.port,
                     }],
-                    timeout = 60
+                    timeout=60
                 )
     except:
         log.warning("Unable to connect to ElasticSearch")
@@ -86,14 +85,14 @@ def delete_data(tid):
         elif "id" in tid:
             tid = tid["id"]
     try:
-        print(("removing %s from analysis db" % (tid)))
+        print("removing %s from analysis db" % (tid))
         delete_mongo_data(tid)
     except:
-        print(("failed to remove analysis info (may not exist) %s" % (tid)))
+        print("failed to remove analysis info (may not exist) %s" % (tid))
     if db.delete_task(tid):
         delete_folder(os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % tid))
     else:
-         print(("failed to remove faile task %s from DB" % (tid)))
+         print("failed to remove failed task %s from DB" % (tid))
 
 def delete_mongo_data(tid):
     try:
@@ -441,25 +440,68 @@ def cuckoo_dedup_cluster_queue():
 
     resolver_pool.map(lambda sha256: dist_delete_data(hash_dict[sha256][1:], dist_db), hash_dict)
 
+def cuckoo_clean_range(tasks):
+    """Clean up pending tasks
+    It deletes all stored data from file system and configured databases (SQL
+    and MongoDB for listed tasks.
+    """
+    # Init logging.
+    # This need to init a console logger handler, because the standard
+    # logger (init_logging()) logs to a file which will be deleted.
+    create_structure()
+    init_console_logging()
+
+    task = tasks[0]
+    end_task = tasks[1]
+
+    if end_task < task:
+        print("No tasks deleted. Ending task greater than starting task.")
+        return
+
+    while task <= end_task:
+        delete_data(task)
+        task += 1
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--clean", help="Remove all tasks and samples and their associated data", action='store_true', required=False)
-    parser.add_argument("--failed-clean", help="Remove all tasks marked as failed", action='store_true', required=False)
-    parser.add_argument("--failed-url-clean", help="Remove all tasks that are url tasks but we don't have any HTTP traffic", action='store_true', required=False)
-    parser.add_argument("--delete-older-than-days", help="Remove all tasks older than X number of days", type=int, required=False)
-    parser.add_argument("--pcap-sorted-clean", help="remove sorted pcap from jobs", action="store_true", required=False)
-    parser.add_argument("--suricata-zero-alert-filter",help="only remove events with zero suri alerts DELETE AFTER ONLY", action="store_true", required=False)
-    parser.add_argument("--urls-only-filter",help="only remove url events filter DELETE AFTER ONLY", action="store_true", required=False)
-    parser.add_argument("--files-only-filter",help="only remove files events filter DELETE AFTER ONLY", action="store_true", required=False)
-    parser.add_argument("--custom-include-filter",help="Only include jobs that match the custom field DELETE AFTER ONLY", required=False)
-    parser.add_argument("--bson-suri-logs-clean",help="clean bson and suri logs from analysis dirs",required=False, action="store_true")
-    parser.add_argument("--pending-clean",help="Remove all tasks marked as failed",required=False, action="store_true")
-    parser.add_argument("--malscore",help="Remove all tasks with malscore <= X",required=False, action="store", type=int)
-    parser.add_argument("-drs", "--delete-range-start", help="First job in range to delete, should be used with --delete-range-end", action="store", type=int, required=False)
-    parser.add_argument("-dre", "--delete-range-end", help="Last job in range to delete, should be used with --delete-range-start", action="store", type=int, required=False)
-    parser.add_argument("-ddc", "--deduplicated-cluster-queue", help="Remove all pending duplicated jobs for our cluster, leave only 1 copy of task", action="store_true", required=False)
+    parser.add_argument("--clean", help="Remove all tasks and samples and their associated data", action='store_true',
+                        required=False)
+    parser.add_argument("--tasks-clean", help="Remove range of tasks STARTING_TASK through ENDING_TASK", nargs=2,
+                        metavar=('STARTING_TASK', 'ENDING_TASK'), type=int, required=False)
+    parser.add_argument("--failed-clean",
+                        help="Remove all tasks marked as failed", action='store_true', required=False)
+    parser.add_argument("--failed-url-clean",
+                        help="Remove all tasks that are url tasks but we don't have any HTTP traffic",
+                        action='store_true', required=False)
+    parser.add_argument("--delete-older-than-days", help="Remove all tasks older than X number of days", type=int,
+                        required=False)
+    parser.add_argument("--pcap-sorted-clean",
+                        help="remove sorted pcap from jobs", action="store_true", required=False)
+    parser.add_argument("--suricata-zero-alert-filter",
+                        help="only remove events with zero suri alerts DELETE AFTER ONLY",
+                        action="store_true", required=False)
+    parser.add_argument("--urls-only-filter", help="only remove url events filter DELETE AFTER ONLY",
+                        action="store_true", required=False)
+    parser.add_argument("--files-only-filter", help="only remove files events filter DELETE AFTER ONLY",
+                        action="store_true", required=False)
+    parser.add_argument("--custom-include-filter",
+                        help="Only include jobs that match the custom field DELETE AFTER ONLY", required=False)
+    parser.add_argument("--bson-suri-logs-clean",
+                        help="clean bson and suri logs from analysis dirs", required=False, action="store_true")
+    parser.add_argument("--pending-clean",
+                        help="Remove all tasks marked as failed", required=False, action="store_true")
+    parser.add_argument("--malscore",
+                        help="Remove all tasks with malscore <= X", required=False, action="store", type=int)
+    parser.add_argument("-drs", "--delete-range-start",
+                        help="First job in range to delete, should be used with --delete-range-end",
+                        action="store", type=int, required=False)
+    parser.add_argument("-dre", "--delete-range-end",
+                        help="Last job in range to delete, should be used with --delete-range-start",
+                        action="store", type=int, required=False)
+    parser.add_argument("-ddc", "--deduplicated-cluster-queue",
+                        help="Remove all pending duplicated jobs for our cluster, leave only 1 copy of task",
+                        action="store_true", required=False)
     args = parser.parse_args()
 
     if args.clean:
