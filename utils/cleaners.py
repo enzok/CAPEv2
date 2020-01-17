@@ -92,7 +92,7 @@ def delete_data(tid):
     if db.delete_task(tid):
         delete_folder(os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % tid))
     else:
-         print("failed to remove failed task %s from DB" % (tid))
+         print("failed to remove task %s from DB" % (tid))
 
 def delete_mongo_data(tid):
     try:
@@ -253,10 +253,10 @@ def cuckoo_clean_bson_suri_logs():
                 for f in jsonlogs, bsondata, filesmeta:
                     for fe in f:
                         try:
-                            print(("removing %s" % (fe)))
+                            print("removing %s" % (fe))
                             os.remove(fe)
                         except Exception as Err:
-                            print(("failed to remove sorted_pcap from disk %s" % (Err)))
+                            print("failed to remove sorted_pcap from disk %s" % (Err))
 
 def cuckoo_clean_failed_url_tasks():
     """Clean up failed tasks
@@ -299,7 +299,7 @@ def cuckoo_clean_lower_score(args):
 
     result = list(results_db.analysis.find({"malscore": {"$lte": args.malscore}}))
     id_arr = [entry["info"]["id"] for entry in result]
-    print(("number of matching records %s" % len(id_arr)))
+    print("number of matching records %s" % len(id_arr))
     resolver_pool.map(lambda tid: delete_data(tid), id_arr)
 
 def cuckoo_clean_before_day(args):
@@ -336,17 +336,17 @@ def cuckoo_clean_before_day(args):
 
     for e in old_tasks:
         new = e.to_dict()
-        print((int(new["id"])))
+        print(int(new["id"]))
         id_arr.append({"info.id": (int(new["id"]))})
 
-    print(("number of matching records %s before suri/custom filter " % len(id_arr)))
+    print("number of matching records %s before suri/custom filter " % len(id_arr))
     if id_arr and args.suricata_zero_alert_filter:
         result = list(results_db.analysis.find({"suricata.alerts.alert": {"$exists": False}, "$or": id_arr},{"info.id":1}))
         id_arr = [entry["info"]["id"] for entry in result]
     if id_arr and args.custom_include_filter:
         result = list(results_db.analysis.find({"info.custom": {"$regex": args.custom_include_filter},"$or": id_arr},{"info.id":1}))
         id_arr = [entry["info"]["id"] for entry in result]
-    print(("number of matching records %s" % len(id_arr)))
+    print("number of matching records %s" % len(id_arr))
     resolver_pool.map(lambda tid: delete_data(tid), id_arr)
 
 def cuckoo_clean_sorted_pcap_dump():
@@ -370,16 +370,16 @@ def cuckoo_clean_sorted_pcap_dump():
         if rtmp and rtmp.count() > 0:
             for e in rtmp:
                 if e["info"]["id"]:
-                    print((e["info"]["id"]))
+                    print(e["info"]["id"])
                     try:
                         results_db.analysis.update({"info.id": int(e["info"]["id"])},{ "$unset": { "network.sorted_pcap_id": ""}})
                     except:
-                        print(("failed to remove sorted pcap from db for id %s" % (e["info"]["id"])))
+                        print("failed to remove sorted pcap from db for id %s" % (e["info"]["id"]))
                     try:
                         path = os.path.join(CUCKOO_ROOT, "storage", "analyses","%s" % (e["info"]["id"]), "dump_sorted.pcap")
                         os.remove(path)
                     except Exception as e:
-                        print(("failed to remove sorted_pcap from disk %s" % (e)))
+                        print("failed to remove sorted_pcap from disk %s" % (e))
                 else:
                     done = True
         else:
