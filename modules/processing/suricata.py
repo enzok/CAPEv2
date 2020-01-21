@@ -63,14 +63,7 @@ class Suricata(Processing):
         SURICATA_FILE_BUFFER = self.options.get("buffer", 8192)
         Z7_PATH = self.options.get("7zbin", None)
         FILES_ZIP_PASS = self.options.get("zippass", None)
-        SURICATA_FILE_COPY_DST_DIR = self.options.get("file_copy_dest_dir", None)
-        SURICATA_FILE_COPY_MAGIC_RE = self.options.get("file_magic_re", None)
-        if SURICATA_FILE_COPY_MAGIC_RE:
-            try:
-                SURICATA_FILE_COPY_MAGIC_RE = re.compile(SURICATA_FILE_COPY_MAGIC_RE)
-            except:
-                log.warning("Failed to compile suricata copy magic RE: {}".format(SURICATA_FILE_COPY_MAGIC_RE))
-                SURICATA_FILE_COPY_MAGIC_RE = None
+
         # Socket
         SURICATA_SOCKET_PATH = self.options.get("socket_file", None)
 
@@ -177,7 +170,7 @@ class Suricata(Processing):
                 try:
                     pcap_flist = suris.send_command("pcap-file-list")
                     current_pcap = suris.send_command("pcap-current")
-                    log.debug("pcapfile list: %s current pcap: {}".format(pcap_flist, current_pcap))
+                    log.debug("pcapfile list: {} current pcap: {}".format(pcap_flist, current_pcap))
 
                     if self.pcap_path not in pcap_flist["message"]["files"] and \
                             current_pcap["message"] != self.pcap_path:
@@ -187,7 +180,7 @@ class Suricata(Processing):
                         loopcnt = loopcnt + 1
                         time.sleep(loopsleep)
                 except Exception as e:
-                    log.warning("Failed to get pcap status breaking out of loop %s" % (e))
+                    log.warning("Failed to get pcap status breaking out of loop {}".format(e))
                     break
 
             if loopcnt == maxloops:
@@ -198,7 +191,8 @@ class Suricata(Processing):
             if not os.path.exists(SURICATA_BIN):
                 log.warning("Unable to Run Suricata: Bin File {} Does Not Exist".format(SURICATA_CONF))
                 return suricata["alerts"]
-            cmd = "%s -c %s -k none -l %s -r %s" % (SURICATA_BIN, SURICATA_CONF, self.logs_path, self.pcap_path)
+            cmdstr = "{} -c {} -k none -l {} -r {}"
+            cmd = cmdstr.format(SURICATA_BIN, SURICATA_CONF, self.logs_path, self.pcap_path)
             ret, stdout, stderr = self.cmd_wrapper(cmd)
             if ret != 0:
                 log.warning("Suricata returned a Exit Value Other than Zero {}".format(stderr))
@@ -364,15 +358,11 @@ class Suricata(Processing):
                 except OSError as e:
                     log.warning("Unable to delete suricata file subdirectories: {}".format(e))
 
-
         if SURICATA_FILES_DIR_FULL_PATH and os.path.exists(SURICATA_FILES_DIR_FULL_PATH) and Z7_PATH \
                 and os.path.exists(Z7_PATH):
             # /usr/bin/7z a -pinfected -y files.zip files-json.log files
-            cmd = "cd %s && %s a -p%s -y files.zip %s %s" % (self.logs_path,
-                                                             Z7_PATH,
-                                                             FILES_ZIP_PASS,
-                                                             SURICATA_FILE_LOG,
-                                                             SURICATA_FILES_DIR)
+            cmdstr = "cd {} && {} a -p{} -y files.zip {} {}"
+            cmd = cmdstr.format(self.logs_path, Z7_PATH, FILES_ZIP_PASS, SURICATA_FILE_LOG, SURICATA_FILES_DIR)
             ret, stdout, stderr = self.cmd_wrapper(cmd)
             if ret > 1:
                 log.warning("Suricata: Failed to create {}/files.zip - Error {}".format(self.logs_path, ret))
