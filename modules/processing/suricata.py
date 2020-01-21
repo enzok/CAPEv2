@@ -19,6 +19,7 @@ except ImportError:
 
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.objects import File
+from lib.cuckoo.common.utils import convert_to_printable
 
 log = logging.getLogger(__name__)
 class Suricata(Processing):
@@ -346,9 +347,10 @@ class Suricata(Processing):
                             with open(file_info["path"], "r") as drop_open:
                                 filedata = drop_open.read(SURICATA_FILE_BUFFER + 1)
                             if len(filedata) > SURICATA_FILE_BUFFER:
-                                file_info["data"] = filedata[:SURICATA_FILE_BUFFER].decode("utf8") + " <truncated>"
+                                file_info["data"] = convert_to_printable(
+                                    filedata[:SURICATA_FILE_BUFFER] + " <truncated>")
                             else:
-                                file_info["data"] = filedata.decode("utf8")
+                                file_info["data"] = convert_to_printable(filedata)
                         sfile["file_info"] = file_info
                     suricata["files"].append(sfile)
             with open(SURICATA_FILE_LOG_FULL_PATH, "w") as drop_log:
