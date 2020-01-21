@@ -19,7 +19,6 @@ except ImportError:
 
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.objects import File
-from lib.cuckoo.common.utils import convert_to_printable
 
 log = logging.getLogger(__name__)
 class Suricata(Processing):
@@ -347,14 +346,16 @@ class Suricata(Processing):
                             with open(file_info["path"], "rb") as drop_open:
                                 filedata = drop_open.read(SURICATA_FILE_BUFFER + 1)
                             if len(filedata) > SURICATA_FILE_BUFFER:
-                                file_info["data"] = convert_to_printable(
-                                    filedata[:SURICATA_FILE_BUFFER] + " <truncated>")
+                                file_info["data"] = filedata[:SURICATA_FILE_BUFFER].decode("utf8") + " <truncated>"
                             else:
-                                file_info["data"] = convert_to_printable(filedata)
+                                file_info["data"] = filedata.decode("utf8")
                         sfile["file_info"] = file_info
                     suricata["files"].append(sfile)
             with open(SURICATA_FILE_LOG_FULL_PATH, "wb") as drop_log:
-                drop_log.write(json.dumps(suricata["files"], indent=4))
+                try:
+                    drop_log.write(json.dumps(suricata["files"], indent=4))
+                except:
+                    log.error(suricata["files"])
 
             # Cleanup file subdirectories left behind by messy Suricata
             for d in [dirpath for (dirpath, dirnames, filenames) in os.walk(SURICATA_FILES_DIR_FULL_PATH)
