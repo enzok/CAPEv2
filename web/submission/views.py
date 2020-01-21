@@ -166,12 +166,12 @@ def index(request, resubmit_hash=False):
         if request.POST.get("process_dump"):
             if options:
                 options += ","
-            options += "procmemdump=1,procdump=1"
+            options += "procdump=1"
 
         if request.POST.get("process_memory"):
             if options:
                 options += ","
-            options += "procmemdump=1,procdump=1"
+            options += "procmemdump=1"
 
         if request.POST.get("import_reconstruction"):
             if options:
