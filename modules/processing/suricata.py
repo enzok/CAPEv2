@@ -343,7 +343,7 @@ class Suricata(Processing):
                                 readit = True
                                 break
                         if readit:
-                            with open(file_info["path"], "rb") as drop_open:
+                            with open(file_info["path"], "r") as drop_open:
                                 filedata = drop_open.read(SURICATA_FILE_BUFFER + 1)
                             if len(filedata) > SURICATA_FILE_BUFFER:
                                 file_info["data"] = filedata[:SURICATA_FILE_BUFFER].decode("utf8") + " <truncated>"
@@ -351,7 +351,7 @@ class Suricata(Processing):
                                 file_info["data"] = filedata.decode("utf8")
                         sfile["file_info"] = file_info
                     suricata["files"].append(sfile)
-            with open(SURICATA_FILE_LOG_FULL_PATH, "wb") as drop_log:
+            with open(SURICATA_FILE_LOG_FULL_PATH, "w") as drop_log:
                 drop_log.write(json.dumps(suricata["files"], indent=4))
 
             # Cleanup file subdirectories left behind by messy Suricata
