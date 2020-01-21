@@ -271,8 +271,10 @@ class Suricata(Processing):
                         hlog["dstport"] = parsed["dest_port"]
                         hlog["dstip"] = parsed["dest_ip"]
                         hlog["timestamp"] = parsed["timestamp"].replace("T", " ")
-                        keyword = ("uri", "length", "hostname", "status", "http_method", "contenttype", "ua", "referrer")
-                        keyword_suri = ("url", "length", "hostname", "status", "http_method", "http_content_type", "http_user_agent", "http_refer")
+                        keyword = ("uri", "length", "hostname", "status", "http_method", "contenttype", "ua",
+                                   "referrer")
+                        keyword_suri = ("url", "length", "hostname", "status", "http_method", "http_content_type",
+                                        "http_user_agent", "http_refer")
                         for key, key_s in zip(keyword, keyword_suri):
                             try:
                                 hlog[key] = parsed["http"].get(key_s, "None")
