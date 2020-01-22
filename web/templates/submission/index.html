@@ -427,13 +427,13 @@ $(document).ready( function() {
                             </div>
                             <div class="checkbox">
                                 <label>
-                                    <input type="checkbox" name="process_dump" /> Disable process dumps
+                                    <input type="checkbox" name="process_dump" checked /> Enable process dumps
                                 </label>
                             </div>
                             {% if config.procmemory %}
                             <div class="checkbox">
                                 <label>
-                                    <input type="checkbox" name="process_memory" checked/> Full process memory dumps
+                                    <input type="checkbox" name="process_memory" /> Full process memory dumps
                                 </label>
                             </div>
                             {% endif %}
