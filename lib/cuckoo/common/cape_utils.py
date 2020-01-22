@@ -44,11 +44,11 @@ CAPE_DECODERS = [
 
 for name in CAPE_DECODERS:
     try:
-        file, pathname, description = imp.find_module(name, [CAPE_DECODERS])
+        file, pathname, description = imp.find_module(name, [cape_decoders])
         module = imp.load_module(name, file, pathname, description)
         malware_parsers[name] = module
     except (ImportError, IndexError) as e:
-        print("CAPE parser: No module named %s - %s", (name, e))
+        print("CAPE parser: No module named {} - {}".format(name, e))
 
 parser_path = os.path.join(CUCKOO_ROOT, "modules", "processing", "parsers", "CAPE")
 if parser_path not in sys.path:
@@ -163,7 +163,7 @@ def static_config_parsers(yara_hit, file_data, cape_config):
                         else:
                             cape_config["cape_config"].update(convert(tmp_dict))
                     except Exception as e:
-                        log.error("CAPE: DC3-MWCP config parsing error with %s: %s", cape_name, e)
+                        log.error("CAPE: DC3-MWCP config parsing error with {}: {}".format(cape_name, e))
                 else:
                     error_lines = reporter.errors[0].split("\n")
                     for line in error_lines:
@@ -185,7 +185,7 @@ def static_config_parsers(yara_hit, file_data, cape_config):
                         for (key, value) in cape_config.items():
                             cape_config["cape_config"].update({key: [value]})
                 except Exception as e:
-                    log.error("CAPE: parsing error with %s: %s", cape_name, e)
+                    log.error("CAPE: parsing error with {}: {}".format(cape_name, e))
 
             if not parser_loaded and cape_name in __decoders__:
                 try:
