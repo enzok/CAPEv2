@@ -102,16 +102,21 @@
                 <tr>
                     <th></th>
                     <td>
-                        <a href="{% url "file" "dropped" id file.sha256 %}" class="btn btn-primary btn-small">Download</a>
-                        <a href="{% url "file" "droppedzip" id file.sha256 %}" class="btn btn-primary btn-small">Download ZIP</a>
-                        <a class="btn btn-default btn-small" href="/submit/resubmit/{{file.sha256}}"><span class="glyphicon glyphicon-refresh" aria-hidden="true"></span> Submit file</a>
-                        {% if file.data %}
-                        &emsp;<a class="btn btn-primary btn-small" data-toggle="collapse" data-target="#{{file.sha256}}">Display Text</a>
-                        {% endif %}
-                        {% if config.vtupload %}
-                        &emsp;<a class="btn btn-primary btn-small" href="{% url "vtupload" "dropped" analysis.info.id file.name file.sha256 %}">Submit to VirusTotal</a>
-                        {% endif %}
+                    {% if config.zipped_download %}
+                        <a href="{% url "file" "droppedzip" id file.name %}" class="btn btn-primary btn-small">Download ZIP</a>
+                    {% else %}
+                        <a href="{% url "file" "dropped" id file.name %}" class="btn btn-primary btn-small">Download</a>
+                    {% endif %}
+                    <a class="btn btn-default btn-small" href="/submit/resubmit/{{file.name}}"><span class="glyphicon glyphicon-refresh" aria-hidden="true"></span> Submit file</a>
+                    {% if file.data %}
+                        &emsp;<a class="btn btn-primary btn-small" data-toggle="collapse" data-target="#{{file.name}}">Display Text</a>
+                    {% endif %}
                     </td>
+                    {% if config.vtupload %}
+                    <td>
+                        &emsp;<a class="btn btn-primary btn-small" href="{% url "vtupload" "dropped" analysis.info.id file.name file.sha256 %}">Submit to VirusTotal</a>
+                    </td>
+                    {% endif %}
                 </tr>
                 {% endif %}
                 {% if file.data %}
