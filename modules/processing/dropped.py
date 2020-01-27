@@ -43,7 +43,7 @@ class Dropped(Processing):
                 file_info.update(meta.get(file_info["path"], {}))
                 guest_path = file_info["filepath"]
                 guest_name = guest_path.split("\\")[-1]
-                file_info["guest_paths"] = guest_path
+                file_info["guest_paths"] = [guest_path]
                 file_info["name"] = guest_name
                 dropped_files.append(file_info)
                 try:
