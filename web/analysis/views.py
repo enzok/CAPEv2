@@ -929,7 +929,7 @@ def file(request, category, task_id, dlfile):
         TMPDIR = "/tmp"
         if path and category in ("samplezip", "droppedzip", "CAPEZIP", "procdumpzip", "memdumpzip"):
             try:
-                cmd = ["7z", "a", "-y", "-pinfected", os.path.join(TMPDIR, file_name + ".zip"), path]
+                cmd = ["7z", "a", "-y", "-p" + settings.ZIP_PWD, os.path.join(TMPDIR, file_name + ".zip"), path]
                 output = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
             except subprocess.CalledProcessError as e:
                 output = e.output
