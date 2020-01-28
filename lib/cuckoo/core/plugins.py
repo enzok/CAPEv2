@@ -630,11 +630,12 @@ class RunSignatures(object):
         self.results["ttps"] = self.ttps
 
         # Make a best effort detection of malware family name (can be updated later by re-processing the analysis)
-        for match in matched:
-            if "families" in match and match["families"]:
-                self.results["malfamily"] = match["families"][0].title()
-                self.results["malfamily_tag"] = "Signature"
-                break
+        if self.results.get("malfamily_tag", "") != "CAPE":
+            for match in matched:
+                if "families" in match and match["families"]:
+                    self.results["malfamily"] = match["families"][0].title()
+                    self.results["malfamily_tag"] = "Signature"
+                    break
 
 class RunReporting:
     """Reporting Engine.
