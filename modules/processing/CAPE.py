@@ -174,12 +174,12 @@ class CAPE(Processing):
         try:
             with open(file_info["path"], "r") as file_open:
                 file_data = file_open.read(buf + 1)
-
                 if len(file_data) > buf:
                     file_info["data"] = convert_to_printable(file_data[:buf] + " <truncated>")
                 else:
                     file_info["data"] = convert_to_printable(file_data)
         except UnicodeDecodeError as e:
+            file_data = ""
             pass
 
         if metadata.get("pids", False):
