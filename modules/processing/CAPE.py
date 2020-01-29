@@ -130,7 +130,7 @@ class CAPE(Processing):
     def upx_unpack(self, file_data, CAPE_output):
         unpacked_file = upx_harness(file_data)
         if unpacked_file and os.path.exists(unpacked_file):
-            for unpacked_hit in File(unpacked_file).get_yara("CAPE_YARA_RULEPATH"):
+            for unpacked_hit in File(unpacked_file).get_yara(CAPE_YARA_RULEPATH):
                 if unpacked_hit["name"] == 'UPX':
                     # Failed to unpack
                     log.info("CAPE: Failed to unpack UPX")
