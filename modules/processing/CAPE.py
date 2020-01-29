@@ -179,7 +179,7 @@ class CAPE(Processing):
                 else:
                     file_info["data"] = convert_to_printable(file_data)
         except UnicodeDecodeError as e:
-            with open(file_info["path"], "r") as file_open:
+            with open(file_info["path"], "rb") as file_open:
                 file_data = file_open.read()
             pass
 
