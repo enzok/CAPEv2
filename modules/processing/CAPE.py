@@ -179,7 +179,7 @@ class CAPE(Processing):
                 else:
                     file_info["data"] = convert_to_printable(file_data)
         except UnicodeDecodeError as e:
-            file_data = ""
+            file_data = b""
             pass
 
         if metadata.get("pids", False):
