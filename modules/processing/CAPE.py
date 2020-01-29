@@ -162,12 +162,8 @@ class CAPE(Processing):
         """
         global cape_config
         cape_name = ""
-        strings = []
 
         buf = self.options.get("buffer", BUFSIZE)
-        if file_path.endswith("_info.txt"):
-            return
-
         file_info = File(file_path, metadata.get("metadata", "")).get_all()
 
         # Get the file data
@@ -506,7 +502,7 @@ class CAPE(Processing):
                         file_path = os.path.join(dir_name, file_name)
                         # We want to exclude duplicate files from display in ui
                         if folder not in ("procdump_path", "dropped_path") and len(file_name) <= 64:
-                            self.process_file(file_path, CAPE_output, True, meta[file_path])
+                            self.process_file(file_path, CAPE_output, True, meta.get(file_path, {}))
                         #else:
                             # We set append_file to False as we don't wan't to include
                             # the files by default in the CAPE tab
