@@ -30,7 +30,6 @@ from lib.cuckoo.common.objects import CAPE_YARA_RULEPATH, File
 from lib.cuckoo.common.exceptions import CuckooProcessingError
 from lib.cuckoo.common.utils import convert_to_printable
 from lib.cuckoo.common.cape_utils import pe_map, convert, upx_harness, BUFSIZE, static_config_parsers#, plugx
-from lib.cu
 
 try:
     import pydeep
