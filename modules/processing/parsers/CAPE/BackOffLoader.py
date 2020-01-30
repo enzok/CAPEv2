@@ -1,7 +1,5 @@
 # coding=UTF-8
-
 from __future__ import absolute_import
-from __future__ import print_function
 import pefile
 from struct import unpack_from
 from sys import argv

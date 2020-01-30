@@ -444,7 +444,7 @@ class CAPE(Processing):
                     else:
                         file_info["cape_type"] += "executable"
 
-            suppress_parsing_list = ["Cerber", "Ursnif", "QakBot"]
+            suppress_parsing_list = ["Cerber", "Ursnif"]
 
             if hit["name"] in suppress_parsing_list:
                 continue
