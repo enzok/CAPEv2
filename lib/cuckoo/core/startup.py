@@ -126,7 +126,7 @@ def init_logging():
         days = cuckoo.logging.backup_count
         interval = cuckoo.logging.interval
         fh = logging.handlers.TimedRotatingFileHandler(os.path.join(CUCKOO_ROOT, "log", "cuckoo.log"),
-                                                       when=interval, backup_count=days)
+                                                       when=interval, backupCount=days)
     else:
         fh = logging.handlers.WatchedFileHandler(os.path.join(CUCKOO_ROOT, "log", "cuckoo.log"))
     fh.setFormatter(formatter)

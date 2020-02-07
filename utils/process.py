@@ -153,7 +153,7 @@ def init_logging(auto=False, tid=0, debug=False):
             days = cfg.logging.backup_count
             interval = cfg.logging.interval
             fh = logging.handlers.TimedRotatingFileHandler(os.path.join(CUCKOO_ROOT, "log", "process.log"),
-                                                           when=interval, backup_count=days)
+                                                           when=interval, backupCount=days)
         else:
             fh = logging.handlers.WatchedFileHandler(os.path.join(CUCKOO_ROOT, "log", "process.log"))
     else:
