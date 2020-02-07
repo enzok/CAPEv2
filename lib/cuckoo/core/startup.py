@@ -123,10 +123,10 @@ def init_logging():
     formatter = logging.Formatter("%(asctime)s [%(name)s] %(levelname)s: %(message)s")
 
     if cuckoo.logging.enabled:
-        days = cuckoo.logging.backupCount
+        days = cuckoo.logging.backup_count
         interval = cuckoo.logging.interval
         fh = logging.handlers.TimedRotatingFileHandler(os.path.join(CUCKOO_ROOT, "log", "cuckoo.log"),
-                                                       when=interval, backupCount=days)
+                                                       when=interval, backup_count=days)
     else:
         fh = logging.handlers.WatchedFileHandler(os.path.join(CUCKOO_ROOT, "log", "cuckoo.log"))
     fh.setFormatter(formatter)
