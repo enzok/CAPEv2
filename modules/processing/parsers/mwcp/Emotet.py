@@ -20,6 +20,7 @@ import yara
 import re
 from Crypto.Util import asn1
 from Crypto.PublicKey import RSA
+from itertools import cycle
 
 rule_source = '''
 rule Emotet
@@ -46,6 +47,7 @@ rule Emotet
 
 MAX_IP_STRING_SIZE = 16       # aaa.bbb.ccc.ddd\0
 
+
 def yara_scan(raw_data, rule_name):
     addresses = {}
     yara_rules = yara.compile(source=rule_source)
@@ -57,12 +59,12 @@ def yara_scan(raw_data, rule_name):
                     addresses[item[1]] = item[0]
                     return addresses
 
+
 def xor_data(data, key):
-    l = len(key)
-    decoded = ""
-    for i in range(0, len(data)):
-        decoded += chr(ord(data[i]) ^ ord(key[i % l]))
-    return decoded
+    key = [q for q in key]
+    data = [q for q in data]
+    return bytes([c ^ k for c, k in zip(data, cycle(key))])
+
 
 # This function is originally by Jason Reaves (@sysopfb),
 # suggested as an addition by @pollo290987.
@@ -74,6 +76,7 @@ def extract_emotet_rsakey(filedata):
         seq = asn1.DerSequence()
         seq.decode(pub_key)
         return RSA.construct((seq[0], seq[1]))
+
 
 class Emotet(Parser):
     #def __init__(self, reporter=None):
@@ -239,7 +242,7 @@ class Emotet(Parser):
                                 c2_list_rva = c2_list_va - image_base
                             try:
                                 c2_list_offset = pe.get_offset_from_rva(c2_list_rva)
-                            except PEFormatError as err:
+                            except pefile.PEFormatError as err:
                                 pass
 
                             while 1:
@@ -270,7 +273,7 @@ class Emotet(Parser):
                     return
                 key = struct.unpack('<I', filebuf[ref_rsa_offset:ref_rsa_offset+4])[0]
                 xorsize = key ^ struct.unpack('<I', filebuf[ref_rsa_offset+4:ref_rsa_offset+8])[0]
-                rsa_key = xor_data(filebuf[ref_rsa_offset+8:ref_rsa_offset+8+xorsize], struct.pack('<I',key))
+                rsa_key = xor_data(filebuf[ref_rsa_offset+8:ref_rsa_offset+8+xorsize], struct.pack('<I', key))
                 seq = asn1.DerSequence()
                 seq.decode(rsa_key)
                 self.reporter.add_metadata('other', {'RSA public key': RSA.construct((seq[0], seq[1])).exportKey()})
