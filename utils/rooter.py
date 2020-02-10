@@ -4,6 +4,8 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
+import os
+import sys
 import argparse
 import grp
 import json
@@ -14,6 +16,11 @@ import stat
 import subprocess
 import sys
 import errno
+
+
+if sys.version_info[:2] < (3, 5):
+    sys.exit("You are running an incompatible version of Python, please use >= 3.5")
+
 
 log = logging.getLogger("cuckoo-rooter")
 formatter = logging.Formatter("%(asctime)s [%(name)s] %(levelname)s: %(message)s")

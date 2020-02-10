@@ -9,6 +9,9 @@ import logging
 import os
 import sys
 
+if sys.version_info[:2] < (3, 5):
+    sys.exit("You are running an incompatible version of Python, please use >= 3.5")
+
 try:
     from lib.cuckoo.common.logo import logo
     from lib.cuckoo.common.constants import CUCKOO_VERSION, CUCKOO_ROOT

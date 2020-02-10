@@ -14,6 +14,9 @@ import argparse
 import signal
 import multiprocessing
 
+if sys.version_info[:2] < (3, 5):
+    sys.exit("You are running an incompatible version of Python, please use >= 3.5")
+
 log = logging.getLogger()
 sys.path.append(os.path.join(os.path.abspath(os.path.dirname(__file__)), ".."))
 from lib.cuckoo.common.colors import red
