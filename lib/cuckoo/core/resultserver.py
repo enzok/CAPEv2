@@ -47,7 +47,7 @@ BANNED_PATH_CHARS = b'\x00:'
 # Directories in which analysis-related files will be stored; also acts as
 # whitelist
 RESULT_UPLOADABLE = (b'CAPE', b'aux', b'buffer', b'curtain', b'extracted', b'files', b'memory', b'shots',
-                     b'sysmon', b'stap', 'procdump')
+                     b'sysmon', b'stap', b'procdump')
 RESULT_DIRECTORIES = RESULT_UPLOADABLE + (b"reports", b"logs")
 
 def netlog_sanitize_fname(path):

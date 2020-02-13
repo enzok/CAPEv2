@@ -1273,7 +1273,7 @@ class CommandPipeHandler(object):
             else:
                 log.info("Notified of termination of process with pid %u.", process_id)
                 # dump the memory of exiting processes
-                if self.analyzer.options.get("procmemdump") or  self.analyzer.options.get("procdump"):
+                if self.analyzer.options.get("procmemdump") or self.analyzer.options.get("procdump"):
                     p = Process(pid=process_id)
                     p.dump_memory()
                 # make sure process is aware of the termination
