@@ -933,7 +933,7 @@ def file(request, category, task_id, dlfile):
                 output = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
             except subprocess.CalledProcessError as e:
                 output = e.output
-            file_name += ".zip"
+            file_name += ".7z"
             path = os.path.join(TMPDIR, file_name)
             cd = "application/zip"
     elif category == "debugger_log":
