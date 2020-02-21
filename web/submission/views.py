@@ -504,7 +504,6 @@ def index(request, resubmit_hash=False):
                                   {"error": "Wrong platform, {} VM selected for {} sample".format(
                                       platform, machine_details.platform)})
 
-
             for entry in task_machines:
                 task_id = db.demux_sample_and_add_to_db(file_path=path, package=package, timeout=timeout,
                                                         options=options, priority=priority, machine=entry,
