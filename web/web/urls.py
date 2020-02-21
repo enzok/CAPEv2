@@ -14,7 +14,6 @@ from dashboard import urls as dashboard
 from analysis import urls as analysis
 from compare import urls as compare
 from submission import urls as submission
-from submissionlinux import urls as submissionlinux
 from api import urls as api
 
 urlpatterns = [
