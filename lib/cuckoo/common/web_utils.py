@@ -209,11 +209,15 @@ def download_file(api, content, request, db, task_ids, url, params, headers, ser
         #check if task_machines is passed in from api and handle (maybe replace or verify)
         if not task_machines:
             if machine.lower() == "all":
-                task_machines = db.list_machines(platform=platform)
-            else:
+                task_machines = [vm.name for vm in db.list_machines(platform=platform)]
+            elif machine:
                 machine_details = db.view_machine(machine)
                 if not machine_details.platform == platform:
-                    return render(request, "error.html",
+                    if api:
+                        return "error", jsonize({"error": "Wrong platform, {} VM select for {} sample".format(
+                            machine_details.platform, platform)}, response=True)
+                    else:
+                        return render(request, "error.html",
                                   {"error": "Wrong platform, {} VM selected for {} sample".format(
                                       machine_details.platform, platform)})
                 else:

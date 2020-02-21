@@ -340,8 +340,8 @@ def index(request, resubmit_hash=False):
 
                 platform = get_platform(magic_type)
                 if machine.lower() == "all":
-                    task_machines = db.list_machines(platform=platform)
-                else:
+                    task_machines = [vm.name for vm in db.list_machines(platform=platform)]
+                elif machine:
                     machine_details = db.view_machine(machine)
                     if not machine_details.platform == platform:
                         return render(request, "error.html",
@@ -390,8 +390,8 @@ def index(request, resubmit_hash=False):
                     return render(request, "error.html", {"error": "You uploaded an unsupported quarantine file."})
 
                 if machine.lower() == "all":
-                    task_machines = db.list_machines(platform="windows")
-                else:
+                    task_machines = [vm.name for vm in db.list_machines(platform="windows")]
+                elif machine:
                     machine_details = db.view_machine(machine)
                     if not machine_details.platform == "windows":
                         return render(request, "error.html",
@@ -466,8 +466,8 @@ def index(request, resubmit_hash=False):
             url = url.replace("hxxps://", "https://").replace("hxxp://", "http://").replace("[.]", ".")
 
             if machine.lower() == "all":
-                task_machines = db.list_machines(platform="windows")
-            else:
+                task_machines = [vm.name for vm in db.list_machines(platform="windows")]
+            elif machine:
                 machine_details = db.view_machine(machine)
                 if not machine_details.platform == "windows":
                     return render(request, "error.html",
@@ -502,8 +502,8 @@ def index(request, resubmit_hash=False):
             platform = get_platform(magic_type)
 
             if machine.lower() == "all":
-                task_machines = db.list_machines(platform=platform)
-            else:
+                task_machines = [vm.name for vm in db.list_machines(platform=platform)]
+            elif machine:
                 machine_details = db.view_machine(machine[0])
                 if not machine_details.platform == platform:
                     return render(request, "error.html",
