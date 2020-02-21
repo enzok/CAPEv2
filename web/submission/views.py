@@ -114,7 +114,7 @@ def get_form_data(platform):
         else:
             label = "{}:{}".format(machine.platform, machine.label)
 
-        machines.append((machine.label, label))
+        machines.append((machine.name, label))
 
     # Prepend ALL/ANY options. Disable until a platform can be verified in scheduler
     machines.insert(0, ("", "First available"))
@@ -343,7 +343,6 @@ def index(request, resubmit_hash=False):
                     task_machines = db.list_machines(platform=platform)
                 else:
                     machine_details = db.view_machine(machine)
-                    return render(request, "error.html", {"error": "{} -- {}".format(machine, machine_details)})
                     if not machine_details.platform == platform:
                         return render(request, "error.html",
                                       {"error": "Wrong platform, {} VM selected for {} sample".format(
