@@ -339,9 +339,10 @@ def index(request, resubmit_hash=False):
                             continue
 
                     orig_options, timeout, enforce_timeout = recon(path, orig_options, timeout, enforce_timeout)
-
-                platform = get_platform(magic_type)
-                task_machines = db.list_machines(platform=platform)
+                if machine.lower() == "all":
+                    platform = get_platform(magic_type)
+                if machine.lower() == "all":
+                    task_machines = db.list_machine(platform=platform)
 
                 for entry in task_machines:
                     try:
@@ -383,9 +384,8 @@ def index(request, resubmit_hash=False):
                 if not path:
                     return render(request, "error.html",
                                               {"error": "You uploaded an unsupported quarantine file."})
-
-                task_machines = db.list_machines(platform="windows")
-
+                if machine.lower() == "all":
+                    task_machines = db.list_machine(platform="windows")
                 for entry in task_machines:
                     task_ids_new = db.demux_sample_and_add_to_db(file_path=path, package=package, timeout=timeout,
                                                                  options=options, priority=priority, machine=entry,
@@ -451,7 +451,8 @@ def index(request, resubmit_hash=False):
                                           {"error": "You specified an invalid URL!"})
 
             url = url.replace("hxxps://", "https://").replace("hxxp://", "http://").replace("[.]", ".")
-            task_machines = db.list_machines(platform="windows")
+            if machine.lower() == "all":
+                task_machines = db.list_machine(platform="windows")
             for entry in task_machines:
                 task_id = db.add_url(url=url, package=package, timeout=timeout, options=options, priority=priority,
                                      machine=entry, custom=custom, memory=memory, enforce_timeout=enforce_timeout,
@@ -478,7 +479,8 @@ def index(request, resubmit_hash=False):
 
             magic_type = get_magic_type(path)
             platform = get_platform(magic_type)
-            task_machines = db.list_machines(platform=platform)
+            if machine.lower() == "all":
+                task_machines = db.list_machine(platform=platform)
             for entry in task_machines:
                 task_id = db.demux_sample_and_add_to_db(file_path=path, package=package, timeout=timeout,
                                                         options=options, priority=priority, machine=entry,

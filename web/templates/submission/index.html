@@ -177,7 +177,7 @@ $(document).ready( function() {
                                         <label for="form_machine">Machine</label>
                                         <select class="form-control" id="form_machine" name="machine">
                                             {% for id,label in machines %}
-                                            <option value="{{platform}}:{{id}}">{{label}}</option>
+                                            <option value="{{id}}">{{platform}}:{{label}}</option>
                                             {% endfor %}
                                         </select>
                                     </div>
