@@ -208,6 +208,7 @@ def download_file(api, content, request, db, task_ids, url, params, headers, ser
 
         #check if task_machines is passed in from api and handle (maybe replace or verify)
         if not task_machines:
+            task_machines = []
             if machine.lower() == "all":
                 task_machines = db.list_machine(platform=platform)
             else:
