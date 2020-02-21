@@ -787,7 +787,7 @@ class Database(object, metaclass=Singleton):
             if locked:
                 machines = session.query(Machine).options(joinedload("tags")).filter_by(locked=True).all()
             elif platform:
-                session.query(Machine).options(joinedload("tags")).filter_by(platform=platform).all()
+                machines = session.query(Machine).options(joinedload("tags")).filter_by(platform=platform).all()
             else:
                 machines = session.query(Machine).options(joinedload("tags")).all()
             if tags:
