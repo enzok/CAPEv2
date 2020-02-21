@@ -299,8 +299,7 @@ def index(request, resubmit_hash=False):
                                                  path, package, timeout, options, priority, machine, clock, custom,
                                                  memory, enforce_timeout, referrer, tags, orig_options, "", static)
             else:
-                return render(request, "error.html",
-                          {"error": "File not found on hdd for resubmission"})
+                return render(request, "error.html", {"error": "File not found on hdd for resubmission"})
         elif "sample" in request.FILES:
             samples = request.FILES.getlist("sample")
             for sample in samples:
@@ -310,8 +309,7 @@ def index(request, resubmit_hash=False):
                     if len(samples) != 1:
                         continue
 
-                    return render(request, "error.html",
-                                              {"error": "You uploaded an empty file."})
+                    return render(request, "error.html", {"error": "You uploaded an empty file."})
                 elif sample.size > settings.MAX_UPLOAD_SIZE:
                     return render(request,
                                   "error.html",
@@ -342,7 +340,13 @@ def index(request, resubmit_hash=False):
 
                 platform = get_platform(magic_type)
                 if machine.lower() == "all":
-                    task_machines = db.list_machine(platform=platform)
+                    task_machines = db.list_machines(platform=platform)
+                elif machine:
+                    machine_details = db.view_machine(machine[0])
+                    if not machine_details.platform == platform:
+                        return render(request, "error.html",
+                                      {"error": "Wrong platform, {} VM selected for {} sample".format(
+                                          platform, machine_details.platform)})
 
                 for entry in task_machines:
                     try:
@@ -363,12 +367,11 @@ def index(request, resubmit_hash=False):
                     if len(samples) != 1:
                         continue
 
-                    return render(request, "error.html",
-                                              {"error": "You uploaded an empty quarantine file."})
+                    return render(request, "error.html", {"error": "You uploaded an empty quarantine file."})
                 elif sample.size > settings.MAX_UPLOAD_SIZE:
                     return render(request, "error.html",
-                                              {"error": "You uploaded a quarantine file that exceeds the maximum \
-                                              allowed upload size specified in web/web/local_settings.py."})
+                                  {"error": "You uploaded a quarantine file that exceeds the maximum \
+                                  allowed upload size specified in web/web/local_settings.py."})
 
                 # Moving sample from django temporary file to Cuckoo temporary storage to
                 # let it persist between reboot (if user like to configure it in that way).
@@ -385,7 +388,13 @@ def index(request, resubmit_hash=False):
                     return render(request, "error.html", {"error": "You uploaded an unsupported quarantine file."})
 
                 if machine.lower() == "all":
-                    task_machines = db.list_machine(platform="windows")
+                    task_machines = db.list_machines(platform="windows")
+                elif machine:
+                    machine_details = db.view_machine(machine[0])
+                    if not machine_details.platform == "windows":
+                        return render(request, "error.html",
+                                      {"error": "Wrong platform, linux VM selected for {} sample".format(
+                                          machine_details.platform)})
 
                 for entry in task_machines:
                     task_ids_new = db.demux_sample_and_add_to_db(file_path=path, package=package, timeout=timeout,
@@ -448,13 +457,18 @@ def index(request, resubmit_hash=False):
         elif "url" in request.POST and request.POST.get("url").strip():
             url = request.POST.get("url").strip()
             if not url:
-                return render(request, "error.html",
-                                          {"error": "You specified an invalid URL!"})
+                return render(request, "error.html", {"error": "You specified an invalid URL!"})
 
             url = url.replace("hxxps://", "https://").replace("hxxp://", "http://").replace("[.]", ".")
 
             if machine.lower() == "all":
-                task_machines = db.list_machine(platform="windows")
+                task_machines = db.list_machines(platform="windows")
+            elif machine:
+                machine_details = db.view_machine(machine[0])
+                if not machine_details.platform == "windows":
+                    return render(request, "error.html",
+                                  {"error": "Wrong platform, linux VM selected for {} sample".format(
+                                      machine_details.platform)})
 
             for entry in task_machines:
                 task_id = db.add_url(url=url, package=package, timeout=timeout, options=options, priority=priority,
@@ -466,14 +480,12 @@ def index(request, resubmit_hash=False):
         elif "dlnexec" in request.POST and request.POST.get("dlnexec").strip():
             url = request.POST.get("dlnexec").strip()
             if not url:
-                return render(request, "error.html",
-                              {"error": "You specified an invalid URL!"})
+                return render(request, "error.html", {"error": "You specified an invalid URL!"})
 
             url = url.replace("hxxps://", "https://").replace("hxxp://", "http://").replace("[.]", ".")
             response = _download_file(request.POST.get("route", None), url, options)
             if not response:
-                 return render(request, "error.html",
-                               {"error": "Was impossible to retrieve url"})
+                 return render(request, "error.html", {"error": "Was impossible to retrieve url"})
 
             name = os.path.basename(url)
             if not "." in name:
@@ -482,8 +494,16 @@ def index(request, resubmit_hash=False):
 
             magic_type = get_magic_type(path)
             platform = get_platform(magic_type)
+
             if machine.lower() == "all":
-                task_machines = db.list_machine(platform=platform)
+                task_machines = db.list_machines(platform=platform)
+            elif machine:
+                machine_details = db.view_machine(machine[0])
+                if not machine_details.platform == platform:
+                    return render(request, "error.html",
+                                  {"error": "Wrong platform, {} VM selected for {} sample".format(
+                                      platform, machine_details.platform)})
+
 
             for entry in task_machines:
                 task_id = db.demux_sample_and_add_to_db(file_path=path, package=package, timeout=timeout,
