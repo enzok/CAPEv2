@@ -20,12 +20,15 @@ from django.shortcuts import redirect, render
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.core.rooter import _load_socks5_operational
 from lib.cuckoo.common.utils import get_ip_address, bytes2str
+from lib.cuckoo.core.database import Database
 
 
 cfg = Config("cuckoo")
 socks5_conf = Config("socks5")
 machinery = Config(cfg.cuckoo.machinery)
 disable_x64 = cfg.cuckoo.get("disable_x64", False)
+
+VALID_LINUX_TYPES = ["Bourne-Again", "POSIX shell script", "ELF", "Python"]
 
 hashes = {
     32: hashlib.md5,
@@ -47,6 +50,8 @@ except ImportError:
    HAVE_PEFILE = False
 
 log = logging.getLogger(__name__)
+
+db = Database()
 
 if cfg.cuckoo.machinery == "multi":
     for mmachinery in Config("multi").multi.get("machinery").split(","):
@@ -132,6 +137,13 @@ def get_magic_type(data):
     return False
 
 
+def get_platform(magic):
+    if magic and any(x in magic for x in VALID_LINUX_TYPES):
+        return "linux"
+    else:
+        return "windows"
+
+
 # Func to download from services
 def download_file(api, content, request, db, task_ids, url, params, headers, service, filename, package, timeout, options, priority, machine, clock, custom, memory, enforce_timeout, referrer, tags, orig_options, task_machines, static, fhash=False):
     onesuccess = False
@@ -184,21 +196,42 @@ def download_file(api, content, request, db, task_ids, url, params, headers, ser
 
     onesuccess = True
     if filename:
+        magic_type = get_magic_type(filename)
         if disable_x64 is True:
-            magic_type = get_magic_type(filename)
             if magic_type and ("x86-64" in magic_type or "PE32+" in magic_type):
                 if len(request.FILES) == 1:
                     return "error", render(request, "error.html", {"error": "Sorry no x64 support yet"})
 
-    orig_options, timeout, enforce_timeout = recon(filename, orig_options, timeout, enforce_timeout)
-    for entry in task_machines:
-        #ToDo find the root of the problem, vt vs resubmit as example
-        if isinstance(filename, str):
-            filename = filename.encode("utf-8")
-        task_ids_new = db.demux_sample_and_add_to_db(file_path=filename, package=package, timeout=timeout, options=options, priority=priority,
-                                                        machine=entry, custom=custom, memory=memory, enforce_timeout=enforce_timeout, tags=tags, clock=clock, static=static)
-        if isinstance(task_ids, list):
-            task_ids.extend(task_ids_new)
+        orig_options, timeout, enforce_timeout = recon(filename, orig_options, timeout, enforce_timeout)
+
+        platform = get_platform(magic_type)
+
+        #check if task_machines is passed in from api and handle (maybe replace or verify)
+        if not task_machines:
+            if machine.lower() == "all":
+                task_machines = db.list_machine(platform=platform)
+            else:
+                task_machines.append(machine)
+        else:
+            # do something here to verify machines match platform
+            pass
+
+        for entry in task_machines:
+            #ToDo find the root of the problem, vt vs resubmit as example
+            if isinstance(filename, str):
+                filename = filename.encode("utf-8")
+
+            task_ids_new = db.demux_sample_and_add_to_db(file_path=filename, package=package, timeout=timeout,
+                                                     options=options, priority=priority, machine=entry, custom=custom,
+                                                     memory=memory, enforce_timeout=enforce_timeout, tags=tags,
+                                                     clock=clock, static=static, platform=platform)
+            if isinstance(task_ids, list):
+                task_ids.extend(task_ids_new)
+    else:
+        if api:
+            return "error", jsonize({"error": "File {} not found on {}".format(filename, service)}, response=True)
+        else:
+            return "error", render(request, "error.html", {"error": "File {} not found on {}".format(filename, service)})
 
     if not onesuccess:
         if api:

@@ -778,7 +778,7 @@ class Database(object, metaclass=Singleton):
             session.close()
 
     @classlock
-    def list_machines(self, locked=False):
+    def list_machines(self, locked=False, platform="", tags=[]):
         """Lists virtual machines.
         @return: list of virtual machines
         """
@@ -786,8 +786,12 @@ class Database(object, metaclass=Singleton):
         try:
             if locked:
                 machines = session.query(Machine).options(joinedload("tags")).filter_by(locked=True).all()
+            elif platform:
+                session.query(Machine).options(joinedload("tags")).filter_by(platform=platform).all()
             else:
                 machines = session.query(Machine).options(joinedload("tags")).all()
+            if tags:
+                machines = [machine for tag in tags for machine in machines if tag in machine.to_dict()["tags"]]
             return machines
         except SQLAlchemyError as e:
             log.debug("Database error listing machines: {0}".format(e))
@@ -1183,6 +1187,9 @@ class Database(object, metaclass=Singleton):
         """
         task_ids = []
         sample_parent_id = None
+        # force auto package for linux files
+        if platform == "linux":
+            package = ""
         # extract files from the (potential) archive
         extracted_files = demux_sample(file_path, package, options)
         # check if len is 1 and the same file, if diff register file, and set parent
