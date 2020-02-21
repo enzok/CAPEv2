@@ -214,8 +214,8 @@ def download_file(api, content, request, db, task_ids, url, params, headers, ser
                 machine_details = db.view_machine(machine)
                 if not machine_details.platform == platform:
                     return render(request, "error.html",
-                                  {"error": "Wrong platform, linux VM selected for {} sample".format(
-                                      machine_details.platform)})
+                                  {"error": "Wrong platform, {} VM selected for {} sample".format(
+                                      machine_details.platform, platform)})
                 else:
                     task_machines = [machine]
 

@@ -346,7 +346,7 @@ def index(request, resubmit_hash=False):
                     if not machine_details.platform == platform:
                         return render(request, "error.html",
                                       {"error": "Wrong platform, {} VM selected for {} sample".format(
-                                          platform, machine_details.platform)})
+                                          machine_details.platform, platform)})
                     else:
                         task_machines = [machine]
 
@@ -508,7 +508,7 @@ def index(request, resubmit_hash=False):
                 if not machine_details.platform == platform:
                     return render(request, "error.html",
                                   {"error": "Wrong platform, {} VM selected for {} sample".format(
-                                      platform, machine_details.platform)})
+                                       machine_details.platform, platform)})
                 else:
                     task_machines = [machine]
 
