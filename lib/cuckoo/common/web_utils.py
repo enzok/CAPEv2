@@ -208,17 +208,16 @@ def download_file(api, content, request, db, task_ids, url, params, headers, ser
 
         #check if task_machines is passed in from api and handle (maybe replace or verify)
         if not task_machines:
-            task_machines = []
             if machine.lower() == "all":
                 task_machines = db.list_machines(platform=platform)
-            elif machine:
+            else:
                 machine_details = db.view_machine(machine)
                 if not machine_details.platform == platform:
                     return render(request, "error.html",
                                   {"error": "Wrong platform, linux VM selected for {} sample".format(
                                       machine_details.platform)})
                 else:
-                    task_machines.append(machine)
+                    task_machines = [machine]
 
         for entry in task_machines:
             #ToDo find the root of the problem, vt vs resubmit as example

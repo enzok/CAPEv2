@@ -341,12 +341,14 @@ def index(request, resubmit_hash=False):
                 platform = get_platform(magic_type)
                 if machine.lower() == "all":
                     task_machines = db.list_machines(platform=platform)
-                elif machine:
-                    machine_details = db.view_machine(machine[0])
+                else:
+                    machine_details = db.view_machine(machine)
                     if not machine_details.platform == platform:
                         return render(request, "error.html",
                                       {"error": "Wrong platform, {} VM selected for {} sample".format(
                                           platform, machine_details.platform)})
+                    else:
+                        task_machines = [machine]
 
                 for entry in task_machines:
                     try:
@@ -389,12 +391,14 @@ def index(request, resubmit_hash=False):
 
                 if machine.lower() == "all":
                     task_machines = db.list_machines(platform="windows")
-                elif machine:
-                    machine_details = db.view_machine(machine[0])
+                else:
+                    machine_details = db.view_machine(machine)
                     if not machine_details.platform == "windows":
                         return render(request, "error.html",
                                       {"error": "Wrong platform, linux VM selected for {} sample".format(
                                           machine_details.platform)})
+                    else:
+                        task_machines = [machine]
 
                 for entry in task_machines:
                     task_ids_new = db.demux_sample_and_add_to_db(file_path=path, package=package, timeout=timeout,
@@ -463,12 +467,14 @@ def index(request, resubmit_hash=False):
 
             if machine.lower() == "all":
                 task_machines = db.list_machines(platform="windows")
-            elif machine:
-                machine_details = db.view_machine(machine[0])
+            else:
+                machine_details = db.view_machine(machine)
                 if not machine_details.platform == "windows":
                     return render(request, "error.html",
                                   {"error": "Wrong platform, linux VM selected for {} sample".format(
                                       machine_details.platform)})
+                else:
+                    task_machines = [machine]
 
             for entry in task_machines:
                 task_id = db.add_url(url=url, package=package, timeout=timeout, options=options, priority=priority,
@@ -497,12 +503,14 @@ def index(request, resubmit_hash=False):
 
             if machine.lower() == "all":
                 task_machines = db.list_machines(platform=platform)
-            elif machine:
+            else:
                 machine_details = db.view_machine(machine[0])
                 if not machine_details.platform == platform:
                     return render(request, "error.html",
                                   {"error": "Wrong platform, {} VM selected for {} sample".format(
                                       platform, machine_details.platform)})
+                else:
+                    task_machines = [machine]
 
             for entry in task_machines:
                 task_id = db.demux_sample_and_add_to_db(file_path=path, package=package, timeout=timeout,
