@@ -1076,11 +1076,12 @@ class Database(object, metaclass=Singleton):
 
             # force a special tag for 64-bit binaries to prevent them from being
             # analyzed by default on VM types that can't handle them
-            if "PE32+" in file_type and not machine:
-                if tags:
-                    tags += ",x64"
-                else:
-                    tags = "x64"
+            if not machine:
+                if "PE32+" in file_type or "64-bit" in file_type:
+                    if tags:
+                        tags += ",x64"
+                    else:
+                        tags = "x64"
 
             task = Task(obj.file_path)
             task.sample_id = sample.id
