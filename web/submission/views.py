@@ -259,6 +259,7 @@ def index(request, resubmit_hash=False):
 
         orig_options = options
         task_ids = []
+        task_machines = []
 
         status = "ok"
         failed_hashes = list()
@@ -300,6 +301,7 @@ def index(request, resubmit_hash=False):
                                                  memory, enforce_timeout, referrer, tags, orig_options, "", static)
             else:
                 return render(request, "error.html", {"error": "File not found on hdd for resubmission"})
+
         elif "sample" in request.FILES:
             samples = request.FILES.getlist("sample")
             for sample in samples:
@@ -348,9 +350,14 @@ def index(request, resubmit_hash=False):
                                       {"error": "Wrong platform, {} VM selected for {} sample".format(
                                           machine_details.platform, platform)})
                     else:
-                        task_machines = [machine]
+                        task_machines.append(machine)
+
+                else:
+                    task_machines.append("first")
 
                 for entry in task_machines:
+                    if entry == "first":
+                        entry = None
                     try:
                         task_ids_new = db.demux_sample_and_add_to_db(file_path=path, package=package, timeout=timeout,
                                                                      options=options, priority=priority, machine=entry,
@@ -360,6 +367,7 @@ def index(request, resubmit_hash=False):
                         task_ids.extend(task_ids_new)
                     except CuckooDemuxError as err:
                         return render(request, "error.html", {"error": err})
+
         elif "quarantine" in request.FILES:
             samples = request.FILES.getlist("quarantine")
             for sample in samples:
@@ -377,13 +385,12 @@ def index(request, resubmit_hash=False):
 
                 # Moving sample from django temporary file to Cuckoo temporary storage to
                 # let it persist between reboot (if user like to configure it in that way).
-                tmp_path = store_temp_file(sample.read(),
-                                       sample.name)
+                tmp_path = store_temp_file(sample.read(), sample.name)
 
                 path = unquarantine(tmp_path)
                 try:
                     os.remove(tmp_path)
-                except:
+                except Exception as e:
                     pass
 
                 if not path:
@@ -398,14 +405,20 @@ def index(request, resubmit_hash=False):
                                       {"error": "Wrong platform, linux VM selected for {} sample".format(
                                           machine_details.platform)})
                     else:
-                        task_machines = [machine]
+                        task_machines.append(machine)
+
+                if not task_machines:
+                    task_machines.append("first")
 
                 for entry in task_machines:
+                    if entry == "first":
+                        entry = None
                     task_ids_new = db.demux_sample_and_add_to_db(file_path=path, package=package, timeout=timeout,
                                                                  options=options, priority=priority, machine=entry,
                                                                  custom=custom, memory=memory, tags=tags,
                                                                  enforce_timeout=enforce_timeout, clock=clock)
-                    task_ids.extend(task_ids_new)
+                    if task_ids_new:
+                        task_ids.extend(task_ids_new)
 
         elif "static" in request.FILES:
             samples = request.FILES.getlist("static")
@@ -450,14 +463,16 @@ def index(request, resubmit_hash=False):
                     if saz:
                         try:
                             os.remove(path)
-                        except:
+                        except Exception as e:
                             pass
                         path = saz
                     else:
                         return render(request, "error.html", {"error": "Conversion from SAZ to PCAP failed."})
 
                 task_id = db.add_pcap(file_path=path, priority=priority)
-                task_ids.append(task_id)
+                if task_id:
+                    task_ids.append(task_id)
+
         elif "url" in request.POST and request.POST.get("url").strip():
             url = request.POST.get("url").strip()
             if not url:
@@ -474,14 +489,19 @@ def index(request, resubmit_hash=False):
                                   {"error": "Wrong platform, linux VM selected for {} sample".format(
                                       machine_details.platform)})
                 else:
-                    task_machines = [machine]
+                    task_machines.append(machine)
+
+            else:
+                task_machines.append("first")
 
             for entry in task_machines:
-                task_id = db.add_url(url=url, package=package, timeout=timeout, options=options, priority=priority,
-                                     machine=entry, custom=custom, memory=memory, enforce_timeout=enforce_timeout,
-                                     tags=tags, clock=clock)
-                if task_id:
-                    task_ids.append(task_id)
+                if entry == "first":
+                    entry = None
+                task_ids_new = db.add_url(url=url, package=package, timeout=timeout, options=options, priority=priority,
+                                          machine=entry, custom=custom, memory=memory, enforce_timeout=enforce_timeout,
+                                          tags=tags, clock=clock)
+                if task_ids_new:
+                    task_ids.extend(task_ids_new)
 
         elif "dlnexec" in request.POST and request.POST.get("dlnexec").strip():
             url = request.POST.get("dlnexec").strip()
@@ -510,15 +530,19 @@ def index(request, resubmit_hash=False):
                                   {"error": "Wrong platform, {} VM selected for {} sample".format(
                                        machine_details.platform, platform)})
                 else:
-                    task_machines = [machine]
-
+                    task_machines.append(machine)
+            else:
+                task_machines.append("first")
             for entry in task_machines:
-                task_id = db.demux_sample_and_add_to_db(file_path=path, package=package, timeout=timeout,
-                                                        options=options, priority=priority, machine=entry,
-                                                        custom=custom, memory=memory, enforce_timeout=enforce_timeout,
-                                                        tags=tags, platform=platform, clock=clock)
-                if task_id:
-                    task_ids += task_id
+                if entry == "first":
+                    entry = None
+                task_ids_new = db.demux_sample_and_add_to_db(file_path=path, package=package, timeout=timeout,
+                                                             options=options, priority=priority, machine=entry,
+                                                             custom=custom, memory=memory,
+                                                             enforce_timeout=enforce_timeout, tags=tags,
+                                                             platform=platform, clock=clock)
+                if task_ids_new:
+                    task_ids.extend(task_ids_new)
 
         elif settings.VTDL_ENABLED and "vtdl" in request.POST and request.POST.get("vtdl", False) \
                 and request.POST.get("vtdl")[0] != '':
