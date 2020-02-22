@@ -145,7 +145,9 @@ def get_platform(magic):
 
 
 # Func to download from services
-def download_file(api, content, request, db, task_ids, url, params, headers, service, filename, package, timeout, options, priority, machine, clock, custom, memory, enforce_timeout, referrer, tags, orig_options, task_machines, static, fhash=False):
+def download_file(api, content, request, db, task_ids, url, params, headers, service, filename, package, timeout,
+                  options, priority, machine, clock, custom, memory, enforce_timeout, referrer, tags, orig_options,
+                  task_machines, static, fhash=False):
     onesuccess = False
     if not content:
         try:
@@ -155,20 +157,26 @@ def download_file(api, content, request, db, task_ids, url, params, headers, ser
             if api:
                 return "error", jsonize({"error": "Provided hash not found on {}".format(service)}, response=True)
             else:
-                return "error", render(request, "error.html", {"error":  "Provided hash not found on {}".format(service)})
+                return "error", render(request, "error.html",
+                                       {"error":  "Provided hash not found on {}".format(service)})
 
-        if r.status_code == 200 and r.content != b"Hash Not Present" and b"The request requires higher privileges than provided by the access token" not in r.content:
+        if r.status_code == 200 and r.content != b"Hash Not Present" \
+                and b"The request requires higher privileges than provided by the access token" not in r.content:
             content = r.content
         elif r.status_code == 403:
             if api:
-                return "error", jsonize({"error": "API key provided is not a valid {0} key or is not authorized for {0} downloads".format(service)}, response=True)
+                return "error", jsonize({"error": "API key provided is not a valid {0} key or is not authorized for "
+                                                  "{0} downloads".format(service)}, response=True)
             else:
-                return "error", render(request, "error.html", {"error": "API key provided is not a valid {0} key or is not authorized for {0} downloads".format(service)})
+                return "error", render(request, "error.html",
+                                       {"error": "API key provided is not a valid {0} key or is not authorized for "
+                                                 "{0} downloads".format(service)})
         else:
             if api:
                 return "error", jsonize({"error": "Was impossible to download from {0}".format(service)}, response=True)
             else:
-                return "error", render(request, "error.html", {"error": "Was impossible to download from {0}".format(service)})
+                return "error", render(request, "error.html",
+                                       {"error": "Was impossible to download from {0}".format(service)})
 
     if not content:
         if api:
@@ -181,18 +189,23 @@ def download_file(api, content, request, db, task_ids, url, params, headers, ser
             retrieved_hash = hashes[len(fhash)](content).hexdigest()
             if retrieved_hash != fhash.lower():
                 if api:
-                    return "error", jsonize({"error": "Hashes mismatch, original hash: {} - retrieved hash: {}".format(fhash, retrieved_hash)}, response=True)
+                    return "error", jsonize({"error": "Hashes mismatch, original hash: {} - retrieved hash: {}".format(
+                        fhash, retrieved_hash)}, response=True)
                 else:
-                    return "error", render(request, "error.html", {"error": "Hashes mismatch, original hash: {} - retrieved hash: {}".format(fhash, retrieved_hash)})
+                    return "error", render(request, "error.html",
+                                           {"error": "Hashes mismatch, original hash: {} - retrieved hash: {}".format(
+                                               fhash, retrieved_hash)})
 
         f = open(filename, 'wb')
         f.write(content)
         f. close()
     except:
         if api:
-            return "error", jsonize({"error": "Error writing {} download file to temporary path".format(service)}, response=True)
+            return "error", jsonize({"error": "Error writing {} download file to temporary path".format(service)},
+                                    response=True)
         else:
-            return "error", render(request, "error.html", {"error": "Error writing {} download file to temporary path".format(service)})
+            return "error", render(request, "error.html",
+                                   {"error": "Error writing {} download file to temporary path".format(service)})
 
     onesuccess = True
     if filename:
@@ -218,27 +231,32 @@ def download_file(api, content, request, db, task_ids, url, params, headers, ser
                             machine_details.platform, platform)}, response=True)
                     else:
                         return render(request, "error.html",
-                                  {"error": "Wrong platform, {} VM selected for {} sample".format(
-                                      machine_details.platform, platform)})
+                                      {"error": "Wrong platform, {} VM selected for {} sample".format(
+                                       machine_details.platform, platform)})
                 else:
                     task_machines = [machine]
+            else:
+                task_machines = ["first"]
 
         for entry in task_machines:
-            #ToDo find the root of the problem, vt vs resubmit as example
+            if entry == "first":
+                entry = None
             if isinstance(filename, str):
                 filename = filename.encode("utf-8")
 
             task_ids_new = db.demux_sample_and_add_to_db(file_path=filename, package=package, timeout=timeout,
-                                                     options=options, priority=priority, machine=entry, custom=custom,
-                                                     memory=memory, enforce_timeout=enforce_timeout, tags=tags,
-                                                     clock=clock, static=static, platform=platform)
-            if isinstance(task_ids, list):
-                task_ids.extend(task_ids_new)
+                                                         options=options, priority=priority, machine=entry,
+                                                         custom=custom, memory=memory, enforce_timeout=enforce_timeout,
+                                                         tags=tags, clock=clock, static=static, platform=platform)
+            if task_ids_new:
+                if isinstance(task_ids, list):
+                    task_ids.extend(task_ids_new)
     else:
         if api:
             return "error", jsonize({"error": "File {} not found on {}".format(filename, service)}, response=True)
         else:
-            return "error", render(request, "error.html", {"error": "File {} not found on {}".format(filename, service)})
+            return "error", render(request, "error.html",
+                                   {"error": "File {} not found on {}".format(filename, service)})
 
     if not onesuccess:
         if api:
@@ -269,7 +287,6 @@ def _download_file(route, url, options):
                 "http": "socks5://{}:{}".format(socks5s[route]["host"], socks5s[route]["port"]),
                 "https": "socks5://{}:{}".format(socks5s[route]["host"], socks5s[route]["port"]),
             }
-
 
     # load headers
     for option in options.split(","):
