@@ -487,13 +487,13 @@ $(document).ready( function() {
                             </div>
                             <div class="checkbox">
                                 <label>
-                                    <input type="checkbox" name="process_dump" checked/> WINDOWS: Enable process dumps
+                                    <input type="checkbox" name="process_dump" checked/> WINDOWS: Process dumps
                                 </label>
                             </div>
                             {% if config.procmemory %}
                             <div class="checkbox">
                                 <label>
-                                    <input type="checkbox" name="process_memory" /> Full process memory dumps
+                                    <input type="checkbox" name="process_memory" /> Full process memory dump
                                 </label>
                             </div>
                             {% endif %}
@@ -505,7 +505,7 @@ $(document).ready( function() {
                             {% if config.memory %}
                             <div class="checkbox">
                                 <label>
-                                    <input type="checkbox" name="memory" /> Full Memory Dump <span class="text-muted"><small>(if the "memory" processing module is enabled, will launch a Volatility analysis)</small></span>
+                                    <input type="checkbox" name="memory" /> Full VM Memory Dump <span class="text-muted"><small>(if the "memory" processing module is enabled, will launch a Volatility analysis)</small></span>
                                 </label>
                             </div>
                             {% endif %}
