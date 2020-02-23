@@ -336,6 +336,7 @@ class Analyzer:
         log.debug("Starting analyzer from: %s", os.getcwd())
         log.debug("Storing results at: %s", PATHS["root"])
         log.debug("Pipe server name: %s", PIPE)
+        log.debug("Python path: %s", os.path.dirname(sys.executable))
 
         # If no analysis package was specified at submission, we try to select
         # one automatically.
@@ -810,7 +811,15 @@ class Files(object):
             log.info("Error dumping file from path \"%s\": %s", filepath, e)
             return
 
-        upload_path = os.path.join(category, sha256)
+        if category == "memory":
+            if pids:
+                upload_path = os.path.join(category, "{}.dmp".format(pids[0]))
+            else:
+                pids = [os.path.basename(filepath).split(".")[0]]
+                upload_path = os.path.join(category, os.path.basename(filepath))
+
+        else:
+            upload_path = os.path.join(category, sha256)
 
         try:
             upload_to_host(
@@ -1264,7 +1273,7 @@ class CommandPipeHandler(object):
             else:
                 log.info("Notified of termination of process with pid %u.", process_id)
                 # dump the memory of exiting processes
-                if self.analyzer.options.get("procmemdump") or  self.analyzer.options.get("procdump"):
+                if self.analyzer.options.get("procmemdump") or self.analyzer.options.get("procdump"):
                     p = Process(pid=process_id)
                     p.dump_memory()
                 # make sure process is aware of the termination
@@ -1441,11 +1450,23 @@ class CommandPipeHandler(object):
 
     def _handle_file_dump(self, file_path):
         # We extract the file path.
-        # Syntax -> PATH
         # We dump immediately.
+        log.info(file_path)
+        if b"\\CAPE\\" in file_path:
+            log.info("cape")
+            #Syntax -> PATH|PID|Metadata
+            file_path, pid, metadata = file_path.split(b"|")
+            if os.path.exists(file_path):
+                self.analyzer.files.dump_file(file_path.decode("utf-8"), pids=[pid.decode("utf-8")], metadata=metadata, category="procdump")
+
         if os.path.exists(file_path):
-            # aka send this as data for the command
-            self.analyzer.files.dump_file(file_path.decode("utf-8"), category="memory")
+            #Syntax -> PATH
+            if b"\\memory\\" in file_path:
+                log.info("memory")
+                # aka send this as data for the command
+                self.analyzer.files.dump_file(file_path.decode("utf-8"), category="memory")
+            else:
+                self.analyzer.files.dump_file(file_path.decode("utf-8"))
 
     def _handle_dumpmem(self, data):
         #TODo dump by pid
@@ -1454,7 +1475,7 @@ class CommandPipeHandler(object):
             log.warning("Received DUMPMEM command with an incorrect argument.")
             return
 
-        dump_memory(int(data))
+        #dump_memory(int(data))
 
     def _handle_dumpreqs(self, data):
         if not data.isdigit():

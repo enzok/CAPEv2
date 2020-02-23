@@ -25,21 +25,22 @@ except ImportError:
     HAS_SFLOCK = False
 
 log = logging.getLogger(__name__)
-options = Config()
-tmp_path = options.cuckoo.get("tmppath", "/tmp")
+cuckoo_conf = Config()
+tmp_path = cuckoo_conf.cuckoo.get("tmppath", "/tmp")
 
 demux_extensions_list = [
-        "", ".exe", ".dll", ".com", ".jar", ".pdf", ".msi", ".bin", ".scr", ".zip", ".tar", ".gz", ".tgz", ".rar",
-        ".doc", ".dot", ".docx", ".dotx", ".docm", ".dotm", ".docb", ".mht", ".mso", ".js", ".jse", ".vbs", ".vbe",
-        ".xls", ".xlt", ".xlm", ".xlsx", ".xltx", ".xlsm", ".xltm", ".xlsb", ".xla", ".xlam", ".xll", ".xlw", ".htm",
-        ".ppt", ".pot", ".pps", ".pptx", ".pptm", ".potx", ".potm", ".ppam", ".ppsx", ".ppsm", ".sldx", ".sldm", ".wsf",
-        ".html", ".hta", ".bat", ".ps1", ".cmd",
-    ]
+    "", ".exe", ".dll", ".com", ".jar", ".pdf", ".msi", ".bin", ".scr", ".zip", ".tar", ".gz", ".tgz", ".rar", ".htm",
+    ".html", ".hta", ".doc", ".dot", ".docx", ".dotx", ".docm", ".dotm", ".docb", ".mht", ".mso", ".js", ".jse",
+    ".vbs", ".vbe", ".xls", ".xlt", ".xlm", ".xlsx", ".xltx", ".xlsm", ".xltm", ".xlsb", ".xla", ".xlam", ".xll",
+    ".xlw", ".ppt", ".pot", ".pps", ".pptx", ".pptm", ".potx", ".potm", ".ppam", ".ppsx", ".ppsm", ".sldx", ".sldm",
+    ".wsf", ".bat", ".ps1", ".sh", ".pl",
+]
 
 whitelist_extensions = ("doc", "xls", "ppt", "pub", "jar")
 
 # list of valid file types to extract - TODO: add more types
 VALID_TYPES = ["PE32", "Java Jar", "Outlook", "Message"]
+VALID_LINUX_TYPES = ["Bourne-Again", "POSIX shell script", "ELF", "Python"]
 
 
 def options2passwd(options):
@@ -85,6 +86,7 @@ def demux_office(filename, password):
 
 def is_valid_type(magic):
     # check for valid file types and don't rely just on file extentsion
+    VALID_TYPES.extend(VALID_LINUX_TYPES)
     for ftype in VALID_TYPES:
         if ftype in magic:
             return True
@@ -173,6 +175,8 @@ def demux_sample(filename, package, options):
     if "Java Jar" in magic:
         return [filename]
     if "PE32" in magic or "MS-DOS executable" in magic:
+        return [filename]
+    if any(x in magic for x in VALID_LINUX_TYPES):
         return [filename]
 
     retlist = list()

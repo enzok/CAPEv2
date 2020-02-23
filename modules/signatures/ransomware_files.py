@@ -22,7 +22,7 @@ class RansomwareFiles(Signature):
     severity = 3
     families = []
     categories = ["ransomware"]
-    authors = ["KillerInstinct"]
+    authors = ["KillerInstinct", "bartblaze"]
     minimum = "1.2"
     ttp = ["T1486"]
 
@@ -110,10 +110,10 @@ class RansomwareFiles(Signature):
             (".*\\\\!INSTRUCTI0NS!\.TXT$", ["Maoloa"]),
             (".*\\\\DECRYPT-FILES\.(html|txt)$", ["Maze"]),
             (".*\\\\help\ to\ decrypt\.html$", ["MorrisBatchCrypt"]),
-            (".*\\\\_Decrypt_Files\.html$", ["Robinhood"]),
-            (".*\\\\_Help_Help_Help\.html$", ["Robinhood"]),
-            (".*\\\\_Help_Important\.html$", ["Robinhood"]),
-            (".*\\\\_Decryption_ReadMe\.html$", ["Robinhood"]),
+            (".*\\\\_Decrypt_Files\.html$", ["Robbinhood"]),
+            (".*\\\\_Help_Help_Help\.html$", ["Robbinhood"]),
+            (".*\\\\_Help_Important\.html$", ["Robbinhood"]),
+            (".*\\\\_Decryption_ReadMe\.html$", ["Robbinhood"]),
             (".*\\\\RyukReadMe\.txt$", ["Ryuk"]),
             ("C:\\[a-z0-9]{6,9}-HOW-TO-DECRYPT\.txt$", ["Sodinokibi","REvil"]),
             ("C:\\[a-z0-9]{6,9}-readme\.txt$", ["Sodinokibi","REvil"]),
@@ -131,7 +131,7 @@ class RansomwareFiles(Signature):
             (".*\\\\@Please_Read_Me@\.txt$", ["WannaCry"]),
             (".*\\\\_readme\.txt$", ["Moka"]),
             (".*\\\\#FOX_README#\.rtf$", ["Fox"]),
-            (".*\\\\Restore-My-Files\.txt$", ["Goodmen"]),
+            (".*\\\\Restore-My-Files\.txt$", ["Goodmen", "LockBit"]),
             (".*\\\\HOW_DECRYPT_FILES\.txt$", ["Estemani"]),
             (".*\\\\[A-Z0-9]{6}-Readme\.txt$", ["Koko", "Mailto"]),
             (".*\\\\#README\.lilocked$", ["Lilocked"]),

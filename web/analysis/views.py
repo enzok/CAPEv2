@@ -924,7 +924,7 @@ def file(request, category, task_id, dlfile):
         elif category.startswith("procdump"):
             path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "procdump", file_name)
         elif category.startswith("memdumpzip"):
-            path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "memory", file_name)
+            path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "memory", file_name +".dmp")
             file_name += ".dmp"
         TMPDIR = "/tmp"
         if path and category in ("samplezip", "droppedzip", "CAPEZIP", "procdumpzip", "memdumpzip"):
