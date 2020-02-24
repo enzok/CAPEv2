@@ -209,7 +209,7 @@ def index(request, resubmit_hash=False):
         if request.POST.get("process_dump"):
             if options:
                 options += ","
-            options += "procdump=1"
+            options += "procdump=0"
 
         if request.POST.get("process_memory"):
             if options:
