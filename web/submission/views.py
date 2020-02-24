@@ -251,6 +251,11 @@ def index(request, resubmit_hash=False):
                 options += ","
             options += "posproc=1"
 
+        if request.POST.get("combo"):
+            if options:
+                options += ","
+            options += "combo=1"
+
         if submitter:
             if options:
                 options += ","
