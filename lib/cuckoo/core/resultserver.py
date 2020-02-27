@@ -201,7 +201,7 @@ class FileUpload(ProtocolHandler):
             raise
         #ToDo we need Windows path
         # filter screens/curtain/sysmon
-        if not dump_path.startswith((b"shots/", b"curtain/", b"aux/", b"sysmon/")):
+        if not dump_path.startswith((b"shots/", b"curtain/", b"aux/", b"sysmon/", b"debugger/")):
             # Append-writes are atomic
             with open(self.filelog, "a") as f:
                 print(json.dumps({
@@ -209,7 +209,8 @@ class FileUpload(ProtocolHandler):
                     "filepath": filepath.decode("utf-8", "replace") if filepath else "",
                     "pids": pids,
                     "metadata": metadata.decode("utf-8", "replace"),
-                    "category": category.decode("utf-8") if category in (b"CAPE", b"files", b"memory", b"procdump") else ""
+                    "category": category.decode("utf-8") if category in
+                                                            (b"CAPE", b"files", b"memory", b"procdump") else ""
                 }, ensure_ascii=False), file=f)
 
         self.handler.sock.settimeout(None)
@@ -322,7 +323,8 @@ class GeventResultServerWorker(gevent.server.StreamServer):
                 ctx.cancel()
 
     def create_folders(self):
-        folders = ('CAPE', 'aux', 'curtain', 'files', 'logs', 'memory', 'shots', 'sysmon', 'stap', 'procdump')
+        folders = ('CAPE', 'aux', 'curtain', 'files', 'logs', 'memory', 'shots', 'sysmon', 'stap',
+                   'procdump', 'debugger')
 
         for folder in folders:
             try:
