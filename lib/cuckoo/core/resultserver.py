@@ -323,8 +323,8 @@ class GeventResultServerWorker(gevent.server.StreamServer):
                 ctx.cancel()
 
     def create_folders(self):
-        folders = ('CAPE', 'aux', 'curtain', 'files', 'logs', 'memory', 'shots', 'sysmon', 'stap',
-                   'procdump', 'debugger')
+        folders = ('CAPE', 'aux', 'curtain', 'files', 'logs', 'memory', 'shots', 'sysmon',
+                   'stap', 'procdump', 'debugger')
 
         for folder in folders:
             try:
