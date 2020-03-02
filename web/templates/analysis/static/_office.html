@@ -18,7 +18,7 @@
                             {% for key, value in analysis.mmbot.items|dictsort:"0.lower" %}
                                 <tr>
                                     <td>{{key}}</td>
-                                    <td>{{value}|floatformat:2}</td>
+                                    <td>{{value|floatformat:2}}</td>
                                 </tr>
                             {% endfor %}
                         </table>
