@@ -930,9 +930,9 @@ def file(request, category, task_id, dlfile):
         if path and category in ("samplezip", "droppedzip", "CAPEZIP", "procdumpzip", "memdumpzip"):
             try:
                 cmd = ["7z", "a", "-y", "-p" + settings.ZIP_PWD, os.path.join(TMPDIR, file_name + ".zip"), path]
-                output = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
+                _ = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
             except subprocess.CalledProcessError as e:
-                output = e.output
+                return render(request, "error.html", {"error": "7zip error: {}".format(e)})
             file_name += ".zip"
             path = os.path.join(TMPDIR, file_name)
             cd = "application/zip"
@@ -960,16 +960,14 @@ def file(request, category, task_id, dlfile):
             path += ".zip"
             cd = "application/zip"
     elif category == "dropped":
-        buf = os.path.join(CUCKOO_ROOT, "storage", "analyses",
-                           task_id, "files", file_name)
+        buf = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "files", file_name)
         if os.path.isdir(buf):
             dfile = min(os.listdir(buf), key=len)
             path = os.path.join(buf, dfile)
         else:
             path = buf
     elif category == "procdump":
-        buf = os.path.join(CUCKOO_ROOT, "storage", "analyses",
-                           task_id, "procdump", file_name)
+        buf = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "procdump", file_name)
         if os.path.isdir(buf):
             dfile = min(os.listdir(buf), key=len)
             path = os.path.join(buf, dfile)
@@ -986,8 +984,7 @@ def file(request, category, task_id, dlfile):
     elif category == "rtf":
         path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "rtf_objects", file_name)
     else:
-        return render(request, "error.html",
-            {"error": "Category not defined"})
+        return render(request, "error.html", {"error": "Category not defined"})
 
     if not cd:
         cd = "application/octet-stream"

@@ -2,7 +2,6 @@
 # Copyright (C) 2010-2015 Cuckoo Foundation.
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
-
 from __future__ import absolute_import
 import os
 import gc
@@ -12,40 +11,44 @@ import json
 import logging
 import argparse
 import signal
-import multiprocessing
+
+try:
+    import pebble
+except ImportError:
+    sys.exit("Missed dependency: pip3 install Pebble")
 
 if sys.version_info[:2] < (3, 5):
     sys.exit("You are running an incompatible version of Python, please use >= 3.5")
 
 log = logging.getLogger()
 sys.path.append(os.path.join(os.path.abspath(os.path.dirname(__file__)), ".."))
+
 from lib.cuckoo.common.colors import red
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.core.database import Database, Task, TASK_REPORTED, TASK_COMPLETED
 from lib.cuckoo.core.database import TASK_FAILED_PROCESSING
-from lib.cuckoo.core.plugins import GetFeeds, RunProcessing, RunSignatures
+from lib.cuckoo.core.plugins import RunProcessing, RunSignatures
 from lib.cuckoo.core.plugins import RunReporting
 from lib.cuckoo.core.startup import init_modules, init_yara, ConsoleHandler
+from concurrent.futures import TimeoutError
 
 cfg = Config()
 repconf = Config("reporting")
+
 if repconf.mongodb.enabled:
     from bson.objectid import ObjectId
     from pymongo import MongoClient
-    from pymongo.errors import ConnectionFailure
 
 if repconf.elasticsearchdb.enabled and not repconf.elasticsearchdb.searchonly:
     from elasticsearch import Elasticsearch
     baseidx = repconf.elasticsearchdb.index
     fullidx = baseidx + "-*"
-    es = Elasticsearch(
-         hosts=[{
-             "host": repconf.elasticsearchdb.host,
-             "port": repconf.elasticsearchdb.port,
-         }],
-         timeout=60
-     )
+    es = Elasticsearch(hosts=[{"host": repconf.elasticsearchdb.host, "port": repconf.elasticsearchdb.port}], timeout=60)
+
+pending_future_map = {}
+pending_task_id_map = {}
+
 
 def process(target=None, copy_path=None, task=None, report=False, auto=False, capeproc=False, memory_debugging=False):
     # This is the results container. It's what will be used by all the
@@ -82,11 +85,8 @@ def process(target=None, copy_path=None, task=None, report=False, auto=False, ca
             host = repconf.mongodb.host
             port = repconf.mongodb.port
             db = repconf.mongodb.db
-            conn = MongoClient(host,
-                               port=port,
-                               username=repconf.mongodb.get("username", None),
-                               password=repconf.mongodb.get("password", None),
-                               authSource=db)
+            conn = MongoClient(host, port=port, username=repconf.mongodb.get("username", None),
+                               password=repconf.mongodb.get("password", None), authSource=db)
             mdata = conn[db]
             analyses = mdata.analysis.find({"info.id": int(task_id)})
             if analyses.count() > 0:
@@ -100,11 +100,7 @@ def process(target=None, copy_path=None, task=None, report=False, auto=False, ca
             log.debug("Deleted previous MongoDB data for Task %s" % task_id)
 
         if repconf.elasticsearchdb.enabled and not repconf.elasticsearchdb.searchonly:
-            analyses = es.search(
-                           index=fullidx,
-                           doc_type="analysis",
-                           q="info.id: \"%s\"" % task_id
-                       )["hits"]["hits"]
+            analyses = es.search(index=fullidx, doc_type="analysis", q="info.id: \"%s\"" % task_id)["hits"]["hits"]
             if analyses:
                 for analysis in analyses:
                     esidx = analysis["_index"]
@@ -113,11 +109,7 @@ def process(target=None, copy_path=None, task=None, report=False, auto=False, ca
                     if analysis["_source"]["behavior"]:
                         for process in analysis["_source"]["behavior"]["processes"]:
                             for call in process["calls"]:
-                                es.delete(
-                                    index=esidx,
-                                    doc_type="calls",
-                                    id=call,
-                                )
+                                es.delete(index=esidx, doc_type="calls", id=call)
                     # Delete the analysis results
                     es.delete(index=esidx, doc_type="analysis", id=esid)
         if auto or capeproc:
@@ -141,8 +133,10 @@ def process(target=None, copy_path=None, task=None, report=False, auto=False, ca
         for i, obj in enumerate(gc.garbage):
             log.info("[%s] (garbage) GC object #%d: type=%s", task_id, i, type(obj).__name__)
 
+
 def init_worker():
     signal.signal(signal.SIGINT, signal.SIG_IGN)
+
 
 def init_logging(auto=False, tid=0, debug=False):
     formatter = logging.Formatter("%(asctime)s [%(name)s] %(levelname)s: %(message)s")
@@ -172,57 +166,63 @@ def init_logging(auto=False, tid=0, debug=False):
 
     logging.getLogger("urllib3").setLevel(logging.WARNING)
 
-def autoprocess(parallel=1, failed_processing=False, maxtasksperchild=7,  memory_debugging=False):
+
+def processing_finished(future):
+    task_id = pending_future_map.get(future)
+    try:
+        result = future.result()
+        log.info("Task #%d: reports generation completed", task_id)
+    except TimeoutError as error:
+        log.error("Processing Timeout %s", error) 
+        Database().set_status(task_id, TASK_FAILED_PROCESSING) 
+    except pebble.ProcessExpired as error:
+        log.error("Exception when processing task %s: %s, Exitcode: %d", task_id, error)
+        Database().set_status(task_id, TASK_FAILED_PROCESSING)
+    except Exception as error:
+        log.error("Exception when processing task %s: %s %s", task_id, error) 
+        Database().set_status(task_id, TASK_FAILED_PROCESSING)
+
+    del(pending_future_map[future])
+    del(pending_task_id_map[task_id])
+
+
+def autoprocess(parallel=1, failed_processing=False, maxtasksperchild=7,  memory_debugging=False,
+                processing_timeout=300):
     maxcount = cfg.cuckoo.max_analysis_count
     count = 0
     db = Database()
-    pool = multiprocessing.Pool(parallel, init_worker, maxtasksperchild=maxtasksperchild)
-    pending_results = []
-
+    pool = pebble.ProcessPool(max_workers=parallel, max_tasks=maxtasksperchild, initializer=init_worker)
+     
     try:
+        log.info("Processing analysis data") 
         # CAUTION - big ugly loop ahead.
         while count < maxcount or not maxcount:
 
-            # Pending_results maintenance.
-            for ar, tid, target, copy_path in list(pending_results):
-                if ar.ready():
-                    if ar.successful():
-                        log.info("Task #%d: reports generation completed", tid)
-                    else:
-                        try:
-                            ar.get()
-                        except:
-                            log.exception("Exception when processing task ID %u.", tid)
-                            db.set_status(tid, TASK_FAILED_PROCESSING)
-
-                    pending_results.remove((ar, tid, target, copy_path))
-
             # If still full, don't add more (necessary despite pool).
-            if len(pending_results) >= parallel:
+            if len(pending_task_id_map) >= parallel:
                 time.sleep(5)
                 continue
 
             # If we're here, getting parallel tasks should at least
             # have one we don't know.
             if failed_processing:
-                tasks = db.list_tasks(status=TASK_FAILED_PROCESSING, limit=parallel,
-                                  order_by=Task.completed_on.asc())
+                tasks = db.list_tasks(status=TASK_FAILED_PROCESSING, limit=parallel, order_by=Task.completed_on.asc())
             else:
-                tasks = db.list_tasks(status=TASK_COMPLETED, limit=parallel,
-                                  order_by=Task.completed_on.asc())
-
+                tasks = db.list_tasks(status=TASK_COMPLETED, limit=parallel, order_by=Task.completed_on.asc())
+           
             added = False
             # For loop to add only one, nice. (reason is that we shouldn't overshoot maxcount)
             for task in tasks:
                 # Not-so-efficient lock.
-                if task.id in [tid for ar, tid, target, copy_path in pending_results]:
+                if pending_task_id_map.get(task.id):
                     continue
 
                 log.info("Processing analysis data for Task #%d", task.id)
 
                 if task.category == "file":
                     sample = db.view_sample(task.sample_id)
-                    copy_path = os.path.join(CUCKOO_ROOT, "storage", "binaries", sample.sha256)
+
+                    copy_path = os.path.join(CUCKOO_ROOT, "storage",  "binaries", sample.sha256)
                 else:
                     copy_path = None
 
@@ -233,13 +233,13 @@ def autoprocess(parallel=1, failed_processing=False, maxtasksperchild=7,  memory
                     gc.collect()
                     log.info("[%d] (before) GC object counts: %d, %d", task.id, len(gc.get_objects()), len(gc.garbage))
 
-                result = pool.apply_async(process, args, kwargs)
-
+                future = pool.schedule(process, args, kwargs, timeout=processing_timeout)
+                pending_future_map[future]=task.id
+                pending_task_id_map[task.id]=future
+                future.add_done_callback(processing_finished)
                 if memory_debugging:
                     gc.collect()
                     log.info("[%d] (after) GC object counts: %d, %d", task.id, len(gc.get_objects()), len(gc.garbage))
-
-                pending_results.append((result, task.id, task.target, copy_path))
 
                 count += 1
                 added = True
@@ -250,21 +250,20 @@ def autoprocess(parallel=1, failed_processing=False, maxtasksperchild=7,  memory
                 time.sleep(5)
 
     except KeyboardInterrupt:
-        #ToDo verify in finally
-        #pool.terminate()
+        # ToDo verify in finally
         raise
     except:
         import traceback
         traceback.print_exc()
     finally:
-        pool.terminate()
+        pool.close()
         pool.join()
 
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("id", type=str,
-                        help="ID of the analysis to process (auto for continuous processing of unprocessed tasks).")
+    parser.add_argument("id", type=str, help="ID of the analysis to process "
+                                             "(auto for continuous processing of unprocessed tasks).")
     parser.add_argument("-c", "--caperesubmit", help="Allow CAPE resubmit processing.", action="store_true",
                         required=False)
     parser.add_argument("-d", "--debug", help="Display debug messages", action="store_true", required=False)
@@ -279,15 +278,18 @@ def main():
                         required=False, default=7)
     parser.add_argument("-md", "--memory-debugging", help="Enable logging garbage collection related info",
                         action="store_true", required=False, default=False)
-
+    parser.add_argument("-pt", "--processing-timeout",
+                        help="Max amount of time spent in processing before we fail a task", action="store", type=int,
+                        required=False, default=300)
     args = parser.parse_args()
 
     init_yara()
     init_modules()
-
     if args.id == "auto":
         init_logging(auto=True, debug=args.debug)
-        autoprocess(parallel=args.parallel, failed_processing=args.failed_processing, maxtasksperchild=args.maxtasksperchild, memory_debugging=args.memory_debugging)
+        autoprocess(parallel=args.parallel, failed_processing=args.failed_processing,
+                    maxtasksperchild=args.maxtasksperchild, memory_debugging=args.memory_debugging,
+                    processing_timeout=args.processing_timeout)
     else:
         if not os.path.exists(os.path.join(CUCKOO_ROOT, "storage", "analyses", args.id)):
             sys.exit(red("\n[-] Analysis folder doesn't exist anymore\n"))
