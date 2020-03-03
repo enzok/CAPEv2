@@ -17,7 +17,7 @@ try:
 except ImportError:
     sys.exit("Missed dependency: pip3 install Pebble")
 
-if sys.version_info[:2] < (3, 5):
+if sys.version_info[:2] < (3, 6):
     sys.exit("You are running an incompatible version of Python, please use >= 3.5")
 
 log = logging.getLogger()
@@ -222,7 +222,7 @@ def autoprocess(parallel=1, failed_processing=False, maxtasksperchild=7,  memory
                 if task.category == "file":
                     sample = db.view_sample(task.sample_id)
 
-                    copy_path = os.path.join(CUCKOO_ROOT, "storage",  "binaries", sample.sha256)
+                    copy_path = os.path.join(CUCKOO_ROOT, "storage", "binaries", sample.sha256)
                 else:
                     copy_path = None
 
@@ -234,8 +234,8 @@ def autoprocess(parallel=1, failed_processing=False, maxtasksperchild=7,  memory
                     log.info("[%d] (before) GC object counts: %d, %d", task.id, len(gc.get_objects()), len(gc.garbage))
 
                 future = pool.schedule(process, args, kwargs, timeout=processing_timeout)
-                pending_future_map[future]=task.id
-                pending_task_id_map[task.id]=future
+                pending_future_map[future] = task.id
+                pending_task_id_map[task.id] = future
                 future.add_done_callback(processing_finished)
                 if memory_debugging:
                     gc.collect()
