@@ -11,7 +11,11 @@ import json
 import logging
 import argparse
 import signal
-import pebble
+
+try:
+    import pebble
+except ImportError:
+    sys.exit("Missed dependency: pip3 install Pebble")
 
 if sys.version_info[:2] < (3, 5):
     sys.exit("You are running an incompatible version of Python, please use >= 3.5")
