@@ -26,7 +26,7 @@ except ImportError:
 
 log = logging.getLogger(__name__)
 cuckoo_conf = Config()
-tmp_path = cuckoo_conf.cuckoo.get("tmppath", "/tmp")
+tmp_path = cuckoo_conf.cuckoo.get("tmppath", "/tmp").encode('utf8')
 
 demux_extensions_list = [
     "", ".exe", ".dll", ".com", ".jar", ".pdf", ".msi", ".bin", ".scr", ".zip", ".tar", ".gz", ".tgz", ".rar", ".htm",
