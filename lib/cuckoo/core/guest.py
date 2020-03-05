@@ -231,7 +231,7 @@ class GuestManager(object):
         :param options: options
         :return:
         """
-        log.info("Uploading support files to guest (id={}, ip={})".format(self.id, self.ip))
+        log.info("Uploading support files to guest (id={}, ip={})".format(self.vmid, self.ipaddr))
         basedir = os.path.dirname(options["target"])
 
         for dirpath, _, files in os.walk(basedir):
