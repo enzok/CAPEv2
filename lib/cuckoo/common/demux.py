@@ -130,7 +130,7 @@ def demux_sflock(filename, options):
             unpacked = unpack(filename)
 
         if unpacked.children:
-            target_path = os.path.join(tmp_path, "cuckoo-sflock")
+            target_path = os.path.join(tmp_path, b"cuckoo-sflock")
             if not os.path.exists(target_path):
                 os.mkdir(target_path)
             tmp_dir = tempfile.mkdtemp(dir=target_path)
