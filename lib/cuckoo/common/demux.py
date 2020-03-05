@@ -65,7 +65,7 @@ def options2passwd(options):
 def demux_office(filename, password):
     retlist = []
     basename = os.path.basename(filename)
-    target_path = os.path.join(tmp_path, "cuckoo-tmp/msoffice-crypt-tmp")
+    target_path = os.path.join(tmp_path, b"cuckoo-tmp/msoffice-crypt-tmp")
     if not os.path.exists(target_path):
         os.mkdir(target_path)
     decrypted_name = os.path.join(target_path, basename)
