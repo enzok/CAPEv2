@@ -107,7 +107,7 @@ def get_filenames(retlist, tmp_dir, children):
                 base, ext = os.path.splitext(at['filename'])
                 ext = ext.lower().decode('utf8')
                 if ext in demux_extensions_list or is_valid_type(magic):
-                    retlist.append(os.path.join(tmp_dir, at['filename'].decode('utf8')))
+                    retlist.append(os.path.join(tmp_dir, at['filename']))
             elif 'container' in at['type'] and child.package not in whitelist_extensions:
                 get_filenames(retlist, tmp_dir, child.children)
     except Exception as err:
@@ -151,6 +151,9 @@ def demux_sample(filename, package, options):
     If file is a ZIP, extract its included files and return their file paths
     If file is an email, extracts its attachments and return their file paths (later we'll also extract URLs)
     """
+    # sflock requires filename to be bytes object for Py3
+    if isinstance(filename, str):
+        filename = filename.encode('utf8')
     # if a package was specified, then don't do anything special
     if package:
         return [filename]
@@ -184,9 +187,6 @@ def demux_sample(filename, package, options):
     retlist = list()
     if HAS_SFLOCK:
         # all in one unarchive
-        # sflock requires filename to be bytes object for Py3
-        if isinstance(filename, str):
-            filename = filename.encode('utf8')
         retlist = demux_sflock(filename, options)
 
     # if it wasn't a ZIP or an email or we weren't able to obtain anything interesting from either, then just submit the
