@@ -1201,7 +1201,9 @@ class Database(object, metaclass=Singleton):
         opts = get_options(options)
         if "file" in opts:
             for xfile in extracted_files:
-                if opts["file"].lower() in xfile.decode('utf8').lower():
+                if isinstance(xfile, bytes):
+                    xfile = xfile.decode('utf8')
+                if opts["file"].lower() in xfile.lower():
                     extracted_files = [xfile]
                     break
 
