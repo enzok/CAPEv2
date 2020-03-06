@@ -19,7 +19,7 @@ try:
     from sflock.exception import UnpackException
     HAS_SFLOCK = True
 except ImportError:
-    print("Warning: sflock not installed; archives will not be handled.\n"
+    print("You must install sflock\n"
           "sudo apt-get install p7zip-full rar unace-nonfree cabextract\n"
           "pip3 install -U sflock")
     HAS_SFLOCK = False
