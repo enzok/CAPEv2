@@ -79,6 +79,7 @@ code_mapping = {
     QAKBOT_PAYLOAD: "QakBot Payload",
     UPX: "Unpacked PE Image",
     MOREEGGSBIN_PAYLOAD: "More_Eggs Binary Payload",
+    DATADUMP: "Data Dump"
 }
 
 name_mapping = {
