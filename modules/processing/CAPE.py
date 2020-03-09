@@ -66,8 +66,7 @@ ICEDID_LOADER        = 0x40
 ICEDID_BOT           = 0x41
 SCRIPT_DUMP          = 0x65
 DATADUMP             = 0x66
-MOREEGGSJS_PAYLOAD   = 0x68
-MOREEGGSBIN_PAYLOAD  = 0x69
+REGSETVAL            = 0x69
 UPX                  = 0x1000
 
 log = logging.getLogger(__name__)
@@ -78,13 +77,12 @@ code_mapping = {
     CERBER_PAYLOAD: "Cerber Payload",
     QAKBOT_PAYLOAD: "QakBot Payload",
     UPX: "Unpacked PE Image",
-    MOREEGGSBIN_PAYLOAD: "More_Eggs Binary Payload",
-    DATADUMP: "Data Dump"
+    DATADUMP: "Data Dump",
+    REGSETVAL: "Registry Value Dump"
 }
 
 name_mapping = {
     QAKBOT_PAYLOAD: "QakBot",
-    MOREEGGSBIN_PAYLOAD: "MoreEggs",
 }
 
 config_mapping = {
@@ -367,54 +365,6 @@ class CAPE(Processing):
                 data = file_data.decode("utf-16").replace("\x00", "")
                 file_info["data"] = data
                 cape_name = "ScriptDump"
-                malwareconfig_loaded = False
-                try:
-                    malwareconfig_parsers = os.path.join(CUCKOO_ROOT, "modules", "processing", "parsers",
-                                                         "malwareconfig")
-                    file, pathname, description = imp.find_module(cape_name, [malwareconfig_parsers])
-                    module = imp.load_module(cape_name, file, pathname, description)
-                    malwareconfig_loaded = True
-                    log.info("CAPE: Imported malwareconfig.com parser %s", cape_name)
-                except ImportError:
-                    log.info("CAPE: malwareconfig.com parser: No module named %s", cape_name)
-                if malwareconfig_loaded:
-                    try:
-                        script_data = module.config(self, data)
-                        if script_data and "more_eggs" in script_data["type"]:
-                            bindata = script_data["data"]
-                            sha256 = hashlib.sha256(bindata).hexdigest()
-                            filepath = os.path.join(self.CAPE_path, sha256)
-                            tmpstr = file_info["pid"]
-                            tmpstr += "," + file_info["process_path"]
-                            tmpstr += "," + file_info["module_path"]
-                            if "text" in script_data["datatype"]:
-                                file_info["cape_type"] = "MoreEggsJS"
-                                outstr = str(MOREEGGSJS_PAYLOAD) + "," + tmpstr + "\n"
-                                with open(filepath + "_info.txt", "w") as infofd:
-                                    infofd.write(outstr)
-                                with open(filepath, 'w') as cfile:
-                                    cfile.write(bindata)
-                            elif "binary" in script_data["datatype"]:
-                                file_info["cape_type"] = "MoreEggsBin"
-                                outstr = str(MOREEGGSBIN_PAYLOAD) + "," + tmpstr + "\n"
-                                with open(filepath + "_info.txt", "w") as infofd:
-                                    infofd.write(outstr)
-                                with open(filepath, 'wb') as cfile:
-                                    cfile.write(bindata)
-                            if os.path.exists(filepath):
-                                self.script_dump_files.append(filepath)
-                        else:
-                            file_info["cape_type"] = "Script Dump"
-                            log.info("CAPE: Script Dump does not contain known encrypted payload.")
-                    except Exception as e:
-                        log.error("CAPE: malwareconfig parsing error with %s: %s", cape_name, e)
-                append_file = True
-
-            # More_Eggs
-            if file_info["cape_type_code"] == MOREEGGSJS_PAYLOAD:
-                file_info["cape_type"] = "More Eggs JS Payload"
-                cape_name = "MoreEggs"
-                append_file = True
 
         # Process CAPE Yara hits
         for hit in file_info["cape_yara"]:
