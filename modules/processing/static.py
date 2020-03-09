@@ -13,6 +13,7 @@ import array
 import struct
 import base64
 import hashlib
+import requests
 import binascii
 from PIL import Image
 from io import StringIO, BytesIO
@@ -70,7 +71,7 @@ from lib.cuckoo.common.utils import store_temp_file, bytes2str
 from lib.cuckoo.common.icon import PEGroupIconDir
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.constants import CUCKOO_ROOT
-from lib.cuckoo.common.objects import File
+from lib.cuckoo.common.objects import File, is_pefile
 from lib.cuckoo.common.config import Config
 
 import lib.cuckoo.common.office.vbadeobf as vbadeobf
@@ -353,23 +354,24 @@ class PortableExecutable(object):
 
         imports = []
 
-        if hasattr(self.pe, "DIRECTORY_ENTRY_IMPORT"):
-            for entry in self.pe.DIRECTORY_ENTRY_IMPORT:
-                try:
-                    symbols = []
-                    for imported_symbol in entry.imports:
-                        symbol = {}
-                        symbol["address"] = hex(imported_symbol.address)
-                        symbol["name"] = bytes2str(imported_symbol.name)
-                        symbols.append(symbol)
+        if not hasattr(self.pe, "DIRECTORY_ENTRY_IMPORT"):
+            return imports
 
-                    imports_section = {}
-                    imports_section["dll"] = bytes2str(entry.dll)
-                    imports_section["imports"] = symbols
-                    imports.append(imports_section)
-                except Exception as e:
-                    log.error(e, exc_info=True)
-                    continue
+        for entry in self.pe.DIRECTORY_ENTRY_IMPORT:
+            try:
+                symbols = []
+                for imported_symbol in entry.imports:
+                    symbol = {}
+                    symbol["address"] = hex(imported_symbol.address)
+                    symbol["name"] = bytes2str(imported_symbol.name)
+                    symbols.append(symbol)
+                imports_section = {}
+                imports_section["dll"] = bytes2str(entry.dll)
+                imports_section["imports"] = symbols
+                imports.append(imports_section)
+            except Exception as e:
+                log.error(e, exc_info=True)
+                continue
 
         return imports
 
@@ -600,13 +602,14 @@ class PortableExecutable(object):
         """Get icon in PNG format and information for searching for similar icons
         @return: tuple of (image data in PNG format encoded as base64, md5 hash of image data, md5 hash of "simplified" image for fuzzy matching)
         """
-        if not self.pe:
+        if not self.pe or not hasattr(self.pe, "DIRECTORY_ENTRY_RESOURCE"):
             return None, None, None
 
         try:
             idx = [entry.id for entry in self.pe.DIRECTORY_ENTRY_RESOURCE.entries]
-            if pefile.RESOURCE_TYPE['RT_GROUP_ICON'] not in ids:
+            if pefile.RESOURCE_TYPE['RT_GROUP_ICON'] not in idx:
                 return None, None, None
+
             rt_group_icon_idx = idx.index(pefile.RESOURCE_TYPE['RT_GROUP_ICON'])
             rt_group_icon_dir = self.pe.DIRECTORY_ENTRY_RESOURCE.entries[rt_group_icon_idx]
             entry = rt_group_icon_dir.directory.entries[0]
@@ -635,11 +638,16 @@ class PortableExecutable(object):
                     icon = peicon.get_icon_file(iconidx, self.pe.get_memory_mapped_image()[offset:offset+size])
 
                     byteio = BytesIO()
-                    output = BytesIO()
-
                     byteio.write(icon)
                     byteio.seek(0)
-                    img = Image.open(byteio)
+                    try:
+                        img = Image.open(byteio)
+                    except OSError as e:
+                        byteio.close()
+                        log.error(e)
+                        return None, None, None
+
+                    output = BytesIO()
                     img.save(output, format="PNG")
 
                     img = img.resize((8,8), Image.BILINEAR)
@@ -655,10 +663,12 @@ class PortableExecutable(object):
                     m = hashlib.md5()
                     m.update(simplified)
                     simphash = m.hexdigest()
-                    return base64.b64encode(output.getvalue()).decode("utf-8"), fullhash, simphash
+                    icon = base64.b64encode(output.getvalue()).decode("utf-8")
+                    output.close()
+                    img.close()
+                    return icon, fullhash, simphash
         except Exception as e:
             log.error(e, exc_info=True)
-            pass
 
         return None, None, None
 
@@ -669,32 +679,33 @@ class PortableExecutable(object):
         if not self.pe:
             return None
 
+        if not hasattr(self.pe, "FileInfo"):
+            return None
+
         infos = []
-        if hasattr(self.pe, "VS_VERSIONINFO"):
-            if hasattr(self.pe, "FileInfo"):
-                for entry in self.pe.FileInfo:
-                    try:
-                        if hasattr(entry, "StringTable"):
-                            for st_entry in entry.StringTable:
-                                for str_entry in st_entry.entries.items():
-                                    entry = {}
-                                    entry["name"] = convert_to_printable(str_entry[0])
-                                    entry["value"] = convert_to_printable(str_entry[1])
-                                    if entry["name"] == "Translation" and len(entry["value"]) == 10:
-                                        entry["value"] = "0x0" + entry["value"][2:5] + " 0x0" + entry["value"][7:10]
-                                    infos.append(entry)
-                        elif hasattr(entry, "Var"):
-                            for var_entry in entry.Var:
-                                if hasattr(var_entry, "entry"):
-                                    entry = {}
-                                    entry["name"] = convert_to_printable(list(var_entry.entry.keys())[0])
-                                    entry["value"] = convert_to_printable(list(var_entry.entry.values())[0])
-                                    if entry["name"] == "Translation" and len(entry["value"]) == 10:
-                                        entry["value"] = "0x0" + entry["value"][2:5] + " 0x0" + entry["value"][7:10]
-                                    infos.append(entry)
-                    except Exception as e:
-                        log.error(e, exc_info=True)
-                        continue
+        for entry in self.pe.FileInfo:
+            try:
+                if hasattr(entry, "StringTable"):
+                    for st_entry in entry.StringTable:
+                        for str_entry in st_entry.entries.items():
+                            entry = {}
+                            entry["name"] = convert_to_printable(str_entry[0])
+                            entry["value"] = convert_to_printable(str_entry[1])
+                            if entry["name"] == "Translation" and len(entry["value"]) == 10:
+                                entry["value"] = "0x0" + entry["value"][2:5] + " 0x0" + entry["value"][7:10]
+                            infos.append(entry)
+                elif hasattr(entry, "Var"):
+                    for var_entry in entry.Var:
+                        if hasattr(var_entry, "entry"):
+                            entry = {}
+                            entry["name"] = convert_to_printable(list(var_entry.entry.keys())[0])
+                            entry["value"] = convert_to_printable(list(var_entry.entry.values())[0])
+                            if entry["name"] == "Translation" and len(entry["value"]) == 10:
+                                entry["value"] = "0x0" + entry["value"][2:5] + " 0x0" + entry["value"][7:10]
+                            infos.append(entry)
+            except Exception as e:
+                log.error(e, exc_info=True)
+                continue
 
         return infos
 
@@ -754,6 +765,9 @@ class PortableExecutable(object):
     def _get_digital_signers(self):
         """If this executable is signed, get its signature(s)."""
         dir_index = pefile.DIRECTORY_ENTRY["IMAGE_DIRECTORY_ENTRY_SECURITY"]
+        if not self.pe:
+            return []
+
         if len(self.pe.OPTIONAL_HEADER.DATA_DIRECTORY) < dir_index:
             return []
 
@@ -856,13 +870,12 @@ class PortableExecutable(object):
         if not os.path.exists(self.file_path):
             return {}
 
-        try:
-            self.pe = pefile.PE(self.file_path)
-        except pefile.PEFormatError:
+        self.pe = is_pefile(self.file_path, fast_load=False, local_file=True)
+        if not self.pe:
             return {}
 
         results = {}
-        peresults = results["pe"] = { }
+        peresults = results["pe"] = {}
 
         pretime = datetime.now()
         peresults["peid_signatures"] = self._get_peid_signatures()
@@ -889,7 +902,8 @@ class PortableExecutable(object):
         peresults["timestamp"] = self._get_timestamp()
         peresults["digital_signers"] = self._get_digital_signers()
         peresults["guest_signers"] = self._get_guest_digital_signers()
-        peresults["imported_dll_count"] = len([x for x in peresults["imports"] if x.get("dll")])
+        if peresults.get("imports", False):
+            peresults["imported_dll_count"] = len([x for x in peresults["imports"] if x.get("dll")])
 
         return results
 
@@ -1474,6 +1488,30 @@ class URL(object):
         else:
             self.domain = ""
 
+    def parse_json_in_javascript(self, data=str(), ignore_nest_level=0):
+        nest_count = 0 - ignore_nest_level
+        string_buf = str()
+        json_buf = list()
+        json_data = list()
+        for character in data:
+            if character == "{":
+                nest_count += 1
+            if nest_count > 0:
+                string_buf += character
+            if character == "}":
+                nest_count -= 1
+            if nest_count == 0 and len(string_buf):
+                json_buf.append(string_buf)
+                string_buf = str()
+
+        if json_buf:
+            for data in json_buf:
+                if len(data) > 4:
+                    json_data.append(json.loads(data))
+            return json_data
+
+        return []
+
     def run(self):
         results = {}
         if self.domain:
@@ -1529,6 +1567,21 @@ class URL(object):
                          "\n    ".join(w["name_servers"]),
                          "\n    ".join(w["referral_url"]))
             results["url"]["whois"] = output
+
+        if self.domain == "bit.ly":
+            resp = requests.get(self.url+"+")
+            soup = bs4.BeautifulSoup(resp.text, "html.parser")
+            output = list()
+            for script in [x.extract() for x in soup.find_all("script")]:
+                if script.contents:
+                    content = script.contents[0]
+                    if "long_url_no_protocol" in content:
+                        output = self.parse_json_in_javascript(content, 1)
+
+            if output:
+                results["url"]["bitly"] = {k: v for d in output for k, v in d.iteritems()}
+                newtime = datetime.fromtimestamp(int(results["url"]["bitly"]["created_at"]))
+                results["url"]["bitly"]["created_at"] = newtime.strftime("%Y-%m-%d %H:%M:%S") + " GMT"
 
         return results
 
@@ -1692,7 +1745,7 @@ class Static(Processing):
 
             thetype = File(self.file_path).get_type()
             if not HAVE_OLETOOLS and "Zip archive data, at least v2.0" in thetype and package in ("doc", "ppt", "xls", "pub"):
-                log.info("Missed dependencies: pip install oletools")
+                log.info("Missed dependencies: pip3 install oletools")
 
             if HAVE_PEFILE and ("PE32" in thetype or "MS-DOS executable" in thetype):
                 static = PortableExecutable(self.file_path, self.results).run()

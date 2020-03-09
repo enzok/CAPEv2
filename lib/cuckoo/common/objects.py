@@ -3,14 +3,15 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
-import binascii
+import os
+import mmap
+import time
+import copy
+import struct
 import hashlib
 import logging
-import os
+import binascii
 import subprocess
-import mmap
-import struct
-import copy
 
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.defines import PAGE_NOACCESS, PAGE_READONLY, PAGE_READWRITE, PAGE_WRITECOPY, PAGE_EXECUTE, PAGE_EXECUTE_READ
@@ -41,16 +42,16 @@ except ImportError:
     HAVE_CLAMAV = False
 
 try:
+    import re2 as re
+except ImportError:
+    import re
+
+try:
     import pefile
-    import peutils
     HAVE_PEFILE = True
 except ImportError:
     HAVE_PEFILE = False
 
-try:
-    import re2 as re
-except ImportError:
-    import re
 
 log = logging.getLogger(__name__)
 
@@ -109,6 +110,36 @@ yara_error = {
     "48": "ERROR_INVALID_EXTERNAL_VARIABLE_TYPE",
     "49": "ERROR_REGULAR_EXPRESSION_TOO_COMPLEX",
 }
+
+
+def is_pefile(data, fast_load=True, local_file=False):
+    """
+        This function checks if file is realy looks like PE file and if yes then parses it
+        Args:
+            data: PE data as buffer
+            fast_load: True/False
+        Returns:
+            pefile object or False
+    """
+    pe = False
+    if local_file:
+        if not os.path.exists(data):
+            return pe
+
+        with open(data, "rb") as f:
+            data = f.read()
+
+    uni = isinstance(data[:2], bytes)
+    if uni:
+        mz = b'MZ'
+    else:
+        mz = 'MZ'
+    if data.startswith(mz):
+        try:
+            pe = pefile.PE(data=data, fast_load=fast_load)
+        except pefile.PEFormatError as e:
+            logging.error(e)
+    return pe
 
 
 class Dictionary(dict):
@@ -262,7 +293,7 @@ class File(object):
         if not HAVE_PYDEEP:
             if not File.notified_pydeep:
                 File.notified_pydeep = True
-                log.warning("Unable to import pydeep (install with `pip install pydeep`)")
+                log.warning("Unable to import pydeep (install with `pip3 install pydeep`)")
             return None
 
         try:
@@ -270,34 +301,21 @@ class File(object):
         except Exception:
             return None
 
-    def get_entrypoint(self):
+    def get_entrypoint(self, pe):
         """Get entry point (PE).
         @return: entry point.
         """
-        if not HAVE_PEFILE:
-            if not File.notified_pefile:
-                File.notified_pefile = True
-                log.warning("Unable to import pefile (install with `pip install pefile`)")
-            return None
 
         try:
-            pe = pefile.PE(data=self.file_data)
             return pe.OPTIONAL_HEADER.AddressOfEntryPoint
         except Exception:
             return None
 
-    def get_ep_bytes(self):
+    def get_ep_bytes(self, pe):
         """Get entry point bytes (PE).
         @return: entry point bytes (16).
         """
-        if not HAVE_PEFILE:
-            if not File.notified_pefile:
-                File.notified_pefile = True
-                log.warning("Unable to import pefile (install with `pip install pefile`)")
-            return None
-
         try:
-            pe = pefile.PE(data=self.file_data)
             return binascii.b2a_hex(pe.get_data(pe.OPTIONAL_HEADER.AddressOfEntryPoint, 0x10))
         except Exception:
             return None
@@ -411,7 +429,7 @@ class File(object):
                 rules = yara.compile(rulepath, externals=externals)
             except yara.SyntaxError as e:
                 if 'duplicated identifier' in e.args[0]:
-                    log.warning("Duplicate rule in %s, rulepath")
+                    log.warning("Duplicate rule in %s", rulepath)
                     log.warning(e.args[0])
                 else:
                     rules = yara.compile(rulepath)
@@ -498,9 +516,21 @@ class File(object):
         infos["yara"] = self.get_yara()
         infos["cape_yara"] = self.get_yara(CAPE_YARA_RULEPATH)
         infos["clamav"] = self.get_clamav()
-        infos["entrypoint"] = self.get_entrypoint()
-        infos["ep_bytes"] = self.get_ep_bytes()
 
+        if not HAVE_PEFILE:
+            if not File.notified_pefile:
+                File.notified_pefile = True
+                log.warning("Unable to import pefile (install with `pip3 install pefile`)")
+        else:
+            try:
+                #read pefile once and share
+                pe = is_pefile(self.file_data, fast_load=True)
+                if pe:
+                    infos["entrypoint"] = self.get_entrypoint(pe)
+                    infos["ep_bytes"] = self.get_ep_bytes(pe)
+                    infos['timestamp'] = time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime(pe.FILE_HEADER.TimeDateStamp))
+            except Exception as e:
+                log.error(e)
         return infos
 
 class Static(File):

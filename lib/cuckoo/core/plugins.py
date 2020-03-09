@@ -331,7 +331,10 @@ class RunProcessing(object):
                             "worm",
                             "fake",
                             "malicious",
+                            "observed",
+                            "windows",
                         ]
+
                         isgood = True
                         for black in blacklist:
                             if black == famchecklower:
