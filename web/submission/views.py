@@ -361,7 +361,7 @@ def index(request, resubmit_hash=False):
                         task_machines.append(machine)
 
                 else:
-                    task_machines.append("first")
+                    task_machines = ["first"]
 
                 for entry in task_machines:
                     if entry == "first":
@@ -416,7 +416,7 @@ def index(request, resubmit_hash=False):
                         task_machines.append(machine)
 
                 if not task_machines:
-                    task_machines.append("first")
+                    task_machines = ["first"]
 
                 for entry in task_machines:
                     if entry == "first":
@@ -500,7 +500,7 @@ def index(request, resubmit_hash=False):
                     task_machines.append(machine)
 
             else:
-                task_machines.append("first")
+                task_machines = ["first"]
 
             for entry in task_machines:
                 if entry == "first":
@@ -540,7 +540,8 @@ def index(request, resubmit_hash=False):
                 else:
                     task_machines.append(machine)
             else:
-                task_machines.append("first")
+                task_machines = ["first"]
+
             for entry in task_machines:
                 if entry == "first":
                     entry = None
