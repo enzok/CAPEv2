@@ -12,7 +12,8 @@
 * RicoVZ for socks5man
 * hatching.io for sflock
 * A big thanks also for their support and contributions:
-*  Sandor Nemes (@sandornemes),
+*  Sandor Nemes (@sandornemes)
+*  Jason Reaves (@sysopfb)
 *  Kevin Ross
 *  Enzo (@enzok)
 *  redsand
@@ -26,6 +27,7 @@
 *  Spiralem
 *  John Peng
 *  mabj
+*  Will Metcalf
 * And many others <3
 
 * Thank you to Paul Royal and [Georgia Tech](https://www.cc.gatech.edu/)
