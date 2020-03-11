@@ -8,6 +8,7 @@ except ImportError:
     import re
 
 from lib.cuckoo.common.abstracts import Signature
+import re
 
 
 class DisablesWindowsDefender(Signature):
