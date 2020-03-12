@@ -1580,6 +1580,7 @@ def configdownload(request, task_id, cape_name):
 
     return render(request, "error.html", {"error": "Config not found"})
 
+
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def reschedule(request, task_id):
     db = Database()
