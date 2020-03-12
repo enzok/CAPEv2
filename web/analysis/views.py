@@ -1558,7 +1558,7 @@ def configdownload(request, task_id, cape_name):
                 if isinstance(cape, dict) and cape.get("cape_name", "") == cape_name:
                     filepath = tempfile.NamedTemporaryFile(delete=False)
                     for key in cape["cape_config"]:
-                        filepath.write("{}\t{}\n".format(key, cape["cape_config"][key]))
+                        filepath.write("{}\t{}\n".format(key, cape["cape_config"][key]).encode('utf8'))
                     filepath.close()
                     filename = cape['cape_name'] + "_config.txt"
                     newpath = os.path.join(os.path.dirname(filepath.name), filename)
