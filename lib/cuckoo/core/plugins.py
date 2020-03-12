@@ -284,7 +284,9 @@ class RunProcessing(object):
                 if os.stat(file_path).st_size > self.cuckoo_cfg.processing.analysis_size_limit:
                     if not hasattr(self.results, "debug"):
                         self.results.setdefault("debug", dict()).setdefault("errors", list())
-                    self.results["debug"]["errors"].append("Behavioral log {0} too big to be processed, skipped. Increase analysis_size_limit in cuckoo.conf".format(file_name))
+                    self.results["debug"]["errors"].append("Behavioral log {0} too big to be processed,"
+                                                           " skipped. Increase analysis_size_limit in"
+                                                           " cuckoo.conf".format(file_name))
                     continue
         else:
             log.info("Logs folder doesn't exist, maybe something with with analyzer folder, any change?")
@@ -292,14 +294,15 @@ class RunProcessing(object):
         family = ""
         self.results["malfamily_tag"] = ""
         if self.results.get("detections", False):
-            self.results["malfamily"] = self.results["detections"]
+            family = self.results["detections"]
             self.results["malfamily_tag"] = "CAPE"
             family = self.results["detections"]
         # add detection based on suricata here
-        elif not family and "suricata" in self.results and "alerts" in self.results["suricata"] and self.results["suricata"]["alerts"]:
+        elif not family and "suricata" in self.results and "alerts" in self.results["suricata"] \
+                and self.results["suricata"]["alerts"]:
             for alert in self.results["suricata"]["alerts"]:
                 if "signature" in alert and alert["signature"]:
-                    if alert["signature"].startswith(("ET TROJAN", "ETPRO TROJAN")):
+                    if alert["signature"].startswith(("ET TROJAN", "ETPRO TROJAN", "ET MALWARE")):
                         words = re.findall(r"[A-Za-z0-9\/\-]+", alert["signature"])
                         famcheck = words[2]
                         famchecklower = famcheck.lower()
@@ -346,7 +349,8 @@ class RunProcessing(object):
                             family = famcheck.title()
                             self.results["malfamily_tag"] = "Suricata"
 
-        elif not family and self.results["info"]["category"] == "file" and "virustotal" in self.results and "results" in self.results["virustotal"] and self.results["virustotal"]["results"]:
+        elif not family and self.results["info"]["category"] == "file" and "virustotal" in self.results \
+                and "results" in self.results["virustotal"] and self.results["virustotal"]["results"]:
             detectnames = []
             for res in self.results["virustotal"]["results"]:
                 if res["sig"] and "Trojan.Heur." not in res["sig"]:
@@ -358,12 +362,17 @@ class RunProcessing(object):
             self.results["malfamily_tag"] = "VirusTotal"
 
         # fall back to ClamAV detection
-        elif not family and self.results["info"]["category"] == "file" and "clamav" in self.results.get("target", {}).get("file", {}) and self.results["target"]["file"]["clamav"]:
+        elif not family and self.results["info"]["category"] == "file" \
+                and "clamav" in self.results.get("target", {}).get("file", {}) \
+                and self.results["target"]["file"]["clamav"]:
             for detection in self.results["target"]["file"]["clamav"]:
                 if detection.startswith("Win.Trojan."):
                     words = re.findall(r"[A-Za-z0-9]+", detection)
                     family = words[2]
                     self.results["malfamily_tag"] = "ClamAV"
+
+        if family:
+            self.results["malfamily"] = family
 
         return self.results
 
@@ -505,7 +514,9 @@ class RunSignatures(object):
             evented_list = [sig(self.results)
                         for sig in complete_list
                         if sig.enabled and sig.evented and
-                        self._check_signature_version(sig) and (not sig.filter_analysistypes or self.results["target"]["category"] in sig.filter_analysistypes)]
+                        self._check_signature_version(sig)
+                            and (not sig.filter_analysistypes or
+                                 self.results["target"]["category"] in sig.filter_analysistypes)]
         except Exception as e:
             print(e)
         overlay = self._load_overlay()
@@ -603,7 +614,8 @@ class RunSignatures(object):
             log.debug("Running non-evented signatures")
 
             for signature in complete_list:
-                if not signature.filter_analysistypes or self.results["target"]["category"] in signature.filter_analysistypes:
+                if not signature.filter_analysistypes \
+                        or self.results["target"]["category"] in signature.filter_analysistypes:
                     match = self.process(signature)
                     # If the signature is matched, add it to the list.
                     if match:
