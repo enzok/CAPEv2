@@ -358,7 +358,7 @@ def index(request, resubmit_hash=False):
                                       {"error": "Wrong platform, {} VM selected for {} sample".format(
                                           machine_details.platform, platform)})
                     else:
-                        task_machines.append(machine)
+                        task_machines = [machine]
 
                 else:
                     task_machines = ["first"]
@@ -413,7 +413,7 @@ def index(request, resubmit_hash=False):
                                       {"error": "Wrong platform, linux VM selected for {} sample".format(
                                           machine_details.platform)})
                     else:
-                        task_machines.append(machine)
+                        task_machines = [machine]
 
                 if not task_machines:
                     task_machines = ["first"]
@@ -497,7 +497,7 @@ def index(request, resubmit_hash=False):
                                   {"error": "Wrong platform, linux VM selected for {} sample".format(
                                       machine_details.platform)})
                 else:
-                    task_machines.append(machine)
+                    task_machines = [machine]
 
             else:
                 task_machines = ["first"]
@@ -538,7 +538,7 @@ def index(request, resubmit_hash=False):
                                   {"error": "Wrong platform, {} VM selected for {} sample".format(
                                        machine_details.platform, platform)})
                 else:
-                    task_machines.append(machine)
+                    task_machines = [machine]
             else:
                 task_machines = ["first"]
 
