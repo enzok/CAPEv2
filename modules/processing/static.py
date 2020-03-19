@@ -1657,7 +1657,7 @@ class EncodedScriptFile(object):
 
     def run(self):
         results = {}
-        source = open(self.filepath, "rb").read()
+        source = open(self.filepath, "r").read()
         source = self.decode(source)
         if not source:
             return results
@@ -1704,7 +1704,7 @@ class WindowsScriptFile(object):
     def run(self):
         results = {}
         ret = []
-        source = open(self.filepath, "rb").read()
+        source = open(self.filepath, "r").read()
 
         # Get rid of superfluous comments.
         source = re.sub("/\\*.*?\\*/", "", source, flags=re.S)
