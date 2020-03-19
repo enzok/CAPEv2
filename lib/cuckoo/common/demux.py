@@ -41,6 +41,7 @@ whitelist_extensions = ("doc", "xls", "ppt", "pub", "jar")
 # list of valid file types to extract - TODO: add more types
 VALID_TYPES = ["PE32", "Java Jar", "Outlook", "Message"]
 VALID_LINUX_TYPES = ["Bourne-Again", "POSIX shell script", "ELF", "Python"]
+OFFICE_TYPES = ["Composite Document File", "CDFV2 Encrypted", "Excel 2007+"]
 
 
 def options2passwd(options):
@@ -166,7 +167,7 @@ def demux_sample(filename, package, options):
         ignore = ["Outlook", "Message", "Disk Image"]
         if any(x in magic for x in ignore):
             pass
-        elif "Composite Document File" in magic or "CDFV2 Encrypted" in magic:
+        elif any(x in magic for x in OFFICE_TYPES):
             password = False
             tmp_pass = options2passwd(options)
             if tmp_pass:
