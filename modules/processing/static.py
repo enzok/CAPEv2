@@ -955,14 +955,18 @@ class PDF(object):
                 trailer, _ = self.pdf.trailer[version]
                 if trailer != None:
                     elem = trailer.dict.getElementByName("/Root")
-                    elem = self._get_obj_val(version, elem)
-                    elem = elem.getElementByName("/URI")
-                    elem = self._get_obj_val(version, elem)
-                    elem = elem.getElementByName("/Base")
-                    elem = self._get_obj_val(version, elem)
-                    self.base_uri = elem.getValue()
-        except AttributeError as e:
-            log.debug(e, exc_info=True)
+                    if elem:
+                        elem = self._get_obj_val(version, elem)
+                        elem = elem.getElementByName("/URI")
+                        if elem:
+                            elem = self._get_obj_val(version, elem)
+                            elem = elem.getElementByName("/Base")
+                            if elem:
+                                elem = self._get_obj_val(version, elem)
+                                if elem:
+                                    self.base_uri = elem.getValue()
+        except Exception as e:
+            log.error(e, exc_info=True)
             pass
 
     def _parse(self, filepath):
