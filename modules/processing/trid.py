@@ -30,16 +30,13 @@ class TrID(Processing):
             trid_binary = os.path.join(CUCKOO_ROOT, self.options.get("identifier", "trid/trid"))
             definitions = os.path.join(CUCKOO_ROOT, self.options.get("definitions", "trid/triddefs.trd"))
 
-        result = []
         try:
             output = subprocess.check_output([ trid_binary, "-d:{}".format(definitions), self.file_path],
                                              stderr=subprocess.STDOUT, universal_newlines=True)
-            strings = output.split(b'\n')
+            strings = output.split('\n')
             # trim data
             strings = strings[6:-1]
-            for v in result:
-                strings.append(v.decode("utf8"))
         except subprocess.CalledProcessError:
             log.warning("You need to configure your server to make TrID work properly")
             log.warning("sudo rm -f /usr/lib/locale/locale-archive && sudo locale-gen --no-archive")
-        return result
+        return strings
