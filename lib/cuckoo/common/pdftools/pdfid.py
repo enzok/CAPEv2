@@ -81,10 +81,8 @@ if sys.version_info[0] >= 3:
     import urllib.request as urllib23
 else:
     import urllib2 as urllib23
-if sys.version_info[0] >= 3:
-    import configparser as ConfigParser
-else:
-    import configparser
+
+import configparser
 
 #Convert 2 Bytes If Python 3
 def C2BIP3(string):
