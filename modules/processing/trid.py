@@ -6,10 +6,12 @@
 from __future__ import absolute_import
 import os.path
 import subprocess
-
+import logging
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.exceptions import CuckooProcessingError
+
+log = logging.getLogger()
 
 class TrID(Processing):
     """Extract TrID output from file."""
@@ -28,13 +30,16 @@ class TrID(Processing):
             trid_binary = os.path.join(CUCKOO_ROOT, self.options.get("identifier", "trid/trid"))
             definitions = os.path.join(CUCKOO_ROOT, self.options.get("definitions", "trid/triddefs.trd"))
 
-            result = []
-            output = subprocess.check_output([trid_binary, "-d:%s" % definitions, self.file_path],
-                                             stderr=subprocess.STDOUT)
-            result = output.split(b'\n')
+        result = []
+        try:
+            output = subprocess.check_output([ trid_binary, "-d:{}".format(definitions), self.file_path],
+                                             stderr=subprocess.STDOUT, universal_newlines=True)
+            strings = output.split(b'\n')
             # trim data
-            result = result[6:-1]
+            strings = strings[6:-1]
             for v in result:
-                strings.append(v.decode("utf-8"))
-
-        return strings
+                strings.append(v.decode("utf8"))
+        except subprocess.CalledProcessError:
+            log.warning("You need to configure your server to make TrID work properly")
+            log.warning("sudo rm -f /usr/lib/locale/locale-archive && sudo locale-gen --no-archive")
+        return result
