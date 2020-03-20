@@ -961,8 +961,8 @@ class PDF(object):
                     elem = elem.getElementByName("/Base")
                     elem = self._get_obj_val(version, elem)
                     self.base_uri = elem.getValue()
-        except Exception as e:
-            log.error(e, exc_info=True)
+        except AttributeError as e:
+            log.debug(e, exc_info=True)
             pass
 
     def _parse(self, filepath):
