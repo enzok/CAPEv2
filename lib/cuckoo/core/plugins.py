@@ -96,7 +96,7 @@ suricata_blacklist = (
     "filename",
     "generic",
     "google",
-    "hacking"
+    "hacking",
     #"http",
     "injector",
     "known",
@@ -141,7 +141,6 @@ def get_suricata_family(signature):
         family: family name or False
     """
     #ToDo Trojan-Proxy
-
     family = False
     #alert["signature"].startswith(("ET JA3 HASH")):
     words = re.findall(r"[A-Za-z0-9/\-]+", signature)
@@ -149,9 +148,9 @@ def get_suricata_family(signature):
     if "/" in famcheck:
         famcheck = famcheck.split("/")[-1]
     famchecklower = famcheck.lower()
-    #ET MALWARE Sharik/Smoke CnC Beacon 11
-    #ETPRO TROJAN MSIL/Revenge-RAT CnC Checkin
-    #ETPRO TROJAN Win32/Predator The Thief Initial CnC Checkin
+    if famchecklower.startswith("win.") and famchecklower.count(".") == 1:
+        famchecklower = famchecklower.split(".")[-1]
+        famcheck = famcheck.split(".")[-1]
     if famchecklower in ("win32", "w32", "ransomware"):
         famcheck = words[3]
         famchecklower = famcheck.lower()
@@ -374,8 +373,7 @@ class RunProcessing(object):
         self.results["malfamily_tag"] = ""
         if self.results.get("detections", False):
             family = self.results["detections"]
-            self.results["malfamily_tag"] = "CAPE"
-        # add detection based on suricata here
+            self.results["malfamily_tag"] = "Yara"
         elif not family and "suricata" in self.results and "alerts" in self.results["suricata"] and self.results["suricata"]["alerts"]:
             for alert in self.results["suricata"]["alerts"]:
                 if alert.get("signature", "") and alert["signature"].startswith(("ET TROJAN", "ETPRO TROJAN", "ET MALWARE", "ET CNC")):
@@ -383,6 +381,7 @@ class RunProcessing(object):
                     if family:
                         self.results["malfamily_tag"] = "Suricata"
                         self.results["detections"] = family
+                        self.results["malfamily"] = family
 
         elif not family and self.results["info"]["category"] == "file" and "virustotal" in self.results \
                 and "results" in self.results["virustotal"] and self.results["virustotal"]["results"]:
@@ -677,11 +676,11 @@ class RunSignatures(object):
         self.results["ttps"] = self.ttps
 
         # Make a best effort detection of malware family name (can be updated later by re-processing the analysis)
-        if self.results.get("malfamily_tag", "") != "CAPE":
+        if self.results.get("malfamily_tag", "") != "Yara":
             for match in matched:
                 if "families" in match and match["families"]:
                     self.results["malfamily"] = match["families"][0].title()
-                    self.results["malfamily_tag"] = "Signature"
+                    self.results["malfamily_tag"] = "Behavior"
                     break
 
 class RunReporting:
