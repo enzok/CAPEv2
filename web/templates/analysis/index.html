@@ -190,8 +190,8 @@
                                 {% endif %}
                                 {% if analysis.detections %}
                                 title="{{analysis.detections}}"
-                                {% elif analysis.malfamily %}
-                                title="{{analysis.malfamily}}"
+                                {% elif analysis.detections %}
+                                title="{{analysis.detections}}"
                                 {% endif %}
                                 >{{analysis.malscore|floatformat:1}}</span>
                             {% else %}
@@ -202,8 +202,8 @@
                         {% if config.expanded_dashboard %}
                         <td>
                             <span class="mono">
-                                {% if analysis.malfamily %}
-                                {{analysis.malfamily}}
+                                {% if analysis.detections %}
+                                {{analysis.detections}}
                                 {% else %}
                                 None
                                 {% endif %}
@@ -483,8 +483,8 @@
                                 {% else %}
                                 class="label label-danger"
                                 {% endif %}
-                                {% if analysis.malfamily %}
-                                title="{{analysis.malfamily}}"
+                                {% if analysis.detections %}
+                                title="{{analysis.detections}}"
                                 {% endif %}
                                 >{{analysis.malscore|floatformat:1}}</span>
                             {% else %}
@@ -495,8 +495,8 @@
                         {% if config.expanded_dashboard %}
                         <td>
                             <span class="mono">
-                                {% if analysis.malfamily %}
-                                {{analysis.malfamily}}
+                                {% if analysis.detections %}
+                                {{analysis.detections}}
                                 {% else %}
                                 None
                                 {% endif %}
@@ -740,8 +740,8 @@
                                 {% else %}
                                 class="label label-danger"
                                 {% endif %}
-                                {% if analysis.malfamily %}
-                                title="{{analysis.malfamily}}"
+                                {% if analysis.detections %}
+                                title="{{analysis.detections}}"
                                 {% endif %}
                                 >{{analysis.malscore|floatformat:1}}</span>
                         {% else %}
@@ -752,8 +752,8 @@
                     {% if config.expanded_dashboard %}
                     <td>
                         <span class="mono">
-                            {% if analysis.malfamily %}
-                            {{analysis.malfamily}}
+                            {% if analysis.detections %}
+                            {{analysis.detections}}
                             {% else %}
                             None
                             {% endif %}
