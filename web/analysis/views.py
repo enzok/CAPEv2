@@ -1522,52 +1522,53 @@ def vtupload(request, category, task_id, filename, dlfile):
 
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def configdownload(request, task_id, cape_name):
-    db = Database()
     cd = "text/plain"
     task = db.view_task(task_id)
     if not task:
         return render(request, "error.html", {"error": "Task ID {} does not existNone".format(task_id)})
 
-    rtmp = None
+    buf = dict()
     if enabledconf["mongodb"]:
-        rtmp = results_db.analysis.find_one({"info.id": int(task_id)}, sort=[("_id", pymongo.DESCENDING)])
-    elif es_as_db:
+        buf = results_db.analysis.find_one({"info.id": int(task_id)}, {"CAPE": 1}, sort=[("_id", pymongo.DESCENDING)])
+    if enabledconf["jsondump"] and not buf:
+        jfile = os.path.join(CUCKOO_ROOT, "storage", "analysis", f"{task_id}", "reports", "report.json")
+        with open(jfile, "r") as jdata:
+            buf = json.load(jdata)
+    elif es_as_db and not buf:
         rtmp = es.search(index=fullidx, doc_type="analysis", q="info.id: \"%s\"" % str(task_id))["hits"]["hits"]
         if len(rtmp) > 1:
-            rtmp = rtmp[-1]["_source"]
+            buf = rtmp[-1]["_source"]
         elif len(rtmp) == 1:
-            rtmp = rtmp[0]["_source"]
+            buf = rtmp[0]["_source"]
         else:
-            pass
+            buf = None
     else:
-        return render(request, "error.html",
-                      {"error": "WebGui storage Mongo/ES disabled"})
+        return render(request, "error.html", {"error": "No storage methods enabled"})
 
-    if rtmp:
-        if rtmp.get("CAPE", False):
-            try:
-                rtmp["CAPE"] = json.loads(zlib.decompress(rtmp["CAPE"]))
-            except:
-                # In case compress results processing module is not enabled
-                pass
-            for cape in rtmp.get("CAPE", []):
-                if isinstance(cape, dict) and cape.get("cape_name", "") == cape_name:
-                    filepath = tempfile.NamedTemporaryFile(delete=False)
-                    for key in cape["cape_config"]:
-                        filepath.write("{}\t{}\n".format(key, cape["cape_config"][key]).encode('utf8'))
-                    filepath.close()
-                    filename = cape['cape_name'] + "_config.txt"
-                    newpath = os.path.join(os.path.dirname(filepath.name), filename)
-                    shutil.move(filepath.name, newpath)
-                    try:
-                        resp = StreamingHttpResponse(FileWrapper(open(newpath), 8192), content_type=cd)
-                        resp["Content-Length"] = os.path.getsize(newpath)
-                        resp["Content-Disposition"] = "attachment; filename=" + filename
-                        return resp
-                    except Exception as e:
-                        return render(request, "error.html", {"error": "{}".format(e)})
-                else:
-                    return render(request, "error.html", {"error": "data doesn't exist"}, status=404)
+    if buf.get("CAPE"):
+        try:
+            buf["CAPE"] = json.loads(zlib.decompress(buf["CAPE"]))
+        except:
+            # In case compress results processing module is not enabled
+            pass
+        for cape in buf.get("CAPE", []):
+            if isinstance(cape, dict) and cape.get("cape_name", "") == cape_name:
+                filepath = tempfile.NamedTemporaryFile(delete=False, dir=settings.TEMP_PATH)
+                for key in cape["cape_config"]:
+                    filepath.write("{}\t{}\n".format(key, cape["cape_config"][key]).encode('utf8'))
+                filepath.close()
+                filename = cape['cape_name'] + "_config.txt"
+                newpath = os.path.join(os.path.dirname(filepath.name), filename)
+                shutil.move(filepath.name, newpath)
+                try:
+                    resp = StreamingHttpResponse(FileWrapper(open(newpath), 8192), content_type=cd)
+                    resp["Content-Length"] = os.path.getsize(newpath)
+                    resp["Content-Disposition"] = "attachment; filename=" + filename
+                    return resp
+                except Exception as e:
+                    return render(request, "error.html", {"error": "{}".format(e)})
+            else:
+                return render(request, "error.html", {"error": "data doesn't exist"}, status=404)
         else:
             return render(request, "error.html", {"error": "CAPE for task {} does not exist.".format(task_id)})
     else:
@@ -1579,7 +1580,6 @@ def configdownload(request, task_id, cape_name):
 
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def reschedule(request, task_id):
-    db = Database()
     task = db.view_task(task_id)
 
     if not task:
@@ -1597,7 +1597,6 @@ def reschedule(request, task_id):
 
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def reprocess(request, task_id):
-    db = Database()
     task = db.view_task(task_id)
 
     if not task:
