@@ -1534,7 +1534,7 @@ def configdownload(request, task_id, cape_name):
         jfile = os.path.join(CUCKOO_ROOT, "storage", "analysis", f"{task_id}", "reports", "report.json")
         with open(jfile, "r") as jdata:
             buf = json.load(jdata)
-    elif es_as_db and not buf:
+    if es_as_db and not buf:
         rtmp = es.search(index=fullidx, doc_type="analysis", q="info.id: \"%s\"" % str(task_id))["hits"]["hits"]
         if len(rtmp) > 1:
             buf = rtmp[-1]["_source"]
@@ -1542,7 +1542,7 @@ def configdownload(request, task_id, cape_name):
             buf = rtmp[0]["_source"]
         else:
             buf = None
-    else:
+    if not buf:
         return render(request, "error.html", {"error": "No storage methods enabled"})
 
     if buf.get("CAPE"):
@@ -1574,8 +1574,6 @@ def configdownload(request, task_id, cape_name):
     else:
         return render(request, "error.html",
                       {"error": "Could not retrieve results for task {} from db.".format(task_id)})
-
-    return render(request, "error.html", {"error": "Config not found"})
 
 
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
