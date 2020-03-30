@@ -29,7 +29,7 @@ from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.objects import CAPE_YARA_RULEPATH, File
 from lib.cuckoo.common.exceptions import CuckooProcessingError
 from lib.cuckoo.common.utils import convert_to_printable
-from lib.cuckoo.common.cape_utils import pe_map, convert, upx_harness, BUFSIZE, static_config_parsers#, plugx
+from lib.cuckoo.common.cape_utils import pe_map, convert, upx_harness, BUFSIZE, static_config_parsers, plugx_parser
 
 try:
     import pydeep
@@ -203,9 +203,9 @@ class CAPE(Processing):
             if file_info["cape_type_code"] in inject_map:
                 file_info["cape_type"] = inject_map[file_info["cape_type_code"]]
                 if len(metastrings) > 4:
-                    file_info["target_path"] = metastrings[4]
-                    file_info["target_process"] = metastrings[4].split("\\")[-1]
-                    file_info["target_pid"] = metastrings[5]
+                    file_info["target_path"] = metastrings[3]
+                    file_info["target_process"] = metastrings[3].split("\\")[-1]
+                    file_info["target_pid"] = metastrings[4]
 
             if file_info["cape_type_code"] == INJECTION_SECTION:
                 file_info["cape_type"] = "Injected Section"
@@ -219,7 +219,7 @@ class CAPE(Processing):
             if file_info["cape_type_code"] in simple_cape_type_map:
                 file_info["cape_type"] = simple_cape_type_map[file_info["cape_type_code"]]
                 if len(metastrings) > 4:
-                    file_info["virtual_address"] = metastrings[4]
+                    file_info["virtual_address"] = metastrings[3]
 
             type_strings = file_info["type"].split()
             if type_strings[0] in ("PE32+", "PE32"):
@@ -228,25 +228,23 @@ class CAPE(Processing):
                     file_info["cape_type"] += "DLL"
                 else:
                     file_info["cape_type"] += "executable"
-            """
             # PlugX
             if file_info["cape_type_code"] == PLUGX_CONFIG:
                 file_info["cape_type"] = "PlugX Config"
-                plugx_parser = plugx.PlugXConfig()
-                plugx_config = plugx_parser.parse_config(file_data, len(file_data))
-                if not "cape_config" in cape_config and plugx_config:
-                    cape_config["cape_config"] = {}
-                    for key, value in plugx_config.items():
-                        cape_config["cape_config"].update({key: [value]})
-                    cape_name = "PlugX"
-                else:
-                    log.error("CAPE: PlugX config parsing failure - size many not be handled.")
-                append_file = False
-            """
+                if plugx_parser:
+                    plugx_config = plugx_parser.parse_config(file_data, len(file_data))
+                    if not "cape_config" in cape_config and plugx_config:
+                        cape_config["cape_config"] = {}
+                        for key, value in plugx_config.items():
+                            cape_config["cape_config"].update({key: [value]})
+                        cape_name = "PlugX"
+                    else:
+                        log.error("CAPE: PlugX config parsing failure - size many not be handled.")
+                    append_file = False
             if file_info["cape_type_code"] in code_mapping:
                 file_info["cape_type"] = code_mapping[file_info["cape_type_code"]]
                 if file_info["cape_type_code"] in config_mapping:
-                    cape_config["cape_type"] = code_mapping[file_info["cape_type_code"]]
+                    file_info["cape_type"] = code_mapping[file_info["cape_type_code"]]
 
                 type_strings = file_info["type"].split()
                 if type_strings[0] in ("PE32+", "PE32"):

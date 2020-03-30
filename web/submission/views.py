@@ -40,6 +40,7 @@ routing = Config("routing")
 repconf = Config("reporting")
 processing = Config("processing")
 aux_conf = Config("auxiliary")
+web_conf = Config("web")
 
 VALID_LINUX_TYPES = ["Bourne-Again", "POSIX shell script", "ELF", "Python"]
 
@@ -110,15 +111,19 @@ def get_form_data(platform):
             tags.append(tag.name)
 
         if tags:
-            label = "{}:{}:{}".format(machine.platform, machine.label, ",".join(tags))
+            label = "{}:{}".format(machine.label, ",".join(tags))
         else:
-            label = "{}:{}".format(machine.platform, machine.label)
+            label = "{}".format(machine.label)
+
+        if web_conf.linux.enabled:
+            label = machine.platform+":"+label
 
         machines.append((machine.label, label))
 
     # Prepend ALL/ANY options. Disable until a platform can be verified in scheduler
     machines.insert(0, ("", "First available"))
-    machines.insert(1, ("all", "All"))
+    if web_conf.all_vms.enabled:
+        machines.insert(1, ("all", "All"))
 
     return packages, machines
 
@@ -184,30 +189,23 @@ def index(request, resubmit_hash=False):
                            if option and '=' in option)
         opt_filename = get_user_filename(options, custom)
 
+        if options:
+            options += ","
+
         if referrer:
-            if options:
-                options += ","
-            options += "referrer=%s" % (referrer)
+            options += "referrer=%s," % (referrer)
 
         if request.POST.get("free"):
-            if options:
-                options += ","
-            options += "free=yes"
+            options += "free=yes,"
 
         if request.POST.get("nohuman"):
-            if options:
-                options += ","
-            options += "nohuman=yes"
+            options += "nohuman=yes,"
 
         if request.POST.get("tor"):
-            if options:
-                options += ","
-            options += "tor=yes"
+            options += "tor=yes,"
 
         if request.POST.get("route", None):
-            if options:
-                options += ","
-            options += "route={0}".format(request.POST.get("route", None))
+            options += "route={0},".format(request.POST.get("route", None))
 
         if request.POST.get("process_dump"):
             if options:
@@ -220,49 +218,34 @@ def index(request, resubmit_hash=False):
             options += "procmemdump=1"
 
         if request.POST.get("import_reconstruction"):
-            if options:
-                options += ","
-            options += "import_reconstruction=1"
+            options += "import_reconstruction=1,"
 
         if request.POST.get("disable_cape"):
-            if options:
-                options += ","
-            options += "disable_cape=1"
+            options += "disable_cape=1,"
 
         if request.POST.get("kernel_analysis"):
-            if options:
-                options += ","
-            options += "kernel_analysis=yes"
+            options += "kernel_analysis=yes,"
 
         if request.POST.get("norefer"):
-            if options:
-                options += ","
-            options += "norefer=1"
+            options += "norefer=1,"
 
         if request.POST.get("oldloader"):
-            if options:
-                options += ","
-            options += "loader=oldloader.exe,loader_64=oldloader_x64.exe"
+            options += "loader=oldloader.exe,loader_64=oldloader_x64.exe,"
 
         if request.POST.get("unpack"):
-            if options:
-                options += ","
-            options += "unpack=yes"
+            options += "unpack=yes,"
 
         if request.POST.get("posproc"):
-            if options:
-                options += ","
-            options += "posproc=1"
+            options += "posproc=1,"
 
         if request.POST.get("combo"):
-            if options:
-                options += ","
-            options += "combo=1"
+            options += "combo=1,"
 
         if submitter:
-            if options:
-                options += ","
-            options += "submitter={}".format(submitter)
+            options += "submitter={},".format(submitter)
+
+        options = options[:-1]
+
         unique = request.POST.get("unique", False)
 
         orig_options = options
@@ -353,7 +336,7 @@ def index(request, resubmit_hash=False):
                     task_machines = [vm.name for vm in db.list_machines(platform=platform)]
                 elif machine:
                     machine_details = db.view_machine(machine)
-                    if not machine_details.platform == platform:
+                    if hasattr(machine_details, "platform") and not machine_details.platform == platform:
                         return render(request, "error.html",
                                       {"error": "Wrong platform, {} VM selected for {} sample".format(
                                           machine_details.platform, platform)})
@@ -631,6 +614,7 @@ def index(request, resubmit_hash=False):
         enabledconf["dlnexec"] = settings.DLNEXEC
         enabledconf["tags"] = False
         enabledconf["dist_master_storage_only"] = repconf.distributed.master_storage_only
+        enabledconf["linux_on_gui"] = web_conf.linux.enabled
         enabledconf["posproc"] = aux_conf.posproc.get("enabled")
 
         all_tags = load_vms_tags()

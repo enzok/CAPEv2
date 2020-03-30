@@ -184,7 +184,6 @@ class Analyzer:
         #return "\\??\\PIPE\\%s" % name
         return "\\\\.\\PIPE\\%s" % name
 
-
     def pids_from_process_name_list(self, namelist):
         proclist = []
         pidlist = []
@@ -302,7 +301,7 @@ class Analyzer:
 
         # Copy the debugger log.
         upload_files("debugger")
-        """End analysis."""
+
         # Stop the Pipe Servers.
         self.command_pipe.stop()
         self.log_pipe_server.stop()
@@ -479,11 +478,16 @@ class Analyzer:
         # Set the loader to that specified by package
         if "loader" in pack.options and pack.options["loader"] is not None:
             LOADER32 = pack.options["loader"]
-            log.info("Analyzer: Loader (32-bit) set to %s from package %s", LOADER32, package_name)
+            log.info("Analyzer: Loader set to %s from package %s", LOADER32, package_name)
+        else:
+            log.info("Analyzer: Package %s does not specify a loader option", package_name)
 
+        # Set the loader_64 to that specified by package
         if "loader_64" in pack.options and pack.options["loader_64"] is not None:
             LOADER64 = pack.options["loader_64"]
-            log.info("Analyzer: Loader (64-bit) set to %s from package %s", LOADER64, package_name)
+            log.info("Analyzer: Loader_64 set to %s from package %s", LOADER64, package_name)
+        else:
+            log.info("Analyzer: Package %s does not specify a loader_64 option", package_name)
 
         # randomize monitor DLL and loader executable names
         if MONITOR_DLL is not None:
@@ -666,7 +670,6 @@ class Analyzer:
             log.warning("The package \"%s\" finish function raised an "
                         "exception: %s", package_name, e)
 
-
         try:
             # Upload files the package created to package_files in the
             # results folder.
@@ -675,7 +678,6 @@ class Analyzer:
         except Exception as e:
             log.warning("The package \"%s\" package_files function raised an "
                         "exception: %s", package_name, e)
-
 
         log.info("Stopping auxiliary modules.")
         # Terminate the Auxiliary modules.
@@ -888,11 +890,17 @@ class CommandPipeHandler(object):
 
     def _handle_debug(self, data):
         """Debug message from the monitor."""
-        log.debug(data)
+        try:
+            log.debug(data.decode("utf-8"))
+        except:
+            log.debug(data)
 
     def _handle_info(self, data):
         """Regular message from the monitor."""
-        log.info(data)
+        try:
+            log.info(data.decode("utf-8"))
+        except:
+            log.debug(data)
 
     def _handle_warning(self, data):
         """Warning message from the monitor."""
@@ -903,17 +911,9 @@ class CommandPipeHandler(object):
         log.critical(data)
 
     def _handle_loaded(self, data):
-        """
-         command.startswith(b"LOADED:"):
-        self.process_lock.acquire()
-
-        self.process_lock.release()
-        NUM_INJECTED += 1
-        log.info("Monitor successfully loaded in process with pid %u.", process_id)
-        """
         #LOADED:2012
         """The monitor has loaded into a particular process."""
-        if not data:# or data.count(b",") != 1:
+        if not data:
             log.warning("Received loaded command with incorrect parameters, "
                         "skipping it.")
             return
@@ -1491,9 +1491,6 @@ class CommandPipeHandler(object):
 
     def dispatch(self, data):
         response = "NOPE"
-        # ToDo remove hack and fix in monitor
-        if b'GETPIDS' in data:
-            data = b'GETPIDS:'
         if not data or b":" not in data:
             log.critical("Unknown command received from the monitor: %r", data.strip())
         else:
@@ -1501,15 +1498,11 @@ class CommandPipeHandler(object):
             # new syntax, e.g., "1234:FILE_NEW:").
             #if data[0].isupper():
             command, arguments = data.strip().split(b":", 1)
-            #ToDo remove
-            if command not in (b"DEBUG", b"INFO"):
-                log.info((command, arguments, "dispatch"))
+            #Uncomment to debug monitor commands
+            #if command not in (b"DEBUG", b"INFO"):
+            #    log.info((command, arguments, "dispatch"))
             self.pid = None
-            #else:
-            #self.pid, command, arguments = data.strip().split(b":", 2)
-
             fn = getattr(self, "_handle_%s" % command.lower().decode("utf-8"), None)
-            print(fn, command.lower().decode("utf-8"))
             if not fn:
                 log.critical("Unknown command received from the monitor: %r",
                              data.strip())

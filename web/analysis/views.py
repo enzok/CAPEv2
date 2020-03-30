@@ -78,6 +78,8 @@ if enabledconf["elasticsearchdb"]:
     fullidx = baseidx + "-*"
     es = Elasticsearch(hosts=[{"host": settings.ELASTIC_HOST, "port": settings.ELASTIC_PORT,}], timeout=60)
 
+db = Database()
+
 maxsimilar = int(Config("reporting").malheur.maxsimilar)
 
 # Conditional decorator for web authentication
@@ -165,7 +167,6 @@ def get_analysis_info(db, id=-1, task=None):
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def index(request, page=1):
     page = int(page)
-    db = Database()
     if page == 0:
         page = 1
     off = (page - 1) * TASK_LIMIT
@@ -292,7 +293,6 @@ def index(request, page=1):
 @require_safe
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def pending(request):
-    db = Database()
     tasks = db.list_tasks(status=TASK_PENDING)
 
     pending = []
@@ -742,7 +742,6 @@ def search_behavior(request, task_id):
 @require_safe
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def report(request, task_id):
-    db = Database()
     if enabledconf["mongodb"]:
         report = results_db.analysis.find_one({"info.id": int(task_id)}, {"dropped": 0}, sort=[("_id", pymongo.DESCENDING)])
     if es_as_db:
@@ -926,6 +925,7 @@ def file(request, category, task_id, dlfile):
         TMPDIR = "/tmp"
         if path and category in ("samplezip", "droppedzip", "CAPEZIP", "procdumpzip", "memdumpzip"):
             try:
+                print(file_name, path)
                 cmd = ["7z", "a", "-y", "-p" + settings.ZIP_PWD, os.path.join(TMPDIR, file_name + ".zip"), path]
                 _ = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
             except subprocess.CalledProcessError as e:
@@ -1281,8 +1281,6 @@ def search(request):
                                            "term": None,
                                            "error": "Unable to recognize the search syntax"})
 
-        # Get data from cuckoo db.
-        db = Database()
         analyses = []
         for result in records:
             new = None
@@ -1385,8 +1383,6 @@ def remove(request, task_id):
                     id=esid,
                 )
 
-    # Delete from SQL db.
-    db = Database()
     db.delete_task(task_id)
 
     return render(request, "success_simple.html", {"message": message})

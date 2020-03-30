@@ -2,6 +2,7 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
+from __future__ import absolute_import
 import os
 import shutil
 import logging
@@ -18,8 +19,8 @@ from lib.common.exceptions import CuckooPackageError
 
 log = logging.getLogger(__name__)
 
-class ZipBatch(Package):
-    """Zip batch analysis package."""
+class Zip(Package):
+    """Zip analysis package."""
     PATHS = [
              ("SystemRoot", "system32", "cmd.exe"),
              ("SystemRoot", "system32", "wscript.exe"),
@@ -27,7 +28,7 @@ class ZipBatch(Package):
              ("SystemRoot", "sysnative", "WindowsPowerShell", "v1.0", "powershell.exe"),
              ("SystemRoot", "system32", "xpsrchvw.exe"),
             ]
-    def extract_zip(self, zip_path, extract_path, password=b"infected", recursion_depth=1):
+    def extract_zip(self, zip_path, extract_path, password=b"intefected", recursion_depth=1):
         """Extracts a nested ZIP file.
         @param zip_path: ZIP path
         @param extract_path: where to extract
@@ -42,8 +43,10 @@ class ZipBatch(Package):
             shutil.move(zip_path, new_zip_path)
             zip_path = new_zip_path
 
+        #requires bytes not str
         if not isinstance(password, bytes):
             password = password.encode("utf-8")
+
         # Extraction.
         with ZipFile(zip_path, "r") as archive:
             try:
@@ -98,8 +101,7 @@ class ZipBatch(Package):
     def start(self, path):
         root = os.environ["TEMP"]
         password = self.options.get("password")
-        exe_regex = re.compile('(\.exe|\.scr|\.msi|\.bat|\.lnk|\.js|\.jse|\.vbs|\.vbe|\.wsf)$',flags=re.IGNORECASE)
-        dll_regex = re.compile('(\.dll|\.ocx)$',flags=re.IGNORECASE)
+        exe_regex = re.compile('(\.exe|\.dll|\.scr|\.msi|\.bat|\.lnk|\.js|\.jse|\.vbs|\.vbe|\.wsf)$',flags=re.IGNORECASE)
         zipinfos = self.get_infos(path)
         self.extract_zip(path, root, password, 0)
 
@@ -110,57 +112,45 @@ class ZipBatch(Package):
             if len(zipinfos):
                 # Attempt to find a valid exe extension in the archive
                 for f in zipinfos:
-                    file_name = f.filename
-                    file_path = os.path.join(root, file_name)
-                    log.debug("file_name: \"%s\"" % (file_name))
-                    if file_name.lower().endswith(".lnk"):
-                        cmd_path = self.get_path("cmd.exe")
-                        cmd_args = "/c start /wait \"\" \"{0}\"".format(file_path)
-                        try:
-                            self.execute(cmd_path, cmd_args, file_path)
-                        except:
-                            pass
-                    elif file_name.lower().endswith(".msi"):
-                        msi_path = self.get_path("msiexec.exe")
-                        msi_args = "/I \"{0}\"".format(file_path)
-                        try:
-                            self.execute(msi_path, msi_args, file_path)
-                        except:
-                            pass
-                    elif file_name.lower().endswith((".js", ".jse", ".vbs", ".vbe", ".wsf")):
-                        wscript = self.get_path_app_in_path("wscript.exe")
-                        wscript_args = "\"{0}\"".format(file_path)
-                        try:
-                            self.execute(wscript, wscript_args, file_path)
-                        except:
-                            pass
-                    elif file_name.lower().endswith((".dll", ".ocx")):
-                        rundll32 = self.get_path_app_in_path("rundll32.exe")
-                        function = self.options.get("function", "#1")
-                        arguments = self.options.get("arguments")
-                        dllloader = self.options.get("dllloader")
-                        dll_args = "\"{0}\",{1}".format(file_path, function)
-                        if arguments:
-                            dll_args += " {0}".format(arguments)
-                        if dllloader:
-                            newname = os.path.join(os.path.dirname(rundll32), dllloader)
-                            shutil.copy(rundll32, newname)
-                            rundll32 = newname
-                        try:
-                            self.execute(rundll32, dll_args, file_path)
-                        except:
-                            pass
-                    elif file_name.lower().endswith(".ps1"):
-                        powershell = self.get_path_app_in_path("powershell.exe")
-                        args = "-NoProfile -ExecutionPolicy bypass -File \"{0}\"".format(path)
-                        try:
-                            self.execute(powershell, args, file_path)
-                        except:
-                            pass
-                    else:
-                        try:
-                            self.execute(file_path, self.options.get("arguments"), file_path)
-                        except:
-                            pass
+                    if exe_regex.search(f.filename):
+                        file_name = f.filename
+                        break
+                # Default to the first one if none found
+                file_name = file_name if file_name else zipinfos[0].filename
+                log.debug("Missing file option, auto executing: {0}".format(file_name))
             else:
                 raise CuckooPackageError("Empty ZIP archive")
+
+        file_path = os.path.join(root, file_name)
+        log.debug("file_name: \"%s\"" % (file_name))
+        if file_name.lower().endswith(".lnk"):
+            cmd_path = self.get_path("cmd.exe")
+            cmd_args = "/c start /wait \"\" \"{0}\"".format(file_path)
+            return self.execute(cmd_path, cmd_args, file_path)
+        elif file_name.lower().endswith(".msi"):
+            msi_path = self.get_path("msiexec.exe")
+            msi_args = "/I \"{0}\"".format(file_path)
+            return self.execute(msi_path, msi_args, file_path)
+        elif file_name.lower().endswith((".js", ".jse", ".vbs", ".vbe", ".wsf")):
+            wscript = self.get_path_app_in_path("wscript.exe")
+            wscript_args = "\"{0}\"".format(file_path)
+            return self.execute(wscript, wscript_args, file_path)
+        elif file_name.lower().endswith(".dll"):
+            rundll32 = self.get_path_app_in_path("rundll32.exe")
+            function = self.options.get("function", "#1")
+            arguments = self.options.get("arguments")
+            dllloader = self.options.get("dllloader")
+            dll_args = "\"{0}\",{1}".format(file_path, function)
+            if arguments:
+                dll_args += " {0}".format(arguments)
+            if dllloader:
+                newname = os.path.join(os.path.dirname(rundll32), dllloader)
+                shutil.copy(rundll32, newname)
+                rundll32 = newname
+            return self.execute(rundll32, dll_args, file_path)
+        elif file_name.lower().endswith(".ps1"):
+            powershell = self.get_path_app_in_path("powershell.exe")
+            args = "-NoProfile -ExecutionPolicy bypass -File \"{0}\"".format(path)
+            return self.execute(powershell, args, file_path)
+        else:
+            return self.execute(file_path, self.options.get("arguments"), file_path)

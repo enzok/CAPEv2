@@ -126,7 +126,7 @@ def demux_sflock(filename, options):
             password = tmp_pass
 
         try:
-            unpacked = unpack(filepath=filename, password=password)
+            unpacked = unpack(filename, password=password)
         except UnpackException:
             unpacked = unpack(filename)
 
@@ -187,7 +187,7 @@ def demux_sample(filename, package, options):
 
     retlist = list()
     if HAS_SFLOCK:
-        # all in one unarchive
+        # all in one unarchiver
         retlist = demux_sflock(filename, options)
 
     # if it wasn't a ZIP or an email or we weren't able to obtain anything interesting from either, then just submit the
