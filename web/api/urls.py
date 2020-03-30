@@ -56,7 +56,7 @@ urlpatterns = [
     url(r"^tasks/get/rollingshrike/(?P<window>\d+)/$", views.tasks_rollingshrike),
     url(r"^tasks/get/rollingshrike/(?P<window>\d+)/(?P<msgfilter>[\w$-/:-?{-~!^_`\[\]\s\x5c]+)/$", views.tasks_rollingshrike),
     url(r"^tasks/get/latests/(?P<hours>\d+)/$", views.tasks_latest),
-    url(r"^tasks/add/(?P<category>[A-Za-z0-9]+)/(?P<task_id>\d+)/$", views.post_processing),
+    #url(r"^tasks/add/(?P<category>[A-Za-z0-9]+)/(?P<task_id>\d+)/$", views.post_processing),
     url(r"^tasks/get/malreport/$", views.malreport),
     url(r"^tasks/get/malreport/(?P<numdays>\d+)/$", views.malreport),
     url(r"^tasks/get/malreport/(?P<numdays>\d+)/(?P<startfrom>\d+)/$", views.malreport),
