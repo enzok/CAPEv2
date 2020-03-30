@@ -57,7 +57,8 @@ def options2passwd(options):
                         value = value.encode('utf8')
                     password = value
                     break
-            except:
+            except Exception as err:
+                log.error(err, exc_info=True)
                 pass
 
     return password
@@ -112,6 +113,7 @@ def get_filenames(retlist, tmp_dir, children):
             elif 'container' in at['type'] and child.package not in whitelist_extensions:
                 get_filenames(retlist, tmp_dir, child.children)
     except Exception as err:
+        log.error(err, exc_info=True)
         pass
 
     return retlist
