@@ -32,7 +32,7 @@ from lib.cuckoo.common.quarantine import unquarantine
 from lib.cuckoo.common.web_utils import _download_file
 from lib.cuckoo.common.exceptions import CuckooDemuxError
 from lib.cuckoo.common.constants import CUCKOO_ROOT, CUCKOO_VERSION
-from lib.cuckoo.common.web_utils import perform_malscore_search, perform_search, search_term_map
+from lib.cuckoo.common.web_utils import perform_malscore_search, perform_search, perform_ttps_search, search_term_map
 from lib.cuckoo.common.utils import store_temp_file, delete_folder, sanitize_filename, generate_fake_name
 from lib.cuckoo.common.utils import convert_to_printable, validate_referrer, get_user_filename, get_options
 from lib.cuckoo.common.web_utils import get_magic_type, download_file, disable_x64, get_file_content, fix_section_permission, recon, jsonize
@@ -492,7 +492,7 @@ def tasks_create_file(request):
                     return jsonize(resp, response=True)
 
 
-                tmp_path = store_temp_file(sample.read(), sample.name)
+                tmp_path = store_temp_file(sample.read(), sanitize_filename(sample.name))
                 if unique and db.check_file_uniq(File(tmp_path).get_sha256()):
                     #Todo handle as for VTDL submitted and omitted
                     continue
@@ -573,7 +573,7 @@ def tasks_create_file(request):
         else:
             # Grab the first file
             sample = request.FILES.getlist("file")[0]
-            tmp_path = store_temp_file(sample.read(), sample.name)
+            tmp_path = store_temp_file(sample.read(), sanitize_filename(sample.name))
             if unique and db.check_file_uniq(File(tmp_path).get_sha256()):
                 resp = {"error": True,
                         "error_value": "Duplicated file, disable unique option to force submission"}
@@ -1181,12 +1181,27 @@ def ext_tasks_search(request):
     term = request.POST.get("option", "")
     value = request.POST.get("argument", "")
 
-    if termp and value:
+    if term and value:
         records = False
-        if not term in search_term_map.keys():
+        if not term in search_term_map.keys() and term not in ("malscore", "ttp"):
             resp = {"error": True,
                     "error_value": "Invalid Option. '%s' is not a valid option." % term}
             return jsonize(resp, response=True)
+
+        try:
+            if term == "malscore":
+                records = perform_malscore_search(value)
+            elif term == "ttp":
+                records = perform_ttps_search(value)
+            else:
+                records = perform_search(term, value)
+        except ValueError:
+            if not term:
+                resp = {"error": True, "error_value": "No option provided."}
+            if not value:
+                resp = {"error": True, "error_value": "No argument provided."}
+            if not term and not value:
+                resp = {"error": True,  "error_value": "No option or argument provided."}
 
         records = perform_search(term, value)
 
@@ -1203,14 +1218,11 @@ def ext_tasks_search(request):
                     "error_value": "Unable to retrieve records"}
     else:
         if not term:
-            resp = {"error": True,
-                    "error_value": "No option provided."}
+            resp = {"error": True, "error_value": "No option provided."}
         if not value:
-            resp = {"error": True,
-                    "error_value": "No argument provided."}
+            resp = {"error": True, "error_value": "No argument provided."}
         if not term and not value:
-            resp = {"error": True,
-                    "error_value": "No option or argument provided."}
+            resp = {"error": True,  "error_value": "No option or argument provided."}
 
     return jsonize(resp, response=True)
 
