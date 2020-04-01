@@ -50,18 +50,19 @@ RESULT_UPLOADABLE = (b'CAPE', b'aux', b'buffer', b'curtain', b'extracted', b'fil
                      b'sysmon', b'stap', b'procdump', b'debugger')
 RESULT_DIRECTORIES = RESULT_UPLOADABLE + (b"reports", b"logs")
 
+
 def netlog_sanitize_fname(path):
     """Validate agent-provided path for result files"""
     path = path.replace(b"\\", b"/")
     dir_part, name = os.path.split(path)
     if dir_part not in RESULT_DIRECTORIES:
-        raise CuckooOperationalError("Netlog client requested banned path: %r"
-                                     % path)
+        raise CuckooOperationalError("Netlog client requested banned path: %r" % path)
     if any(c in BANNED_PATH_CHARS for c in name):
         for c in BANNED_PATH_CHARS:
             path.replace(bytes([c]), b"X")
 
     return path
+
 
 class Disconnect(Exception):
     pass
@@ -104,8 +105,7 @@ class HandlerContext(object):
 
             if e.errno != errno.ECONNRESET:
                 raise
-            log.debug("Task #%s had connection reset for %r", self.task_id,
-                      self)
+            log.debug("Task #%s had connection reset for %r", self.task_id, self)
             return b""
         except Exception as e:
             print(e)
@@ -157,8 +157,7 @@ class WriteLimiter(object):
             self.remain -= write
         if size and size != write:
             if not self.warned:
-                log.warning("Uploaded file length larger than upload_max_size, "
-                            "stopping upload.")
+                log.warning("Uploaded file length larger than upload_max_size stopping upload.")
                 self.fd.write(b"... (truncated)")
                 self.warned = True
 
@@ -195,9 +194,7 @@ class FileUpload(ProtocolHandler):
             self.fd = open_exclusive(file_path)
         except OSError as e:
             if e.errno == errno.EEXIST:
-                raise CuckooOperationalError("Analyzer for task #%s tried to "
-                                             "overwrite an existing file" %
-                                             self.task_id)
+                raise CuckooOperationalError("Analyzer for task #%s tried to overwrite an existing file" % self.task_id)
             raise
         #ToDo we need Windows path
         # filter screens/curtain/sysmon
@@ -217,8 +214,7 @@ class FileUpload(ProtocolHandler):
         try:
             return self.handler.copy_to_fd(self.fd, self.upload_max_size)
         finally:
-            log.debug("Task #%s uploaded file length: %s", self.task_id,
-                      self.fd.tell())
+            log.debug("Task #%s uploaded file length: %s", self.task_id, self.fd.tell())
 
 
 class LogHandler(ProtocolHandler):
@@ -229,8 +225,7 @@ class LogHandler(ProtocolHandler):
         try:
             self.fd = open_exclusive(self.logpath, bufsize=1)
         except OSError:
-            log.error("Task #%s: attempted to reopen live log analysis.log.",
-                      self.task_id)
+            log.error("Task #%s: attempted to reopen live log analysis.log.", self.task_id)
             return
 
         log.debug("Task #%s: live log analysis.log initialized.",
@@ -304,15 +299,9 @@ class GeventResultServerWorker(gevent.server.StreamServer):
         have been closed after the analyzer signalled completion."""
         with self.task_mgmt_lock:
             if self.tasks.pop(ipaddr, None) is None:
-                log.warning(
-                    "ResultServer did not have a task with ID %s and IP %s",
-                    task_id, ipaddr
-                )
+                log.warning("ResultServer did not have a task with ID %s and IP %s", task_id, ipaddr)
             else:
-                log.debug(
-                    "Stopped tracking machine %s for task #%s",
-                    ipaddr, task_id
-                )
+                log.debug("Stopped tracking machine %s for task #%s", ipaddr, task_id)
             ctxs = self.handlers.pop(task_id, set())
             for ctx in ctxs:
                 log.debug("Cancel %s for task %r", ctx, task_id)
@@ -341,8 +330,7 @@ class GeventResultServerWorker(gevent.server.StreamServer):
         with self.task_mgmt_lock:
             task_id = self.tasks.get(ipaddr)
             if not task_id:
-                log.warning("ResultServer did not have a task for IP %s",
-                            ipaddr)
+                log.warning("ResultServer did not have a task for IP %s", ipaddr)
                 return
 
         self.storagepath = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id))
@@ -366,8 +354,7 @@ class GeventResultServerWorker(gevent.server.StreamServer):
                 # protocol and a different task for that IP address may have
                 # been registered
                 if self.tasks.get(ipaddr) != task_id:
-                    log.warning("Task #%s for IP %s was cancelled during "
-                                "negotiation", task_id, ipaddr)
+                    log.warning("Task #%s for IP %s was cancelled during negotiation", task_id, ipaddr)
                     return
                 s = self.handlers.setdefault(task_id, set())
                 s.add(ctx)
@@ -383,8 +370,7 @@ class GeventResultServerWorker(gevent.server.StreamServer):
                 ctx.cancel()
                 if ctx.buf:
                     # This is usually not a good sign
-                    log.warning("Task #%s with protocol %s has unprocessed "
-                                "data before getting disconnected",
+                    log.warning("Task #%s with protocol %s has unprocessed data before getting disconnected",
                                 task_id, protocol)
         finally:
             task_log_stop(task_id)
@@ -398,8 +384,7 @@ class GeventResultServerWorker(gevent.server.StreamServer):
             command, version = header, None
         klass = self.commands.get(command)
         if not klass:
-            log.warning("Task #%s: unknown netlog protocol requested (%r), "
-                        "terminating connection.", task_id, command)
+            log.warning("Task #%s: unknown netlog protocol requested (%r), terminating connection.", task_id, command)
             return
         ctx.command = command
         return klass(task_id, ctx, version)
@@ -420,10 +405,7 @@ class ResultServer(metaclass=Singleton):
             sock.bind((ip, port))
         except (OSError, socket.error) as e:
             if e.errno == errno.EADDRINUSE:
-                raise CuckooCriticalError(
-                    "Cannot bind ResultServer on port %d "
-                    "because it was in use, bailing." % port
-                )
+                raise CuckooCriticalError("Cannot bind ResultServer on port %d because it was in use, bailing." % port)
             elif e.errno == errno.EADDRNOTAVAIL:
                 raise CuckooCriticalError(
                     "Unable to bind ResultServer on %s:%s %s. This "
@@ -434,10 +416,7 @@ class ResultServer(metaclass=Singleton):
                     "for more information." % (ip, port, e)
                 )
             else:
-                raise CuckooCriticalError(
-                    "Unable to bind ResultServer on %s:%s: %s" %
-                    (ip, port, e)
-                )
+                raise CuckooCriticalError("Unable to bind ResultServer on %s:%s: %s" % (ip, port, e))
 
         # We allow user to specify port 0 to get a random port, report it back
         # here
