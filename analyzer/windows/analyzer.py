@@ -74,7 +74,7 @@ HIDE_PIDS = None
 
 def pid_from_service_name(servicename):
     sc_handle = ADVAPI32.OpenSCManagerA(None, None, 0x0001)
-    serv_handle = ADVAPI32.OpenServiceA(sc_handle, servicename, 0x0005)
+    serv_handle = ADVAPI32.OpenServiceW(sc_handle, servicename, 0x0005)
     buf = create_string_buffer(36)
     needed = c_int(0)
     ADVAPI32.QueryServiceStatusEx(serv_handle, 0, buf, sizeof(buf), byref(needed))

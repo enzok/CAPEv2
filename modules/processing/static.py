@@ -2096,4 +2096,3 @@ class Static(Processing):
                 static = URL(self.task["target"]).run()
 
         return static
-
