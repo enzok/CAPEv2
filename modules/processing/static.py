@@ -1387,11 +1387,11 @@ class Office(object):
                     if "Excel 4.0 macro sheet".lower() in vba_code.lower():
                         decrypted_code = self._decode_xlm_macro(vba_code)
                         if decrypted_code:
-                            vba_code = decrypted_code.encode('utf8')
+                            vba_code = decrypted_code
                             outputname += "_Decoded"
                             macrores["Code"][outputname] = list()
                             macrores["Code"][outputname].append((convert_to_printable(f"decoded_{vba_filename}"),
-                                                                 convert_to_printable(decrypted_code)))
+                                                                 convert_to_printable(vba_code)))
                     suspicious = detect_suspicious(vba_code)
                     iocs = False
                     try:
