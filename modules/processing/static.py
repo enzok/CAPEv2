@@ -1389,6 +1389,7 @@ class Office(object):
                         if decrypted_code:
                             vba_code = decrypted_code
                             outputname += "_Decoded"
+                            macrores["Code"][outputname] = list()
                             macrores["Code"][outputname].append((convert_to_printable(vba_filename),
                                                                  convert_to_printable(vba_code)))
                     suspicious = detect_suspicious(vba_code)
