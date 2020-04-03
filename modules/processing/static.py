@@ -1201,20 +1201,23 @@ class Office(object):
         return ret
 
     def _decode_xlm_macro(self, macro):
-        dstrs = dict()
         lines = macro.split("\n")
-        numre = re.compile("ptgInt (\d+) ")
-        # Method 1 - Handles Formulas that concatenate columns of obfuscated cells
+        numre = re.compile('ptgInt (\d+) ')
+        strdict = dict()
+        dstrs = ""
         for line in lines:
             if "CHAR" not in line:
                 continue
             col = "C{}".format(re.findall('.*R\d+C(\d+)\s', line)[0])
-            if not dstrs.get(col, False):
-                dstrs[col] = ""
+            if not strdict.get(col, False):
+                strdict[col] = ""
             found = numre.findall(line)
             if found:
                 for n in found:
-                    dstrs[col] += (chr(int(n)))
+                    strdict[col] += (chr(int(n)))
+        for col in strdict:
+            dstrs += f"{strdict[col]}\n"
+
         return dstrs
 
     def _parse_rtf(self, data):
@@ -1360,6 +1363,7 @@ class Office(object):
             metares["HasMacros"] = "Yes"
             macrores = officeresults["Macro"] = dict()
             macrores["Code"] = dict()
+            decoded_strs = ""
             ctr = 0
             # Create IOC and category vars. We do this before processing the
             # macro(s) to avoid overwriting data when there are multiple
@@ -1369,6 +1373,7 @@ class Office(object):
             macrores["Analysis"]["Suspicious"] = list()
             macrores["Analysis"]["IOCs"] = list()
             macrores["Analysis"]["HexStrings"] = list()
+            macrores["Analysis"]["DecodedStrings"] = list()
             for (_, _, vba_filename, vba_code) in vba.extract_macros():
                 vba_code = filter_vba(vba_code)
                 if vba_code.strip() != '':
@@ -1402,6 +1407,10 @@ class Office(object):
                     if hex_strs:
                         for encoded, decoded in hex_strs:
                             macrores["Analysis"]["HexStrings"].append((encoded, convert_to_printable(decoded)))
+                    if decoded_strs:
+                        for dstr in decoded_strs.split("\n"):
+                            if dstr:
+                                macrores["Analysis"]["DecodedStrings"].append(convert_to_printable(dstr))
             # Delete and keys which had no results. Otherwise we pollute the
             # Django interface with null data.
             if macrores["Analysis"]["AutoExec"] == []:
@@ -1412,6 +1421,8 @@ class Office(object):
                 del macrores["Analysis"]["IOCs"]
             if macrores["Analysis"]["HexStrings"] == []:
                 del macrores["Analysis"]["HexStrings"]
+            if macrores["Analysis"]["DecodedStrings"] == []:
+                del macrores["Analysis"]["DecodedStrings"]
 
             if HAVE_VBA2GRAPH and processing_conf.vba2graph.enabled:
                 try:
