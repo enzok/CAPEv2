@@ -1390,7 +1390,7 @@ class Office(object):
                             vba_code = decrypted_code
                             outputname += "_Decoded"
                             macrores["Code"][outputname] = list()
-                            macrores["Code"][outputname].append((convert_to_printable(vba_filename),
+                            macrores["Code"][outputname].append((convert_to_printable(f"decoded_{vba_filename}"),
                                                                  convert_to_printable(vba_code)))
                     suspicious = detect_suspicious(vba_code)
                     iocs = False
