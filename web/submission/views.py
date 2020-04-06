@@ -235,7 +235,7 @@ def index(request, resubmit_hash=False):
             options += "posproc=1,"
 
         if request.POST.get("combo"):
-            options += "combo=1,extraction=0,"
+            options += "combo=1,"
 
         if submitter:
             options += "submitter={},".format(submitter)
