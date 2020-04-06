@@ -240,6 +240,9 @@ def index(request, resubmit_hash=False):
         if submitter:
             options += "submitter={},".format(submitter)
 
+        # Add reg-dump option as default
+        options += "dump-reg=1,"
+
         options = options[:-1]
 
         unique = request.POST.get("unique", False)
