@@ -35,9 +35,9 @@ log = logging.getLogger(__name__)
 machinery = None
 machine_lock = None
 latest_symlink_lock = threading.Lock()
+routing = Config("routing")
 
 active_analysis_count = 0
-routing_cfg = Config("routing")
 
 class CuckooDeadMachine(Exception):
     """Exception thrown when a machine turns dead.
@@ -64,7 +64,6 @@ class AnalysisManager(threading.Thread):
         self.task = task
         self.errors = error_queue
         self.cfg = Config()
-        self.routing = Config("routing")
         self.aux_cfg = Config("auxiliary")
         self.storage = ""
         self.binary = ""
@@ -210,15 +209,18 @@ class AnalysisManager(threading.Thread):
                     if hasattr(pe, "DIRECTORY_ENTRY_EXPORT"):
                         exports = []
                         for exported_symbol in pe.DIRECTORY_ENTRY_EXPORT.symbols:
-                            exports.append(re.sub(br'[^A-Za-z0-9_?@-]', '', exported_symbol.name))
+                            try:
+                                exports.append(re.sub(b'[^A-Za-z0-9_?@-]', '', exported_symbol.name).decode("utf-8"))
+                            except Exception as e:
+                                log.error(e, exc_info=True)
+
                         options["exports"] = ",".join(exports)
                 except Exception as e:
                     log.error(e, exc_info=True)
 
         # options from auxiliar.conf
-        options["curtain"] = self.aux_cfg.curtain.enabled
-        options["sysmon"] = self.aux_cfg.sysmon.enabled
-        options["procmon"] = self.aux_cfg.procmon.enabled
+        for plugin in self.aux_cfg.auxiliar_modules.keys():
+            options[plugin] = self.aux_cfg.auxiliar_modules[plugin]
 
         return options
 
@@ -457,7 +459,7 @@ class AnalysisManager(threading.Thread):
     def route_network(self):
         """Enable network routing if desired."""
         # Determine the desired routing strategy (none, internet, VPN).
-        self.route = routing_cfg.routing.route
+        self.route = routing.routing.route
 
         #Allow overwrite default conf value
         if self.task.options:
@@ -472,12 +474,12 @@ class AnalysisManager(threading.Thread):
             self.interface = None
             self.rt_table = None
         elif self.route == "inetsim":
-            self.interface = self.routing.inetsim.interface
+            self.interface = routing.inetsim.interface
         elif self.route == "tor":
-            self.interface = self.routing.tor.interface
-        elif self.route == "internet" and routing_cfg.routing.internet != "none":
-            self.interface = routing_cfg.routing.internet
-            self.rt_table = routing_cfg.routing.rt_table
+            self.interface = routing.tor.interface
+        elif self.route == "internet" and routing.routing.internet != "none":
+            self.interface = routing.routing.internet
+            self.rt_table = routing.routing.rt_table
         elif self.route in vpns:
             self.interface = vpns[self.route].interface
             self.rt_table = vpns[self.route].rt_table
@@ -504,10 +506,10 @@ class AnalysisManager(threading.Thread):
         if self.route == "inetsim":
             self.rooter_response = rooter(
                 "inetsim_enable", self.machine.ip,
-                str(self.routing.inetsim.server),
-                str(self.routing.inetsim.dnsport),
+                str(routing.inetsim.server),
+                str(routing.inetsim.dnsport),
                 str(self.cfg.resultserver.port),
-                str(self.routing.inetsim.ports),
+                str(routing.inetsim.ports),
             )
 
         elif self.route == "tor":
@@ -515,8 +517,8 @@ class AnalysisManager(threading.Thread):
                 "socks5_enable",
                 self.machine.ip,
                 str(self.cfg.resultserver.port),
-                str(self.routing.tor.dnsport),
-                str(self.routing.tor.proxyport)
+                str(routing.tor.dnsport),
+                str(routing.tor.proxyport)
             )
 
         elif self.route in self.socks5s:
@@ -567,10 +569,10 @@ class AnalysisManager(threading.Thread):
             self.rooter_response = rooter(
                 "inetsim_disable",
                 self.machine.ip,
-                self.routing.inetsim.server,
-                str(self.routing.inetsim.dnsport),
+                routing.inetsim.server,
+                str(routing.inetsim.dnsport),
                 str(self.cfg.resultserver.port),
-                str(self.routing.inetsim.ports),
+                str(routing.inetsim.ports),
             )
 
         elif self.route == "tor":
@@ -578,8 +580,8 @@ class AnalysisManager(threading.Thread):
                 "socks5_disable",
                 self.machine.ip,
                 str(self.cfg.resultserver.port),
-                str(self.routing.tor.dnsport),
-                str(self.routing.tor.proxyport),
+                str(routing.tor.dnsport),
+                str(routing.tor.proxyport),
             )
 
         elif self.route in self.socks5s:
@@ -697,9 +699,9 @@ class Scheduler:
                        vpn.interface, machine.ip)
 
             # Drop forwarding rule to the internet / dirty line.
-            if routing_cfg.routing.internet != "none":
+            if routing.routing.internet != "none":
                 rooter("forward_disable", machine.interface,
-                       routing_cfg.routing.internet, machine.ip)
+                       routing.routing.internet, machine.ip)
 
     def stop(self):
         """Stop scheduler."""
