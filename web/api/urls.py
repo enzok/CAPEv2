@@ -51,7 +51,7 @@ urlpatterns = [
     url(r"^files/get/(?P<stype>task)/(?P<value>\d+)/$", views.get_files),
     url(r"^machines/list/$", views.machines_list),
     url(r"^machines/view/(?P<name>[\w$-/:-?{-~!^_`\[\]]+)/$", views.machines_view),
-    url(r"^cuckoo/status/$", views.cuckoo_status),
+    url(r"^cape/status/$", views.cape_status),
     url(r"^tasks/get/rollingsuri/(?P<window>\d+)/$", views.tasks_rollingsuri),
     url(r"^tasks/get/rollingshrike/(?P<window>\d+)/$", views.tasks_rollingshrike),
     url(r"^tasks/get/rollingshrike/(?P<window>\d+)/(?P<msgfilter>[\w$-/:-?{-~!^_`\[\]\s\x5c]+)/$", views.tasks_rollingshrike),

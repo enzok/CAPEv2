@@ -2220,7 +2220,7 @@ if apiconf.cuckoostatus.get("enabled"):
     rateblock = limiter
 @ratelimit(key="ip", rate=raterps, block=rateblock)
 @ratelimit(key="ip", rate=raterpm, block=rateblock)
-def cuckoo_status(request):
+def cape_status(request):
     if request.method != "GET":
         resp = {"error": True, "error_value": "Method not allowed"}
         return jsonize(resp, response=True)
@@ -2228,7 +2228,7 @@ def cuckoo_status(request):
     resp = {}
     if not apiconf.cuckoostatus.get("enabled"):
         resp["error"] = True
-        resp["error_value"] = "Cuckoo Status API is disabled"
+        resp["error_value"] = "CAPE Status API is disabled"
     else:
         resp["error"] = False
         resp["data"] = dict(
