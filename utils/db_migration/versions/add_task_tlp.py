@@ -16,7 +16,6 @@ revision = '7331c4d994fd'
 down_revision = '30d0230de7cd'
 
 import sqlalchemy as sa
-import os.path
 import sys
 
 try:
