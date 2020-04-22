@@ -118,13 +118,14 @@ class MISP(Report):
                 self.misp.add_named_attribute(event, 'ip-dst', sorted(list(ips)))#, category, to_ids, comment, distribution, proposal, **kwargs)
 
     def dropped_files(self, results, event):
+        """
         if self.options.get("dropped", False) and "dropped" in results:
             for entry in results["dropped"]:
                 if entry["md5"] and  entry["md5"] not in whitelist:
                     self.misper["iocs"].append({"md5": entry["md5"]})
                     self.misper["iocs"].append({"sha1": entry["sha1"]})
                     self.misper["iocs"].append({"sha256": entry["sha256"]})
-
+        """
         """
         Add all the dropped files as MISP attributes.
         """
@@ -167,6 +168,10 @@ class MISP(Report):
         """Run analysis.
         @return: MISP results dict.
         """
+
+        if pymisp.__version__ != '2.4.117.3':
+            log.warning("Unsuported version of pymisp detected, please install pymisp=2.4.117.3 or upgrade this code for latest pymisp")
+            return
 
         url = self.options.get("url", "")
         apikey = self.options.get("apikey", "")
