@@ -1220,6 +1220,142 @@ class Office(object):
 
         return dstrs
 
+    def fix_col(self, cell):
+        rc = cell.split("C")
+        col = int(rc[-1]) - 49152
+        newcell = f"{rc[0]}C{col}"
+        return newcell
+
+    def get_arg(self, src):
+        if "func" in src:
+            return src.strip("func ")
+        return src.split()[-1]
+
+    def macro_decompile(self, vbacode):
+        tokens = {"func": {"operator": "",
+                           "nargs": 1,
+                           },
+                  "ptgFuncV": {"operator": "",
+                               "nargs": 1,
+                               },
+                  "ptgRefV": {"operator": "",
+                              "nargs": 1,
+                              },
+                  "ptgInt": {"operator": "",
+                             "nargs": 1,
+                             },
+                  "ptgStr": {"operator": "",
+                             "nargs": 1,
+                             },
+                  "ptgName": {"operator": "",
+                              "nargs": 1,
+                              },
+                  "ptgNameX": {"operator": "",
+                               "nargs": 1,
+                               },
+                  "ptgBool": {"operator": "",
+                              "nargs": 1,
+                              },
+                  "ptgRef": {"operator": "",
+                             "nargs": 1,
+                             },
+                  "ptgRef3dV": {"operator": "",
+                                "nargs": 1,
+                                },
+                  "ptgMul": {"operator": "*",
+                             "nargs": 0,
+                             },
+                  "ptgDiv": {"operator": "/",
+                             "nargs": 0,
+                             },
+                  "ptgSub": {"operator": "-",
+                             "nargs": 0,
+                             },
+                  "ptgAdd": {"operator": "+",
+                             "nargs": 0,
+                             },
+                  "ptgConcat": {"operator": "&",
+                                "nargs": 0,
+                                },
+                  "ptgAttr": {"operator": "",
+                              "nargs": 0,
+                              },
+                  "ptgLT": {"operator": "<",
+                            "nargs": 0,
+                            },
+                  "ptgGT": {"operator": ">",
+                            "nargs": 0,
+                            },
+                  "ptgLE": {"operator": "<=",
+                            "nargs": 0,
+                            },
+                  "ptgGE": {"operator": ">=",
+                            "nargs": 0,
+                            },
+                  "ptgFuncVarV": {"operator": "",
+                                  "nargs": 2,
+                                  },
+                  }
+
+        if not vbacode:
+            return
+        result = ""
+        lines = vbacode.split("\n")
+        for line in lines:
+            data = line.split(" : ")
+            mtype = data[0].split()[-1]
+            if mtype == "BOUNDSHEET":
+                print(data[1])
+            elif mtype == "LABEL":
+                print(f"Macro Name - {data[1].split()[-1]}")
+            elif mtype == "FORMULA":
+                cell, chunk = re.findall("^Cell Formula - (R\d+C\d+) len=\d+ (.*)$", data[1])[0]
+                stack = chunk.split()
+                newstack = []
+                ns = ""
+                n = 1
+                for i in stack:
+                    token = tokens.get(i, False)
+                    if token:
+                        operator = token["operator"]
+                        nargs = token["nargs"]
+                        args = ' '.join(stack[n:n + nargs])
+                        if re.match('R\d+C\d+', args):
+                            args = self.fix_col(args)
+                        if i == "func":
+                            l = len(newstack)
+                            if "args" in newstack[-1]:
+                                k = int(self.get_arg(newstack[-1]))
+                                del newstack[-1]
+                                l -= 1
+                                ns = f"{args}("
+                                if k > 0:
+                                    for j in range(0, k):
+                                        ns += f"{newstack[l - k]},"
+                                        del newstack[l - k]
+                                    ns = ns[:-1]
+                                ns += ")"
+                            else:
+                                ns = f"{args}({newstack[l - 1]})"
+                                del newstack[l - 1:]
+                            newstack.append(ns)
+                        elif i == "ptgFuncV":
+                            l = len(newstack)
+                            ns = f"{args}({newstack[l - 1]})"
+                            del newstack[l - 1:]
+                            newstack.append(ns)
+                        elif operator:
+                            l = len(newstack)
+                            if l > 1:
+                                ns = f"{newstack[l - 2]}{operator}{newstack[l - 1]}"
+                                del newstack[l - 2:]
+                                newstack.append(ns)
+                        else:
+                            newstack.append(f"{args}")
+                    n += 1
+                result += f"{cell} = {ns}\n"
+        return result
+
     def _parse_rtf(self, data):
         results = dict()
         rtfp = RtfObjParser(data)
@@ -1387,7 +1523,9 @@ class Office(object):
                                                          convert_to_printable(vba_code)))
                     autoexec = detect_autoexec(vba_code)
                     if "Excel 4.0 macro sheet".lower() in vba_code.lower():
-                        decrypted_code = self._decode_xlm_macro(vba_code)
+                        #decrypted_code = self._decode_xlm_macro(vba_code)
+                        # handle decompiling of macros - TODO: more decoding of decompiled macros (get cell values)
+                        decrypted_code = self.macro_decompile(vba_code)
                         if decrypted_code:
                             vba_code = decrypted_code
                             outputname += "_Decoded"
