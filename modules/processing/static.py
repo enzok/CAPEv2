@@ -1586,7 +1586,6 @@ class Office(object):
             macrores["Analysis"]["Suspicious"] = list()
             macrores["Analysis"]["IOCs"] = list()
             macrores["Analysis"]["HexStrings"] = list()
-            macrores["Analysis"]["DecodedStrings"] = list()
             for (_, _, vba_filename, vba_code) in vba.extract_macros():
                 vba_code = filter_vba(vba_code)
                 if vba_code.strip() != '':
@@ -1625,12 +1624,7 @@ class Office(object):
                     if hex_strs:
                         for encoded, decoded in hex_strs:
                             macrores["Analysis"]["HexStrings"].append((encoded, convert_to_printable(decoded)))
-                    if decoded_strs:
-                        for dstr in decoded_strs.split("\n"):
-                            if dstr:
-                                cell, cell_value = dstr.split(" = ", 1)
-                                macrores["Analysis"]["DecodedStrings"].append((f"cell {cell}",
-                                                                               convert_to_printable(cell_value)))
+
             # Delete and keys which had no results. Otherwise we pollute the
             # Django interface with null data.
             if macrores["Analysis"]["AutoExec"] == []:
@@ -1641,8 +1635,6 @@ class Office(object):
                 del macrores["Analysis"]["IOCs"]
             if macrores["Analysis"]["HexStrings"] == []:
                 del macrores["Analysis"]["HexStrings"]
-            if macrores["Analysis"]["DecodedStrings"] == []:
-                del macrores["Analysis"]["DecodedStrings"]
 
             if HAVE_VBA2GRAPH and processing_conf.vba2graph.enabled:
                 try:
