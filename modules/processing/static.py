@@ -17,6 +17,10 @@ import hashlib
 import requests
 import binascii
 import re2 as re
+
+#pip3 install - U git + https: // github.com / Heat - Miser / xlrd @ master
+import xlrd
+
 from PIL import Image
 from io import BytesIO
 from subprocess import Popen, PIPE
@@ -1200,26 +1204,6 @@ class Office(object):
             ret["DocumentSummaryInformation"][prop] = convert_to_printable(str(value))
         return ret
 
-    def _decode_xlm_macro(self, macro):
-        lines = macro.split("\n")
-        numre = re.compile('ptgInt (\d+) ')
-        strdict = dict()
-        dstrs = ""
-        for line in lines:
-            if "CHAR" not in line:
-                continue
-            col = "C{}".format(re.findall('.*R\d+C(\d+)\s', line)[0])
-            if not strdict.get(col, False):
-                strdict[col] = ""
-            found = numre.findall(line)
-            if found:
-                for n in found:
-                    strdict[col] += (chr(int(n)))
-        for col in strdict:
-            dstrs += f"{strdict[col]}\n"
-
-        return dstrs
-
     def fix_col(self, cell):
         rc = cell.split("C")
         col = int(rc[-1]) - 49152
@@ -1354,6 +1338,93 @@ class Office(object):
                             newstack.append(f"{args}")
                     n += 1
                 result += f"{cell} = {ns}\n"
+        return result
+
+    def process_macro(self, filename, macro):
+        result = ""
+        opers = ["+", "-", "*", "/", "^"]
+
+        try:
+            wb = xlrd.open_workbook(filename, formatting_info=True)
+        except Exception as e:
+            return result
+
+        font = wb.font_list
+
+        for sheet in wb.sheets():
+            if sheet.visibility == 2:
+                for line in macro.split("\n"):
+                    if "FORMULA" in line and "GET.CELL" in line:
+                        rescell, formula = line.split(" = ")
+                        cells = re.findall('(GET\.CELL\(\d+,R\d+C\d+\))', formula)
+                        const = None
+                        constcell = ""
+                        newline = line
+                        for cell in cells:
+                            try:
+                                typ_num, row, col = re.findall('GET\.CELL\((\d+),R(\d+)C(\d+)\)', cell)[0]
+                                row = int(row) - 1
+                                col = int(col) - 1
+                                typ_num = int(typ_num)
+
+                                if typ_num == 19:
+                                    cell_xf = wb.xf_list[sheet.cell_xf_index(row, col)]
+                                    fh = font[cell_xf.font_index].height / 20
+                                    newline = newline.replace(cell, str(fh))
+                                if typ_num == 17:
+                                    rh = sheet.rowinfo_map[row].height / 20
+                                    newline = newline.replace(cell, str(rh))
+
+                            except Exception as e:
+                                result += f"{line}\n"
+                                continue
+                        try:
+                            fres, constcell = re.findall('\((.*),(R\d+C\d+)', newline)[0]
+                            if fres:
+                                if 'DAY' in fres or 'NOW' in fres:
+                                    day = date.today().day
+                                    # day = "1"
+                                    dn = re.findall('DAY\(.*\)', fres)[0]
+                                    fres = fres.replace(dn, str(day))
+                                    # const = "1746"
+                                    result += f"{newline} => {constcell} = {const}\n"
+                                elif any(x in fres for x in opers):
+                                    const = round(eval(fres), 1)
+                                    result += f"{newline} => {constcell} = {const}\n"
+                                else:
+                                    result += f"{newline}\n"
+                        except Exception as e:
+                            result += f"Decode failed: {line}\n"
+                            continue
+                    elif "FORMULA" in line and "CHAR" in line:
+                        newline = line
+                        if const and constcell in newline:
+                            newline = newline.replace(constcell, str(const))
+                        rescell, formula = newline.split(" = ")
+                        cells = re.findall('CHAR\((R\d+C\d+)', formula)
+                        for cell in cells:
+                            try:
+                                row, col = re.findall('R(\d+)C(\d+)', cell)[0]
+                                newline = newline.replace(cell, str(sheet.cell_value(int(row) - 1, int(col) - 1)))
+                            except Exception as e:
+                                result += f"Decode failed: {line}\n"
+                                continue
+                        res = re.findall('(CHAR\((.*?)\))', newline)
+                        for charexp, eq in res:
+                            val = None
+                            try:
+                                if any(x in eq for x in opers):
+                                    val = chr(int(round(eval(eq), 0)))
+                                if val:
+                                    newline = newline.replace(charexp, val)
+                                    newline = newline.replace('&', '')
+                            except Exception as e:
+                                result += f"Decode failed: {line}\n"
+                                continue
+                        result += f"{newline}\n"
+                    else:
+                        result += f"{line}\n"
+            print(result)
         return result
 
     def _parse_rtf(self, data):
@@ -1523,11 +1594,10 @@ class Office(object):
                                                          convert_to_printable(vba_code)))
                     autoexec = detect_autoexec(vba_code)
                     if "Excel 4.0 macro sheet".lower() in vba_code.lower():
-                        #decrypted_code = self._decode_xlm_macro(vba_code)
-                        # handle decompiling of macros - TODO: more decoding of decompiled macros (get cell values)
-                        decrypted_code = self.macro_decompile(vba_code)
-                        if decrypted_code:
-                            vba_code = decrypted_code
+                        decompiled_macro = self.macro_decompile(vba_code)
+                        if decompiled_macro:
+                            decoded_strs = self.process_macro(filepath, decompiled_macro)
+                            vba_code = decoded_strs
                             outputname += "_Decoded"
                             macrores["Code"][outputname] = list()
                             macrores["Code"][outputname].append((convert_to_printable(f"decoded_{vba_filename}"),
