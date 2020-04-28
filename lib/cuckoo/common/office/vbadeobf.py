@@ -77,7 +77,7 @@ def decode_hex(m):
     try:
         result = "".join(c for c in s.decode("hex"))
     except Exception as e:
-        return ""
+        return s
     return result
 
 @quote
