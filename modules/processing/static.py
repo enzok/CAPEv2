@@ -1353,12 +1353,12 @@ class Office(object):
 
         for sheet in wb.sheets():
             if sheet.visibility == 2:
+                const = None
+                constcell = ""
                 for line in macro.split("\n"):
                     if "FORMULA" in line and "GET.CELL" in line:
                         rescell, formula = line.split(" = ")
                         cells = re.findall('(GET\.CELL\(\d+,R\d+C\d+\))', formula)
-                        const = None
-                        constcell = ""
                         newline = line
                         for cell in cells:
                             try:
