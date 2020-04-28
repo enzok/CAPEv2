@@ -1426,7 +1426,8 @@ class Office(object):
                                 continue
                         result += f"{newline}\n"
                     else:
-                        result += f"{line}\n"
+                        if "FORMULA" not in line and "GET.CELL" not in line:
+                            result += f"{line}\n"
 
             print(result)
         return result
