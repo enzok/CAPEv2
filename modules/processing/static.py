@@ -1394,7 +1394,7 @@ class Office(object):
                                 else:
                                     result += f"{newline}\n"
                         except Exception as e:
-                            result += f"Decode failed: {line}\n"
+                            result += f"Decode failed: {e} - {line}\n"
                             continue
                     elif "FORMULA" in line and "CHAR" in line:
                         newline = line
@@ -1407,7 +1407,7 @@ class Office(object):
                                 row, col = re.findall('R(\d+)C(\d+)', cell)[0]
                                 newline = newline.replace(cell, str(sheet.cell_value(int(row) - 1, int(col) - 1)))
                             except Exception as e:
-                                result += f"Decode failed: {line}\n"
+                                result += f"Decode failed: {e} - {line}\n"
                                 continue
                         res = re.findall('(CHAR\((.*?)\))', newline)
                         for charexp, eq in res:
@@ -1419,7 +1419,7 @@ class Office(object):
                                     newline = newline.replace(charexp, val)
                                     newline = newline.replace('&', '')
                             except Exception as e:
-                                result += f"Decode failed: {line}\n"
+                                result += f"Decode failed: {e} - {line}\n"
                                 continue
                         result += f"{newline}\n"
                     else:
