@@ -134,7 +134,7 @@ def IsPEImage(buf, size=False):
     if size < DOS_HEADER_LIMIT:
         return False
     if isinstance(buf, str):
-        buf = buf.encode('utf8')
+        buf = buf.encode("utf-8")
     dos_header = buf[:DOS_HEADER_LIMIT]
     nt_headers = None
 
@@ -151,7 +151,6 @@ def IsPEImage(buf, size=False):
                 machine_probe = struct.unpack("<H", buf[offset:offset+2])[0]
             except struct.error:
                 machine_probe = ""
-                log.warning("Machine probe unpack failed, follow")
             if machine_probe and machine_probe in (IMAGE_FILE_MACHINE_I386, IMAGE_FILE_MACHINE_AMD64):
                 nt_headers = buf[offset-4:offset+252]
                 break
