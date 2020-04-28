@@ -1353,12 +1353,13 @@ class Office(object):
 
         for sheet in wb.sheets():
             if sheet.visibility == 2:
-                const = None
-                constcell = ""
-                for line in macro.split("\n"):
+                macro_data = macro.split("\n")
+                for line in macro_data:
                     if "FORMULA" in line and "GET.CELL" in line:
                         rescell, formula = line.split(" = ")
                         cells = re.findall('(GET\.CELL\(\d+,R\d+C\d+\))', formula)
+                        const = None
+                        constcell = ""
                         newline = line
                         for cell in cells:
                             try:
@@ -1394,9 +1395,11 @@ class Office(object):
                                 else:
                                     result += f"{newline}\n"
                         except Exception as e:
-                            result += f"Decode failed: {e} - {line}\n"
+                            result += f"Decode failed: {line}\n"
                             continue
-                    elif "FORMULA" in line and "CHAR" in line:
+
+                for line in macro_data:
+                    if "FORMULA" in line and "CHAR" in line:
                         newline = line
                         if const and constcell in newline:
                             newline = newline.replace(constcell, str(const))
@@ -1407,7 +1410,7 @@ class Office(object):
                                 row, col = re.findall('R(\d+)C(\d+)', cell)[0]
                                 newline = newline.replace(cell, str(sheet.cell_value(int(row) - 1, int(col) - 1)))
                             except Exception as e:
-                                result += f"Decode failed: {e} - {line}\n"
+                                result += f"Decode failed: {line}\n"
                                 continue
                         res = re.findall('(CHAR\((.*?)\))', newline)
                         for charexp, eq in res:
@@ -1419,11 +1422,12 @@ class Office(object):
                                     newline = newline.replace(charexp, val)
                                     newline = newline.replace('&', '')
                             except Exception as e:
-                                result += f"Decode failed: {e} - {line}\n"
+                                result += f"Decode failed: {line}\n"
                                 continue
                         result += f"{newline}\n"
                     else:
                         result += f"{line}\n"
+
             print(result)
         return result
 
