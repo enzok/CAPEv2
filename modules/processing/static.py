@@ -1628,7 +1628,8 @@ class Office(object):
                     if decoded_strs:
                         for dstr in decoded_strs.split("\n"):
                             if dstr:
-                                macrores["Analysis"]["DecodedStrings"].append(convert_to_printable(dstr))
+                                cell, cell_value = dstr.split(" = ")
+                                macrores["Analysis"]["DecodedStrings"].append(cell, convert_to_printable(cell_value))
             # Delete and keys which had no results. Otherwise we pollute the
             # Django interface with null data.
             if macrores["Analysis"]["AutoExec"] == []:
