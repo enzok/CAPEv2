@@ -175,14 +175,13 @@ class Analyzer:
         self.LASTINJECT_TIME = None
         self.NUM_INJECTED = 0
 
-    # Doesnt work as expected
+
     def get_pipe_path(self, name):
         """Return \\\\.\\PIPE on Windows XP and \\??\\PIPE elsewhere."""
         version = sys.getwindowsversion()
         if version.major == 5 and version.minor == 1:
-            return "\\\\.\\PIPE\\%s" % name
-        #return "\\??\\PIPE\\%s" % name
-        return "\\\\.\\PIPE\\%s" % name
+            return "\\\\.\\PIPE\\" + name
+        return "\\??\\PIPE\\" + name
 
     def pids_from_process_name_list(self, namelist):
         proclist = []
@@ -236,13 +235,11 @@ class Analyzer:
         # Set the default DLL to be used for this analysis.
         self.default_dll = self.options.get("dll")
 
-        #ToDo unicode problem?
-        # If a pipe name has not set, then generate a random one.
-        self.config.pipe = PIPE#self.get_pipe_path(self.options.get("pipe", random_string(16, 32)))
-
+        #self.get_pipe_path(self.options.get("pipe", random_string(16, 32)))
+        self.config.pipe = PIPE
         # Generate a random name for the logging pipe server.
-        self.config.logpipe = LOGSERVER_PREFIX#self.get_pipe_path(random_string(16, 32))
-
+        #self.get_pipe_path(random_string(16, 32))
+        self.config.logpipe = LOGSERVER_PREFIX
         # Set virtual machine clock.
         set_clock(self.config.clock, self.config.timeout)
 
@@ -261,10 +258,6 @@ class Analyzer:
 
         # Initialize and start the Pipe Servers. This is going to be used for
         # communicating with the injected and monitored processes.
-        #for x in range(self.PIPE_SERVER_COUNT):
-        #    self.pipes[x] = PipeServer(self.config, self.options)
-        #    self.pipes[x].daemon = True
-        #    self.pipes[x].start()
 
         self.command_pipe = PipeServer(
             PipeDispatcher, self.config.pipe, message=True,
@@ -306,7 +299,6 @@ class Analyzer:
         if hasattr(self, "command_pipe"):
             self.command_pipe.stop()
         else:
-            #ToDo need to investigate why this happens
             log.error("Analyzer object has no attribute 'command_pipe'")
         self.log_pipe_server.stop()
 
@@ -393,7 +385,7 @@ class Analyzer:
 
         # Initialize the analysis package.
         log.debug("Trying to initialize analysis package \"%s\"...", package)
-        pack = package_class(self.options, self.config)
+        self.package = package_class(self.options, self.config)
         log.debug("Initialized analysis package \"%s\".", package)
 
         # Move the sample to the current working directory as provided by the
@@ -401,7 +393,7 @@ class Analyzer:
         # E.g., for some samples it might be useful to run from %APPDATA%
         # instead of %TEMP%.
         if self.config.category == "file":
-            self.target = pack.move_curdir(self.target)
+            self.target = self.package.move_curdir(self.target)
 
         # Initialize Auxiliary modules
         Auxiliary()
@@ -466,29 +458,29 @@ class Analyzer:
         """
 
         # Set the DLL to that specified by package
-        if "dll" in pack.options and pack.options["dll"] is not None:
-            MONITOR_DLL = pack.options["dll"]
+        if "dll" in self.package.options and self.package.options["dll"] is not None:
+            MONITOR_DLL = self.package.options["dll"]
             log.info("Analyzer: DLL set to %s from package %s", MONITOR_DLL, package_name)
         else:
             log.info("Analyzer: Package %s does not specify a DLL option", package_name)
 
         # Set the DLL_64 to that specified by package
-        if "dll_64" in pack.options and pack.options["dll_64"] is not None:
-            MONITOR_DLL_64 = pack.options["dll_64"]
+        if "dll_64" in self.package.options and self.package.options["dll_64"] is not None:
+            MONITOR_DLL_64 = self.package.options["dll_64"]
             log.info("Analyzer: DLL_64 set to %s from package %s", MONITOR_DLL_64, package_name)
         else:
             log.info("Analyzer: Package %s does not specify a DLL_64 option", package_name)
 
         # Set the loader to that specified by package
-        if "loader" in pack.options and pack.options["loader"] is not None:
-            LOADER32 = pack.options["loader"]
+        if "loader" in self.package.options and self.package.options["loader"] is not None:
+            LOADER32 = self.package.options["loader"]
             log.info("Analyzer: Loader set to %s from package %s", LOADER32, package_name)
         else:
             log.info("Analyzer: Package %s does not specify a loader option", package_name)
 
         # Set the loader_64 to that specified by package
-        if "loader_64" in pack.options and pack.options["loader_64"] is not None:
-            LOADER64 = pack.options["loader_64"]
+        if "loader_64" in self.package.options and self.package.options["loader_64"] is not None:
+            LOADER64 = self.package.options["loader_64"]
             log.info("Analyzer: Loader_64 set to %s from package %s", LOADER64, package_name)
         else:
             log.info("Analyzer: Package %s does not specify a loader_64 option", package_name)
@@ -514,7 +506,7 @@ class Analyzer:
         # Start analysis package. If for any reason, the execution of the
         # analysis package fails, we have to abort the analysis.
         try:
-            pids = pack.start(self.target)
+            pids = self.package.start(self.target)
         except NotImplementedError:
             raise CuckooError("The package \"{0}\" doesn't contain a start "
                               "function.".format(package_name))
@@ -586,9 +578,6 @@ class Analyzer:
                                 log.info("Process with pid %s has terminated", pid)
                                 if pid in self.process_list.pids:
                                     self.process_list.remove_pid(pid)
-                            # ToDo: fix this meessage being spammed in error
-                            #else:
-                            #    log.info("process not alive")
 
                         # If none of the monitored processes are still alive, we
                         # can terminate the analysis.
@@ -604,16 +593,14 @@ class Analyzer:
                     # Update the list of monitored processes available to the
                     # analysis package. It could be used for internal
                     # operations within the module.
-                    pack.set_pids(self.process_list.pids)
+                    self.package.set_pids(self.process_list.pids)
 
                 try:
                     # The analysis packages are provided with a function that
                     # is executed at every loop's iteration. If such function
                     # returns False, it means that it requested the analysis
                     # to be terminate.
-                    #ToDo
-                    #if not self.package.check():
-                    if not pack.check():
+                    if not self.package.check():
                         log.info("The analysis package requested the "
                                  "termination of the analysis.")
                         break
@@ -666,11 +653,7 @@ class Analyzer:
         try:
             # Before shutting down the analysis, the package can perform some
             # final operations through the finish() function.
-            pack.finish()
-            # Before shutting down the analysis, the package can perform some
-            # final operations through the finish() function.
-            #ToDo
-            #self.package.finish()
+            self.package.finish()
         except Exception as e:
             log.warning("The package \"%s\" finish function raised an "
                         "exception: %s", package_name, e)
@@ -678,7 +661,7 @@ class Analyzer:
         try:
             # Upload files the package created to package_files in the
             # results folder.
-            for path, name in pack.package_files() or []:
+            for path, name in self.package.package_files() or []:
                 upload_to_host(path, os.path.join("package_files", name))
         except Exception as e:
             log.warning("The package \"%s\" package_files function raised an "
@@ -934,7 +917,6 @@ class CommandPipeHandler(object):
         pid = int(data)
         if pid not in self.analyzer.process_list.pids:
             self.analyzer.process_list.add_pid(int(pid))#, track=int(track))
-        #ToDo verify
         if pid in INJECT_LIST:
             INJECT_LIST.remove(pid)
         self.analyzer.process_lock.release()
@@ -1320,7 +1302,6 @@ class CommandPipeHandler(object):
         """Request for injection into a process."""
         # Parse the process identifier.
         # PROCESS:1:1824,2856
-        #ToDo move to func
         suspended = False
         process_id = thread_id = None
         # We parse the process ID.
@@ -1352,7 +1333,6 @@ class CommandPipeHandler(object):
                         pid=process_id,
                         thread_id=thread_id,
                         suspended=suspended)
-                    #ToDo urgent
                     filepath = proc.get_filepath()#.encode('utf8', 'replace')
                     # if it's a URL analysis, provide the URL to all processes as
                     # the "interest" -- this will allow capemon to see in the
@@ -1442,15 +1422,6 @@ class CommandPipeHandler(object):
                 self.analyzer.files.dump_file(file_path.decode("utf-8"), category="memory")
             else:
                 self.analyzer.files.dump_file(file_path.decode("utf-8"))
-
-    def _handle_dumpmem(self, data):
-        #TODo dump by pid
-        """Dump the memory of a process as it is right now."""
-        if not data.isdigit():
-            log.warning("Received DUMPMEM command with an incorrect argument.")
-            return
-
-        #dump_memory(int(data))
 
     def _handle_dumpreqs(self, data):
         if not data.isdigit():
