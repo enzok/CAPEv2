@@ -7,8 +7,7 @@ import os
 import sys
 
 if sys.version_info[:2] < (3, 6):
-    sys.exit("You are running an incompatible version of Python,"
-             " please use >= 3.6")
+    sys.exit("You are running an incompatible version of Python," " please use >= 3.6")
 import logging
 import urllib3
 import argparse
