@@ -18,10 +18,17 @@ log = logging.getLogger(__name__)
 
 malware_parsers = dict()
 cape_malware_parsers = dict()
-# Import All config parsers
+
+try:
+    import pefile
+    HAVE_PEFILE = True
+except ImportError:
+    print("Missed pefile library. Install it with: pip3 install pefile")
+    HAVE_PEFILE = False
+
+#Import All config parsers
 try:
     import mwcp
-
     mwcp.register_parser_directory(os.path.join(CUCKOO_ROOT, "modules", "processing", "parsers", "mwcp"))
     malware_parsers = {block.name.split(".")[-1]: block.name for block in
                        mwcp.get_parser_descriptions(config_only=False)}
@@ -178,6 +185,8 @@ def static_config_parsers(yara_hit, file_data, cape_config):
                         log.info("CAPE: DC3-MWCP parser: %s", line.split(': ')[1])
             reporter._Reporter__cleanup()
             del reporter
+        except pefile.PEFormatError:
+            log.error("pefile PEFormatError")
         except Exception as e:
             log.error("CAPE: DC3-MWCP config parsing error with {}: {}".format(cape_name, e))
 
