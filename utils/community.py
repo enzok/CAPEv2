@@ -123,8 +123,6 @@ def main():
     URL = URL.format(args.branch)
     enabled = []
 
-    enabled = []
-
     if args.all:
         enabled = ["feeds", "processing", "signatures", "reporting", "machinery", "analyzer", "data"]
     else:
