@@ -1695,6 +1695,18 @@ class Database(object, metaclass=Singleton):
                                 if sample_hash == sizes[len(sample_hash)](f).hexdigest():
                                     sample = [path]
                                     break
+
+                if sample is None:
+                    # search in Suricata files folder
+                    tasks = results_db.analysis.find({"suricata.files.sha256": sample_hash},
+                                                     {"suricata.files.file_info.path": 1, "_id": 0})
+                    if tasks:
+                        for task in tasks:
+                            path = task["suricata"]["files"]["file_info"]["path"]
+                            if os.path.exists(path):
+                                sample = [path]
+                                break
+
             except AttributeError:
                 pass
             except SQLAlchemyError as e:

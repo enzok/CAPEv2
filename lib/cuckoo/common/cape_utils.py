@@ -29,13 +29,11 @@ except ImportError:
 #Import All config parsers
 try:
     import mwcp
+    mwcp.logging.disable(logging.WARNING)
     mwcp.register_parser_directory(os.path.join(CUCKOO_ROOT, "modules", "processing", "parsers", "mwcp"))
     malware_parsers = {block.name.split(".")[-1]: block.name for block in
                        mwcp.get_parser_descriptions(config_only=False)}
     HAS_MWCP = True
-
-    # disable logging
-    # [mwcp.parser] WARNING: Missing identify() function for: a35a622d01f83b53d0407a3960768b29.Emotet.Emotet
 except ImportError as e:
     HAS_MWCP = False
     log.info(
