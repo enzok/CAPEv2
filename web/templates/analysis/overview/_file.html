@@ -165,7 +165,7 @@
                 {% if config.vtupload %}
                 {% if analysis.info.tlp != "Red" %}
                 <td>
-                    <a class="btn btn-primary btn-small" href="{% url "vtupload" "sample" analysis.info.id analysis.target.file.name analysis.target.file.sha256 %}">Submit to VirusTotal</a>
+                    <a class="btn btn-default btn-small" href="{% url "vtupload" "sample" analysis.info.id analysis.target.file.name analysis.target.file.sha256 %}">Submit to VirusTotal</a>
                 </td>
                 {% endif %}
                 {% endif %}
