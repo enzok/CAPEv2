@@ -232,7 +232,9 @@
         </tr>
         </table>
         <div id="XLMMacroDeobfuscator" class="collapse" style="text-align: left;">
-            <pre>{{analysis.static.office.XLMMacroDeobfuscator}}</pre>
+        {% for line in analysis.static.office.XLMMacroDeobfuscator %}
+            <p>{{line}}</p>
+        {% endfor %}
         </div>
         </div>
         <hr />
