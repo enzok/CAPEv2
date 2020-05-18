@@ -229,10 +229,9 @@
         <table class="table table-striped table-bordered">
         <tr>
             <td><a class="accordion-toggle" data-toggle="collapse"  data-parent="#accordion" href="#XLMMacroDeobfuscator">XLM Macro</a></td>
-            <div id="XLMMacroDeobfuscator" class="panel-collapse collapse" style="text-align: left;">
-            {% for line in analysis.static.office.XLMMacroDeobfuscator %}
-                <p>{{line}}</p>
-            {% endfor %}
+            <div id="XLMMacroDeobfuscator" class="collapse" style="text-align: left;">
+                <pre>{{line}}</pre>
+
             </div>
             </td>
         </tr>
