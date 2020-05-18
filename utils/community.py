@@ -80,10 +80,10 @@ def install(enabled, force, rewrite, filepath):
             if not force:
                 while 1:
                     choice = input("Do you want to install file \"{}\"? [yes/no] ".format(dest_file))
-                    if choice.lower() == "yes":
+                    if choice.lower() == "yes" or choice.lower() == "y":
                         install = True
                         break
-                    elif choice.lower() == "no":
+                    elif choice.lower() == "no" or choice.lower() == "n":
                         break
                     else:
                         continue
