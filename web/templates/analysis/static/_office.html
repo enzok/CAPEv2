@@ -130,19 +130,12 @@
                                 <col width="200">
                                 <col width="*">
                             </colgroup>
-                            <th colspan="2"><a class="accordion-toggle" data-toggle="collapse" data-parent="#accordion" href="#{{detection}}"></a></th>
+                            <th colspan="2">{{detection}}</th>
                             {% for indicator, description in analysis.static.office.Macro.Analysis|getkey:detection %}
-                            <tr>
-                                {% if detection == "HexStrings" %}
-                                    <div id="{{detection}}" class="collapse">
-                                        <td>{{indicator}}</td>
-                                        <td>{{description}}</td>
-                                    </div>
-                                {% else %}
+                                <tr>
                                     <td>{{indicator}}</td>
                                     <td>{{description}}</td>
-                                {% endif %}
-                            </tr>
+                                </td>
                             {% endfor %}
                             </table>
                         {% endfor %}
