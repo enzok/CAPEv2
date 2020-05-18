@@ -130,16 +130,14 @@
                                 <col width="200">
                                 <col width="*">
                             </colgroup>
-                            <th><a class="accordion-toggle" data-toggle="collapse"  data-parent="#accordion" href="#{{detection}}">{{detection}}</a></th>
-                            </table>
-                            <div id="{{detection}}" class="collapse">
+                            <th colspan="2">{{detection}}</th>
                             {% for indicator, description in analysis.static.office.Macro.Analysis|getkey:detection %}
                                 <tr>
                                     <td>{{indicator}}</td>
                                     <td>{{description}}</td>
                                 </tr>
                             {% endfor %}
-                            </div>
+                            </table>
                         {% endfor %}
                     </div>
                 </div>
