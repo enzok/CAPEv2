@@ -1,4 +1,4 @@
-rule CobaltStrikeBeacon34
+rule CobaltStrikeBeacon
 {
     meta:
       author = "enzo"
