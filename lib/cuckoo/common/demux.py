@@ -38,6 +38,8 @@ demux_extensions_list = [
 
 whitelist_extensions = ("doc", "xls", "ppt", "pub", "jar")
 
+blacklist_extensions = ("apk", "dmg")
+
 # list of valid file types to extract - TODO: add more types
 VALID_TYPES = ["PE32", "Java Jar", "Outlook", "Message"]
 VALID_LINUX_TYPES = ["Bourne-Again", "POSIX shell script", "ELF", "Python"]
@@ -131,6 +133,9 @@ def demux_sflock(filename, options):
             unpacked = unpack(filename, password=password)
         except UnpackException:
             unpacked = unpack(filename)
+
+        if unpacked.package in blacklist_extensions:
+            return retlist
 
         if unpacked.children:
             target_path = os.path.join(tmp_path, b"cuckoo-sflock")
