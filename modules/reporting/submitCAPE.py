@@ -132,11 +132,17 @@ class SubmitCAPE(Report):
                     else:
                         new_options = new_options + ',' + option
 
+            if not address:
+                return
+
             if 'procdump=1' in self.task_options:
                 self.task_options = self.task_options.replace(u"procdump=1", u"procdump=0", 1)
 
             if 'extraction=1' in self.task_options:
                 self.task_options = self.task_options.replace(u"extraction=1", u"extraction=0", 1)
+
+            if 'combo=1' in self.task_options:
+                self.task_options = self.task_options.replace(u"combo=1", u"combo=0", 1)
 
             if 'file-offsets' in self.task_options:
                 self.task_options = self.task_options.replace(u"file-offsets=0", u"file-offsets=0", 1)
