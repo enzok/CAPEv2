@@ -362,6 +362,7 @@ class CAPE(Processing):
                 data = file_data.decode("utf-16").replace("\x00", "")
                 file_info["data"] = data
                 cape_name = "ScriptDump"
+                append_file = False
 
         # Process CAPE Yara hits
         for hit in file_info["cape_yara"]:
@@ -392,7 +393,7 @@ class CAPE(Processing):
                     else:
                         file_info["cape_type"] += "executable"
 
-            suppress_parsing_list = ["Cerber", "Ursnif"]
+            suppress_parsing_list = ["Cerber", "Ursnif", "QakBot"]
 
             if hit["name"] in suppress_parsing_list:
                 continue
