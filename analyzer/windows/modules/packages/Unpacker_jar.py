@@ -5,7 +5,7 @@
 from __future__ import absolute_import
 from lib.common.abstracts import Package
 
-class Extraction_Jar(Package):
+class Unpacker_Jar(Package):
     """Java analysis package."""
     PATHS = [
         ("ProgramFiles", "Java", "jre*", "bin", "java.exe"),
@@ -15,8 +15,9 @@ class Extraction_Jar(Package):
         """@param options: options dict."""
         self.config = config
         self.options = options
-        self.options["extraction"] = "1"
+        self.options["unpacker"] = "1"
         self.options["procdump"] = "0"
+        self.options["injection"] = "0"
 
     def start(self, path):
         java = self.get_path_glob("Java")

@@ -8,7 +8,7 @@ import os
 from lib.common.abstracts import Package
 
 class PS1(Package):
-    """PowerShell analysis package."""
+    """PowerShell Unpacker analysis package."""
     PATHS = [
         ("SystemRoot", "system32", "WindowsPowerShell", "v*.0", "powershell.exe"),
     ]
@@ -17,8 +17,9 @@ class PS1(Package):
         """@param options: options dict."""
         self.config = config
         self.options = options
-        self.options["extraction"] = "1"
+        self.options["unpacker"] = "1"
         self.options["procdump"] = "0"
+        self.options["injection"] = "0"
 
     def start(self, path):
         powershell = self.get_path_glob("PowerShell")

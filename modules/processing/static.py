@@ -1430,7 +1430,6 @@ class Office(object):
                 "file": filepath,
                 "noninteractive": True,
                 "extract_only": False,
-                "no_ms_excel": True,
                 "start_with_shell": False,
                 "return_deobfuscated": True,
                 "no_indent": False,
