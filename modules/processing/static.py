@@ -1434,7 +1434,7 @@ class Office(object):
                 "return_deobfuscated": True,
                 "no_indent": False,
                 "output_formula_format": "CELL:[[CELL_ADDR]], [[STATUS]], [[INT-FORMULA]]",
-                "day": -1
+                "day": 0
             }
 
             try:
