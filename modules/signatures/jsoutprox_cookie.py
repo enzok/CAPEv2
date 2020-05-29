@@ -22,7 +22,7 @@ from lib.cuckoo.common.abstracts import Signature
 
 
 class JSOutProxCookie(Signature):
-    name = "JSOutProx"
+    name = "jsoutprox_cookie"
     description = "JSOutProx Cookie"
     severity = 3
     categories = ["network", "http"]
