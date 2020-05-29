@@ -47,7 +47,8 @@ class JSOutProxCookie(Signature):
             except Exception as e:
                 bufstr = rex_cookie[0]
             cookie["Cookie"] = bufstr
-            self.data.append(cookie)
+            if bufstr not in self.data:
+                self.data.append(cookie)
             found_match = True
 
         return found_match
