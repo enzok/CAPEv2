@@ -33,22 +33,32 @@ class JSOutProxCookie(Signature):
 
     def __init__(self, *args, **kwargs):
         Signature.__init__(self, *args, **kwargs)
-        self.cookieRex = "Cookie: _vts=(\w+)"
+        self.cookieRex = "Cookie: _\w+=(\w+)"
 
     filter_apinames = set(["WSASend"])
 
     def on_call(self, call, process):
         found_match = False
         cookie = dict()
+        sysinfo = dict()
         buffer = self.get_argument(call, "Buffer")
         rex_cookie = re.findall(self.cookieRex, buffer)
         if rex_cookie:
             try:
                 bufstr = bytes.fromhex(rex_cookie[0]).decode('utf8')
+                info = bufstr.split("_|_")
+                sysinfo["Volume_Serial_Number"] = info[0]
+                sysinfo["UUID"] = info[1]
+                sysinfo["Computer_Name"] = info[2]
+                sysinfo["Username"] = info[3]
+                sysinfo["OS_Caption"] = info[4]
+                sysinfo["OS_Version"] = info[5]
+                sysinfo["Tag"] = info[6]
+                sysinfo["Receive_Method"] = info[7]
+                self.data.append(sysinfo)
             except Exception as e:
                 bufstr = rex_cookie[0]
-            cookie["Cookie"] = bufstr
-            if bufstr not in self.data:
+                cookie["Raw_Cookie"] = bufstr
                 self.data.append(cookie)
             found_match = True
 
