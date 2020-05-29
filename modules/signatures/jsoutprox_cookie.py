@@ -28,6 +28,7 @@ class JSOutProxCookie(Signature):
     categories = ["network", "http"]
     authors = ["enzo"]
     minimum = "1.3"
+    families = ["JSOutProx"]
     evented = True
 
     def __init__(self, *args, **kwargs):
