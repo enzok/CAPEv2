@@ -70,7 +70,7 @@ except ImportError:
     HAVE_VBA2GRAPH = False
 
 from lib.cuckoo.common.structures import LnkHeader, LnkEntry
-from lib.cuckoo.common.utils import store_temp_file, bytes2str
+from lib.cuckoo.common.utils import store_temp_file, bytes2str, get_options
 from lib.cuckoo.common.icon import PEGroupIconDir
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.constants import CUCKOO_ROOT
@@ -1429,6 +1429,8 @@ class Office(object):
                 metares["DocumentType"] = indicator.name
 
         if HAVE_XLM_DEOBF and processing_conf.xlsdeobf.enabled:
+            options = get_options(self.task["options"])
+            password = options.get("xlm_password", "")
             xlm_kwargs = {
                 "file": filepath,
                 "noninteractive": True,
@@ -1437,7 +1439,8 @@ class Office(object):
                 "return_deobfuscated": True,
                 "no_indent": False,
                 "output_formula_format": "CELL:[[CELL_ADDR]], [[STATUS]], [[INT-FORMULA]]",
-                "day": 0
+                "day": 0,
+                "password": password
             }
 
             try:
