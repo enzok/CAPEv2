@@ -29,11 +29,16 @@ class JS_ANTIVM(Package):
         args = "\"%s\"" % path
         ext = os.path.splitext(path)[-1].lower()
         if ext != ".js" and ext != ".jse":
-            if os.path.isfile(path) and "#@~^" == open(path, "rt").read(4):
-                os.rename(path,path + ".jse")
+            with open(path, "rb") as jsfile:
+                try:
+                    head = jsfile.read(4).decode('utf8')
+                except UnicodeDecodeError:
+                    head = ""
+            if head == "#@~^":
+                os.rename(path, path + ".jse")
                 path = path + ".jse"
             else:
-                os.rename(path,path + ".js")
+                os.rename(path, path + ".js")
                 path = path + ".js"
         args = "\"%s\"" % path
         return self.execute(wscript, args, path)
