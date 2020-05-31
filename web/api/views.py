@@ -2188,12 +2188,9 @@ def limit_exceeded(request, exception):
     resp = {"error": True, "error_value": "Rate limit exceeded for this API"}
     return jsonize(resp, response=True)
 
-if apiconf.malreport.get("enabled"):
-    raterps = apiconf.malreport.get("rps")
-    raterpm = apiconf.malreport.get("rpm")
-    rateblock = limiter
-@ratelimit(key="ip", rate=raterps, block=rateblock)
-@ratelimit(key="ip", rate=raterpm, block=rateblock)
+
+@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
+@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
 def malreport(request, numdays=30, startfrom=0):
     if request.method != "GET":
         resp = {"error": True, "error_value": "Method not allowed"}
