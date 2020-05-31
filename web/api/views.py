@@ -5,6 +5,7 @@ import os
 import sys
 import socket
 import tarfile
+
 import logging
 from datetime import datetime, timedelta
 import tempfile
@@ -1944,7 +1945,7 @@ def machines_view(request, name=None):
 
 @ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
 @ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
-def cuckoo_status(request):
+def cape_status(request):
     if request.method != "GET":
         resp = {"error": True, "error_value": "Method not allowed"}
         return jsonize(resp, response=True)
