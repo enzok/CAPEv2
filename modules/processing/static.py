@@ -1162,9 +1162,10 @@ class Office(object):
         - Publisher (.pub)
         - Rich Text Format (.rtf)
     """
-    def __init__(self, file_path, results):
+    def __init__(self, file_path, results, options):
         self.file_path = file_path
         self.results = results
+        self.options = options
 
     def _get_meta(self, meta):
         ret = dict()
@@ -1402,8 +1403,7 @@ class Office(object):
                 metares["DocumentType"] = indicator.name
 
         if HAVE_XLM_DEOBF and processing_conf.xlsdeobf.enabled:
-            options = get_options(self.task["options"])
-            password = options.get("xlm_password", "")
+            password = self.options.get("xlm_password", "")
             xlm_kwargs = {
                 "file": filepath,
                 "noninteractive": True,
@@ -2090,7 +2090,7 @@ class Static(Processing):
             elif "PDF" in thetype or self.task["target"].endswith(".pdf"):
                 static = PDF(self.file_path).run()
             elif HAVE_OLETOOLS and package in ("doc", "ppt", "xls", "pub"):
-                static = Office(self.file_path, self.results).run()
+                static = Office(self.file_path, self.results, self.task["options"]).run()
             #elif HAVE_OLETOOLS and package in ("hwp", "hwp"):
             #    static = HwpDocument(self.file_path, self.results).run()
             elif "Java Jar" in thetype or self.task["target"].endswith(".jar"):
@@ -2103,7 +2103,7 @@ class Static(Processing):
             # oleid to fail us out silently, yeilding no static analysis
             # results for actual zip files.
             elif HAVE_OLETOOLS and "Zip archive data, at least v2.0" in thetype:
-                static = Office(self.file_path, self.results).run()
+                static = Office(self.file_path, self.results, self.task["options"]).run()
             elif package == "wsf" or thetype == "XML document text" or self.task["target"].endswith(".wsf")\
                     or package == "hta":
                 static = WindowsScriptFile(self.file_path).run()
