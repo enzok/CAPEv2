@@ -1189,9 +1189,6 @@ class CommandPipeHandler(object):
             elif len(data) == 2:
                 pid, tid = data
             log.debug("Resume: %s, %s", str(pid), str(tid))
-            # only do this if it's not our current process/thread
-            p = Process(pid=pid, thread_id=tid)
-            p.dump_memory()
 
     # Handle attempted shutdowns/restarts -- flush logs for all monitored processes
     # additional handling can be added later
@@ -1228,10 +1225,6 @@ class CommandPipeHandler(object):
                 log.warning("Unable to open termination event for pid %u.", process_id)
             else:
                 log.info("Notified of termination of process with pid %u.", process_id)
-                # dump the memory of exiting processes
-                if self.analyzer.options.get("procmemdump") or self.analyzer.options.get("procdump"):
-                    p = Process(pid=process_id)
-                    p.dump_memory()
                 # make sure process is aware of the termination
                 KERNEL32.SetEvent(event_handle)
                 KERNEL32.CloseHandle(event_handle)
