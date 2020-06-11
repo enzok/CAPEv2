@@ -1165,7 +1165,7 @@ class Office(object):
     def __init__(self, file_path, results, options):
         self.file_path = file_path
         self.results = results
-        self.options = options
+        self.options = get_options(options)
 
     def _get_meta(self, meta):
         ret = dict()
