@@ -393,7 +393,8 @@ search_term_map = {
     "sha1": "target.file.sha1",
     "sha256": "target.file.sha256",
     "sha512": "target.file.sha512",
-    "tlp": "info.tlp"
+    "tlp": "info.tlp",
+    "submitter": "info.options.submitter"
 }
 
 def perform_ttps_search(value):
