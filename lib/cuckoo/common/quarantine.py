@@ -483,7 +483,6 @@ def xorff_unquarantine(f):
        forefront
     """
     base = os.path.basename(f)
-    realbase, ext = os.path.splitext(base)
 
     with open(f, "rb") as quarfile:
         qdata = bytearray_xor(bytearray(quarfile.read()), 0xff)
@@ -499,6 +498,7 @@ func_map = {
 
 
 def unquarantine(f):
+    f = f.decode('utf8')
     base = os.path.basename(f)
     realbase, ext = os.path.splitext(base)
 
