@@ -11,18 +11,19 @@ import json
 import logging
 import argparse
 import signal
+import multiprocessing
+
+if sys.version_info[:2] < (3, 6):
+    sys.exit("You are running an incompatible version of Python, please use >= 3.6")
 
 try:
     import pebble
 except ImportError:
     sys.exit("Missed dependency: pip3 install Pebble")
 
-if sys.version_info[:2] < (3, 6):
-    sys.exit("You are running an incompatible version of Python, please use >= 3.5")
-
 log = logging.getLogger()
-sys.path.append(os.path.join(os.path.abspath(os.path.dirname(__file__)), ".."))
 
+sys.path.append(os.path.join(os.path.abspath(os.path.dirname(__file__)), ".."))
 from lib.cuckoo.common.colors import red
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
@@ -35,7 +36,6 @@ from concurrent.futures import TimeoutError
 
 cfg = Config()
 repconf = Config("reporting")
-
 if repconf.mongodb.enabled:
     from bson.objectid import ObjectId
     from pymongo import MongoClient
@@ -49,7 +49,6 @@ if repconf.elasticsearchdb.enabled and not repconf.elasticsearchdb.searchonly:
 pending_future_map = {}
 pending_task_id_map = {}
 
-
 def process(target=None, copy_path=None, task=None, report=False, auto=False, capeproc=False, memory_debugging=False):
     # This is the results container. It's what will be used by all the
     # reporting modules to make it consumable by humans and machines.
@@ -59,17 +58,13 @@ def process(target=None, copy_path=None, task=None, report=False, auto=False, ca
     task_dict = task.to_dict() or {}
     task_id = task_dict.get("id") or 0
     results = {"statistics": {"processing": [], "signatures": [], "reporting": []}}
-
     if memory_debugging:
         gc.collect()
         log.info("[%s] (1) GC object counts: %d, %d", task_id, len(gc.get_objects()), len(gc.garbage))
-
     if memory_debugging:
         gc.collect()
         log.info("[%s] (2) GC object counts: %d, %d", task_id, len(gc.get_objects()), len(gc.garbage))
-
     RunProcessing(task=task_dict, results=results).run()
-
     if memory_debugging:
         gc.collect()
         log.info("[%s] (3) GC object counts: %d, %d", task_id, len(gc.get_objects()), len(gc.garbage))
@@ -133,28 +128,30 @@ def process(target=None, copy_path=None, task=None, report=False, auto=False, ca
         for i, obj in enumerate(gc.garbage):
             log.info("[%s] (garbage) GC object #%d: type=%s", task_id, i, type(obj).__name__)
 
-
 def init_worker():
     signal.signal(signal.SIGINT, signal.SIG_IGN)
-
 
 def init_logging(auto=False, tid=0, debug=False):
     formatter = logging.Formatter("%(asctime)s [%(name)s] %(levelname)s: %(message)s")
     ch = ConsoleHandler()
     ch.setFormatter(formatter)
     log.addHandler(ch)
-    if not os.path.exists(os.path.join(CUCKOO_ROOT, "log")):
-        os.makedirs(os.path.join(CUCKOO_ROOT, "log"))
-    if auto:
-        if cfg.logging.enabled:
-            days = cfg.logging.backup_count
-            interval = cfg.logging.interval
-            fh = logging.handlers.TimedRotatingFileHandler(os.path.join(CUCKOO_ROOT, "log", "process.log"),
-                                                           when=interval, backupCount=days)
+    try:
+        if not os.path.exists(os.path.join(CUCKOO_ROOT, "log")):
+            os.makedirs(os.path.join(CUCKOO_ROOT, "log"))
+        if auto:
+            if cfg.logging.enabled:
+                days = cfg.logging.backup_count
+                interval = cfg.logging.interval
+                fh = logging.handlers.TimedRotatingFileHandler(os.path.join(CUCKOO_ROOT, "log", "process.log"),
+                                                               when=interval, backupCount=days)
+            else:
+                fh = logging.handlers.WatchedFileHandler(os.path.join(CUCKOO_ROOT, "log", "process.log"))
         else:
-            fh = logging.handlers.WatchedFileHandler(os.path.join(CUCKOO_ROOT, "log", "process.log"))
-    else:
-        fh = logging.handlers.WatchedFileHandler(os.path.join(CUCKOO_ROOT, "log", "process-%s.log" % tid))
+            fh = logging.handlers.WatchedFileHandler(os.path.join(CUCKOO_ROOT, "log", "process-%s.log" % tid))
+
+    except PermissionError:
+        sys.exit("Probably executed with wrong user, PermissionError to create/access log")
 
     fh.setFormatter(formatter)
     log.addHandler(fh)
@@ -166,20 +163,19 @@ def init_logging(auto=False, tid=0, debug=False):
 
     logging.getLogger("urllib3").setLevel(logging.WARNING)
 
-
 def processing_finished(future):
     task_id = pending_future_map.get(future)
     try:
         result = future.result()
         log.info("Task #%d: reports generation completed", task_id)
     except TimeoutError as error:
-        log.error("Processing Timeout %s", error) 
-        Database().set_status(task_id, TASK_FAILED_PROCESSING) 
+        log.error("Processing Timeout %s", error)
+        Database().set_status(task_id, TASK_FAILED_PROCESSING)
     except pebble.ProcessExpired as error:
         log.error("Exception when processing task %s: %s, Exitcode: %d", task_id, error)
         Database().set_status(task_id, TASK_FAILED_PROCESSING)
     except Exception as error:
-        log.error("Exception when processing task %s: %s %s", task_id, error) 
+        log.error("Exception when processing task %s: %s %s", task_id, error)
         Database().set_status(task_id, TASK_FAILED_PROCESSING)
 
     del(pending_future_map[future])
@@ -192,9 +188,9 @@ def autoprocess(parallel=1, failed_processing=False, maxtasksperchild=7,  memory
     count = 0
     db = Database()
     pool = pebble.ProcessPool(max_workers=parallel, max_tasks=maxtasksperchild, initializer=init_worker)
-     
+
     try:
-        log.info("Processing analysis data") 
+        log.info("Processing analysis data")
         # CAUTION - big ugly loop ahead.
         while count < maxcount or not maxcount:
 
@@ -209,26 +205,21 @@ def autoprocess(parallel=1, failed_processing=False, maxtasksperchild=7,  memory
                 tasks = db.list_tasks(status=TASK_FAILED_PROCESSING, limit=parallel, order_by=Task.completed_on.asc())
             else:
                 tasks = db.list_tasks(status=TASK_COMPLETED, limit=parallel, order_by=Task.completed_on.asc())
-           
+
             added = False
             # For loop to add only one, nice. (reason is that we shouldn't overshoot maxcount)
             for task in tasks:
                 # Not-so-efficient lock.
                 if pending_task_id_map.get(task.id):
                     continue
-
                 log.info("Processing analysis data for Task #%d", task.id)
-
                 if task.category == "file":
                     sample = db.view_sample(task.sample_id)
-
-                    copy_path = os.path.join(CUCKOO_ROOT, "storage", "binaries", sample.sha256)
+                    copy_path = os.path.join(CUCKOO_ROOT, "storage",  "binaries", sample.sha256)
                 else:
                     copy_path = None
-
                 args = task.target, copy_path
                 kwargs = dict(report=True, auto=True, task=task, memory_debugging=memory_debugging)
-
                 if memory_debugging:
                     gc.collect()
                     log.info("[%d] (before) GC object counts: %d, %d", task.id, len(gc.get_objects()), len(gc.garbage))
@@ -258,7 +249,6 @@ def autoprocess(parallel=1, failed_processing=False, maxtasksperchild=7,  memory
     finally:
         pool.close()
         pool.join()
-
 
 def main():
     parser = argparse.ArgumentParser()
@@ -306,9 +296,7 @@ def main():
         else:
             process(task=task, report=args.report, capeproc=args.caperesubmit, memory_debugging=args.memory_debugging)
 
-
 if __name__ == "__main__":
-
     try:
         main()
     except KeyboardInterrupt:
