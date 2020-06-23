@@ -11,6 +11,9 @@ import logging
 import tempfile
 import random
 import datetime
+
+import pymongo as pymongo
+
 try:
     import re2 as re
 except ImportError:
