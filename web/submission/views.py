@@ -515,7 +515,7 @@ def index(request, resubmit_hash=False):
                  return render(request, "error.html", {"error": "Was impossible to retrieve url"})
 
             name = os.path.basename(url)
-            if not "." in name:
+            if "." not in name:
                 name = get_user_filename(options, custom) or generate_fake_name()
             path = store_temp_file(response, name)
 
