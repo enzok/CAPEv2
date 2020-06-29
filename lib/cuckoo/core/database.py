@@ -44,7 +44,7 @@ results_db = pymongo.MongoClient(
     authSource=repconf.mongodb.db
     )[repconf.mongodb.db]
 
-SCHEMA_VERSION = "7331c4d994fd"
+SCHEMA_VERSION = "2996ec5ea15c"
 TASK_PENDING = "pending"
 TASK_RUNNING = "running"
 TASK_DISTRIBUTED = "distributed"
@@ -200,6 +200,7 @@ class Sample(Base):
     sha512 = Column(String(128), nullable=False)
     ssdeep = Column(String(255), nullable=True)
     parent = Column(Integer(), nullable=True)
+    source_url = Column(String(2000), nullable=True)
     __table_args__ = Index("md5_index", "md5"), Index("sha1_index", "sha1"), Index("sha256_index", "sha256", unique=True),
 
     def __repr__(self):
@@ -221,7 +222,7 @@ class Sample(Base):
         return json.dumps(self.to_dict())
 
     def __init__(self, md5, crc32, sha1, sha256, sha512,
-                 file_size, file_type=None, ssdeep=None, parent=None):
+                 file_size, file_type=None, ssdeep=None, parent=None, source_url=None):
         self.md5 = md5
         self.sha1 = sha1
         self.crc32 = crc32
@@ -234,6 +235,8 @@ class Sample(Base):
             self.ssdeep = ssdeep
         if parent:
             self.parent = parent
+        if source_url:
+            self.source_url = source_url
 
 
 class Error(Base):
@@ -983,7 +986,7 @@ class Database(object, metaclass=Singleton):
     # The following functions are mostly used by external utils.
 
     @classlock
-    def register_sample(self, obj):
+    def register_sample(self, obj, source_url=False):
         sample_id = None
         if isinstance(obj, File) or isinstance(obj, PCAP) or isinstance(obj, Static):
             session = self.Session()
@@ -997,7 +1000,8 @@ class Database(object, metaclass=Singleton):
                             sha512=fileobj.get_sha512(),
                             file_size=fileobj.get_size(),
                             file_type=file_type,
-                            ssdeep=fileobj.get_ssdeep())
+                            ssdeep=fileobj.get_ssdeep(),
+                            source_url=source_url,)
             session.add(sample)
 
             try:
@@ -1030,7 +1034,7 @@ class Database(object, metaclass=Singleton):
             memory=False, enforce_timeout=False, clock=None,
             shrike_url=None, shrike_msg=None,
             shrike_sid=None, shrike_refer=None, parent_id=None,
-            sample_parent_id=None, tlp=None, static=False):
+            sample_parent_id=None, tlp=None, static=False, source_url=False):
         """Add a task to database.
         @param obj: object to add (File or URL).
         @param timeout: selected timeout.
@@ -1047,6 +1051,7 @@ class Database(object, metaclass=Singleton):
         @param sample_parent_id: original sample in case of archive
         @param static: try static extraction first
         @param tlp: TLP sharing designation
+        @param source_url: url from where it was downloaded
         @return: cursor or None.
         """
         session = self.Session()
@@ -1070,7 +1075,7 @@ class Database(object, metaclass=Singleton):
                             file_type=file_type,
                             ssdeep=fileobj.get_ssdeep(),
                             parent=sample_parent_id,
-            )
+                            source_url=source_url,)
             session.add(sample)
 
             try:
@@ -1159,7 +1164,7 @@ class Database(object, metaclass=Singleton):
                  priority=1, custom="", machine="", platform="", tags=None,
                  memory=False, enforce_timeout=False, clock=None, shrike_url=None,
                  shrike_msg=None, shrike_sid=None, shrike_refer=None, parent_id=None,
-                 sample_parent_id=None, tlp=None, static=False):
+                 sample_parent_id=None, tlp=None, static=False, source_url=False):
         """Add a task to database from file path.
         @param file_path: sample path.
         @param timeout: selected timeout.
@@ -1191,13 +1196,13 @@ class Database(object, metaclass=Singleton):
         return self.add(File(file_path), timeout, package, options, priority,
                         custom, machine, platform, tags, memory,
                         enforce_timeout, clock, shrike_url, shrike_msg, shrike_sid,
-                        shrike_refer, parent_id, sample_parent_id, tlp)
+                        shrike_refer, parent_id, sample_parent_id, tlp, source_url=source_url)
 
     def demux_sample_and_add_to_db(self, file_path, timeout=0, package="", options="", priority=1,
                                    custom="", machine="", platform="", tags=None,
                                    memory=False, enforce_timeout=False, clock=None,shrike_url=None,
                                    shrike_msg=None, shrike_sid=None, shrike_refer=None, parent_id=None,
-                                   sample_parent_id=None, tlp=None, static=False):
+                                   sample_parent_id=None, tlp=None, static=False, source_url=False):
         """
         Handles ZIP file submissions, submitting each extracted file to the database
         Returns a list of added task IDs
@@ -1211,7 +1216,7 @@ class Database(object, metaclass=Singleton):
         extracted_files = demux_sample(file_path, package, options)
         # check if len is 1 and the same file, if diff register file, and set parent
         if extracted_files and file_path not in extracted_files:
-            sample_parent_id = self.register_sample(File(file_path))
+            sample_parent_id = self.register_sample(File(file_path), source_url=source_url)
 
         # Check for 'file' option indicating supporting files needed for upload; otherwise create task for each file
         opts = get_options(options)
@@ -1251,7 +1256,8 @@ class Database(object, metaclass=Singleton):
                     shrike_refer=shrike_refer,
                     parent_id=parent_id,
                     sample_parent_id=sample_parent_id,
-                    tlp=tlp)
+                    tlp=tlp,
+                    source_url=source_url)
             if task_id:
                 task_ids.append(task_id)
 
@@ -1810,3 +1816,26 @@ class Database(object, metaclass=Singleton):
         finally:
             session.close()
         return True
+
+    @classlock
+    def get_source_url(self, sample_id=False):
+        """
+            Retrieve url from where sample was downloaded
+            @param sample_id: Sample id
+            @param task_id: Task id
+        """
+        source_url = False
+        session = self.Session()
+        try:
+            if sample_id:
+                source_url = session.query(Sample.source_url).filter(Sample.id == int(sample_id)).first()
+                if source_url:
+                    source_url = source_url[0]
+        except SQLAlchemyError as e:
+            log.debug("Database error listing tasks: {0}".format(e))
+        except TypeError:
+            pass
+        finally:
+            session.close()
+
+        return source_url

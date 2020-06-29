@@ -75,12 +75,15 @@ A huge thank you to @D00m3dR4v3n for single-handedly porting CAPE to Python 3.
 2. [KVM](https://github.com/doomedraven/Tools/blob/master/Virtualization/kvm-qemu.sh) is recommended as hypervisor
  * `sudo ./kvm-qemu.sh all <username>`
 3. To install CAPE itself, [cape2.sh](https://github.com/doomedraven/Tools/blob/master/Sandbox/cape2.sh) with all optimizations
- * `sudo ./cape2.sh all cape`
+ * `sudo ./cape2.sh base cape`
 4. Reboot and enjoy
 
 \* All scripts contain __help__ `-h`, but please check the scripts to __understand__ what they are doing.
 
 __requirements.txt is decprecated now in favour of the script__
+
+### How to create VMs with virt-manager
+* [step by step](https://www.doomedraven.com/2020/04/how-to-create-virtual-machine-with-virt.html)
 
 ## Virtual machine core dependecy
 * [choco.bat](https://github.com/doomedraven/Tools/blob/master/Windows/choco.bat)
