@@ -11,7 +11,7 @@
     <div class="tab-pane fade in active" id="files">
     {% if paging.show_file_next == "show" or paging.show_file_prev == "show" %}
         <nav>
-           <ul class="pager">
+           <center><ul class="pagination">
            {% if paging.show_file_prev == "show" %}
                <li><a href="{% url "analysis" %}page/{{paging.prev_page}}/">&larr; Newer</a></li>
            {% endif %}
@@ -27,7 +27,7 @@
            {% if paging.show_file_next == "show" %}
                <li><a href="{% url "analysis" %}page/{{paging.next_page}}/">Older &rarr;</a></li>
            {% endif %}
-           </ul>
+           </ul></center>
         </nav>
     {% endif %}
         <div class="panel panel-primary">
@@ -279,7 +279,7 @@
         </div>
     {% if paging.show_file_next == "show" or paging.show_file_prev == "show" %}
         <nav>
-           <ul class="pager">
+           <center><ul class="pagination">
            {% if paging.show_file_prev == "show" %}
                <li><a href="{% url "analysis" %}page/{{paging.prev_page}}/">&larr; Newer</a></li>
            {% endif %}
@@ -295,7 +295,7 @@
            {% if paging.show_file_next == "show" %}
                <li><a href="{% url "analysis" %}page/{{paging.next_page}}/">Older &rarr;</a></li>
            {% endif %}
-           </ul>
+           </ul></center>
         </nav>
     {% endif %}
     </div>
@@ -303,7 +303,7 @@
     <div class="tab-pane fade" id="urls">
     {% if paging.show_url_next == "show" or paging.show_url_prev == "show" %}
         <nav>
-           <ul class="pager">
+            <center><ul class="pagination">
            {% if paging.show_url_prev == "show" %}
                <li><a href="{% url "analysis" %}page/{{paging.prev_page}}/">&larr; Newer</a></li>
            {% endif %}
@@ -319,7 +319,7 @@
            {% if paging.show_url_next == "show" %}
                <li><a href="{% url "analysis" %}page/{{paging.next_page}}/">Older &rarr;</a></li>
            {% endif %}
-           </ul>
+           </ul></center>
         </nav>
     {% endif %}
         <div class="panel panel-primary">
@@ -565,7 +565,7 @@
         </div>
     {% if paging.show_url_next == "show" or paging.show_url_prev == "show" %}
         <nav>
-           <ul class="pager">
+           <center><ul class="pagination">
            {% if paging.show_url_prev == "show" %}
                <li><a href="{% url "analysis" %}page/{{paging.prev_page}}/">&larr; Newer</a></li>
            {% endif %}
@@ -581,7 +581,7 @@
            {% if paging.show_url_next == "show" %}
                <li><a href="{% url "analysis" %}page/{{paging.next_page}}/">Older &rarr;</a></li>
            {% endif %}
-           </ul>
+           </ul></center>
         </nav>
     {% endif %}
     </div>
@@ -589,7 +589,7 @@
 <div class="tab-pane fade" id="pcaps">
     {% if paging.show_pcap_next == "show" or paging.show_pcap_prev == "show" %}
     <nav>
-        <ul class="pager">
+        <center><ul class="pagination">
             {% if paging.show_pcap_prev == "show" %}
             <li><a href="{% url "analysis" %}page/{{paging.prev_page}}/">&larr; Newer</a></li>
             {% endif %}
@@ -605,7 +605,7 @@
             {% if paging.show_pcap_next == "show" %}
             <li><a href="{% url "analysis" %}page/{{paging.next_page}}/">Older &rarr;</a></li>
             {% endif %}
-        </ul>
+        </ul></center>
     </nav>
     {% endif %}
     <div class="panel panel-primary">
@@ -819,7 +819,7 @@
     </div>
     {% if paging.show_pcap_next == "show" or paging.show_pcap_prev == "show" %}
     <nav>
-        <ul class="pager">
+        <center><ul class="pagination">
             {% if paging.show_pcap_prev == "show" %}
             <li><a href="{% url "analysis" %}page/{{paging.prev_page}}/">&larr; Newer</a></li>
             {% endif %}
@@ -835,7 +835,7 @@
             {% if paging.show_pcap_next == "show" %}
             <li><a href="{% url "analysis" %}page/{{paging.next_page}}/">Older &rarr;</a></li>
             {% endif %}
-        </ul>
+        </ul></center>
     </nav>
     {% endif %}
 </div>
