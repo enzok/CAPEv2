@@ -7,6 +7,9 @@ __author__ = 'Didier Stevens'
 __version__ = '0.0.9'
 __date__ = '2018/12/09'
 
+import collections
+import glob
+
 """
 
 Source code put in public domain by Didier Stevens, no Copyright
@@ -264,7 +267,7 @@ def LoadPlugins(plugins, verbose):
                     scriptPlugin = os.path.join(scriptPath, plugin)
                     if os.path.exists(scriptPlugin):
                         plugin = scriptPlugin
-            exec open(plugin, 'r') in globals(), globals()
+            exec(open(plugin, 'r')) in globals(), globals()
         except Exception as e:
             print('Error loading plugin: %s' % plugin)
             if verbose:
@@ -291,7 +294,7 @@ def LoadDecoders(decoders, verbose):
                     scriptDecoder = os.path.join(scriptPath, decoder)
                     if os.path.exists(scriptDecoder):
                         decoder = scriptDecoder
-            exec open(decoder, 'r') in globals(), globals()
+            exec(open(decoder, 'r')) in globals(), globals()
         except Exception as e:
             print('Error loading decoder: %s' % decoder)
             if verbose:
