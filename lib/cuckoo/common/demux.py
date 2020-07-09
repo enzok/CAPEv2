@@ -17,23 +17,81 @@ try:
     from sflock.unpack.office import OfficeFile
     from sflock.abstracts import File as sfFile
     from sflock.exception import UnpackException
+
     HAS_SFLOCK = True
 except ImportError:
-    print("You must install sflock\n"
-          "sudo apt-get install p7zip-full rar unace-nonfree cabextract\n"
-          "pip3 install -U sflock")
+    print(
+        "You must install sflock\n"
+        "sudo apt-get install p7zip-full rar unace-nonfree cabextract\n"
+        "pip3 install -U sflock"
+    )
     HAS_SFLOCK = False
 
 log = logging.getLogger(__name__)
 cuckoo_conf = Config()
-tmp_path = cuckoo_conf.cuckoo.get("tmppath", "/tmp").encode('utf8')
+tmp_path = cuckoo_conf.cuckoo.get("tmppath", "/tmp").encode("utf8")
 
 demux_extensions_list = [
-    "", ".exe", ".dll", ".com", ".jar", ".pdf", ".msi", ".bin", ".scr", ".zip", ".tar", ".gz", ".tgz", ".rar", ".htm",
-    ".html", ".hta", ".doc", ".dot", ".docx", ".dotx", ".docm", ".dotm", ".docb", ".mht", ".mso", ".js", ".jse",
-    ".vbs", ".vbe", ".xls", ".xlt", ".xlm", ".xlsx", ".xltx", ".xlsm", ".xltm", ".xlsb", ".xla", ".xlam", ".xll",
-    ".xlw", ".ppt", ".pot", ".pps", ".pptx", ".pptm", ".potx", ".potm", ".ppam", ".ppsx", ".ppsm", ".sldx", ".sldm",
-    ".wsf", ".bat", ".ps1", ".sh", ".pl", ".lnk",
+    "",
+    ".exe",
+    ".dll",
+    ".com",
+    ".jar",
+    ".pdf",
+    ".msi",
+    ".bin",
+    ".scr",
+    ".zip",
+    ".tar",
+    ".gz",
+    ".tgz",
+    ".rar",
+    ".htm",
+    ".html",
+    ".hta",
+    ".doc",
+    ".dot",
+    ".docx",
+    ".dotx",
+    ".docm",
+    ".dotm",
+    ".docb",
+    ".mht",
+    ".mso",
+    ".js",
+    ".jse",
+    ".vbs",
+    ".vbe",
+    ".xls",
+    ".xlt",
+    ".xlm",
+    ".xlsx",
+    ".xltx",
+    ".xlsm",
+    ".xltm",
+    ".xlsb",
+    ".xla",
+    ".xlam",
+    ".xll",
+    ".xlw",
+    ".ppt",
+    ".pot",
+    ".pps",
+    ".pptx",
+    ".pptm",
+    ".potx",
+    ".potm",
+    ".ppam",
+    ".ppsx",
+    ".ppsm",
+    ".sldx",
+    ".sldm",
+    ".wsf",
+    ".bat",
+    ".ps1",
+    ".sh",
+    ".pl",
+    ".lnk",
 ]
 
 whitelist_extensions = ("doc", "xls", "ppt", "pub", "jar")
@@ -56,7 +114,7 @@ def options2passwd(options):
                 if key == "password":
                     # sflock requires password to be bytes object for Py3
                     if isinstance(value, str):
-                        value = value.encode('utf8')
+                        value = value.encode("utf8")
                     password = value
                     break
             except Exception as err:
@@ -105,14 +163,16 @@ def get_filenames(retlist, tmp_dir, children):
         for child in children:
             at = child.astree()
             magic = child.magic
-            if 'file' in at['type'] or \
-                    child.package in whitelist_extensions or \
-                    ("Microsoft" in magic and not ("Outlook" in magic or "Message" in magic)):
-                base, ext = os.path.splitext(at['filename'])
-                ext = ext.lower().decode('utf8')
+            if (
+                "file" in at["type"]
+                or child.package in whitelist_extensions
+                or ("Microsoft" in magic and not ("Outlook" in magic or "Message" in magic))
+            ):
+                base, ext = os.path.splitext(at["filename"])
+                ext = ext.lower().decode("utf8")
                 if ext in demux_extensions_list or is_valid_type(magic):
-                    retlist.append(os.path.join(tmp_dir, at['filename']))
-            elif 'container' in at['type'] and child.package not in whitelist_extensions:
+                    retlist.append(os.path.join(tmp_dir, at["filename"]))
+            elif "container" in at["type"] and child.package not in whitelist_extensions:
                 get_filenames(retlist, tmp_dir, child.children)
     except Exception as err:
         log.error(err, exc_info=True)
@@ -161,7 +221,7 @@ def demux_sample(filename, package, options):
     """
     # sflock requires filename to be bytes object for Py3
     if isinstance(filename, str):
-        filename = filename.encode('utf8')
+        filename = filename.encode("utf8")
     # if a package was specified, then don't do anything special
     if package:
         return [filename]
