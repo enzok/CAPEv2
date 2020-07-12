@@ -17,14 +17,16 @@ from threading import Event, Thread, Lock
 import gevent.pool
 import gevent.server
 import gevent.socket
-#https://github.com/cuckoosandbox/cuckoo/blob/13cbe0d9e457be3673304533043e992ead1ea9b2/cuckoo/core/resultserver.py#L9
+
+# https://github.com/cuckoosandbox/cuckoo/blob/13cbe0d9e457be3673304533043e992ead1ea9b2/cuckoo/core/resultserver.py#L9
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.files import open_exclusive
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.exceptions import CuckooOperationalError
 from lib.cuckoo.common.exceptions import CuckooCriticalError
 from lib.cuckoo.common.exceptions import CuckooResultError
-#from lib.cuckoo.common.netlog import BsonParser
+
+# from lib.cuckoo.common.netlog import BsonParser
 from lib.cuckoo.common.utils import create_folder, Singleton, logtime, sanitize_pathname
 from lib.cuckoo.common.abstracts import ProtocolHandler
 from lib.cuckoo.core.log import task_log_start, task_log_stop
@@ -42,12 +44,24 @@ BUFSIZE = 16 * 1024
 # Prevent malicious clients from using potentially dangerous filenames
 # E.g. C API confusion by using null, or using the colon on NTFS (Alternate
 # Data Streams); XXX: just replace illegal chars?
-BANNED_PATH_CHARS = b'\x00:'
+BANNED_PATH_CHARS = b"\x00:"
 
 # Directories in which analysis-related files will be stored; also acts as
 # whitelist
-RESULT_UPLOADABLE = (b'CAPE', b'aux', b'buffer', b'curtain', b'extracted', b'files', b'memory', b'shots',
-                     b'sysmon', b'stap', b'procdump', b'debugger')
+RESULT_UPLOADABLE = (
+    b"CAPE",
+    b"aux",
+    b"buffer",
+    b"curtain",
+    b"extracted",
+    b"files",
+    b"memory",
+    b"shots",
+    b"sysmon",
+    b"stap",
+    b"procdump",
+    b"debugger",
+)
 RESULT_DIRECTORIES = RESULT_UPLOADABLE + (b"reports", b"logs")
 
 
@@ -73,6 +87,7 @@ class HandlerContext(object):
     Can safely be cancelled from another thread, though in practice this will
     not occur often -- usually the connection between VM and the ResultServer
     will be reset during shutdown."""
+
     def __init__(self, task_id, storagepath, sock):
         self.task_id = task_id
         self.command = None
@@ -128,7 +143,7 @@ class HandlerContext(object):
                     raise EOFError
                 self.buf += buf
                 continue
-            line, self.buf = self.buf[:pos], self.buf[pos + 1:]
+            line, self.buf = self.buf[:pos], self.buf[pos + 1 :]
             return line
 
     def copy_to_fd(self, fd, max_size=None):
@@ -196,19 +211,26 @@ class FileUpload(ProtocolHandler):
             if e.errno == errno.EEXIST:
                 raise CuckooOperationalError("Analyzer for task #%s tried to overwrite an existing file" % self.task_id)
             raise
-        #ToDo we need Windows path
+        # ToDo we need Windows path
         # filter screens/curtain/sysmon
         if not dump_path.startswith((b"shots/", b"curtain/", b"aux/", b"sysmon/", b"debugger/")):
             # Append-writes are atomic
             with open(self.filelog, "a") as f:
-                print(json.dumps({
-                    "path": dump_path.decode("utf-8", "replace"),
-                    "filepath": filepath.decode("utf-8", "replace") if filepath else "",
-                    "pids": pids,
-                    "metadata": metadata.decode("utf-8", "replace"),
-                    "category": category.decode("utf-8") if category in
-                                                            (b"CAPE", b"files", b"memory", b"procdump") else ""
-                }, ensure_ascii=False), file=f)
+                print(
+                    json.dumps(
+                        {
+                            "path": dump_path.decode("utf-8", "replace"),
+                            "filepath": filepath.decode("utf-8", "replace") if filepath else "",
+                            "pids": pids,
+                            "metadata": metadata.decode("utf-8", "replace"),
+                            "category": category.decode("utf-8")
+                            if category in (b"CAPE", b"files", b"memory", b"procdump")
+                            else "",
+                        },
+                        ensure_ascii=False,
+                    ),
+                    file=f,
+                )
 
         self.handler.sock.settimeout(None)
         try:
@@ -228,8 +250,7 @@ class LogHandler(ProtocolHandler):
             log.error("Task #%s: attempted to reopen live log analysis.log.", self.task_id)
             return
 
-        log.debug("Task #%s: live log analysis.log initialized.",
-                  self.task_id)
+        log.debug("Task #%s: live log analysis.log initialized.", self.task_id)
 
     def handle(self):
         if self.fd:
@@ -239,13 +260,11 @@ class LogHandler(ProtocolHandler):
 class BsonStore(ProtocolHandler):
     def init(self):
         if self.version is None:
-            log.warning("Agent is sending BSON files without PID parameter, "
-                        "you should probably update it")
+            log.warning("Agent is sending BSON files without PID parameter, " "you should probably update it")
             self.fd = None
             return
 
-        self.fd = open(os.path.join(self.handler.storagepath,
-                                    "logs", "%d.bson" % self.version), "wb")
+        self.fd = open(os.path.join(self.handler.storagepath, "logs", "%d.bson" % self.version), "wb")
 
     def handle(self):
         """Read a BSON stream, attempting at least basic validation, and
@@ -268,6 +287,7 @@ class GeventResultServerWorker(gevent.server.StreamServer):
     capable of storing all dropped files in a streamable container format. This
     is one of various steps to start being able to use less fd's in Cuckoo.
     """
+
     commands = {
         b"BSON": BsonStore,
         b"FILE": FileUpload,
@@ -308,16 +328,27 @@ class GeventResultServerWorker(gevent.server.StreamServer):
                 ctx.cancel()
 
     def create_folders(self):
-        folders = ('CAPE', 'aux', 'curtain', 'files', 'logs', 'memory', 'shots', 'sysmon',
-                   'stap', 'procdump', 'debugger')
+        folders = (
+            "CAPE",
+            "aux",
+            "curtain",
+            "files",
+            "logs",
+            "memory",
+            "shots",
+            "sysmon",
+            "stap",
+            "procdump",
+            "debugger",
+        )
 
         for folder in folders:
             try:
                 create_folder(self.storagepath, folder=folder)
             except Exception as e:
                 log.error(e, exc_info=True)
-            #ToDo
-            #except CuckooOperationalError as e:
+            # ToDo
+            # except CuckooOperationalError as e:
             #    print(e)
             #    log.error("Unable to create folder %s" % folder)
             #    return False
@@ -370,8 +401,9 @@ class GeventResultServerWorker(gevent.server.StreamServer):
                 ctx.cancel()
                 if ctx.buf:
                     # This is usually not a good sign
-                    log.warning("Task #%s with protocol %s has unprocessed data before getting disconnected",
-                                task_id, protocol)
+                    log.warning(
+                        "Task #%s with protocol %s has unprocessed data before getting disconnected", task_id, protocol
+                    )
         finally:
             task_log_stop(task_id)
 
@@ -439,7 +471,6 @@ class ResultServer(metaclass=Singleton):
         if pool_size:
             pool = gevent.pool.Pool(pool_size)
         else:
-            pool = 'default'
+            pool = "default"
         self.instance = GeventResultServerWorker(sock, spawn=pool)
         self.instance.do_run()
-

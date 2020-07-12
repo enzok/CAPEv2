@@ -14,6 +14,7 @@ from lib.cuckoo.common.objects import File
 
 try:
     from elasticsearch import Elasticsearch, ElasticsearchException
+
     HAVE_ELASTICSEARCH = True
 except ImportError as e:
     HAVE_ELASTICSEARCH = False
@@ -23,6 +24,7 @@ log = logging.getLogger("elasticsearch").setLevel(logging.WARNING)
 
 class ElasticsearchDB(Report):
     """Stores report in Elastic Search."""
+
     order = 9997
 
     def connect(self):
@@ -30,11 +32,7 @@ class ElasticsearchDB(Report):
         @raise CuckooReportError: if unable to connect.
         """
         self.es = Elasticsearch(
-            hosts = [{
-                'host': self.options.get("host", "127.0.0.1"),
-                'port': self.options.get("port", 9200),
-            }],
-            timeout = 60
+            hosts=[{"host": self.options.get("host", "127.0.0.1"), "port": self.options.get("port", 9200),}], timeout=60
         )
 
     def replace_dots(self, signatures):
@@ -45,7 +43,7 @@ class ElasticsearchDB(Report):
         for sig in signatures:
             temp = {}
             for key, val in sig.items():
-                if key != 'data':
+                if key != "data":
                     temp[key] = val
                 else:
                     new_data = []
@@ -68,12 +66,11 @@ class ElasticsearchDB(Report):
         # We put the raise here and not at the import because it would
         # otherwise trigger even if the module is not enabled in the config.
         if not HAVE_ELASTICSEARCH:
-            raise CuckooDependencyError("Unable to import elasticsearch "
-                                        "(install with `pip3 install elasticsearch`)")
+            raise CuckooDependencyError("Unable to import elasticsearch " "(install with `pip3 install elasticsearch`)")
 
         self.connect()
-        index_prefix  = self.options.get("index", "cuckoo")
-        search_only   = self.options.get("searchonly", False)
+        index_prefix = self.options.get("index", "cuckoo")
+        search_only = self.options.get("searchonly", False)
 
         # Create a copy of the dictionary. This is done in order to not modify
         # the original dictionary and possibly compromise the following
@@ -81,7 +78,7 @@ class ElasticsearchDB(Report):
         esreport = dict(results)
 
         idxdate = esreport["info"]["started"].split(" ")[0]
-        self.index_name = '{0}-{1}'.format(index_prefix, idxdate)
+        self.index_name = "{0}-{1}".format(index_prefix, idxdate)
 
         if not search_only:
             if not "network" in esreport:
@@ -99,11 +96,9 @@ class ElasticsearchDB(Report):
                         # If the chunk size is 100 or if the loop is completed then
                         # store the chunk in Elastcisearch.
                         if len(chunk) == 100:
-                            to_insert = {"pid": process["process_id"],
-                                         "calls": chunk}
-                            pchunk = self.es.index(index=self.index_name,
-                                                   doc_type="calls", body=to_insert)
-                            chunk_id = pchunk['_id']
+                            to_insert = {"pid": process["process_id"], "calls": chunk}
+                            pchunk = self.es.index(index=self.index_name, doc_type="calls", body=to_insert)
+                            chunk_id = pchunk["_id"]
                             chunks_ids.append(chunk_id)
                             # Reset the chunk.
                             chunk = []
@@ -114,9 +109,8 @@ class ElasticsearchDB(Report):
                     # Store leftovers.
                     if chunk:
                         to_insert = {"pid": process["process_id"], "calls": chunk}
-                        pchunk = self.es.index(index=self.index_name, 
-                                               doc_type="calls", body=to_insert)
-                        chunk_id = pchunk['_id']
+                        pchunk = self.es.index(index=self.index_name, doc_type="calls", body=to_insert)
+                        chunk_id = pchunk["_id"]
                         chunks_ids.append(chunk_id)
 
                     # Add list of chunks.
@@ -131,22 +125,26 @@ class ElasticsearchDB(Report):
             esreport["shots"] = []
             shots_path = os.path.join(self.analysis_path, "shots")
             if os.path.exists(shots_path):
-                shots = [shot for shot in os.listdir(shots_path)
-                         if shot.endswith(".jpg")]
+                shots = [shot for shot in os.listdir(shots_path) if shot.endswith(".jpg")]
                 for shot_file in sorted(shots):
-                    shot_path = os.path.join(self.analysis_path, "shots",
-                                             shot_file)
+                    shot_path = os.path.join(self.analysis_path, "shots", shot_file)
                     screenshot = File(shot_path)
                     if screenshot.valid():
-                        # Strip the extension as it's added later 
+                        # Strip the extension as it's added later
                         # in the Django view
                         esreport["shots"].append(shot_file.replace(".jpg", ""))
 
             # Other info we want Quick access to from the web UI
-            if "virustotal" in results and results["virustotal"] and "positives" in results["virustotal"] and \
-                    "total" in results["virustotal"]:
-                esreport["virustotal_summary"] = "%s/%s" % (results["virustotal"]["positives"],
-                                                          results["virustotal"]["total"])
+            if (
+                "virustotal" in results
+                and results["virustotal"]
+                and "positives" in results["virustotal"]
+                and "total" in results["virustotal"]
+            ):
+                esreport["virustotal_summary"] = "%s/%s" % (
+                    results["virustotal"]["positives"],
+                    results["virustotal"]["total"],
+                )
 
             if "suricata" in results and results["suricata"]:
                 if "tls" in results["suricata"] and len(results["suricata"]["tls"]) > 0:
@@ -206,35 +204,34 @@ class ElasticsearchDB(Report):
             dropdead = 1
             while error_saved and dropdead < 20:
                 if "mapper_parsing_exception" in cept.args[1] or "illegal_argument_exception" in cept.args[1]:
-                    reason = cept.args[2]['error']['reason']
+                    reason = cept.args[2]["error"]["reason"]
 
                     try:
-                        keys = re.findall(r'\[([^]]*)\]', reason)[0].split(".")
+                        keys = re.findall(r"\[([^]]*)\]", reason)[0].split(".")
                     except IndexError as cept:
                         log.error("Failed to save results to elasticsearch db.")
                         error_saved = False
                         continue
 
                     if "yara" in keys and "date" in keys:
-                        for rule in esreport['target']['file']['yara']:
-                            if "date" in rule['meta']:
-                                del rule['meta']['date']
+                        for rule in esreport["target"]["file"]["yara"]:
+                            if "date" in rule["meta"]:
+                                del rule["meta"]["date"]
                     else:
                         delcmd = "del report"
                         for k in keys:
                             delcmd += "['{}']".format(k)
                         try:
-                            exec(compile(delcmd, '', 'exec')) in locals()
+                            exec(compile(delcmd, "", "exec")) in locals()
 
                         except Exception as cept:
                             log.error(cept)
                             error_saved = False
 
                     try:
-                        self.es.index(index=self.index_name,
-                                      doc_type="analysis",
-                                      id=esreport["info"]["id"],
-                                      body=esreport)
+                        self.es.index(
+                            index=self.index_name, doc_type="analysis", id=esreport["info"]["id"], body=esreport
+                        )
                         error_saved = False
                     except ElasticsearchException as cept:
                         dropdead += 1
@@ -242,4 +239,3 @@ class ElasticsearchDB(Report):
                 else:
                     log.error("Failed to save results to elasticsearch db.")
                     error_saved = False
-

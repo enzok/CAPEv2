@@ -22,10 +22,12 @@ class conditional_login_required(object):
     def __init__(self, dec, condition):
         self.decorator = dec
         self.condition = condition
+
     def __call__(self, func):
         if not self.condition:
             return func
         return self.decorator(func)
+
 
 @require_safe
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
@@ -37,7 +39,7 @@ def index(request):
         total_tasks=db.count_tasks(),
         states_count={},
         estimate_hour=None,
-        estimate_day=None
+        estimate_day=None,
     )
 
     states = (
@@ -49,7 +51,7 @@ def index(request):
         TASK_REPORTED,
         TASK_FAILED_ANALYSIS,
         TASK_FAILED_PROCESSING,
-        TASK_FAILED_REPORTING
+        TASK_FAILED_REPORTING,
     )
 
     for state in states:

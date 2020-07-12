@@ -19,14 +19,17 @@ try:
     from pymongo import MongoClient
     from bson.objectid import ObjectId
     from pymongo.errors import ConnectionFailure, InvalidDocument
+
     HAVE_MONGO = True
 except ImportError:
     HAVE_MONGO = False
 
 log = logging.getLogger(__name__)
 
+
 class MongoDB(Report):
     """Stores report in MongoDB."""
+
     order = 9999
 
     # Mongo schema version, used for data migration.
@@ -46,7 +49,7 @@ class MongoDB(Report):
                 port=port,
                 username=self.options.get("username", None),
                 password=self.options.get("password", None),
-                authSource=db
+                authSource=db,
             )
             self.db = self.conn[db]
         except TypeError:
@@ -59,6 +62,7 @@ class MongoDB(Report):
             dct = dct[0]
 
         totals = dict((k, 0) for k in dct)
+
         def walk(root, key, val):
             if isinstance(val, dict):
                 for k, v in val.items():
@@ -97,9 +101,9 @@ class MongoDB(Report):
             # we do not want to convert that.
             if type(v) is str:
                 try:
-                    v.encode('utf-8')
+                    v.encode("utf-8")
                 except UnicodeEncodeError:
-                    obj[k] = ''.join(str(ord(_)) for _ in v).encode('utf-8')
+                    obj[k] = "".join(str(ord(_)) for _ in v).encode("utf-8")
             else:
                 cls.ensure_valid_utf8(v)
 
@@ -111,8 +115,7 @@ class MongoDB(Report):
         # We put the raise here and not at the import because it would
         # otherwise trigger even if the module is not enabled in the config.
         if not HAVE_MONGO:
-            raise CuckooDependencyError("Unable to import pymongo "
-                                        "(install with `pip3 install pymongo`)")
+            raise CuckooDependencyError("Unable to import pymongo " "(install with `pip3 install pymongo`)")
 
         self.connect()
 
@@ -187,12 +190,26 @@ class MongoDB(Report):
                     report["f_mlist_cnt"] = len(entry["data"])
 
         # Other info we want quick access to from the web UI
-        if results.get("virustotal", False) and "positives" in results["virustotal"] and "total" in results["virustotal"]:
-            report["virustotal_summary"] = "%s/%s" % (results["virustotal"]["positives"], results["virustotal"]["total"])
+        if (
+            results.get("virustotal", False)
+            and "positives" in results["virustotal"]
+            and "total" in results["virustotal"]
+        ):
+            report["virustotal_summary"] = "%s/%s" % (
+                results["virustotal"]["positives"],
+                results["virustotal"]["total"],
+            )
         if results.get("suricata", False):
 
             keywords = ("tls", "alerts", "files", "http", "ssh", "dns")
-            keywords_dict = ("suri_tls_cnt", "suri_alert_cnt", "suri_file_cnt", "suri_http_cnt", "suri_ssh_cnt", "suri_dns_cnt")
+            keywords_dict = (
+                "suri_tls_cnt",
+                "suri_alert_cnt",
+                "suri_file_cnt",
+                "suri_http_cnt",
+                "suri_ssh_cnt",
+                "suri_dns_cnt",
+            )
             for keyword, keyword_value in zip(keywords, keywords_dict):
                 if results["suricata"].get(keyword, 0):
                     report[keyword_value] = len(results["suricata"][keyword])
@@ -202,7 +219,7 @@ class MongoDB(Report):
         # Note: Silently ignores the creation if the index already exists.
         self.db.analysis.create_index("info.id", background=True)
 
-        #trick for distributed api
+        # trick for distributed api
         if results.get("info", {}).get("options", {}).get("main_task_id", ""):
             report["info"]["id"] = int(results["info"]["options"]["main_task_id"])
 
@@ -240,7 +257,9 @@ class MongoDB(Report):
                             for j, parent_dict in enumerate(report[parent_key]):
                                 child_key, csize = self.debug_dict_size(parent_dict)[0]
                                 if csize > size_filter:
-                                    log.warn("results['%s']['%s'] deleted due to size: %s" % (parent_key, child_key, csize))
+                                    log.warn(
+                                        "results['%s']['%s'] deleted due to size: %s" % (parent_key, child_key, csize)
+                                    )
                                     del report[parent_key][j][child_key]
                         else:
                             child_key, csize = self.debug_dict_size(report[parent_key])[0]

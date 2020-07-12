@@ -10,6 +10,7 @@ import codecs
 from lib.cuckoo.common.abstracts import Report
 from lib.cuckoo.common.exceptions import CuckooReportError
 
+
 class JsonDump(Report):
     """Saves analysis results in JSON format."""
 
@@ -26,10 +27,13 @@ class JsonDump(Report):
             path = os.path.join(self.reports_path, "report.json")
             with codecs.open(path, "w", "utf-8") as report:
                 if ram_boost:
-                    buf = json.dumps(results, sort_keys=False, indent=int(indent), encoding=encoding, ensure_ascii=False)
+                    buf = json.dumps(
+                        results, sort_keys=False, indent=int(indent), encoding=encoding, ensure_ascii=False
+                    )
                     report.write(buf)
                 else:
-                    json.dump(results, report, sort_keys=False, indent=int(indent), encoding=encoding, ensure_ascii=False)
+                    json.dump(
+                        results, report, sort_keys=False, indent=int(indent), encoding=encoding, ensure_ascii=False
+                    )
         except (UnicodeError, TypeError, IOError) as e:
             raise CuckooReportError("Failed to generate JSON report: %s" % e)
-

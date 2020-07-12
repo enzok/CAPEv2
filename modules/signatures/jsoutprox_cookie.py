@@ -45,7 +45,7 @@ class JSOutProxCookie(Signature):
         rex_cookie = re.findall(self.cookieRex, buffer)
         if rex_cookie:
             try:
-                bufstr = bytes.fromhex(rex_cookie[0]).decode('utf8')
+                bufstr = bytes.fromhex(rex_cookie[0]).decode("utf8")
                 info = bufstr.split("_|_")
                 sysinfo["Volume_Serial_Number"] = info[0]
                 sysinfo["UUID"] = info[1]

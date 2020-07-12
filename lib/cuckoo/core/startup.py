@@ -36,13 +36,13 @@ cuckoo = Config()
 routing = Config("routing")
 repconf = Config("reporting")
 
+
 def check_python_version():
     """Checks if Python version is supported by Cuckoo.
     @raise CuckooStartupError: if version is not supported.
     """
     if sys.version_info[:2] < (3, 5):
-        raise CuckooStartupError("You are running an incompatible version "
-                                 "of Python, please use >= 3.5")
+        raise CuckooStartupError("You are running an incompatible version " "of Python, please use >= 3.5")
 
 
 def check_working_directory():
@@ -50,18 +50,17 @@ def check_working_directory():
     @raise CuckooStartupError: if directories are not properly configured.
     """
     if not os.path.exists(CUCKOO_ROOT):
-        raise CuckooStartupError("You specified a non-existing root "
-                                 "directory: {0}".format(CUCKOO_ROOT))
+        raise CuckooStartupError("You specified a non-existing root " "directory: {0}".format(CUCKOO_ROOT))
 
     cwd = os.path.join(os.getcwd(), "cuckoo.py")
     if not os.path.exists(cwd):
-        raise CuckooStartupError("You are not running Cuckoo from it's "
-                                 "root directory")
+        raise CuckooStartupError("You are not running Cuckoo from it's " "root directory")
 
 
 def check_webgui_mongo():
     if repconf.mongodb.enabled:
         import pymongo
+
         bad = False
         try:
             conn = pymongo.MongoClient(
@@ -69,29 +68,33 @@ def check_webgui_mongo():
                 port=repconf.mongodb.port,
                 username=repconf.mongodb.get("username", None),
                 password=repconf.mongodb.get("password", None),
-                authSource=repconf.mongodb.db
+                authSource=repconf.mongodb.db,
             )
             conn.server_info()
         except pymongo.errors.ServerSelectionTimeoutError:
-            log.warning("You have enabled webgui but mongo ins't working, see mongodb manual for correct instalation and configuration")
+            log.warning(
+                "You have enabled webgui but mongo ins't working, see mongodb manual for correct instalation and configuration"
+            )
             bad = True
         finally:
             conn.close()
             if bad:
                 sys.exit(1)
 
+
 def check_configs():
     """Checks if config files exist.
     @raise CuckooStartupError: if config files do not exist.
     """
-    configs = [os.path.join(CUCKOO_ROOT, "conf", "cuckoo.conf"),
-               os.path.join(CUCKOO_ROOT, "conf", "reporting.conf"),
-               os.path.join(CUCKOO_ROOT, "conf", "auxiliary.conf")]
+    configs = [
+        os.path.join(CUCKOO_ROOT, "conf", "cuckoo.conf"),
+        os.path.join(CUCKOO_ROOT, "conf", "reporting.conf"),
+        os.path.join(CUCKOO_ROOT, "conf", "auxiliary.conf"),
+    ]
 
     for config in configs:
         if not os.path.exists(config):
-            raise CuckooStartupError("Config file does not exist at "
-                                     "path: {0}".format(config))
+            raise CuckooStartupError("Config file does not exist at " "path: {0}".format(config))
 
     return True
 
@@ -149,8 +152,9 @@ def init_logging():
     if cuckoo.logging.enabled:
         days = cuckoo.logging.backup_count
         interval = cuckoo.logging.interval
-        fh = logging.handlers.TimedRotatingFileHandler(os.path.join(CUCKOO_ROOT, "log", "cuckoo.log"),
-                                                       when=interval, backupCount=days)
+        fh = logging.handlers.TimedRotatingFileHandler(
+            os.path.join(CUCKOO_ROOT, "log", "cuckoo.log"), when=interval, backupCount=days
+        )
     else:
         fh = logging.handlers.WatchedFileHandler(os.path.join(CUCKOO_ROOT, "log", "cuckoo.log"))
     fh.setFormatter(formatter)
@@ -190,8 +194,7 @@ def init_tasks():
     for task in tasks:
         if cuckoo.cuckoo.reschedule:
             db.reschedule(task.id)
-            log.info("Rescheduled task with ID {0} and "
-                     "target {1}".format(task.id, task.target))
+            log.info("Rescheduled task with ID {0} and " "target {1}".format(task.id, task.target))
         else:
             db.set_status(task.id, TASK_FAILED_ANALYSIS)
             log.info("Updated running task ID {0} status to failed_analysis".format(task.id))
@@ -218,7 +221,7 @@ def init_modules():
     import_plugin("modules.machinery." + cuckoo.cuckoo.machinery)
 
     for category, entries in list_plugins().items():
-        log.debug("Imported \"%s\" modules:", category)
+        log.debug('Imported "%s" modules:', category)
 
         for entry in entries:
             if entry == entries[-1]:
@@ -230,9 +233,7 @@ def init_modules():
 def init_yara():
     """Generates index for yara signatures."""
 
-    categories = (
-        "binaries", "urls", "memory", "CAPE"
-    )
+    categories = ("binaries", "urls", "memory", "CAPE")
 
     log.debug("Initializing Yara...")
 
@@ -267,7 +268,7 @@ def init_yara():
                     log.warning(
                         "Can't load Yara rules at %r as Unicode filepaths are "
                         "currently not supported in combination with Yara!",
-                        filepath
+                        filepath,
                     )
                     continue
 
@@ -288,7 +289,7 @@ def init_yara():
         # ToDo for Volatility3 yarascan
         # The memory.py processing module requires a yara file with all of its
         # rules embedded in it, so create this file to remain compatible.
-        #if category == "memory":
+        # if category == "memory":
         #    f = open(os.path.join(yara_root, "index_memory.yar"), "w")
         #    for filename in sorted(indexed):
         #        f.write('include "%s"\n' % os.path.join(category_root, filename))
@@ -300,16 +301,19 @@ def init_yara():
             else:
                 log.debug("\t |-- %s %s", category, entry)
 
+
 def init_rooter():
     """If required, check whether the rooter is running and whether we can
     connect to it."""
 
     # The default configuration doesn't require the rooter to be ran.
-    if not routing.vpn.enabled and \
-            not routing.tor.enabled and \
-            not routing.inetsim.enabled and \
-            not routing.socks5.enabled and \
-            routing.routing.route == "none":
+    if (
+        not routing.vpn.enabled
+        and not routing.tor.enabled
+        and not routing.inetsim.enabled
+        and not routing.socks5.enabled
+        and routing.routing.route == "none"
+    ):
         return
 
     s = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
@@ -365,9 +369,7 @@ def init_routing():
                 continue
 
             if not hasattr(routing, name):
-                raise CuckooStartupError(
-                    "Could not find socks5 configuration for %s" % name
-                )
+                raise CuckooStartupError("Could not find socks5 configuration for %s" % name)
 
             entry = routing.get(name)
             socks5s[entry.name] = entry
@@ -379,22 +381,19 @@ def init_routing():
                 continue
 
             if not hasattr(routing, name):
-                raise CuckooStartupError(
-                    "Could not find VPN configuration for %s" % name
-                )
+                raise CuckooStartupError("Could not find VPN configuration for %s" % name)
 
             entry = routing.get(name)
-            #add = 1
-            #if not rooter("nic_available", entry.interface):
-                #raise CuckooStartupError(
-                #   "The network interface that has been configured for "
-                #    "VPN %s is not available." % entry.name
-                #)
+            # add = 1
+            # if not rooter("nic_available", entry.interface):
+            # raise CuckooStartupError(
+            #   "The network interface that has been configured for "
+            #    "VPN %s is not available." % entry.name
+            # )
             #    add = 0
             if not rooter("rt_available", entry.rt_table):
                 raise CuckooStartupError(
-                    "The routing table that has been configured for "
-                    "VPN %s is not available." % entry.name
+                    "The routing table that has been configured for " "VPN %s is not available." % entry.name
                 )
             vpns[entry.name] = entry
 
@@ -418,22 +417,19 @@ def init_routing():
 
         if routing.routing.route not in vpns and routing.routing.route not in socks5s:
             raise CuckooStartupError(
-                "The VPN/Socks5 defined as default routing target has not been "
-                "configured in routing.conf."
+                "The VPN/Socks5 defined as default routing target has not been " "configured in routing.conf."
             )
 
     # Check whether the dirty line exists if it has been defined.
     if routing.routing.internet != "none":
         if not rooter("nic_available", routing.routing.internet):
             raise CuckooStartupError(
-                "The network interface that has been configured as dirty "
-                "line is not available."
+                "The network interface that has been configured as dirty " "line is not available."
             )
 
         if not rooter("rt_available", routing.routing.rt_table):
             raise CuckooStartupError(
-                "The routing table that has been configured for dirty "
-                "line interface is not available."
+                "The routing table that has been configured for dirty " "line interface is not available."
             )
 
         # Disable & enable NAT on this network interface. Disable it just
@@ -449,10 +445,7 @@ def init_routing():
     # Check if tor interface exists, if yes then enable nat
     if routing.tor.enabled and routing.tor.interface:
         if not rooter("nic_available", routing.tor.interface):
-            raise CuckooStartupError(
-                "The network interface that has been configured as tor "
-                "line is not available."
-            )
+            raise CuckooStartupError("The network interface that has been configured as tor " "line is not available.")
 
         # Disable & enable NAT on this network interface. Disable it just
         # in case we still had the same rule from a previous run.
@@ -462,18 +455,15 @@ def init_routing():
         # Populate routing table with entries from main routing table.
         if routing.routing.auto_rt:
             rooter("flush_rttable", routing.routing.rt_table)
-            rooter("init_rttable", routing.routing.rt_table,
-                   routing.routing.internet)
-
+            rooter("init_rttable", routing.routing.rt_table, routing.routing.internet)
 
     # Check if inetsim interface exists, if yes then enable nat, if interface is not the same as tor
-    #if routing.inetsim.interface and cuckoo.routing.inetsim_interface !=  routing.tor.interface:
+    # if routing.inetsim.interface and cuckoo.routing.inetsim_interface !=  routing.tor.interface:
     # Check if inetsim interface exists, if yes then enable nat
     if routing.inetsim.enabled and routing.inetsim.interface:
         if not rooter("nic_available", routing.inetsim.interface):
             raise CuckooStartupError(
-                "The network interface that has been configured as inetsim "
-                "line is not available."
+                "The network interface that has been configured as inetsim " "line is not available."
             )
 
         # Disable & enable NAT on this network interface. Disable it just
@@ -484,5 +474,4 @@ def init_routing():
         # Populate routing table with entries from main routing table.
         if routing.routing.auto_rt:
             rooter("flush_rttable", routing.routing.rt_table)
-            rooter("init_rttable", routing.routing.rt_table,
-                   routing.routing.internet)
+            rooter("init_rttable", routing.routing.rt_table, routing.routing.internet)

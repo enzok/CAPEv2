@@ -47,6 +47,7 @@ class POSFaker(Auxiliary):
 
         except Exception:
             import traceback
+
             log.exception(traceback.format_exc())
 
         return True

@@ -42,12 +42,14 @@ if repconf.mongodb.enabled:
 
 if repconf.elasticsearchdb.enabled and not repconf.elasticsearchdb.searchonly:
     from elasticsearch import Elasticsearch
+
     baseidx = repconf.elasticsearchdb.index
     fullidx = baseidx + "-*"
     es = Elasticsearch(hosts=[{"host": repconf.elasticsearchdb.host, "port": repconf.elasticsearchdb.port}], timeout=60)
 
 pending_future_map = {}
 pending_task_id_map = {}
+
 
 def process(target=None, copy_path=None, task=None, report=False, auto=False, capeproc=False, memory_debugging=False):
     # This is the results container. It's what will be used by all the
@@ -80,8 +82,13 @@ def process(target=None, copy_path=None, task=None, report=False, auto=False, ca
             host = repconf.mongodb.host
             port = repconf.mongodb.port
             db = repconf.mongodb.db
-            conn = MongoClient(host, port=port, username=repconf.mongodb.get("username", None),
-                               password=repconf.mongodb.get("password", None), authSource=db)
+            conn = MongoClient(
+                host,
+                port=port,
+                username=repconf.mongodb.get("username", None),
+                password=repconf.mongodb.get("password", None),
+                authSource=db,
+            )
             mdata = conn[db]
             analyses = mdata.analysis.find({"info.id": int(task_id)})
             if analyses.count() > 0:
@@ -95,7 +102,7 @@ def process(target=None, copy_path=None, task=None, report=False, auto=False, ca
             log.debug("Deleted previous MongoDB data for Task %s" % task_id)
 
         if repconf.elasticsearchdb.enabled and not repconf.elasticsearchdb.searchonly:
-            analyses = es.search(index=fullidx, doc_type="analysis", q="info.id: \"%s\"" % task_id)["hits"]["hits"]
+            analyses = es.search(index=fullidx, doc_type="analysis", q='info.id: "%s"' % task_id)["hits"]["hits"]
             if analyses:
                 for analysis in analyses:
                     esidx = analysis["_index"]
@@ -128,8 +135,10 @@ def process(target=None, copy_path=None, task=None, report=False, auto=False, ca
         for i, obj in enumerate(gc.garbage):
             log.info("[%s] (garbage) GC object #%d: type=%s", task_id, i, type(obj).__name__)
 
+
 def init_worker():
     signal.signal(signal.SIGINT, signal.SIG_IGN)
+
 
 def init_logging(auto=False, tid=0, debug=False):
     formatter = logging.Formatter("%(asctime)s [%(name)s] %(levelname)s: %(message)s")
@@ -143,8 +152,9 @@ def init_logging(auto=False, tid=0, debug=False):
             if cfg.logging.enabled:
                 days = cfg.logging.backup_count
                 interval = cfg.logging.interval
-                fh = logging.handlers.TimedRotatingFileHandler(os.path.join(CUCKOO_ROOT, "log", "process.log"),
-                                                               when=interval, backupCount=days)
+                fh = logging.handlers.TimedRotatingFileHandler(
+                    os.path.join(CUCKOO_ROOT, "log", "process.log"), when=interval, backupCount=days
+                )
             else:
                 fh = logging.handlers.WatchedFileHandler(os.path.join(CUCKOO_ROOT, "log", "process.log"))
         else:
@@ -163,6 +173,7 @@ def init_logging(auto=False, tid=0, debug=False):
 
     logging.getLogger("urllib3").setLevel(logging.WARNING)
 
+
 def processing_finished(future):
     task_id = pending_future_map.get(future)
     try:
@@ -178,12 +189,13 @@ def processing_finished(future):
         log.error("Exception when processing task %s: %s %s", task_id, error)
         Database().set_status(task_id, TASK_FAILED_PROCESSING)
 
-    del(pending_future_map[future])
-    del(pending_task_id_map[task_id])
+    del pending_future_map[future]
+    del pending_task_id_map[task_id]
 
 
-def autoprocess(parallel=1, failed_processing=False, maxtasksperchild=7,  memory_debugging=False,
-                processing_timeout=300):
+def autoprocess(
+    parallel=1, failed_processing=False, maxtasksperchild=7, memory_debugging=False, processing_timeout=300
+):
     maxcount = cfg.cuckoo.max_analysis_count
     count = 0
     db = Database()
@@ -215,7 +227,7 @@ def autoprocess(parallel=1, failed_processing=False, maxtasksperchild=7,  memory
                 log.info("Processing analysis data for Task #%d", task.id)
                 if task.category == "file":
                     sample = db.view_sample(task.sample_id)
-                    copy_path = os.path.join(CUCKOO_ROOT, "storage",  "binaries", sample.sha256)
+                    copy_path = os.path.join(CUCKOO_ROOT, "storage", "binaries", sample.sha256)
                 else:
                     copy_path = None
                 args = task.target, copy_path
@@ -245,41 +257,81 @@ def autoprocess(parallel=1, failed_processing=False, maxtasksperchild=7,  memory
         raise
     except:
         import traceback
+
         traceback.print_exc()
     finally:
         pool.close()
         pool.join()
 
+
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("id", type=str, help="ID of the analysis to process "
-                                             "(auto for continuous processing of unprocessed tasks).")
-    parser.add_argument("-c", "--caperesubmit", help="Allow CAPE resubmit processing.", action="store_true",
-                        required=False)
+    parser.add_argument(
+        "id", type=str, help="ID of the analysis to process " "(auto for continuous processing of unprocessed tasks)."
+    )
+    parser.add_argument(
+        "-c", "--caperesubmit", help="Allow CAPE resubmit processing.", action="store_true", required=False
+    )
     parser.add_argument("-d", "--debug", help="Display debug messages", action="store_true", required=False)
     parser.add_argument("-r", "--report", help="Re-generate report", action="store_true", required=False)
-    parser.add_argument("-s", "--signatures", help="Re-execute signatures on the report", action="store_true",
-                        required=False)
-    parser.add_argument("-p", "--parallel", help="Number of parallel threads to use (auto mode only).", type=int,
-                        required=False, default=1)
-    parser.add_argument("-fp", "--failed-processing", help="reprocess failed processing", action="store_true",
-                        required=False, default=False)
-    parser.add_argument("-mc", "--maxtasksperchild", help="Max children tasks per worker", action="store", type=int,
-                        required=False, default=7)
-    parser.add_argument("-md", "--memory-debugging", help="Enable logging garbage collection related info",
-                        action="store_true", required=False, default=False)
-    parser.add_argument("-pt", "--processing-timeout",
-                        help="Max amount of time spent in processing before we fail a task", action="store", type=int,
-                        required=False, default=300)
+    parser.add_argument(
+        "-s", "--signatures", help="Re-execute signatures on the report", action="store_true", required=False
+    )
+    parser.add_argument(
+        "-p",
+        "--parallel",
+        help="Number of parallel threads to use (auto mode only).",
+        type=int,
+        required=False,
+        default=1,
+    )
+    parser.add_argument(
+        "-fp",
+        "--failed-processing",
+        help="reprocess failed processing",
+        action="store_true",
+        required=False,
+        default=False,
+    )
+    parser.add_argument(
+        "-mc",
+        "--maxtasksperchild",
+        help="Max children tasks per worker",
+        action="store",
+        type=int,
+        required=False,
+        default=7,
+    )
+    parser.add_argument(
+        "-md",
+        "--memory-debugging",
+        help="Enable logging garbage collection related info",
+        action="store_true",
+        required=False,
+        default=False,
+    )
+    parser.add_argument(
+        "-pt",
+        "--processing-timeout",
+        help="Max amount of time spent in processing before we fail a task",
+        action="store",
+        type=int,
+        required=False,
+        default=300,
+    )
     args = parser.parse_args()
 
     init_yara()
     init_modules()
     if args.id == "auto":
         init_logging(auto=True, debug=args.debug)
-        autoprocess(parallel=args.parallel, failed_processing=args.failed_processing,
-                    maxtasksperchild=args.maxtasksperchild, memory_debugging=args.memory_debugging,
-                    processing_timeout=args.processing_timeout)
+        autoprocess(
+            parallel=args.parallel,
+            failed_processing=args.failed_processing,
+            maxtasksperchild=args.maxtasksperchild,
+            memory_debugging=args.memory_debugging,
+            processing_timeout=args.processing_timeout,
+        )
     else:
         if not os.path.exists(os.path.join(CUCKOO_ROOT, "storage", "analyses", args.id)):
             sys.exit(red("\n[-] Analysis folder doesn't exist anymore\n"))
@@ -295,6 +347,7 @@ def main():
                 RunSignatures(task=task.to_dict(), results=results).run()
         else:
             process(task=task, report=args.report, capeproc=args.caperesubmit, memory_debugging=args.memory_debugging)
+
 
 if __name__ == "__main__":
     try:

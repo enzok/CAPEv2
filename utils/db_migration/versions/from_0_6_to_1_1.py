@@ -13,6 +13,7 @@ Create Date: 2014-03-23 23:30:36.756792
 # Revision identifiers, used by Alembic.
 from __future__ import absolute_import
 from __future__ import print_function
+
 revision = "263a45963c72"
 mongo_revision = "1"
 down_revision = None
@@ -26,7 +27,7 @@ from datetime import datetime
 try:
     from dateutil.parser import parse
 except ImportError:
-    print("Unable to import dateutil.parser", end=' ')
+    print("Unable to import dateutil.parser", end=" ")
     print("(install with `pip3 install python-dateutil`)")
     sys.exit()
 
@@ -40,6 +41,7 @@ sys.path.append(os.path.join("..", ".."))
 
 import lib.cuckoo.core.database as db
 from lib.cuckoo.common.config import Config
+
 
 def upgrade():
     # BEWARE: be prepared to really spaghetti code. To deal with SQLite limitations in Alembic we coded some workarounds.
@@ -75,22 +77,27 @@ def upgrade():
         op.add_column("machines", sa.Column("interface", sa.String(length=255), nullable=True))
         op.add_column("machines", sa.Column("snapshot", sa.String(length=255), nullable=True))
         # TODO: change default value, be aware sqlite doesn't support that kind of ALTER statement.
-        op.add_column("machines", sa.Column("resultserver_ip", sa.String(length=255), server_default="192.168.56.1", nullable=False))
+        op.add_column(
+            "machines",
+            sa.Column("resultserver_ip", sa.String(length=255), server_default="192.168.56.1", nullable=False),
+        )
         # TODO: change default value, be aware sqlite doesn't support that kind of ALTER statement.
-        op.add_column("machines", sa.Column("resultserver_port", sa.String(length=255), server_default="2042", nullable=False))
+        op.add_column(
+            "machines", sa.Column("resultserver_port", sa.String(length=255), server_default="2042", nullable=False)
+        )
 
         # Deal with Alembic shit.
         # Alembic is so ORMish that it was impossible to write code which works on different DBMS.
         if conn.engine.driver == "psycopg2":
             # We don"t provide a default value and leave the column as nullable because o further data migration.
-            op.add_column("tasks", sa.Column("clock", sa.DateTime(timezone=False),nullable=True))
+            op.add_column("tasks", sa.Column("clock", sa.DateTime(timezone=False), nullable=True))
             # NOTE: We added this new column so we force clock time to the added_on for old analyses.
             conn.execute("update tasks set clock=added_on")
             # Add the not null constraint.
             op.alter_column("tasks", "clock", nullable=False, existing_nullable=True)
             # Altering status ENUM.
             # This shit of raw SQL is here because alembic doesn't deal well with alter_colum of ENUM type.
-            op.execute('COMMIT') # Commit because SQLAlchemy doesn't support ALTER TYPE in a transaction.
+            op.execute("COMMIT")  # Commit because SQLAlchemy doesn't support ALTER TYPE in a transaction.
             conn.execute("ALTER TYPE status_type ADD VALUE 'completed'")
             conn.execute("ALTER TYPE status_type ADD VALUE 'reported'")
             conn.execute("ALTER TYPE status_type ADD VALUE 'recovered'")
@@ -99,15 +106,19 @@ def upgrade():
             conn.execute("ALTER TYPE status_type DROP ATTRIBUTE IF EXISTS failure")
         elif conn.engine.driver == "mysqldb":
             # We don"t provide a default value and leave the column as nullable because o further data migration.
-            op.add_column("tasks", sa.Column("clock", sa.DateTime(timezone=False),nullable=True))
+            op.add_column("tasks", sa.Column("clock", sa.DateTime(timezone=False), nullable=True))
             # NOTE: We added this new column so we force clock time to the added_on for old analyses.
             conn.execute("update tasks set clock=added_on")
             # Add the not null constraint.
-            op.alter_column("tasks", "clock", nullable=False, existing_nullable=True, existing_type=sa.DateTime(timezone=False))
+            op.alter_column(
+                "tasks", "clock", nullable=False, existing_nullable=True, existing_type=sa.DateTime(timezone=False)
+            )
             # NOTE: To workaround limitations in Alembic and MySQL ALTER statement (cannot remove item from ENUM).
             # Read data.
             tasks_data = []
-            old_tasks = conn.execute("select id, target, category, timeout, priority, custom, machine, package, options, platform, memory, enforce_timeout, added_on, started_on, completed_on, status, sample_id from tasks").fetchall()
+            old_tasks = conn.execute(
+                "select id, target, category, timeout, priority, custom, machine, package, options, platform, memory, enforce_timeout, added_on, started_on, completed_on, status, sample_id from tasks"
+            ).fetchall()
             for item in old_tasks:
                 d = {}
                 d["id"] = item[0]
@@ -170,9 +181,14 @@ def upgrade():
                 sa.Column("added_on", sa.DateTime(timezone=False), nullable=False),
                 sa.Column("started_on", sa.DateTime(timezone=False), nullable=True),
                 sa.Column("completed_on", sa.DateTime(timezone=False), nullable=True),
-                sa.Column("status", sa.Enum("pending", "running", "completed", "reported", "recovered", name="status_type"), server_default="pending", nullable=False),
+                sa.Column(
+                    "status",
+                    sa.Enum("pending", "running", "completed", "reported", "recovered", name="status_type"),
+                    server_default="pending",
+                    nullable=False,
+                ),
                 sa.Column("sample_id", sa.Integer, sa.ForeignKey("samples.id"), nullable=True),
-                sa.PrimaryKeyConstraint("id")
+                sa.PrimaryKeyConstraint("id"),
             )
 
             # Insert data.
@@ -182,7 +198,9 @@ def upgrade():
             # NOTE: To workaround limitations in SQLite we have to create a temporary table, create the new schema and copy data.
             # Read data.
             tasks_data = []
-            old_tasks = conn.execute("select id, target, category, timeout, priority, custom, machine, package, options, platform, memory, enforce_timeout, added_on, started_on, completed_on, status, sample_id from tasks").fetchall()
+            old_tasks = conn.execute(
+                "select id, target, category, timeout, priority, custom, machine, package, options, platform, memory, enforce_timeout, added_on, started_on, completed_on, status, sample_id from tasks"
+            ).fetchall()
             for item in old_tasks:
                 d = {}
                 d["id"] = item[0]
@@ -245,9 +263,14 @@ def upgrade():
                 sa.Column("added_on", sa.DateTime(timezone=False), nullable=False),
                 sa.Column("started_on", sa.DateTime(timezone=False), nullable=True),
                 sa.Column("completed_on", sa.DateTime(timezone=False), nullable=True),
-                sa.Column("status", sa.Enum("pending", "running", "completed", "reported", "recovered", name="status_type"), server_default="pending", nullable=False),
+                sa.Column(
+                    "status",
+                    sa.Enum("pending", "running", "completed", "reported", "recovered", name="status_type"),
+                    server_default="pending",
+                    nullable=False,
+                ),
                 sa.Column("sample_id", sa.Integer, sa.ForeignKey("samples.id"), nullable=True),
-                sa.PrimaryKeyConstraint("id")
+                sa.PrimaryKeyConstraint("id"),
             )
 
             # Insert data.
@@ -255,6 +278,7 @@ def upgrade():
 
     # Migrate mongo.
     mongo_upgrade()
+
 
 def mongo_upgrade():
     """Migrate mongodb schema and data."""
@@ -293,12 +317,9 @@ def mongo_upgrade():
                 import pymongo
 
                 try:
-                    db = pymongo.MongoClient( host,
-                                port=port,
-                                username=user,
-                                password=password,
-                                authSource=database
-                                )[database]
+                    db = pymongo.MongoClient(host, port=port, username=user, password=password, authSource=database)[
+                        database
+                    ]
                 except pymongo.errors.ConnectionFailure:
                     print("Cannot connect to MongoDB")
                     sys.exit()
@@ -315,6 +336,7 @@ def mongo_upgrade():
 
     else:
         print("Mongo reporting module not enabled, skipping mongo migration.")
+
 
 def downgrade():
     # We don"t support downgrade.

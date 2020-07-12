@@ -21,13 +21,11 @@ def import_plugin(name):
     try:
         module = __import__(name, globals(), locals(), ["dummy"], -1)
     except ImportError as e:
-        raise CuckooCriticalError("Unable to import plugin "
-                                  "\"{0}\": {1}".format(name, e))
+        raise CuckooCriticalError("Unable to import plugin " '"{0}": {1}'.format(name, e))
 
     for name, value in inspect.getmembers(module):
         if inspect.isclass(value):
-            if issubclass(value, Machinery) and value is not Machinery \
-                    and value is not LibVirtMachinery:
+            if issubclass(value, Machinery) and value is not Machinery and value is not LibVirtMachinery:
                 return value
 
 
@@ -44,8 +42,7 @@ class MultiMachinery(Machinery):
             for machinery_name in options.get("multi").get("machinery").split(b","):
                 machinery = {
                     "config": Config(machinery_name),
-                    "module": import_plugin("modules.machinery."
-                                            + machinery_name)()
+                    "module": import_plugin("modules.machinery." + machinery_name)(),
                 }
                 machinery_label = machinery["module"].LABEL
                 machinery["module"].set_options(machinery["config"])
@@ -62,17 +59,14 @@ class MultiMachinery(Machinery):
                             machines.append(machine)
                     return machines
 
-                machinery["module"].machines = types.MethodType(
-                    list_machines,
-                    machinery["module"])
+                machinery["module"].machines = types.MethodType(list_machines, machinery["module"])
 
                 for machine_name in [machine.strip() for machine in machinery_machines.split(b",")]:
                     machine = machinery["config"].get(machine_name)
                     machine["machinery"] = machinery_name
 
                     if "interface" not in machine:
-                        machine["interface"] = machinery["config"].get(
-                            machinery_name)["interface"]
+                        machine["interface"] = machinery["config"].get(machinery_name)["interface"]
 
                     machine_label = machine[machinery_label]
                     machine["mm_label"] = machine_label

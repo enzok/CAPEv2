@@ -3,7 +3,7 @@ import yara
 from struct import unpack_from
 import pefile
 
-rule_source = '''
+rule_source = """
 rule GraceWire {
   meta:
     author = "enzok"
@@ -20,20 +20,20 @@ rule GraceWire {
     2 of them
 }
 
-'''
+"""
 
 
 def fix_ips(offsets):
     config_dict = {}
 
     i = -1
-    config_dict['Initial C2'] = []
+    config_dict["Initial C2"] = []
     for oset, name, ip in offsets:
         prev_offset = offsets[i][0] + 1
         if oset == prev_offset:
             i += 1
             continue
-        config_dict['Initial C2'].append(ip)
+        config_dict["Initial C2"].append(ip)
         i += 1
 
     return config_dict
@@ -47,9 +47,9 @@ def get_password(filebuf, name, offsets):
     image_base = pe.OPTIONAL_HEADER.ImageBase
 
     for oset, bar, foo in offsets:
-        pwdva_offset = unpack_from('i', filebuf, oset + 8)[0] - image_base
+        pwdva_offset = unpack_from("i", filebuf, oset + 8)[0] - image_base
         pwd_offset = pe.get_offset_from_rva(pwdva_offset)
-        password = unpack_from('16c', filebuf, pwd_offset)
+        password = unpack_from("16c", filebuf, pwd_offset)
         config_dict[name].append("".join(password))
 
     return config_dict
@@ -61,7 +61,7 @@ def yara_scan(raw_data, rule_name=None):
         yara_rules = yara.compile(source=rule_source)
         matches = yara_rules.match(data=raw_data)
         for match in matches:
-            if match.rule == 'GraceWire':
+            if match.rule == "GraceWire":
                 for item in match.strings:
                     if rule_name:
                         if item[1] == rule_name:
@@ -76,19 +76,19 @@ def yara_scan(raw_data, rule_name=None):
 
 def config(task_info, data):
     offsets = {}
-    offsets['dat_password'] = yara_scan(data, rule_name='$dat_password')
-    offsets['bin_password'] = yara_scan(data, rule_name='$bin_password')
-    offsets['ip_address'] = yara_scan(data, rule_name='$ip_address')
-    offsets['version_string'] = yara_scan(data, rule_name='$version_string')
+    offsets["dat_password"] = yara_scan(data, rule_name="$dat_password")
+    offsets["bin_password"] = yara_scan(data, rule_name="$bin_password")
+    offsets["ip_address"] = yara_scan(data, rule_name="$ip_address")
+    offsets["version_string"] = yara_scan(data, rule_name="$version_string")
 
     if not offsets:
         return
     cfg_dict = {}
-    if offsets['version_string']:
-        cfg_dict['Version String'] = offsets['version_string'][0][2][9:]
+    if offsets["version_string"]:
+        cfg_dict["Version String"] = offsets["version_string"][0][2][9:]
 
-    cfg_dict.update(fix_ips(offsets['ip_address']))
-    cfg_dict.update(get_password(data, 'dat password', offsets['dat_password']))
-    cfg_dict.update(get_password(data, 'bin password', offsets['bin_password']))
+    cfg_dict.update(fix_ips(offsets["ip_address"]))
+    cfg_dict.update(get_password(data, "dat password", offsets["dat_password"]))
+    cfg_dict.update(get_password(data, "bin password", offsets["bin_password"]))
 
     return cfg_dict

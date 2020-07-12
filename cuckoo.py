@@ -46,6 +46,7 @@ def cuckoo_init(quiet=False, debug=False, artwork=False, test=False):
 
     if artwork:
         import time
+
         try:
             while True:
                 time.sleep(1)
@@ -93,8 +94,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-q", "--quiet", help="Display only error messages", action="store_true", required=False)
     parser.add_argument("-d", "--debug", help="Display debug messages", action="store_true", required=False)
-    parser.add_argument("-v", "--version", action="version",
-                        version="You are running Cuckoo Sandbox {0}".format(CUCKOO_VERSION))
+    parser.add_argument(
+        "-v", "--version", action="version", version="You are running Cuckoo Sandbox {0}".format(CUCKOO_VERSION)
+    )
     parser.add_argument("-a", "--artwork", help="Show artwork", action="store_true", required=False)
     parser.add_argument("-t", "--test", help="Test startup", action="store_true", required=False)
     parser.add_argument("-m", "--max-analysis-count", help="Maximum number of analyses", type=int, required=False)
@@ -112,4 +114,3 @@ if __name__ == "__main__":
             sys.stderr.write("{0}\n".format(message))
 
         sys.exit(1)
-

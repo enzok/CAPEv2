@@ -21,23 +21,27 @@ cape_malware_parsers = dict()
 
 try:
     import pefile
+
     HAVE_PEFILE = True
 except ImportError:
     print("Missed pefile library. Install it with: pip3 install pefile")
     HAVE_PEFILE = False
 
-#Import All config parsers
+# Import All config parsers
 try:
     import mwcp
+
     logging.getLogger("mwcp").setLevel(logging.CRITICAL)
     mwcp.register_parser_directory(os.path.join(CUCKOO_ROOT, "modules", "processing", "parsers", "mwcp"))
-    malware_parsers = {block.name.split(".")[-1]: block.name for block in
-                       mwcp.get_parser_descriptions(config_only=False)}
+    malware_parsers = {
+        block.name.split(".")[-1]: block.name for block in mwcp.get_parser_descriptions(config_only=False)
+    }
     HAS_MWCP = True
 except ImportError as e:
     HAS_MWCP = False
     log.info(
-        "Missed MWCP -> pip3 install git+https://github.com/Defense-Cyber-Crime-Center/DC3-MWCP\nDetails: {}".format(e))
+        "Missed MWCP -> pip3 install git+https://github.com/Defense-Cyber-Crime-Center/DC3-MWCP\nDetails: {}".format(e)
+    )
 
 try:
     from malwareconfig import fileparser
@@ -51,10 +55,7 @@ except Exception as e:
     log.error(e, exc_info=True)
 
 cape_decoders = os.path.join(CUCKOO_ROOT, "modules", "processing", "parsers", "CAPE")
-CAPE_DECODERS = [
-    os.path.basename(decoder)[:-3]
-    for decoder in glob.glob(cape_decoders + "/[!_]*.py")
-]
+CAPE_DECODERS = [os.path.basename(decoder)[:-3] for decoder in glob.glob(cape_decoders + "/[!_]*.py")]
 
 for name in CAPE_DECODERS:
     try:
@@ -72,6 +73,7 @@ if parser_path not in sys.path:
 
 try:
     from modules.processing.parsers.plugxconfig import plugx
+
     plugx_parser = plugx.PlugXConfig()
 except ImportError as e:
     plugx_parser = False
@@ -145,7 +147,7 @@ def convert(data):
 
 def static_config_parsers(yara_hit, file_data, cape_config):
     # Process CAPE Yara hits
-    cape_name = yara_hit.replace('_', ' ')
+    cape_name = yara_hit.replace("_", " ")
     parser_loaded = False
     # Attempt to import a parser for the hit
     # DC3-MWCP
@@ -173,7 +175,7 @@ def static_config_parsers(yara_hit, file_data, cape_config):
 
                 if "cape_config" not in cape_config:
                     cape_config.setdefault("cape_config", dict())
-                    #ToDo do we really need to convert it?
+                    # ToDo do we really need to convert it?
                     cape_config["cape_config"] = convert(tmp_dict)
                 else:
                     cape_config["cape_config"].update(convert(tmp_dict))
@@ -181,8 +183,8 @@ def static_config_parsers(yara_hit, file_data, cape_config):
             else:
                 error_lines = reporter.errors[0].split("\n")
                 for line in error_lines:
-                    if line.startswith('ImportError: '):
-                        log.info("CAPE: DC3-MWCP parser: %s", line.split(': ')[1])
+                    if line.startswith("ImportError: "):
+                        log.info("CAPE: DC3-MWCP parser: %s", line.split(": ")[1])
             reporter._Reporter__cleanup()
             del reporter
         except pefile.PEFormatError:
@@ -213,7 +215,7 @@ def static_config_parsers(yara_hit, file_data, cape_config):
     elif HAS_MALWARECONFIGS and not parser_loaded and cape_name in __decoders__:
         try:
             file_info = fileparser.FileParser(rawdata=file_data)
-            module = __decoders__[file_info.malware_name]['obj']()
+            module = __decoders__[file_info.malware_name]["obj"]()
             module.set_file(file_info)
             module.get_config()
             malwareconfig_config = module.config
@@ -225,8 +227,10 @@ def static_config_parsers(yara_hit, file_data, cape_config):
                 for (key, value) in malwareconfig_config.items():
                     cape_config["cape_config"].update({key: [value]})
         except Exception as e:
-            msg = "malwareconfig parsing error with {}: {}, you should submit issue/fix to " \
-                  "https://github.com/kevthehermit/RATDecoders/"
+            msg = (
+                "malwareconfig parsing error with {}: {}, you should submit issue/fix to "
+                "https://github.com/kevthehermit/RATDecoders/"
+            )
             log.warning(msg.format(cape_name, e))
 
         if "cape_config" in cape_config:
