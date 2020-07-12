@@ -220,11 +220,7 @@ class Analyzer:
         except CuckooPackageError as e:
             raise CuckooError('The package "{0}" start function raised an ' "error: {1}".format(package_class, e))
         except Exception as e:
-            raise CuckooError(
-                'The package "{0}" start function encountered '
-                "an unhandled exception: "
-                "{1}".format(package_class, e)
-            )
+            raise CuckooError('The package "{0}" start function encountered ' "an unhandled exception: " "{1}".format(package_class, e))
 
         # If the analysis package returned a list of process IDs, we add them
         # to the list of monitored processes and enable the process monitor.
@@ -346,9 +342,7 @@ class Analyzer:
             except (NotImplementedError, AttributeError):
                 continue
             except Exception as e:
-                log.warning(
-                    "Exception running finish callback of auxiliary " "module %s: %s", aux.__class__.__name__, e
-                )
+                log.warning("Exception running finish callback of auxiliary " "module %s: %s", aux.__class__.__name__, e)
 
         # Let's invoke the completion procedure.
         self.complete()

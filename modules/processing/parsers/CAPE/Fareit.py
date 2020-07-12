@@ -45,9 +45,7 @@ def config(memdump_path, read=False):
         gate_url = re.compile(".*\.php$")
         exe_url = re.compile(".*\.exe$")
         dll_url = re.compile(".*\.dll$")
-        output = re.findall(
-            "(https?:\/\/.[A-Za-z0-9-\.\_\~\:\/\?\#\[\]\@\!\$\&'\(\)\*\+\,\;\\=]+(?:\.php|\.exe|\.dll))", F
-        )
+        output = re.findall("(https?:\/\/.[A-Za-z0-9-\.\_\~\:\/\?\#\[\]\@\!\$\&'\(\)\*\+\,\;\\=]+(?:\.php|\.exe|\.dll))", F)
         for url in output:
             try:
                 if "\x00" not in url:

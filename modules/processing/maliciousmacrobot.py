@@ -57,15 +57,11 @@ class MMBot(Processing):
 
             opts = dict()
             opts["benign_path"] = self.options.get("benign_path", os.path.join(CUCKOO_ROOT, "data", "mmbot", "benign"))
-            opts["malicious_path"] = self.options.get(
-                "malicious_path", os.path.join(CUCKOO_ROOT, "data", "mmbot", "malicious")
-            )
+            opts["malicious_path"] = self.options.get("malicious_path", os.path.join(CUCKOO_ROOT, "data", "mmbot", "malicious"))
             opts["model_path"] = self.options.get("model_path", os.path.join(CUCKOO_ROOT, "data", "mmbot", "model"))
 
             try:
-                mmb = MaliciousMacroBot(
-                    opts["benign_path"], opts["malicious_path"], opts["model_path"], retain_sample_contents=False
-                )
+                mmb = MaliciousMacroBot(opts["benign_path"], opts["malicious_path"], opts["model_path"], retain_sample_contents=False)
 
                 mmb.mmb_init_model(modelRebuild=False)
                 predresult = mmb.mmb_predict(self.file_path)

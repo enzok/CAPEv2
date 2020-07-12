@@ -277,10 +277,7 @@ def main():
         for record in output:
             tmp = "[{dest}:{port}] JA3: {segment} --> {digest}"
             tmp = tmp.format(
-                dest=record["destination_ip"],
-                port=record["destination_port"],
-                segment=record["ja3"],
-                digest=record["ja3_digest"],
+                dest=record["destination_ip"], port=record["destination_port"], segment=record["ja3"], digest=record["ja3_digest"],
             )
             print(tmp)
 

@@ -205,9 +205,7 @@ def index(request, resubmit_hash=False):
             options = lin_options
         # This is done to remove spaces in options but not breaks custom paths
         options = ",".join(
-            "=".join(value.strip() for value in option.split("=", 1))
-            for option in options.split(",")
-            if option and "=" in option
+            "=".join(value.strip() for value in option.split("=", 1)) for option in options.split(",") if option and "=" in option
         )
         opt_filename = get_user_filename(options, custom)
 
@@ -295,12 +293,7 @@ def index(request, resubmit_hash=False):
                         for task in tasks or []:
                             # grab task id and replace in path if needed aka distributed hack
                             path = os.path.join(
-                                settings.CUCKOO_PATH,
-                                "storage",
-                                "analyses",
-                                str(task["info"]["id"]),
-                                "files",
-                                resubmission_hash,
+                                settings.CUCKOO_PATH, "storage", "analyses", str(task["info"]["id"]), "files", resubmission_hash,
                             )
                             if os.path.exists(path):
                                 paths = [path]
@@ -310,11 +303,7 @@ def index(request, resubmit_hash=False):
                 content = False
                 content = get_file_content(paths)
                 if not content:
-                    return render(
-                        request,
-                        "error.html",
-                        {"error": "Can't find {} on disk, {}".format(resubmission_hash, str(paths))},
-                    )
+                    return render(request, "error.html", {"error": "Can't find {} on disk, {}".format(resubmission_hash, str(paths))},)
                 base_dir = tempfile.mkdtemp(prefix="resubmit_", dir=settings.TEMP_PATH)
                 if opt_filename:
                     filename = base_dir + "/" + opt_filename
@@ -384,9 +373,7 @@ def index(request, resubmit_hash=False):
                 path = store_temp_file(sample.read(), filename)
 
                 if unique and db.check_file_uniq(File(path).get_sha256()):
-                    return render(
-                        request, "error.html", {"error": "Duplicated file, disable unique option to force submission"}
-                    )
+                    return render(request, "error.html", {"error": "Duplicated file, disable unique option to force submission"})
 
                 magic_type = get_magic_type(path)
                 if disable_x64 is True:
@@ -409,11 +396,7 @@ def index(request, resubmit_hash=False):
                         return render(
                             request,
                             "error.html",
-                            {
-                                "error": "Wrong platform, {} VM selected for {} sample".format(
-                                    machine_details.platform, platform
-                                )
-                            },
+                            {"error": "Wrong platform, {} VM selected for {} sample".format(machine_details.platform, platform)},
                         )
                     else:
                         task_machines = [machine]
@@ -486,11 +469,7 @@ def index(request, resubmit_hash=False):
                         return render(
                             request,
                             "error.html",
-                            {
-                                "error": "Wrong platform, linux VM selected for {} sample".format(
-                                    machine_details.platform
-                                )
-                            },
+                            {"error": "Wrong platform, linux VM selected for {} sample".format(machine_details.platform)},
                         )
                     else:
                         task_machines = [machine]
@@ -595,9 +574,7 @@ def index(request, resubmit_hash=False):
                 machine_details = db.view_machine(machine)
                 if hasattr(machine_details, "platform") and not machine_details.platform == "windows":
                     return render(
-                        request,
-                        "error.html",
-                        {"error": "Wrong platform, linux VM selected for {} sample".format(machine_details.platform)},
+                        request, "error.html", {"error": "Wrong platform, linux VM selected for {} sample".format(machine_details.platform)},
                     )
                 else:
                     task_machines = [machine]
@@ -651,11 +628,7 @@ def index(request, resubmit_hash=False):
                     return render(
                         request,
                         "error.html",
-                        {
-                            "error": "Wrong platform, {} VM selected for {} sample".format(
-                                machine_details.platform, platform
-                            )
-                        },
+                        {"error": "Wrong platform, {} VM selected for {} sample".format(machine_details.platform, platform)},
                     )
                 else:
                     task_machines = [machine]
@@ -684,12 +657,7 @@ def index(request, resubmit_hash=False):
                 if task_ids_new:
                     task_ids.extend(task_ids_new)
 
-        elif (
-            settings.VTDL_ENABLED
-            and "vtdl" in request.POST
-            and request.POST.get("vtdl", False)
-            and request.POST.get("vtdl")[0] != ""
-        ):
+        elif settings.VTDL_ENABLED and "vtdl" in request.POST and request.POST.get("vtdl", False) and request.POST.get("vtdl")[0] != "":
             vtdl = request.POST.get("vtdl").strip()
             if (not settings.VTDL_PRIV_KEY and not settings.VTDL_INTEL_KEY) or not settings.VTDL_PATH:
                 return render(

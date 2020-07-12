@@ -372,15 +372,7 @@ def UpdateWords(word, wordExact, slash, words, hexcode, allNames, lastName, insi
                         oEntropy.removeInsideStream(ord(char))
                 insideStream = False
         if fOut != None:
-            if slash == "/" and "/" + word in (
-                "/JS",
-                "/JavaScript",
-                "/AA",
-                "/OpenAction",
-                "/JBIG2Decode",
-                "/RichMedia",
-                "/Launch",
-            ):
+            if slash == "/" and "/" + word in ("/JS", "/JavaScript", "/AA", "/OpenAction", "/JBIG2Decode", "/RichMedia", "/Launch",):
                 wordExactSwapped = HexcodeName2String(SwapName(wordExact))
                 fOut.write(C2BIP3(wordExactSwapped))
                 print("/%s -> /%s" % (HexcodeName2String(wordExact), wordExactSwapped))
@@ -711,10 +703,7 @@ def PDFiD(file, allNames=False, extraData=False, disarm=False, force=False):
 
 
 def PDFiD2String(xmlDoc, nozero, force):
-    result = "PDFiD %s %s\n" % (
-        xmlDoc.documentElement.getAttribute("Version"),
-        xmlDoc.documentElement.getAttribute("Filename"),
-    )
+    result = "PDFiD %s %s\n" % (xmlDoc.documentElement.getAttribute("Version"), xmlDoc.documentElement.getAttribute("Filename"),)
     if xmlDoc.documentElement.getAttribute("ErrorOccured") == "True":
         return result + "***Error occured***\n%s\n" % xmlDoc.documentElement.getAttribute("ErrorMessage")
     if not force and xmlDoc.documentElement.getAttribute("IsPDF") == "False":
@@ -729,10 +718,7 @@ def PDFiD2String(xmlDoc, nozero, force):
     if xmlDoc.documentElement.getAttribute("CountEOF") != "":
         result += " %-16s %7d\n" % ("%%EOF", int(xmlDoc.documentElement.getAttribute("CountEOF")))
     if xmlDoc.documentElement.getAttribute("CountCharsAfterLastEOF") != "":
-        result += " %-16s %7d\n" % (
-            "After last %%EOF",
-            int(xmlDoc.documentElement.getAttribute("CountCharsAfterLastEOF")),
-        )
+        result += " %-16s %7d\n" % ("After last %%EOF", int(xmlDoc.documentElement.getAttribute("CountCharsAfterLastEOF")),)
     for node in xmlDoc.documentElement.getElementsByTagName("Dates")[0].childNodes:
         result += " %-23s %s\n" % (node.getAttribute("Value"), node.getAttribute("Name"))
     if xmlDoc.documentElement.getAttribute("TotalEntropy") != "":
@@ -774,9 +760,7 @@ class cPDFiD:
         self.header = xmlDoc.documentElement.getAttribute("Header")
         self.keywords = {}
         for node in xmlDoc.documentElement.getElementsByTagName("Keywords")[0].childNodes:
-            self.keywords[node.getAttribute("Name")] = cCount(
-                int(node.getAttribute("Count")), int(node.getAttribute("HexcodeCount"))
-            )
+            self.keywords[node.getAttribute("Name")] = cCount(int(node.getAttribute("Count")), int(node.getAttribute("HexcodeCount")))
         self.obj = self.keywords["obj"]
         self.endobj = self.keywords["endobj"]
         self.stream = self.keywords["stream"]
@@ -883,9 +867,7 @@ def ProcessFile(filename, options, plugins):
                     if oPDFiD.errorOccured:
                         Print(MakeCSVLine((("%s", filename), ("%s", cPlugin.name), ("%s", "Error occured"))), options)
                     if not oPDFiD.isPDF:
-                        Print(
-                            MakeCSVLine((("%s", filename), ("%s", cPlugin.name), ("%s", "Not a PDF document"))), options
-                        )
+                        Print(MakeCSVLine((("%s", filename), ("%s", cPlugin.name), ("%s", "Not a PDF document"))), options)
                 else:
                     Print(PDFiD2String(xmlDoc, options.nozero, options.force), options)
 
@@ -998,9 +980,7 @@ def AddPlugin(cClass):
 
 
 class cExpandFilenameArguments:
-    def __init__(
-        self, filenames, literalfilenames=False, recursedir=False, checkfilenames=False, expressionprefix=None
-    ):
+    def __init__(self, filenames, literalfilenames=False, recursedir=False, checkfilenames=False, expressionprefix=None):
         self.containsUnixShellStyleWildcards = False
         self.warning = False
         self.message = ""
@@ -1035,9 +1015,7 @@ class cExpandFilenameArguments:
                             for filename in fnmatch.filter(files, basename):
                                 self.filenameexpressions.append([os.path.join(path, filename), expression])
         else:
-            for filename in list(
-                collections.OrderedDict.fromkeys(sum(map(self.Glob, sum(map(ProcessAt, filenames), [])), []))
-            ):
+            for filename in list(collections.OrderedDict.fromkeys(sum(map(self.Glob, sum(map(ProcessAt, filenames), [])), []))):
                 if expressionprefix != None and filename.startswith(expressionprefix):
                     expression = filename[len(expressionprefix) :]
                 else:
@@ -1081,9 +1059,7 @@ class cExpandFilenameArguments:
             self.message += "The following files do not exist and will be skipped: " + " ".join(doesnotexist) + "\n"
         if len(isnotafile) > 0:
             self.warning = True
-            self.message += (
-                "The following files are not regular files and will be skipped: " + " ".join(isnotafile) + "\n"
-            )
+            self.message += "The following files are not regular files and will be skipped: " + " ".join(isnotafile) + "\n"
 
     def Filenames(self):
         if self.expressionprefix == None:
@@ -1147,50 +1123,30 @@ Use at your own risk
 https://DidierStevens.com"""
 
     oParser = optparse.OptionParser(
-        usage="usage: %prog [options] [pdf-file|zip-file|url|@file] ...\n" + __description__ + moredesc,
-        version="%prog " + __version__,
+        usage="usage: %prog [options] [pdf-file|zip-file|url|@file] ...\n" + __description__ + moredesc, version="%prog " + __version__,
     )
     oParser.add_option("-s", "--scan", action="store_true", default=False, help="scan the given directory")
     oParser.add_option("-a", "--all", action="store_true", default=False, help="display all the names")
     oParser.add_option("-e", "--extra", action="store_true", default=False, help="display extra data, like dates")
     oParser.add_option(
-        "-f",
-        "--force",
-        action="store_true",
-        default=False,
-        help="force the scan of the file, even without proper %PDF header",
+        "-f", "--force", action="store_true", default=False, help="force the scan of the file, even without proper %PDF header",
     )
     oParser.add_option("-d", "--disarm", action="store_true", default=False, help="disable JavaScript and auto launch")
     oParser.add_option(
-        "-p",
-        "--plugins",
-        type=str,
-        default="",
-        help="plugins to load (separate plugins with a comma , ; @file supported)",
+        "-p", "--plugins", type=str, default="", help="plugins to load (separate plugins with a comma , ; @file supported)",
     )
     oParser.add_option("-c", "--csv", action="store_true", default=False, help="output csv data when using plugins")
     oParser.add_option("-m", "--minimumscore", type=float, default=0.0, help="minimum score for plugin results output")
-    oParser.add_option(
-        "-v", "--verbose", action="store_true", default=False, help="verbose (will also raise catched exceptions)"
-    )
+    oParser.add_option("-v", "--verbose", action="store_true", default=False, help="verbose (will also raise catched exceptions)")
     oParser.add_option("-S", "--select", type=str, default="", help="selection expression")
-    oParser.add_option(
-        "-n", "--nozero", action="store_true", default=False, help="supress output for counts equal to zero"
-    )
+    oParser.add_option("-n", "--nozero", action="store_true", default=False, help="supress output for counts equal to zero")
     oParser.add_option("-o", "--output", type=str, default="", help="output to log file")
     oParser.add_option("--pluginoptions", type=str, default="", help="options for the plugin")
     oParser.add_option(
-        "-l",
-        "--literalfilenames",
-        action="store_true",
-        default=False,
-        help="take filenames literally, no wildcard matching",
+        "-l", "--literalfilenames", action="store_true", default=False, help="take filenames literally, no wildcard matching",
     )
     oParser.add_option(
-        "--recursedir",
-        action="store_true",
-        default=False,
-        help="Recurse directories (wildcards and here files (@...) allowed)",
+        "--recursedir", action="store_true", default=False, help="Recurse directories (wildcards and here files (@...) allowed)",
     )
     (options, args) = oParser.parse_args()
 
@@ -1204,9 +1160,7 @@ https://DidierStevens.com"""
         filenames = [""]
     else:
         try:
-            oExpandFilenameArguments = cExpandFilenameArguments(
-                args, options.literalfilenames, options.recursedir, False
-            )
+            oExpandFilenameArguments = cExpandFilenameArguments(args, options.literalfilenames, options.recursedir, False)
             filenames = oExpandFilenameArguments.Filenames()
             if oExpandFilenameArguments.warning:
                 print(oExpandFilenameArguments.message)

@@ -70,9 +70,7 @@ def trdget(url_defs):
 def get_cmdline():
     """Evaluate command line parameters, usage & help."""
     parser = argparse.ArgumentParser(
-        description="TrID's definitions updater",
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-        prefix_chars="-/+",
+        description="TrID's definitions updater", formatter_class=argparse.ArgumentDefaultsHelpFormatter, prefix_chars="-/+",
     )
     parser.add_argument("filename", action="store", nargs="?", help="TRD package filename.", default="triddefs.trd")
     parser.add_argument("--version", action="version", version="TrIDUpdate v%s - (C) 2012 M.Pontello" % PROGRAM_VER)

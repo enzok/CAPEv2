@@ -378,9 +378,7 @@ def replaceDecoder(inputString, MODFLAG):
                 firstPart = " ".join(replaceString.split(",")[0].split("[")[1:]).replace("'", "").replace('"', "")
 
             elif "'" in replaceString.split(",")[0].strip() or '"' in replaceString.split(",")[0].strip():
-                firstPart = (
-                    re.search("('.+?'|\".+?\")", replaceString.split(",")[0]).group().replace("'", "").replace('"', "")
-                )
+                firstPart = re.search("('.+?'|\".+?\")", replaceString.split(",")[0]).group().replace("'", "").replace('"', "")
 
             else:
                 firstPart = replaceString.split(",")[0].split("'")[1].replace("'", "").replace('"', "")
@@ -504,9 +502,7 @@ class Curtain(Processing):
             try:
                 tree = ET.parse("%s/curtain/%s" % (self.analysis_path, curtain_log))
                 root = tree.getroot()
-                os.rename(
-                    "%s/curtain/%s" % (self.analysis_path, curtain_log), "%s/curtain/curtain.log" % self.analysis_path
-                )
+                os.rename("%s/curtain/%s" % (self.analysis_path, curtain_log), "%s/curtain/curtain.log" % self.analysis_path)
                 break
             except Exception as e:
                 # malformed file
@@ -612,14 +608,10 @@ class Curtain(Processing):
                     ALTMSG = "".join([chr(int(i)) for i in chars])
                     MODFLAG = 1
 
-                if re.findall(
-                    "join\(\s?['\"]+\s?,\(\s?['\"].+'\s?\)\s?\|\s?foreach-object\s?.+-bxor\s?(0x[\d\w]+)", MESSAGE, re.I
-                ):
-                    xorkey = re.findall(
-                        "join\(\s?['\"]+\s?,\(\s?['\"].+'\s?\)\s?\|\s?foreach-object\s?.+-bxor\s?(0x[\d\w]+)",
-                        MESSAGE,
-                        re.I,
-                    )[0]
+                if re.findall("join\(\s?['\"]+\s?,\(\s?['\"].+'\s?\)\s?\|\s?foreach-object\s?.+-bxor\s?(0x[\d\w]+)", MESSAGE, re.I):
+                    xorkey = re.findall("join\(\s?['\"]+\s?,\(\s?['\"].+'\s?\)\s?\|\s?foreach-object\s?.+-bxor\s?(0x[\d\w]+)", MESSAGE, re.I,)[
+                        0
+                    ]
                     chars = re.findall("\d{1,3}", MESSAGE)
                     ALTMSG = "".join([chr(int(i) ^ int(xorkey, 16)) for i in chars])
                     MODFLAG = 1
@@ -651,10 +643,7 @@ class Curtain(Processing):
         for pid in pids:
             for event in pids[pid]["events"]:
                 for entry in event.values():
-                    if (
-                        "Process { [System.Diagnostics.Eventing.Reader.EventLogSession]::GlobalSession.ClearLog"
-                        in entry["original"]
-                    ):
+                    if "Process { [System.Diagnostics.Eventing.Reader.EventLogSession]::GlobalSession.ClearLog" in entry["original"]:
                         if pid not in remove:
                             remove.append(pid)
 

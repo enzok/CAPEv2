@@ -33,9 +33,7 @@ class TrID(Processing):
 
         try:
             output = subprocess.check_output(
-                [trid_binary, "-d:{}".format(definitions), self.file_path],
-                stderr=subprocess.STDOUT,
-                universal_newlines=True,
+                [trid_binary, "-d:{}".format(definitions), self.file_path], stderr=subprocess.STDOUT, universal_newlines=True,
             )
             strings = output.split("\n")
             # trim data

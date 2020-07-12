@@ -31,9 +31,7 @@ import lib.cuckoo.core.database as db
 def _perform(upgrade):
     conn = op.get_bind()
 
-    sample_list = conn.execute(
-        "SELECT id, file_size, file_type, md5, crc32, " "sha1, sha256, sha512, ssdeep FROM samples"
-    )
+    sample_list = conn.execute("SELECT id, file_size, file_type, md5, crc32, " "sha1, sha256, sha512, ssdeep FROM samples")
 
     samples = []
     for sample in sample_list:

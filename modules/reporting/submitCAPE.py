@@ -161,20 +161,7 @@ class SubmitCAPE(Report):
             detections.add("Hancitor")
 
     def submit_task(
-        self,
-        target,
-        package,
-        timeout,
-        task_options,
-        priority,
-        machine,
-        platform,
-        memory,
-        enforce_timeout,
-        clock,
-        tags,
-        parent_id,
-        tlp,
+        self, target, package, timeout, task_options, priority, machine, platform, memory, enforce_timeout, clock, tags, parent_id, tlp,
     ):
 
         db = Database()
@@ -219,11 +206,7 @@ class SubmitCAPE(Report):
                     tlp=tlp,
                 )
             if task_id:
-                log.info(
-                    'CAPE detection on file "{0}": {1} - added as CAPE task with ID {2}'.format(
-                        target, package, task_id
-                    )
-                )
+                log.info('CAPE detection on file "{0}": {1} - added as CAPE task with ID {2}'.format(target, package, task_id))
                 return task_id
             else:
                 log.warn("Error adding CAPE task to database: {0}".format(package))

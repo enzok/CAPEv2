@@ -114,9 +114,7 @@ class VirusTotal(Processing):
             items = list(virustotal["scans"].items())
             virustotal["scans"] = dict((engine.replace(".", "_"), signature) for engine, signature in items)
             virustotal["resource"] = resource
-            virustotal["results"] = list(
-                ({"vendor": engine.replace(".", "_"), "sig": signature["result"]}) for engine, signature in items
-            )
+            virustotal["results"] = list(({"vendor": engine.replace(".", "_"), "sig": signature["result"]}) for engine, signature in items)
 
         if "additional_info" in virustotal:
             virustotal["additional_info"] = ""

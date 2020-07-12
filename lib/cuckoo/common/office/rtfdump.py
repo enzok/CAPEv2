@@ -599,11 +599,7 @@ def ParseCutTerm(argument):
     else:
         return (
             CUTTERM_FIND,
-            (
-                oMatch.group(1),
-                int(Replace(oMatch.group(2), {None: "1"})),
-                ParseInteger(Replace(oMatch.group(3), {None: "0"})),
-            ),
+            (oMatch.group(1), int(Replace(oMatch.group(2), {None: "1"})), ParseInteger(Replace(oMatch.group(3), {None: "0"})),),
             argument[len(oMatch.group(0)) :],
         )
 
@@ -785,10 +781,7 @@ def RTFSub(oStringIO, prefix, rules, options):
     counter = 1
     rtfdata = oStringIO.read()
     if not rtfdata.startswith("{"):
-        print(
-            "This file does not start with an opening brace: {\nCheck if it is an RTF file.\nMAGIC: %s"
-            % GenerateMAGIC(rtfdata[0:4])
-        )
+        print("This file does not start with an opening brace: {\nCheck if it is an RTF file.\nMAGIC: %s" % GenerateMAGIC(rtfdata[0:4]))
         return -1
     sequence = []
     BuildTree(rtfdata, 0, 0, sequence, options)
@@ -841,29 +834,13 @@ def RTFSub(oStringIO, prefix, rules, options):
                 except:
                     data = ""
             object.append({"id": counter, "name": str(counter), "content": binascii.b2a_base64(data).strip("\n")})
-        print(
-            json.dumps(
-                {
-                    "version": 2,
-                    "id": "didierstevens.com",
-                    "type": "content",
-                    "fields": ["id", "name", "content"],
-                    "items": object,
-                }
-            )
-        )
+        print(json.dumps({"version": 2, "id": "didierstevens.com", "type": "content", "fields": ["id", "name", "content"], "items": object,}))
         return
 
     if options.select == "":
         for counter in range(1, len(dAnalysis) + 1):
             hexcount, bincount = HexBinCount(dAnalysis[counter].hexstring)
-            if (
-                options.filter == ""
-                or options.filter == "O"
-                and dAnalysis[counter].oleInfo != []
-                or options.filter == "h"
-                and hexcount > 0
-            ):
+            if options.filter == "" or options.filter == "O" and dAnalysis[counter].oleInfo != [] or options.filter == "h" and hexcount > 0:
                 line = "%5d %s c=%5d p=%08x l=%8d h=%8d;%8d b=%8d %s u=%8d %s" % (
                     counter,
                     dAnalysis[counter].leader[0:15],
@@ -933,10 +910,7 @@ def RTFSub(oStringIO, prefix, rules, options):
                                     linePrinted = True
                                 print(
                                     "               YARA rule%s: %s"
-                                    % (
-                                        IFF(oDecoder.Name() == "", "", " (stream decoder: %s)" % oDecoder.Name()),
-                                        result.rule,
-                                    )
+                                    % (IFF(oDecoder.Name() == "", "", " (stream decoder: %s)" % oDecoder.Name()), result.rule,)
                                 )
                                 if options.yarastrings:
                                     for stringdata in result.strings:
@@ -972,11 +946,7 @@ def RTFSub(oStringIO, prefix, rules, options):
         for key in sorted(dAnalysis.keys()):
             StdoutWriteChunked(
                 DumpFunction(
-                    ExtractFunction(
-                        DecodeFunction(
-                            decoders, options, CutData(HexDecodeIfRequested(dAnalysis[key], options), options.cut)
-                        )
-                    )
+                    ExtractFunction(DecodeFunction(decoders, options, CutData(HexDecodeIfRequested(dAnalysis[key], options), options.cut)))
                 )
             )
 
@@ -1049,9 +1019,7 @@ def RTFDump(filename, options):
 
 
 def Main():
-    oParser = optparse.OptionParser(
-        usage="usage: %prog [options] [file]\n" + __description__, version="%prog " + __version__
-    )
+    oParser = optparse.OptionParser(usage="usage: %prog [options] [file]\n" + __description__, version="%prog " + __version__)
     oParser.add_option("-m", "--man", action="store_true", default=False, help="Print manual")
     oParser.add_option("-s", "--select", default="", help="select item nr for dumping (a for all)")
     oParser.add_option("-d", "--dump", action="store_true", default=False, help="perform dump")
@@ -1067,25 +1035,15 @@ def Main():
     )
     oParser.add_option("-S", "--hexshift", action="store_true", default=False, help="shift one nibble")
     oParser.add_option(
-        "-p",
-        "--plugins",
-        type=str,
-        default="",
-        help="plugins to load (separate plugins with a comma , ; @file supported)",
+        "-p", "--plugins", type=str, default="", help="plugins to load (separate plugins with a comma , ; @file supported)",
     )
     oParser.add_option("--pluginoptions", type=str, default="", help="options for the plugin")
     oParser.add_option("-q", "--quiet", action="store_true", default=False, help="only print output from plugins")
     oParser.add_option(
-        "-y",
-        "--yara",
-        help="YARA rule-file, @file or directory to check streams (YARA search doesn't work with -s option)",
+        "-y", "--yara", help="YARA rule-file, @file or directory to check streams (YARA search doesn't work with -s option)",
     )
     oParser.add_option(
-        "-D",
-        "--decoders",
-        type=str,
-        default="",
-        help="decoders to load (separate decoders with a comma , ; @file supported)",
+        "-D", "--decoders", type=str, default="", help="decoders to load (separate decoders with a comma , ; @file supported)",
     )
     oParser.add_option("--decoderoptions", type=str, default="", help="options for the decoder")
     oParser.add_option("--yarastrings", action="store_true", default=False, help="Print YARA strings")

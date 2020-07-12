@@ -72,9 +72,7 @@ class VMwareServer(Machinery):
             if output:
                 return snapshot in output
             else:
-                raise CuckooMachineError(
-                    "Unable to get snapshot list for %s. " "No output from " "`vmrun listSnapshots`" % vmx_path
-                )
+                raise CuckooMachineError("Unable to get snapshot list for %s. " "No output from " "`vmrun listSnapshots`" % vmx_path)
 
     def start(self, vmx_path):
         """Start a virtual machine.
@@ -179,9 +177,7 @@ class VMwareServer(Machinery):
 
         try:
             if subprocess.call(revert_string, universal_newlines=True, shell=True):
-                raise CuckooMachineError(
-                    "Unable to revert snapshot for " "machine %s: vmrun exited with " "error" % vmx_path
-                )
+                raise CuckooMachineError("Unable to revert snapshot for " "machine %s: vmrun exited with " "error" % vmx_path)
 
         except OSError as e:
             raise CuckooMachineError("Unable to revert snapshot for " "machine %s: %s" % (vmx_path, e))
@@ -216,9 +212,7 @@ class VMwareServer(Machinery):
             if output:
                 return vmx_path in output
             else:
-                raise CuckooMachineError(
-                    "Unable to check running status " "for %s. No output from " "`vmrun list`" % vmx_path
-                )
+                raise CuckooMachineError("Unable to check running status " "for %s. No output from " "`vmrun list`" % vmx_path)
 
     def _snapshot_from_vmx(self, vmx_path):
         """Get snapshot for a given vmx file.

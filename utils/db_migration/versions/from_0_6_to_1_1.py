@@ -61,9 +61,7 @@ def upgrade():
 
         # Create table used by Tag.
         op.create_table(
-            "tags",
-            sa.Column("id", sa.Integer(), primary_key=True),
-            sa.Column("name", sa.String(length=255), nullable=False, unique=True),
+            "tags", sa.Column("id", sa.Integer(), primary_key=True), sa.Column("name", sa.String(length=255), nullable=False, unique=True),
         )
 
         # Create secondary table used in association Machine - Tag.
@@ -78,13 +76,10 @@ def upgrade():
         op.add_column("machines", sa.Column("snapshot", sa.String(length=255), nullable=True))
         # TODO: change default value, be aware sqlite doesn't support that kind of ALTER statement.
         op.add_column(
-            "machines",
-            sa.Column("resultserver_ip", sa.String(length=255), server_default="192.168.56.1", nullable=False),
+            "machines", sa.Column("resultserver_ip", sa.String(length=255), server_default="192.168.56.1", nullable=False),
         )
         # TODO: change default value, be aware sqlite doesn't support that kind of ALTER statement.
-        op.add_column(
-            "machines", sa.Column("resultserver_port", sa.String(length=255), server_default="2042", nullable=False)
-        )
+        op.add_column("machines", sa.Column("resultserver_port", sa.String(length=255), server_default="2042", nullable=False))
 
         # Deal with Alembic shit.
         # Alembic is so ORMish that it was impossible to write code which works on different DBMS.
@@ -110,9 +105,7 @@ def upgrade():
             # NOTE: We added this new column so we force clock time to the added_on for old analyses.
             conn.execute("update tasks set clock=added_on")
             # Add the not null constraint.
-            op.alter_column(
-                "tasks", "clock", nullable=False, existing_nullable=True, existing_type=sa.DateTime(timezone=False)
-            )
+            op.alter_column("tasks", "clock", nullable=False, existing_nullable=True, existing_type=sa.DateTime(timezone=False))
             # NOTE: To workaround limitations in Alembic and MySQL ALTER statement (cannot remove item from ENUM).
             # Read data.
             tasks_data = []
@@ -317,9 +310,7 @@ def mongo_upgrade():
                 import pymongo
 
                 try:
-                    db = pymongo.MongoClient(host, port=port, username=user, password=password, authSource=database)[
-                        database
-                    ]
+                    db = pymongo.MongoClient(host, port=port, username=user, password=password, authSource=database)[database]
                 except pymongo.errors.ConnectionFailure:
                     print("Cannot connect to MongoDB")
                     sys.exit()

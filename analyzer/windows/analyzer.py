@@ -265,9 +265,7 @@ class Analyzer:
         # Initialize and start the Pipe Servers. This is going to be used for
         # communicating with the injected and monitored processes.
 
-        self.command_pipe = PipeServer(
-            PipeDispatcher, self.config.pipe, message=True, dispatcher=CommandPipeHandler(self)
-        )
+        self.command_pipe = PipeServer(PipeDispatcher, self.config.pipe, message=True, dispatcher=CommandPipeHandler(self))
         self.command_pipe.daemon = True
         self.command_pipe.start()
 
@@ -507,9 +505,7 @@ class Analyzer:
         except CuckooPackageError as e:
             raise CuckooError('The package "{0}" start function raised an ' "error: {1}".format(package_name, e))
         except Exception as e:
-            raise CuckooError(
-                'The package "{0}" start function encountered ' "an unhandled exception: " "{1}".format(package_name, e)
-            )
+            raise CuckooError('The package "{0}" start function encountered ' "an unhandled exception: " "{1}".format(package_name, e))
 
         # If the analysis package returned a list of process IDs, we add them
         # to the list of monitored processes and enable the process monitor.
@@ -573,8 +569,7 @@ class Analyzer:
                         # If none of the monitored processes are still alive, we
                         # can terminate the analysis.
                         if not self.process_list.pids and (
-                            not self.LASTINJECT_TIME
-                            or (datetime.now() >= (self.LASTINJECT_TIME + timedelta(seconds=15)))
+                            not self.LASTINJECT_TIME or (datetime.now() >= (self.LASTINJECT_TIME + timedelta(seconds=15)))
                         ):
                             if emptytime and (datetime.now() >= (emptytime + timedelta(seconds=5))):
                                 log.info("Process list is empty, terminating analysis.")
@@ -677,9 +672,7 @@ class Analyzer:
             except (NotImplementedError, AttributeError):
                 continue
             except Exception as e:
-                log.warning(
-                    "Exception running finish callback of auxiliary " "module %s: %s", aux.__class__.__name__, e
-                )
+                log.warning("Exception running finish callback of auxiliary " "module %s: %s", aux.__class__.__name__, e)
 
         # Let's invoke the completion procedure.
         log.info("Shutting down pipe server and dumping dropped files.")
@@ -927,9 +920,7 @@ class CommandPipeHandler(object):
         process_id = int(data)
         thread_id = None
         if process_id and process_id not in (self.analyzer.pid, self.analyzer.ppid, self.analyzer.process_list.pids):
-            proc = Process(
-                options=self.analyzer.options, config=self.analyzer.config, pid=process_id, thread_id=thread_id
-            )
+            proc = Process(options=self.analyzer.options, config=self.analyzer.config, pid=process_id, thread_id=thread_id)
             filepath = proc.get_filepath()
             filename = os.path.basename(filepath)
             if not in_protected_path(filename):
@@ -951,9 +942,7 @@ class CommandPipeHandler(object):
             self.analyzer.MONITORED_DCOM = True
             dcom_pid = pid_from_service_name("DcomLaunch")
             if dcom_pid:
-                servproc = Process(
-                    options=self.analyzer.options, config=self.analyzer.config, pid=dcom_pid, suspended=False
-                )
+                servproc = Process(options=self.analyzer.options, config=self.analyzer.config, pid=dcom_pid, suspended=False)
                 self.analyzer.CRITICAL_PROCESS_LIST.append(int(dcom_pid))
                 filepath = servproc.get_filepath()
                 servproc.inject(injectmode=INJECT_QUEUEUSERAPC, interest=filepath, nosleepskip=True)
@@ -978,9 +967,7 @@ class CommandPipeHandler(object):
                 self.analyzer.MONITORED_DCOM = True
                 dcom_pid = pid_from_service_name("DcomLaunch")
                 if dcom_pid:
-                    servproc = Process(
-                        options=self.analyzer.options, config=self.analyzer.config, pid=dcom_pid, suspended=False
-                    )
+                    servproc = Process(options=self.analyzer.options, config=self.analyzer.config, pid=dcom_pid, suspended=False)
                     self.analyzer.CRITICAL_PROCESS_LIST.append(int(dcom_pid))
                     filepath = servproc.get_filepath()
                     servproc.inject(injectmode=INJECT_QUEUEUSERAPC, interest=filepath, nosleepskip=True)
@@ -994,9 +981,7 @@ class CommandPipeHandler(object):
 
             wmi_pid = pid_from_service_name("winmgmt")
             if wmi_pid:
-                servproc = Process(
-                    options=self.analyzer.options, config=self.analyzer.config, pid=wmi_pid, suspended=False
-                )
+                servproc = Process(options=self.analyzer.options, config=self.analyzer.config, pid=wmi_pid, suspended=False)
                 self.analyzer.CRITICAL_PROCESS_LIST.append(int(wmi_pid))
                 filepath = servproc.get_filepath()
                 servproc.inject(injectmode=INJECT_QUEUEUSERAPC, interest=filepath, nosleepskip=True)
@@ -1023,9 +1008,7 @@ class CommandPipeHandler(object):
 
             sched_pid = pid_from_service_name("schedule")
             if sched_pid:
-                servproc = Process(
-                    options=self.analyzer.options, config=self.analyzer.config, pid=sched_pid, suspended=False
-                )
+                servproc = Process(options=self.analyzer.options, config=self.analyzer.config, pid=sched_pid, suspended=False)
                 self.analyzer.CRITICAL_PROCESS_LIST.append(int(sched_pid))
                 filepath = servproc.get_filepath()
                 servproc.inject(injectmode=INJECT_QUEUEUSERAPC, interest=filepath, nosleepskip=True)
@@ -1051,9 +1034,7 @@ class CommandPipeHandler(object):
                 self.analyzer.MONITORED_DCOM = True
                 dcom_pid = pid_from_service_name("DcomLaunch")
                 if dcom_pid:
-                    servproc = Process(
-                        options=self.analyzer.options, config=self.analyzer.config, pid=dcom_pid, suspended=False
-                    )
+                    servproc = Process(options=self.analyzer.options, config=self.analyzer.config, pid=dcom_pid, suspended=False)
 
                     self.analyzer.CRITICAL_PROCESS_LIST.append(int(dcom_pid))
                     filepath = servproc.get_filepath()
@@ -1067,9 +1048,7 @@ class CommandPipeHandler(object):
             log.info("Started BITS Service")
             bits_pid = pid_from_service_name("BITS")
             if bits_pid:
-                servproc = Process(
-                    options=self.analyzer.options, config=self.analyzer.config, pid=bits_pid, suspended=False
-                )
+                servproc = Process(options=self.analyzer.options, config=self.analyzer.config, pid=bits_pid, suspended=False)
                 self.analyzer.CRITICAL_PROCESS_LIST.append(int(bits_pid))
                 filepath = servproc.get_filepath()
                 servproc.inject(injectmode=INJECT_QUEUEUSERAPC, interest=filepath, nosleepskip=True)
@@ -1095,10 +1074,7 @@ class CommandPipeHandler(object):
                 # unable to inject
                 if self.analyzer.SERVICES_PID:
                     servproc = Process(
-                        options=self.analyzer.options,
-                        config=self.analyzer.config,
-                        pid=self.analyzer.SERVICES_PID,
-                        suspended=False,
+                        options=self.analyzer.options, config=self.analyzer.config, pid=self.analyzer.SERVICES_PID, suspended=False,
                     )
                     self.analyzer.CRITICAL_PROCESS_LIST.append(int(self.analyzer.SERVICES_PID))
                     filepath = servproc.get_filepath()
@@ -1175,10 +1151,7 @@ class CommandPipeHandler(object):
             # This pid is already on the notrack list, move it to the
             # list of tracked pids.
             if not self.analyzer.process_list.has_pid(process_id, notrack=False):
-                log.debug(
-                    "Received request to inject pid=%d. It was already "
-                    "on our notrack list, moving it to the track list."
-                )
+                log.debug("Received request to inject pid=%d. It was already " "on our notrack list, moving it to the track list.")
 
                 self.analyzer.process_list.remove_pid(process_id)
                 self.analyzer.process_list.add_pid(process_id)
@@ -1242,11 +1215,7 @@ class CommandPipeHandler(object):
                         INJECT_LIST.append(process_id)
                     # Open the process and inject the DLL.
                     proc = Process(
-                        options=self.analyzer.options,
-                        config=self.analyzer.config,
-                        pid=process_id,
-                        thread_id=thread_id,
-                        suspended=suspended,
+                        options=self.analyzer.options, config=self.analyzer.config, pid=process_id, thread_id=thread_id, suspended=suspended,
                     )
                     filepath = proc.get_filepath()  # .encode('utf8', 'replace')
                     # if it's a URL analysis, provide the URL to all processes as
@@ -1261,10 +1230,7 @@ class CommandPipeHandler(object):
                     if self.analyzer.SERVICES_PID and process_id == self.analyzer.SERVICES_PID:
                         self.analyzer.CRITICAL_PROCESS_LIST.append(int(self.analyzer.SERVICES_PID))
                     log.info(
-                        "Announced %s process name: %s pid: %d",
-                        "64-bit" if is_64bit else "32-bit",
-                        filename,
-                        process_id,
+                        "Announced %s process name: %s pid: %d", "64-bit" if is_64bit else "32-bit", filename, process_id,
                     )
                     # We want to prevent multiple injection attempts if one is already underway
                     if not in_protected_path(filename):
@@ -1301,9 +1267,7 @@ class CommandPipeHandler(object):
         # Syntax -> PATH|PID|Metadata
         file_path, pid, metadata = data.split(b"|")
         if os.path.exists(file_path):
-            self.analyzer.files.dump_file(
-                file_path.decode("utf-8"), pids=[pid.decode("utf-8")], metadata=metadata, category="CAPE"
-            )
+            self.analyzer.files.dump_file(file_path.decode("utf-8"), pids=[pid.decode("utf-8")], metadata=metadata, category="CAPE")
 
     # In case of FILE_DEL, the client is trying to notify an ongoing
     # deletion of an existing file, therefore we need to dump it
@@ -1322,9 +1286,7 @@ class CommandPipeHandler(object):
             # Syntax -> PATH|PID|Metadata
             file_path, pid, metadata = file_path.split(b"|")
             if os.path.exists(file_path):
-                self.analyzer.files.dump_file(
-                    file_path.decode("utf-8"), pids=[pid.decode("utf-8")], metadata=metadata, category="procdump"
-                )
+                self.analyzer.files.dump_file(file_path.decode("utf-8"), pids=[pid.decode("utf-8")], metadata=metadata, category="procdump")
 
         else:
             if os.path.exists(file_path):
@@ -1393,9 +1355,7 @@ class CommandPipeHandler(object):
                     response = fn(arguments)
                 except Exception as e:
                     log.error(e, exc_info=True)
-                    log.exception(
-                        "Pipe command handler exception occurred (command " "%s args %r).", command, arguments
-                    )
+                    log.exception("Pipe command handler exception occurred (command " "%s args %r).", command, arguments)
 
         return response
 

@@ -247,9 +247,9 @@ class MaecReport(Report):
             if "virustotal" in self.results and self.results["virustotal"]:
                 file_obj_id = malwareInstance["instance_object_refs"][0]
                 self.package["observable_objects"][file_obj_id]["extensions"] = {}
-                self.package["observable_objects"][file_obj_id]["extensions"][
-                    "x-maec-avclass"
-                ] = self.create_avc_class_obj_list(self.results["virustotal"])
+                self.package["observable_objects"][file_obj_id]["extensions"]["x-maec-avclass"] = self.create_avc_class_obj_list(
+                    self.results["virustotal"]
+                )
 
         elif "target" in self.results and self.results["target"]["category"] == "url":
             malwareInstance = {"type": "malware-instance"}
@@ -353,12 +353,7 @@ class MaecReport(Report):
             dir_path = path.rstrip(file_name)
             dir_obj = self.create_directory_obj(dir_path)
             # Add the file name to the File Object if it does not already exist
-            if (
-                "name" not in file_obj
-                or file_obj["name"] == "null"
-                or "\\" in file_obj["name"]
-                or "/" in file_obj["name"]
-            ):
+            if "name" not in file_obj or file_obj["name"] == "null" or "\\" in file_obj["name"] or "/" in file_obj["name"]:
                 file_obj["name"] = file_name
             if dir_obj["path"]:
                 dir_obj_id = self.deduplicate_obj(dir_obj)
@@ -447,10 +442,7 @@ class MaecReport(Report):
         elif re.match("^([0-9a-fA-F][0-9a-fA-F]:){5}([0-9a-fA-F][0-9a-fA-F])$", value):
             network_obj["type"] = "mac-addr"
         # Test for an IPv4 address
-        elif re.match(
-            "^(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[0-9]{1,2})" "(\.(25[0-5]|2[0-4][0-9]|1[0-9][0-9]" "|[0-9]{1,2})){3}$",
-            value,
-        ):
+        elif re.match("^(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[0-9]{1,2})" "(\.(25[0-5]|2[0-4][0-9]|1[0-9][0-9]" "|[0-9]{1,2})){3}$", value,):
             network_obj["type"] = "ipv4-addr"
             obj["protocols"] = ["ipv4", "tcp"]
         else:
@@ -726,9 +718,7 @@ class MaecReport(Report):
                         else:
                             names = [x["name"] for x in (capability["refined_capabilities"])]
                             if capability_mappings[name_chunk]["refined_capabilities"][0]["name"] not in names:
-                                (capability["refined_capabilities"]).append(
-                                    capability_mappings[name_chunk]["refined_capabilities"][0]
-                                )
+                                (capability["refined_capabilities"]).append(capability_mappings[name_chunk]["refined_capabilities"][0])
                         if capability not in capabilities:
                             capabilities.append(capability)
         if capabilities:

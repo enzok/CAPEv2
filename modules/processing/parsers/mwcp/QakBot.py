@@ -27,8 +27,7 @@ class QakBot(Parser):
                         self.reporter.add_metadata("other", {ConfigItem: ConfigData})
                 if index == b"3":
                     self.reporter.add_metadata(
-                        "other",
-                        {"Config timestamp": datetime.datetime.fromtimestamp(int(data)).strftime("%H:%M:%S %d-%m-%Y")},
+                        "other", {"Config timestamp": datetime.datetime.fromtimestamp(int(data)).strftime("%H:%M:%S %d-%m-%Y")},
                     )
                 if index in (b"22", b"23", b"24", b"24", b"25", b"26"):
                     values = data.split(b":")

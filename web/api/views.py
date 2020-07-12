@@ -76,11 +76,7 @@ if repconf.mongodb.enabled:
     import pymongo
 
     results_db = pymongo.MongoClient(
-        settings.MONGO_HOST,
-        port=settings.MONGO_PORT,
-        username=settings.MONGO_USER,
-        password=settings.MONGO_PASS,
-        authSource=settings.MONGO_DB,
+        settings.MONGO_HOST, port=settings.MONGO_PORT, username=settings.MONGO_USER, password=settings.MONGO_PASS, authSource=settings.MONGO_DB,
     )[settings.MONGO_DB]
 
 es_as_db = False
@@ -90,9 +86,7 @@ if repconf.elasticsearchdb.enabled and not repconf.elasticsearchdb.searchonly:
     es_as_db = True
     baseidx = repconf.elasticsearchdb.index
     fullidx = baseidx + "-*"
-    es = Elasticsearch(
-        hosts=[{"host": repconf.elasticsearchdb.host, "port": repconf.elasticsearchdb.port,}], timeout=60
-    )
+    es = Elasticsearch(hosts=[{"host": repconf.elasticsearchdb.host, "port": repconf.elasticsearchdb.port,}], timeout=60)
 
 db = Database()
 
@@ -314,9 +308,7 @@ def tasks_create_file(request):
             else:
                 resp = {
                     "error": True,
-                    "error_value": (
-                        "Machine '{0}' does not exist. " "Available: {1}".format(machine, ", ".join(vm_list))
-                    ),
+                    "error_value": ("Machine '{0}' does not exist. " "Available: {1}".format(machine, ", ".join(vm_list))),
                 }
                 return jsonize(resp, response=True)
         # Parse a max file size to be uploaded
@@ -571,9 +563,7 @@ def tasks_create_url(request):
             else:
                 resp = {
                     "error": True,
-                    "error_value": (
-                        "Machine '{0}' does not exist. " "Available: {1}".format(machine, ", ".join(vm_list))
-                    ),
+                    "error_value": ("Machine '{0}' does not exist. " "Available: {1}".format(machine, ", ".join(vm_list))),
                 }
                 return jsonize(resp, response=True)
 
@@ -673,9 +663,7 @@ def tasks_create_dlnexec(request):
             else:
                 resp = {
                     "error": True,
-                    "error_value": (
-                        "Machine '{0}' does not exist. " "Available: {1}".format(machine, ", ".join(vm_list))
-                    ),
+                    "error_value": ("Machine '{0}' does not exist. " "Available: {1}".format(machine, ", ".join(vm_list))),
                 }
                 return jsonize(resp, response=True)
 
@@ -786,9 +774,7 @@ def tasks_vtdl(request):
             else:
                 resp = {
                     "error": True,
-                    "error_value": (
-                        "Machine '{0}' does not exist. " "Available: {1}".format(machine, ", ".join(vm_list))
-                    ),
+                    "error_value": ("Machine '{0}' does not exist. " "Available: {1}".format(machine, ", ".join(vm_list))),
                 }
                 return jsonize(resp, response=True)
         enforce_timeout = bool(request.POST.get("enforce_timeout", False))
@@ -1328,9 +1314,7 @@ def tasks_report(request, task_id, report_format="json"):
     }
 
     if report_format.lower() in formats:
-        report_path = os.path.join(
-            CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, "reports", formats[report_format.lower()]
-        )
+        report_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, "reports", formats[report_format.lower()])
         if os.path.exists(report_path):
             if report_format in ("json", "maec5"):
                 content = "application/json; charset=UTF-8"
@@ -1563,9 +1547,7 @@ def tasks_iocs(request, task_id, detail=None):
         data["process_tree"] = {
             "pid": buf["behavior"]["processtree"][0]["pid"],
             "name": buf["behavior"]["processtree"][0]["name"],
-            "spawned_processes": [
-                createProcessTreeNode(child_process) for child_process in buf["behavior"]["processtree"][0]["children"]
-            ],
+            "spawned_processes": [createProcessTreeNode(child_process) for child_process in buf["behavior"]["processtree"][0]["children"]],
         }
     if "dropped" in buf:
         for entry in buf["dropped"]:
@@ -1796,9 +1778,7 @@ def tasks_rollingsuri(request, window=60):
     gen_time = datetime.now() - timedelta(minutes=window)
     dummy_id = ObjectId.from_datetime(gen_time)
     result = list(
-        results_db.analysis.find(
-            {"suricata.alerts": {"$exists": True}, "_id": {"$gte": dummy_id}}, {"suricata.alerts": 1, "info.id": 1}
-        )
+        results_db.analysis.find({"suricata.alerts": {"$exists": True}, "_id": {"$gte": dummy_id}}, {"suricata.alerts": 1, "info.id": 1})
     )
     resp = []
     for e in result:
@@ -1951,10 +1931,7 @@ def tasks_fullmemory(request, task_id):
             if res and res.ok and res.json()["status"] == 1:
                 url = res.json()["url"]
                 dist_task_id = res.json()["task_id"]
-                return redirect(
-                    url.replace(":8090", ":8000") + "api/tasks/get/fullmemory/" + str(dist_task_id) + "/",
-                    permanent=True,
-                )
+                return redirect(url.replace(":8090", ":8000") + "api/tasks/get/fullmemory/" + str(dist_task_id) + "/", permanent=True,)
         except Exception as e:
             log.error(e)
 
@@ -2374,9 +2351,7 @@ def malreport(request, numdays=30, startfrom=0):
         content = "application/text; charset=UTF-8"
         resp = HttpResponse(output.getvalue(), content_type=content)
         resp["Content-Length"] = str(len(output.getvalue()))
-        resp["Content-Disposition"] = "attachment; filename=malware_report_{}.csv".format(
-            datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        )
+        resp["Content-Disposition"] = "attachment; filename=malware_report_{}.csv".format(datetime.now().strftime("%Y-%m-%d_%H-%M-%S"))
         return resp
     else:
         resp = {"error": True, "error_value": "Mongodb not enabled"}

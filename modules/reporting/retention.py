@@ -34,11 +34,7 @@ if cfg.mongodb and cfg.mongodb.enabled:
     mdb = cfg.mongodb.get("db", "cuckoo")
     try:
         results_db = MongoClient(
-            host,
-            port=port,
-            username=cfg.mongodb.get("username", None),
-            password=cfg.mongodb.get("password", None),
-            authSource=mdb,
+            host, port=port, username=cfg.mongodb.get("username", None), password=cfg.mongodb.get("password", None), authSource=mdb,
         )[mdb]
     except Exception as e:
         log.warning("Unable to connect to MongoDB: %s", str(e))
@@ -141,20 +137,14 @@ class Retention(Report):
                 with open(taskFile, "r") as taskLog:
                     taskCheck = json.loads(taskLog.read())
             except Exception as e:
-                log.warn(
-                    "Failed to load retention log, if this is not the "
-                    "time running retention, review the error: {0}".format(e)
-                )
+                log.warn("Failed to load retention log, if this is not the " "time running retention, review the error: {0}".format(e))
             curtime = datetime.now()
             since_retlog_modified = curtime - datetime.fromtimestamp(os.path.getmtime(taskFile))
             since_conf_modified = curtime - datetime.fromtimestamp(os.path.getmtime(confPath))
 
             # We'll only do anything in this module once every 'run_every' hours, or immediately
             # after changes to reporting.conf
-            if (
-                since_retlog_modified < timedelta(hours=self.options["run_every"])
-                and since_conf_modified > since_retlog_modified
-            ):
+            if since_retlog_modified < timedelta(hours=self.options["run_every"]) and since_conf_modified > since_retlog_modified:
                 return
 
         # only allow one reporter to execute this code, otherwise rmtree will race, etc
@@ -162,10 +152,7 @@ class Retention(Report):
             return
         try:
             delLocations = {
-                "memory": [
-                    CUCKOO_ROOT + "/storage/analyses/{0}/memory.dmp",
-                    CUCKOO_ROOT + "/storage/analyses/{0}/memory.dmp.zip",
-                ],
+                "memory": [CUCKOO_ROOT + "/storage/analyses/{0}/memory.dmp", CUCKOO_ROOT + "/storage/analyses/{0}/memory.dmp.zip",],
                 "procmemory": CUCKOO_ROOT + "/storage/analyses/{0}/memory",
                 "pcap": CUCKOO_ROOT + "/storage/analyses/{0}/dump.pcap",
                 "sortedpcap": CUCKOO_ROOT + "/storage/analyses/{0}/dump_sorted.pcap",
@@ -205,11 +192,7 @@ class Retention(Report):
                             if cfg.mongodb and cfg.mongodb.enabled:
                                 delete_mongo_data(curtask, lastTask)
                         elif item == "elastic":
-                            if (
-                                cfg.elasticsearchdb
-                                and cfg.elasticsearchdb.enabled
-                                and not cfg.elasticsearchdb.searchonly
-                            ):
+                            if cfg.elasticsearchdb and cfg.elasticsearchdb.enabled and not cfg.elasticsearchdb.searchonly:
                                 delete_elastic_data(curtask, lastTask)
                     saveTaskLogged[item] = int(lastTask)
                 else:

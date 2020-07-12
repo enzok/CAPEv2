@@ -141,12 +141,7 @@ class ParseProcessLog(list):
         @param b: call b
         @return: True if a == b else False
         """
-        if (
-            a["api"] == b["api"]
-            and a["status"] == b["status"]
-            and a["arguments"] == b["arguments"]
-            and a["return"] == b["return"]
-        ):
+        if a["api"] == b["api"] and a["status"] == b["status"] and a["arguments"] == b["arguments"] and a["return"] == b["return"]:
             return True
         return False
 
@@ -238,9 +233,7 @@ class ParseProcessLog(list):
         @param funcname:
         @param msg:
         """
-        self.lastcall = dict(
-            thread_id=tid, category="anomaly", api="", subcategory=subcategory, funcname=funcname, msg=msg
-        )
+        self.lastcall = dict(thread_id=tid, category="anomaly", api="", subcategory=subcategory, funcname=funcname, msg=msg)
 
     def log_call(self, context, apiname, category, arguments):
         """ log an api call from data file
@@ -254,9 +247,7 @@ class ParseProcessLog(list):
         current_time = self.first_seen + datetime.timedelta(0, 0, timediff * 1000)
         timestring = logtime(current_time)
 
-        self.lastcall = self._parse(
-            [timestring, tid, caller, parentcaller, category, apiname, repeated, status, returnval] + arguments
-        )
+        self.lastcall = self._parse([timestring, tid, caller, parentcaller, category, apiname, repeated, status, returnval] + arguments)
 
     def log_error(self, emsg):
         """ Log an error
@@ -356,9 +347,7 @@ class Processes:
         self.task = task
         self._logs_path = logs_path
         self.options = dict(
-            (value.strip() for value in option.split("=", 1))
-            for option in self.task["options"].split(",")
-            if option and "=" in option
+            (value.strip() for value in option.split("=", 1)) for option in self.task["options"].split(",") if option and "=" in option
         )
 
     def run(self):
@@ -484,11 +473,7 @@ class Summary:
                 self.keys.append(name)
             if name and name not in self.write_keys:
                 self.write_keys.append(name)
-        elif (
-            call["api"] == "NtDeleteValueKey"
-            or call["api"] == "NtDeleteKey"
-            or call["api"].startswith("RegDeleteValue")
-        ):
+        elif call["api"] == "NtDeleteValueKey" or call["api"] == "NtDeleteKey" or call["api"].startswith("RegDeleteValue"):
             name = self.get_argument(call, "FullName")
             if name and name not in self.keys:
                 self.keys.append(name)
@@ -514,11 +499,7 @@ class Summary:
             # if disposition == 1 then we created a new key
             if name and disposition == 1 and name not in self.write_keys:
                 self.write_keys.append(name)
-        elif (
-            call["api"].startswith("RegQueryValue")
-            or call["api"] == "NtQueryValueKey"
-            or call["api"] == "NtQueryMultipleValueKey"
-        ):
+        elif call["api"].startswith("RegQueryValue") or call["api"] == "NtQueryValueKey" or call["api"] == "NtQueryMultipleValueKey":
             name = self.get_argument(call, "FullName")
             if name and name not in self.keys:
                 self.keys.append(name)
@@ -554,11 +535,7 @@ class Summary:
                 if disp and filename not in self.delete_files:
                     self.delete_files.append(filename)
 
-        elif (
-            call["api"].startswith("DeleteFile")
-            or call["api"] == "NtDeleteFile"
-            or call["api"].startswith("RemoveDirectory")
-        ):
+        elif call["api"].startswith("DeleteFile") or call["api"] == "NtDeleteFile" or call["api"].startswith("RemoveDirectory"):
             filename = self.get_argument(call, "FileName")
             if not filename:
                 filename = self.get_argument(call, "DirectoryName")
@@ -789,30 +766,10 @@ class Enhanced(object):
                 "apis": ["CopyFileA", "CopyFileW", "CopyFileExW", "CopyFileExA"],
                 "args": [("from", "ExistingFileName"), ("to", "NewFileName")],
             },
-            {
-                "event": "delete",
-                "object": "file",
-                "apis": ["DeleteFileA", "DeleteFileW", "NtDeleteFile"],
-                "args": [("file", "FileName")],
-            },
-            {
-                "event": "delete",
-                "object": "dir",
-                "apis": ["RemoveDirectoryA", "RemoveDirectoryW"],
-                "args": [("file", "DirectoryName")],
-            },
-            {
-                "event": "create",
-                "object": "dir",
-                "apis": ["CreateDirectoryW", "CreateDirectoryExW"],
-                "args": [("file", "DirectoryName")],
-            },
-            {
-                "event": "write",
-                "object": "file",
-                "apis": ["URLDownloadToFileW", "URLDownloadToFileA"],
-                "args": [("file", "FileName")],
-            },
+            {"event": "delete", "object": "file", "apis": ["DeleteFileA", "DeleteFileW", "NtDeleteFile"], "args": [("file", "FileName")],},
+            {"event": "delete", "object": "dir", "apis": ["RemoveDirectoryA", "RemoveDirectoryW"], "args": [("file", "DirectoryName")],},
+            {"event": "create", "object": "dir", "apis": ["CreateDirectoryW", "CreateDirectoryExW"], "args": [("file", "DirectoryName")],},
+            {"event": "write", "object": "file", "apis": ["URLDownloadToFileW", "URLDownloadToFileA"], "args": [("file", "FileName")],},
             {"event": "read", "object": "file", "apis": ["NtReadFile",], "args": [("file", "HandleName")]},
             {"event": "write", "object": "file", "apis": ["NtWriteFile",], "args": [("file", "HandleName")]},
             {
@@ -834,23 +791,11 @@ class Enhanced(object):
                 "apis": ["CreateProcessInternalW", "CreateProcessWithLogonW", "CreateProcessWithTokenW",],
                 "args": [("file", "CommandLine")],
             },
-            {
-                "event": "execute",
-                "object": "file",
-                "apis": ["ShellExecuteExA", "ShellExecuteExW",],
-                "args": [("file", "FilePath")],
-            },
+            {"event": "execute", "object": "file", "apis": ["ShellExecuteExA", "ShellExecuteExW",], "args": [("file", "FilePath")],},
             {
                 "event": "load",
                 "object": "library",
-                "apis": [
-                    "LoadLibraryA",
-                    "LoadLibraryW",
-                    "LoadLibraryExA",
-                    "LoadLibraryExW",
-                    "LdrLoadDll",
-                    "LdrGetDllHandle",
-                ],
+                "apis": ["LoadLibraryA", "LoadLibraryW", "LoadLibraryExA", "LoadLibraryExW", "LdrLoadDll", "LdrGetDllHandle",],
                 "args": [("file", "FileName"), ("pathtofile", "PathToFile"), ("moduleaddress", "BaseAddress")],
             },
             {
@@ -865,24 +810,14 @@ class Enhanced(object):
                 "apis": ["RegSetValueExA", "RegSetValueExW"],
                 "args": [("regkey", "FullName"), ("content", "Buffer")],
             },
-            {
-                "event": "write",
-                "object": "registry",
-                "apis": ["RegCreateKeyExA", "RegCreateKeyExW"],
-                "args": [("regkey", "FullName")],
-            },
+            {"event": "write", "object": "registry", "apis": ["RegCreateKeyExA", "RegCreateKeyExW"], "args": [("regkey", "FullName")],},
             {
                 "event": "read",
                 "object": "registry",
                 "apis": ["RegQueryValueExA", "RegQueryValueExW",],
                 "args": [("regkey", "FullName"), ("content", "Data")],
             },
-            {
-                "event": "read",
-                "object": "registry",
-                "apis": ["NtQueryValueKey"],
-                "args": [("regkey", "FullName"), ("content", "Information")],
-            },
+            {"event": "read", "object": "registry", "apis": ["NtQueryValueKey"], "args": [("regkey", "FullName"), ("content", "Information")],},
             {
                 "event": "delete",
                 "object": "registry",
@@ -893,18 +828,9 @@ class Enhanced(object):
                 "event": "create",
                 "object": "windowshook",
                 "apis": ["SetWindowsHookExA"],
-                "args": [
-                    ("id", "HookIdentifier"),
-                    ("moduleaddress", "ModuleAddress"),
-                    ("procedureaddress", "ProcedureAddress"),
-                ],
+                "args": [("id", "HookIdentifier"), ("moduleaddress", "ModuleAddress"), ("procedureaddress", "ProcedureAddress"),],
             },
-            {
-                "event": "start",
-                "object": "service",
-                "apis": ["StartServiceA", "StartServiceW"],
-                "args": [("service", "ServiceName")],
-            },
+            {"event": "start", "object": "service", "apis": ["StartServiceA", "StartServiceW"], "args": [("service", "ServiceName")],},
             {
                 "event": "modify",
                 "object": "service",
@@ -927,19 +853,14 @@ class Enhanced(object):
         args = _load_args(call)
 
         if event:
-            if (
-                call["api"] in ["LoadLibraryA", "LoadLibraryW", "LoadLibraryExA", "LoadLibraryExW", "LdrGetDllHandle"]
-                and call["status"]
-            ):
+            if call["api"] in ["LoadLibraryA", "LoadLibraryW", "LoadLibraryExA", "LoadLibraryExW", "LdrGetDllHandle"] and call["status"]:
                 self._add_loaded_module(args.get("FileName", ""), args.get("ModuleHandle", ""))
 
             elif call["api"] in ["LdrLoadDll"] and call["status"]:
                 self._add_loaded_module(args.get("FileName", ""), args.get("BaseAddress", ""))
 
             elif call["api"] in ["LdrGetProcedureAddress"] and call["status"]:
-                self._add_procedure(
-                    args.get("ModuleHandle", ""), args.get("FunctionName", ""), args.get("FunctionAddress", "")
-                )
+                self._add_procedure(args.get("ModuleHandle", ""), args.get("FunctionName", ""), args.get("FunctionAddress", ""))
                 event["data"]["module"] = self._get_loaded_module(args.get("ModuleHandle", ""))
 
             elif call["api"] in ["SetWindowsHookExA"]:
@@ -996,13 +917,7 @@ class Anomaly(object):
                 message = row["value"]
 
         self.anomalies.append(
-            dict(
-                name=process["process_name"],
-                pid=process["process_id"],
-                category=category,
-                funcname=funcname,
-                message=message,
-            )
+            dict(name=process["process_name"], pid=process["process_id"], category=category, funcname=funcname, message=message,)
         )
 
     def run(self):
@@ -1136,25 +1051,14 @@ class EncryptedBuffers:
             buf = self.get_argument(call, "Buffer", strip=True)
             if buf and buf not in self.bufs:
                 self.bufs.append(
-                    dict(
-                        process_name=process["process_name"],
-                        pid=process["process_id"],
-                        api_call="CryptEncrypt",
-                        buffer=buf,
-                        crypt_key=key,
-                    )
+                    dict(process_name=process["process_name"], pid=process["process_id"], api_call="CryptEncrypt", buffer=buf, crypt_key=key,)
                 )
 
         if call["api"].startswith("CryptEncryptMessage"):
             buf = self.get_argument(call, "Buffer", strip=True)
             if buf and buf not in self.bufs:
                 self.bufs.append(
-                    dict(
-                        process_name=process["process_name"],
-                        pid=process["process_id"],
-                        api_call="CryptEncryptMessage",
-                        buffer=buf,
-                    )
+                    dict(process_name=process["process_name"], pid=process["process_id"], api_call="CryptEncryptMessage", buffer=buf,)
                 )
 
     def run(self):

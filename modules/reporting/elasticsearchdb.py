@@ -31,9 +31,7 @@ class ElasticsearchDB(Report):
         """Connects to Elasticsearch database, loads options and set connectors.
         @raise CuckooReportError: if unable to connect.
         """
-        self.es = Elasticsearch(
-            hosts=[{"host": self.options.get("host", "127.0.0.1"), "port": self.options.get("port", 9200),}], timeout=60
-        )
+        self.es = Elasticsearch(hosts=[{"host": self.options.get("host", "127.0.0.1"), "port": self.options.get("port", 9200),}], timeout=60)
 
     def replace_dots(self, signatures):
         """Removes $ and . from key
@@ -135,16 +133,8 @@ class ElasticsearchDB(Report):
                         esreport["shots"].append(shot_file.replace(".jpg", ""))
 
             # Other info we want Quick access to from the web UI
-            if (
-                "virustotal" in results
-                and results["virustotal"]
-                and "positives" in results["virustotal"]
-                and "total" in results["virustotal"]
-            ):
-                esreport["virustotal_summary"] = "%s/%s" % (
-                    results["virustotal"]["positives"],
-                    results["virustotal"]["total"],
-                )
+            if "virustotal" in results and results["virustotal"] and "positives" in results["virustotal"] and "total" in results["virustotal"]:
+                esreport["virustotal_summary"] = "%s/%s" % (results["virustotal"]["positives"], results["virustotal"]["total"],)
 
             if "suricata" in results and results["suricata"]:
                 if "tls" in results["suricata"] and len(results["suricata"]["tls"]) > 0:
@@ -229,9 +219,7 @@ class ElasticsearchDB(Report):
                             error_saved = False
 
                     try:
-                        self.es.index(
-                            index=self.index_name, doc_type="analysis", id=esreport["info"]["id"], body=esreport
-                        )
+                        self.es.index(index=self.index_name, doc_type="analysis", id=esreport["info"]["id"], body=esreport)
                         error_saved = False
                     except ElasticsearchException as cept:
                         dropdead += 1

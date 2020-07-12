@@ -7,9 +7,7 @@ def get_config(data):
     try:
         pe = pefile.PE(data=data)
         try:
-            rt_string_idx = [entry.id for entry in pe.DIRECTORY_ENTRY_RESOURCE.entries].index(
-                pefile.RESOURCE_TYPE["RT_RCDATA"]
-            )
+            rt_string_idx = [entry.id for entry in pe.DIRECTORY_ENTRY_RESOURCE.entries].index(pefile.RESOURCE_TYPE["RT_RCDATA"])
         except ValueError as e:
             return
         except AttributeError as e:

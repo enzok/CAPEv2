@@ -173,10 +173,7 @@ class Suricata(Processing):
                     current_pcap = suris.send_command("pcap-current")
                     log.debug("pcapfile list: {} current pcap: {}".format(pcap_flist, current_pcap))
 
-                    if (
-                        self.pcap_path not in pcap_flist["message"]["files"]
-                        and current_pcap["message"] != self.pcap_path
-                    ):
+                    if self.pcap_path not in pcap_flist["message"]["files"] and current_pcap["message"] != self.pcap_path:
                         log.debug("Pcap not in list and not current pcap lets assume it's processed")
                         break
                     else:
@@ -231,9 +228,9 @@ class Suricata(Processing):
 
                 if "event_type" in parsed:
                     if parsed["event_type"] == "alert":
-                        if parsed["alert"]["signature_id"] not in sid_blacklist and not parsed["alert"][
-                            "signature"
-                        ].startswith("SURICATA STREAM"):
+                        if parsed["alert"]["signature_id"] not in sid_blacklist and not parsed["alert"]["signature"].startswith(
+                            "SURICATA STREAM"
+                        ):
                             alog = dict()
                             if parsed["alert"]["gid"] == "":
                                 alog["gid"] = "None"
@@ -352,9 +349,7 @@ class Suricata(Processing):
                             with open(file_info["path"], "r") as drop_open:
                                 filedata = drop_open.read(SURICATA_FILE_BUFFER + 1)
                             if len(filedata) > SURICATA_FILE_BUFFER:
-                                file_info["data"] = convert_to_printable(
-                                    filedata[:SURICATA_FILE_BUFFER] + " <truncated>"
-                                )
+                                file_info["data"] = convert_to_printable(filedata[:SURICATA_FILE_BUFFER] + " <truncated>")
                             else:
                                 file_info["data"] = convert_to_printable(filedata)
                         except UnicodeDecodeError as e:
@@ -376,12 +371,7 @@ class Suricata(Processing):
                 except OSError as e:
                     log.warning("Unable to delete suricata file subdirectories: {}".format(e))
 
-        if (
-            SURICATA_FILES_DIR_FULL_PATH
-            and os.path.exists(SURICATA_FILES_DIR_FULL_PATH)
-            and Z7_PATH
-            and os.path.exists(Z7_PATH)
-        ):
+        if SURICATA_FILES_DIR_FULL_PATH and os.path.exists(SURICATA_FILES_DIR_FULL_PATH) and Z7_PATH and os.path.exists(Z7_PATH):
             # /usr/bin/7z a -pinfected -y files.zip files-json.log files
             cmdstr = "cd {} && {} a -p{} -y files.zip {} {}"
             cmd = cmdstr.format(self.logs_path, Z7_PATH, FILES_ZIP_PASS, SURICATA_FILE_LOG, SURICATA_FILES_DIR)

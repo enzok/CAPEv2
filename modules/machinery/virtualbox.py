@@ -41,9 +41,7 @@ class VirtualBox(Machinery):
         if not self.options.virtualbox.path:
             raise CuckooCriticalError("VirtualBox VBoxManage path missing, " "please add it to the config file")
         if not os.path.exists(self.options.virtualbox.path):
-            raise CuckooCriticalError(
-                "VirtualBox VBoxManage not found at " 'specified path "%s"' % self.options.virtualbox.path
-            )
+            raise CuckooCriticalError("VirtualBox VBoxManage not found at " 'specified path "%s"' % self.options.virtualbox.path)
 
         # Base checks.
         super(VirtualBox, self)._initialize_check()
@@ -68,9 +66,7 @@ class VirtualBox(Machinery):
             virtualbox_args.extend(["restorecurrent"])
 
         try:
-            if subprocess.call(
-                virtualbox_args, universal_newlines=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, close_fds=True
-            ):
+            if subprocess.call(virtualbox_args, universal_newlines=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, close_fds=True):
                 raise CuckooMachineError("VBoxManage exited with error " "restoring the machine's snapshot")
         except OSError as e:
             raise CuckooMachineError("VBoxManage failed restoring the " "machine: %s" % e)
@@ -89,9 +85,7 @@ class VirtualBox(Machinery):
             if err:
                 raise OSError(err)
         except OSError as e:
-            raise CuckooMachineError(
-                "VBoxManage failed starting the machine " "in %s mode: %s" % (self.options.virtualbox.mode.upper(), e)
-            )
+            raise CuckooMachineError("VBoxManage failed starting the machine " "in %s mode: %s" % (self.options.virtualbox.mode.upper(), e))
         self._wait_status(label, self.RUNNING)
 
     def stop(self, label):
@@ -205,11 +199,7 @@ class VirtualBox(Machinery):
 
         try:
             proc = subprocess.Popen(
-                [self.options.virtualbox.path, "-v"],
-                universal_newlines=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                close_fds=True,
+                [self.options.virtualbox.path, "-v"], universal_newlines=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, close_fds=True,
             )
             output, err = proc.communicate()
 
@@ -238,6 +228,4 @@ class VirtualBox(Machinery):
             )
             log.info("Successfully generated memory dump for virtual machine " "with label %s to path %s", label, path)
         except OSError as e:
-            raise CuckooMachineError(
-                "VBoxManage failed to take a memory " "dump of the machine with label %s: %s" % (label, e)
-            )
+            raise CuckooMachineError("VBoxManage failed to take a memory " "dump of the machine with label %s: %s" % (label, e))

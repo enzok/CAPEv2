@@ -603,14 +603,9 @@ def pretty_print_arg(category, api_name, arg_name, arg_val):
         return {1: "REG_CREATED_NEW_KEY", 2: "REG_OPENED_EXISTING_KEY"}.get(val, None)
     elif arg_name == "CreateDisposition":
         val = int(arg_val, 16)
-        return {
-            0: "FILE_SUPERSEDE",
-            1: "FILE_OPEN",
-            2: "FILE_CREATE",
-            3: "FILE_OPEN_IF",
-            4: "FILE_OVERWRITE",
-            5: "FILE_OVERWRITE_IF",
-        }.get(val, None)
+        return {0: "FILE_SUPERSEDE", 1: "FILE_OPEN", 2: "FILE_CREATE", 3: "FILE_OPEN_IF", 4: "FILE_OVERWRITE", 5: "FILE_OVERWRITE_IF",}.get(
+            val, None
+        )
     elif arg_name == "ShareAccess":
         val = int(arg_val, 10)
         res = []
@@ -707,12 +702,7 @@ def pretty_print_arg(category, api_name, arg_name, arg_val):
         }.get(val, None)
     elif category == "services" and arg_name == "ErrorControl":
         val = int(arg_val, 10)
-        return {
-            0: "SERVICE_ERROR_IGNORE",
-            1: "SERVICE_ERROR_NORMAL",
-            2: "SERVICE_ERROR_SEVERE",
-            3: "SERVICE_ERROR_CRITICAL",
-        }.get(val, None)
+        return {0: "SERVICE_ERROR_IGNORE", 1: "SERVICE_ERROR_NORMAL", 2: "SERVICE_ERROR_SEVERE", 3: "SERVICE_ERROR_CRITICAL",}.get(val, None)
     elif category == "services" and arg_name == "StartType":
         val = int(arg_val, 10)
         return {
@@ -910,10 +900,7 @@ def pretty_print_arg(category, api_name, arg_name, arg_val):
         if val:
             res.append("0x{0:08x}".format(val))
         return "|".join(res)
-    elif (
-        api_name in ["CreateProcessInternalW", "CreateProcessWithTokenW", "CreateProcessWithLogonW"]
-        and arg_name == "CreationFlags"
-    ):
+    elif api_name in ["CreateProcessInternalW", "CreateProcessWithTokenW", "CreateProcessWithLogonW"] and arg_name == "CreationFlags":
         val = int(arg_val, 16)
         res = []
         if val & 0x00000001:
@@ -1033,10 +1020,7 @@ def pretty_print_arg(category, api_name, arg_name, arg_val):
             res.append("0x{0:08x}".format(val))
         return "|".join(res)
     elif (
-        api_name == "NtCreateFile"
-        or api_name == "NtOpenFile"
-        or api_name == "NtCreateDirectoryObject"
-        or api_name == "NtOpenDirectoryObject"
+        api_name == "NtCreateFile" or api_name == "NtOpenFile" or api_name == "NtCreateDirectoryObject" or api_name == "NtOpenDirectoryObject"
     ) and arg_name == "DesiredAccess":
         val = int(arg_val, 16)
         remove = 0
@@ -1447,9 +1431,7 @@ def pretty_print_arg(category, api_name, arg_name, arg_val):
             }.get(val, None)
         elif arg_name == "type":
             val = int(arg_val, 10)
-            return {1: "SOCK_STREAM", 2: "SOCK_DGRAM", 3: "SOCK_RAW", 4: "SOCK_RDM", 5: "SOCK_SEQPACKET",}.get(
-                val, None
-            )
+            return {1: "SOCK_STREAM", 2: "SOCK_DGRAM", 3: "SOCK_RAW", 4: "SOCK_RDM", 5: "SOCK_SEQPACKET",}.get(val, None)
         elif arg_name == "protocol":
             val = int(arg_val, 10)
             return {
@@ -1750,9 +1732,7 @@ def get_vt_consensus(namelist):
     sorted_finaltoks = sorted(list(finaltoks.items()), key=operator.itemgetter(1), reverse=True)
     if len(sorted_finaltoks) == 1 and sorted_finaltoks[0][1] >= 2:
         return sorted_finaltoks[0][0]
-    elif len(sorted_finaltoks) > 1 and (
-        sorted_finaltoks[0][1] >= sorted_finaltoks[1][1] * 2 or sorted_finaltoks[0][1] > 8
-    ):
+    elif len(sorted_finaltoks) > 1 and (sorted_finaltoks[0][1] >= sorted_finaltoks[1][1] * 2 or sorted_finaltoks[0][1] > 8):
         return sorted_finaltoks[0][0]
     elif len(sorted_finaltoks) > 1 and sorted_finaltoks[0][1] == sorted_finaltoks[1][1] and sorted_finaltoks[0][1] > 2:
         return sorted_finaltoks[0][0]
@@ -1888,10 +1868,7 @@ def get_user_filename(options, customs):
 
 
 def generate_fake_name():
-    out = "".join(
-        random.choice(string.ascii_uppercase + string.ascii_lowercase + string.digits)
-        for i in range(random.randint(5, 15))
-    )
+    out = "".join(random.choice(string.ascii_uppercase + string.ascii_lowercase + string.digits) for i in range(random.randint(5, 15)))
     return out
 
 
@@ -1971,11 +1948,7 @@ def get_options(optstring):
     # accessible to the analysis package.
     options = {}
     if optstring and isinstance(optstring, str):
-        options = dict(
-            (value.strip() for value in option.split("=", 1))
-            for option in optstring.split(",")
-            if option and "=" in option
-        )
+        options = dict((value.strip() for value in option.split("=", 1)) for option in optstring.split(",") if option and "=" in option)
 
     return options
 

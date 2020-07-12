@@ -261,9 +261,7 @@ class Pcap:
                 if hostname:
                     break
 
-            enriched_hosts.append(
-                {"ip": ip, "country_name": self._get_cn(ip), "hostname": hostname, "inaddrarpa": inaddrarpa}
-            )
+            enriched_hosts.append({"ip": ip, "country_name": self._get_cn(ip), "hostname": hostname, "inaddrarpa": inaddrarpa})
         return enriched_hosts
 
     def _tcp_dissect(self, conn, data):
@@ -348,12 +346,7 @@ class Pcap:
         # DNS query parsing.
         query = {}
 
-        if (
-            dns.rcode == dpkt.dns.DNS_RCODE_NOERR
-            or dns.qr == dpkt.dns.DNS_R
-            or dns.opcode == dpkt.dns.DNS_QUERY
-            or True
-        ):
+        if dns.rcode == dpkt.dns.DNS_RCODE_NOERR or dns.qr == dpkt.dns.DNS_R or dns.opcode == dpkt.dns.DNS_QUERY or True:
             # DNS question.
             try:
                 q_name = dns.qd[0].name
@@ -764,10 +757,7 @@ class Pcap:
                         connection["dst"],
                         connection["dport"],
                     )
-                    if not (
-                        (dst, dport, src, sport) in self.tcp_connections_seen
-                        or (src, sport, dst, dport) in self.tcp_connections_seen
-                    ):
+                    if not ((dst, dport, src, sport) in self.tcp_connections_seen or (src, sport, dst, dport) in self.tcp_connections_seen):
                         self.tcp_connections.append((src, sport, dst, dport, offset, ts - first_ts))
                         self.tcp_connections_seen.add((src, sport, dst, dport))
 
@@ -787,10 +777,7 @@ class Pcap:
                         connection["dst"],
                         connection["dport"],
                     )
-                    if not (
-                        (dst, dport, src, sport) in self.udp_connections_seen
-                        or (src, sport, dst, dport) in self.udp_connections_seen
-                    ):
+                    if not ((dst, dport, src, sport) in self.udp_connections_seen or (src, sport, dst, dport) in self.udp_connections_seen):
                         self.udp_connections.append((src, sport, dst, dport, offset, ts - first_ts))
                         self.udp_connections_seen.add((src, sport, dst, dport))
 

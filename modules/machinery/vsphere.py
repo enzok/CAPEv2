@@ -40,9 +40,7 @@ class vSphere(Machinery):
 
     def __init__(self):
         if not HAVE_PYVMOMI:
-            raise CuckooDependencyError(
-                "Couldn't import pyVmomi. Please install " "using 'pip3 install --upgrade pyvmomi'"
-            )
+            raise CuckooDependencyError("Couldn't import pyVmomi. Please install " "using 'pip3 install --upgrade pyvmomi'")
 
         super(vSphere, self).__init__()
 
@@ -98,16 +96,12 @@ class vSphere(Machinery):
                 for machine in self.machines():
                     if not machine.snapshot:
                         raise CuckooCriticalError(
-                            "Snapshot name not specified "
-                            "for machine {0}, please add "
-                            "it to the config file.".format(machine.label)
+                            "Snapshot name not specified " "for machine {0}, please add " "it to the config file.".format(machine.label)
                         )
                     vm = self._get_virtual_machine_by_label(conn, machine.label)
                     if not vm:
                         raise CuckooCriticalError(
-                            "Unable to find machine {0} "
-                            "on vSphere host, please "
-                            "update your configuration.".format(machine.label)
+                            "Unable to find machine {0} " "on vSphere host, please " "update your configuration.".format(machine.label)
                         )
                     state = self._get_snapshot_power_state(vm, machine.snapshot)
                     if not state:
@@ -118,9 +112,7 @@ class vSphere(Machinery):
                         )
                     if state != self.RUNNING:
                         raise CuckooCriticalError(
-                            "Snapshot for machine {0} not "
-                            "in powered-on state, please "
-                            "create one.".format(machine.label)
+                            "Snapshot for machine {0} not " "in powered-on state, please " "create one.".format(machine.label)
                         )
 
         except CuckooCriticalError:

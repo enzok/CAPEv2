@@ -261,12 +261,7 @@ def tasks_list(limit=None, offset=None):
     ids = request.GET.get("ids")
 
     for row in db.list_tasks(
-        limit=limit,
-        details=True,
-        offset=offset,
-        completed_after=completed_after,
-        status=status,
-        order_by=Task.completed_on.asc(),
+        limit=limit, details=True, offset=offset, completed_after=completed_after, status=status, order_by=Task.completed_on.asc(),
     ):
         task = row.to_dict()
         if ids:
@@ -420,9 +415,7 @@ def tasks_report(task_id, report_format="json"):
     }
 
     if report_format.lower() in formats:
-        report_path = os.path.join(
-            CUCKOO_ROOT, "storage", "analyses", "%d" % task_id, "reports", formats[report_format.lower()]
-        )
+        report_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%d" % task_id, "reports", formats[report_format.lower()])
     elif report_format.lower() in bz_formats:
         bzf = bz_formats[report_format.lower()]
         srcdir = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%d" % task_id)
@@ -593,9 +586,7 @@ def tasks_iocs(task_id, detail=False):
         data["process_tree"] = {
             "pid": buf["behavior"]["processtree"][0]["pid"],
             "name": buf["behavior"]["processtree"][0]["name"],
-            "spawned_processes": [
-                createProcessTreeNode(child_process) for child_process in buf["behavior"]["processtree"][0]["children"]
-            ],
+            "spawned_processes": [createProcessTreeNode(child_process) for child_process in buf["behavior"]["processtree"][0]["children"]],
         }
     if "dropped" in buf:
         for entry in buf["dropped"]:
@@ -853,12 +844,8 @@ application = default_app()
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "-H", "--host", help="Host to bind the API server on", default="localhost", action="store", required=False
-    )
-    parser.add_argument(
-        "-p", "--port", help="Port to bind the API server on", default=8090, action="store", required=False
-    )
+    parser.add_argument("-H", "--host", help="Host to bind the API server on", default="localhost", action="store", required=False)
+    parser.add_argument("-p", "--port", help="Port to bind the API server on", default=8090, action="store", required=False)
     args = parser.parse_args()
 
     print("Depricated in favour of /api/ that is integrated in webgui")

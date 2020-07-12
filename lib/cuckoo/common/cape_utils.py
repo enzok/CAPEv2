@@ -33,15 +33,11 @@ try:
 
     logging.getLogger("mwcp").setLevel(logging.CRITICAL)
     mwcp.register_parser_directory(os.path.join(CUCKOO_ROOT, "modules", "processing", "parsers", "mwcp"))
-    malware_parsers = {
-        block.name.split(".")[-1]: block.name for block in mwcp.get_parser_descriptions(config_only=False)
-    }
+    malware_parsers = {block.name.split(".")[-1]: block.name for block in mwcp.get_parser_descriptions(config_only=False)}
     HAS_MWCP = True
 except ImportError as e:
     HAS_MWCP = False
-    log.info(
-        "Missed MWCP -> pip3 install git+https://github.com/Defense-Cyber-Crime-Center/DC3-MWCP\nDetails: {}".format(e)
-    )
+    log.info("Missed MWCP -> pip3 install git+https://github.com/Defense-Cyber-Crime-Center/DC3-MWCP\nDetails: {}".format(e))
 
 try:
     from malwareconfig import fileparser
@@ -227,10 +223,7 @@ def static_config_parsers(yara_hit, file_data, cape_config):
                 for (key, value) in malwareconfig_config.items():
                     cape_config["cape_config"].update({key: [value]})
         except Exception as e:
-            msg = (
-                "malwareconfig parsing error with {}: {}, you should submit issue/fix to "
-                "https://github.com/kevthehermit/RATDecoders/"
-            )
+            msg = "malwareconfig parsing error with {}: {}, you should submit issue/fix to " "https://github.com/kevthehermit/RATDecoders/"
             log.warning(msg.format(cape_name, e))
 
         if "cape_config" in cape_config:

@@ -51,23 +51,7 @@ def choose_package(file_type, file_name, exports, target):
     elif (
         "Microsoft Office Excel" in file_type
         or "Microsoft Excel" in file_type
-        or file_name.endswith(
-            (
-                ".xls",
-                ".xlt",
-                ".xlm",
-                ".xlsx",
-                ".xltx",
-                ".xlsm",
-                ".xltm",
-                ".xlsb",
-                ".xla",
-                ".xlam",
-                ".xll",
-                ".xlw",
-                ".slk",
-            )
-        )
+        or file_name.endswith((".xls", ".xlt", ".xlm", ".xlsx", ".xltx", ".xlsm", ".xltm", ".xlsb", ".xla", ".xlam", ".xll", ".xlw", ".slk",))
     ):
         return "xls"
     elif "Microsoft PowerPoint" in file_type or file_name.endswith(

@@ -37,9 +37,5 @@ argsd = {
     "list-hostbit": [{"name": "ipaddress", "required": 1,},],
     "memcap-set": [{"name": "config", "required": 1,}, {"name": "memcap", "required": 1,},],
     "memcap-show": [{"name": "config", "required": 1,},],
-    "dataset-add": [
-        {"name": "setname", "required": 1,},
-        {"name": "settype", "required": 1,},
-        {"name": "datavalue", "required": 1,},
-    ],
+    "dataset-add": [{"name": "setname", "required": 1,}, {"name": "settype", "required": 1,}, {"name": "datavalue", "required": 1,},],
 }

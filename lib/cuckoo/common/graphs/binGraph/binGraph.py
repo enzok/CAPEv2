@@ -66,11 +66,7 @@ def find_files(search_paths, recurse):
                 for fname in files:
                     abs_fpath = os.path.join(dir_name, fname)
 
-                    if (
-                        os.path.isfile(abs_fpath)
-                        and not os.path.islink(abs_fpath)
-                        and not os.stat(abs_fpath).st_size == 0
-                    ):
+                    if os.path.isfile(abs_fpath) and not os.path.islink(abs_fpath) and not os.stat(abs_fpath).st_size == 0:
                         log.info('File found: "{}"'.format(abs_fpath))
                         __files__.append(abs_fpath)
 
@@ -254,9 +250,7 @@ def generate_graphs(args_dict):
                 log.info('Graph saved to: "{}"'.format(abs_save_fpath))
 
             else:
-                plt.savefig(
-                    abs_save_fpath, format=args_dict["format"], dpi=args_dict["dpi"], forward=True, **save_kwargs
-                )
+                plt.savefig(abs_save_fpath, format=args_dict["format"], dpi=args_dict["dpi"], forward=True, **save_kwargs)
                 log.info('Graph saved to: "{}"'.format(abs_save_fpath))
 
             plt.clf()
@@ -288,20 +282,11 @@ if __name__ == "__main__":
     )
     parser.add_argument("--prefix", type=str, metavar="", help="Add this prefix to the saved filenames")
     parser.add_argument(
-        "--out",
-        type=str,
-        dest="save_dir",
-        default=os.getcwd(),
-        metavar="/data/graphs/",
-        help="Where to save the graph files",
+        "--out", type=str, dest="save_dir", default=os.getcwd(), metavar="/data/graphs/", help="Where to save the graph files",
     )
-    parser.add_argument(
-        "--json", action="store_true", default=__json__, help="Ouput graphs as json with graph images encoded as Base64"
-    )
+    parser.add_argument("--json", action="store_true", default=__json__, help="Ouput graphs as json with graph images encoded as Base64")
     parser.add_argument("--graphtitle", type=str, metavar='"file.exe"', default=None, help="Given title for graphs")
-    parser.add_argument(
-        "--showplt", action="store_true", default=__showplt__, help="Show plot interactively (disables saving to file)"
-    )
+    parser.add_argument("--showplt", action="store_true", default=__showplt__, help="Show plot interactively (disables saving to file)")
     parser.add_argument(
         "--format",
         type=str,
@@ -311,9 +296,7 @@ if __name__ == "__main__":
         metavar="png",
         help="Graph output format. All matplotlib outputs are supported: e.g. png, pdf, ps, eps, svg",
     )
-    parser.add_argument(
-        "--figsize", type=int, nargs=2, default=__figsize__, metavar="#", help="Figure width and height in inches"
-    )
+    parser.add_argument("--figsize", type=int, nargs=2, default=__figsize__, metavar="#", help="Figure width and height in inches")
     parser.add_argument("--dpi", type=int, default=__figdpi__, metavar=__figdpi__, help="Figure dpi")
     parser.add_argument(
         "--blob",

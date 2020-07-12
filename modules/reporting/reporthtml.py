@@ -69,9 +69,7 @@ class ReportHTML(Report):
         except TemplateNotFound as e:
             raise CuckooReportError("Failed to generate summary HTML report: {} {} ".format(e, e.name))
         except (TemplateSyntaxError, TemplateAssertionError) as e:
-            raise CuckooReportError(
-                "Failed to generate summary HTML report: {} on {}, line {} ".format(e, e.name, e.lineno)
-            )
+            raise CuckooReportError("Failed to generate summary HTML report: {} on {}, line {} ".format(e, e.name, e.lineno))
         try:
             with codecs.open(os.path.join(self.reports_path, "report.html"), "w", encoding="utf-8") as report:
                 report.write(html)

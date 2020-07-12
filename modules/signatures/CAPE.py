@@ -121,11 +121,7 @@ class CAPE_Unpacker(Signature):
 
     def on_call(self, call, process):
 
-        if (
-            process["process_name"] == "WINWORD.EXE"
-            or process["process_name"] == "EXCEL.EXE"
-            or process["process_name"] == "POWERPNT.EXE"
-        ):
+        if process["process_name"] == "WINWORD.EXE" or process["process_name"] == "EXCEL.EXE" or process["process_name"] == "POWERPNT.EXE":
             return False
         if call["api"] == "NtAllocateVirtualMemory":
             protection = int(self.get_raw_argument(call, "Protection"), 0)
@@ -189,11 +185,7 @@ class CAPE_InjectionCreateRemoteThread(Signature):
         elif call["api"] == "VirtualAllocEx" or call["api"] == "NtAllocateVirtualMemory":
             if self.get_argument(call, "ProcessHandle") in self.process_handles:
                 self.write_detected = True
-        elif (
-            call["api"] == "NtWriteVirtualMemory"
-            or call["api"] == "NtWow64WriteVirtualMemory64"
-            or call["api"] == "WriteProcessMemory"
-        ):
+        elif call["api"] == "NtWriteVirtualMemory" or call["api"] == "NtWow64WriteVirtualMemory64" or call["api"] == "WriteProcessMemory":
             if self.get_argument(call, "ProcessHandle") in self.process_handles:
                 self.write_detected = True
                 addr = int(self.get_argument(call, "BaseAddress"), 16)
@@ -205,11 +197,7 @@ class CAPE_InjectionCreateRemoteThread(Signature):
                     #                                     procname, self.handle_map[handle])
                     # self.data.append({"Injection": desc})
                     return True
-        elif (
-            call["api"] == "CreateRemoteThread"
-            or call["api"].startswith("NtCreateThread")
-            or call["api"].startswith("NtCreateThreadEx")
-        ):
+        elif call["api"] == "CreateRemoteThread" or call["api"].startswith("NtCreateThread") or call["api"].startswith("NtCreateThreadEx"):
             handle = self.get_argument(call, "ProcessHandle")
             if handle in self.process_handles:
                 # procname = self.get_name_from_pid(self.handle_map[handle])
@@ -480,21 +468,7 @@ class CAPE_PlugX(Signature):
 
         if call["api"] == "memcpy":
             count = self.get_raw_argument(call, "count")
-            if count in (
-                0xAE4,
-                0xBE4,
-                0x150C,
-                0x1510,
-                0x1516,
-                0x170C,
-                0x1B18,
-                0x1D18,
-                0x2540,
-                0x254C,
-                0x2D58,
-                0x36A4,
-                0x4EA4,
-            ):
+            if count in (0xAE4, 0xBE4, 0x150C, 0x1510, 0x1516, 0x170C, 0x1B18, 0x1D18, 0x2540, 0x254C, 0x2D58, 0x36A4, 0x4EA4,):
                 self.config_copy = True
 
     def on_complete(self):

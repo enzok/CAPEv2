@@ -113,10 +113,7 @@ def get_val(buf, idx):
         idx += 8
         # convert from .NET DateTime to Python datetime (mask off the DateTimeKind, which is set to UTC in NanoCore)
         # magic value is the number of 100ns increments since start of Gregorian calendar up to beginning of unix epoch time
-        theval = (
-            str(datetime.datetime.utcfromtimestamp(((thetime & 0x0FFFFFFFFFFFFFFF) - 0x089F7FF5F7B58000) / 10000000))
-            + " UTC"
-        )
+        theval = str(datetime.datetime.utcfromtimestamp(((thetime & 0x0FFFFFFFFFFFFFFF) - 0x089F7FF5F7B58000) / 10000000)) + " UTC"
     elif code == 21:
         # version
         strlen = unpack_from("B", buf[idx:])[0]

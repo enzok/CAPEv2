@@ -388,9 +388,7 @@ def do_execute():
         if async_exec:
             subprocess.Popen(request.form["command"], shell=shell, cwd=cwd)
         else:
-            p = subprocess.Popen(
-                request.form["command"], shell=shell, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE
-            )
+            p = subprocess.Popen(request.form["command"], shell=shell, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             stdout, stderr = p.communicate()
     except:
         state["status"] = STATUS_FAILED

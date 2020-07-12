@@ -55,11 +55,7 @@ class BinGraph(Report):
             try:
                 if not os.listdir(bingraph_path) and results.get("target", {}).get("file", False):
                     bingraph_args_dict.update(
-                        {
-                            "prefix": results["target"]["file"]["sha256"],
-                            "files": [self.file_path],
-                            "save_dir": bingraph_path,
-                        }
+                        {"prefix": results["target"]["file"]["sha256"], "files": [self.file_path], "save_dir": bingraph_path,}
                     )
                     try:
                         bingraph_gen(bingraph_args_dict)

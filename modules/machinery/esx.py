@@ -36,9 +36,7 @@ class ESX(LibVirtMachinery):
             elif credential[0] == libvirt.VIR_CRED_NOECHOPROMPT:
                 credential[4] = self.options.esx.password
             else:
-                raise CuckooCriticalError(
-                    "ESX machinery did not recieve an object to inject a username or password into"
-                )
+                raise CuckooCriticalError("ESX machinery did not recieve an object to inject a username or password into")
 
         return 0
 

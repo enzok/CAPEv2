@@ -34,35 +34,16 @@ def main():
     parser.add_argument("target", help="URL, path to the file or folder to analyze")
     parser.add_argument("-d", "--debug", action="store_true", help="Enable debug logging")
     parser.add_argument(
-        "--remote",
-        type=str,
-        action="store",
-        default=None,
-        help="Specify IP:port to a Cuckoo API server to submit remotely",
-        required=False,
+        "--remote", type=str, action="store", default=None, help="Specify IP:port to a Cuckoo API server to submit remotely", required=False,
     )
-    parser.add_argument(
-        "--user", type=str, action="store", default=None, help="Username for Basic Auth", required=False
-    )
-    parser.add_argument(
-        "--password", type=str, action="store", default=None, help="Password for Basic Auth", required=False
-    )
-    parser.add_argument(
-        "--sslnoverify", action="store_true", default=False, help="Do not validate SSL cert", required=False
-    )
+    parser.add_argument("--user", type=str, action="store", default=None, help="Username for Basic Auth", required=False)
+    parser.add_argument("--password", type=str, action="store", default=None, help="Password for Basic Auth", required=False)
+    parser.add_argument("--sslnoverify", action="store_true", default=False, help="Do not validate SSL cert", required=False)
     parser.add_argument("--ssl", action="store_true", default=False, help="Use SSL/TLS for remote", required=False)
-    parser.add_argument(
-        "--url", action="store_true", default=False, help="Specify whether the target is an URL", required=False
-    )
-    parser.add_argument(
-        "--package", type=str, action="store", default="", help="Specify an analysis package", required=False
-    )
-    parser.add_argument(
-        "--custom", type=str, action="store", default="", help="Specify any custom value", required=False
-    )
-    parser.add_argument(
-        "--timeout", type=int, action="store", default=0, help="Specify an analysis timeout", required=False
-    )
+    parser.add_argument("--url", action="store_true", default=False, help="Specify whether the target is an URL", required=False)
+    parser.add_argument("--package", type=str, action="store", default="", help="Specify an analysis package", required=False)
+    parser.add_argument("--custom", type=str, action="store", default="", help="Specify any custom value", required=False)
+    parser.add_argument("--timeout", type=int, action="store", default=0, help="Specify an analysis timeout", required=False)
     parser.add_argument(
         "--options",
         type=str,
@@ -72,20 +53,10 @@ def main():
         required=False,
     )
     parser.add_argument(
-        "--priority",
-        type=int,
-        action="store",
-        default=1,
-        help="Specify a priority for the analysis represented by an integer",
-        required=False,
+        "--priority", type=int, action="store", default=1, help="Specify a priority for the analysis represented by an integer", required=False,
     )
     parser.add_argument(
-        "--machine",
-        type=str,
-        action="store",
-        default="",
-        help="Specify the identifier of a machine you want to use",
-        required=False,
+        "--machine", type=str, action="store", default="", help="Specify the identifier of a machine you want to use", required=False,
     )
     parser.add_argument(
         "--platform",
@@ -96,11 +67,7 @@ def main():
         required=False,
     )
     parser.add_argument(
-        "--memory",
-        action="store_true",
-        default=False,
-        help="Enable to take a memory dump of the analysis machine",
-        required=False,
+        "--memory", action="store_true", default=False, help="Enable to take a memory dump of the analysis machine", required=False,
     )
     parser.add_argument(
         "--enforce-timeout",
@@ -109,39 +76,18 @@ def main():
         help="Enable to force the analysis to run for the full timeout period",
         required=False,
     )
+    parser.add_argument("--clock", type=str, action="store", default=None, help="Set virtual machine clock", required=False)
     parser.add_argument(
-        "--clock", type=str, action="store", default=None, help="Set virtual machine clock", required=False
+        "--tags", type=str, action="store", default=None, help="Specify tags identifier of a machine you want to use", required=False,
     )
+    parser.add_argument("--max", type=int, action="store", default=None, help="Maximum samples to add in a row", required=False)
+    parser.add_argument("--pattern", type=str, action="store", default=None, help="Pattern of files to submit", required=False)
+    parser.add_argument("--shuffle", action="store_true", default=False, help="Shuffle samples before submitting them", required=False)
     parser.add_argument(
-        "--tags",
-        type=str,
-        action="store",
-        default=None,
-        help="Specify tags identifier of a machine you want to use",
-        required=False,
+        "--unique", action="store_true", default=False, help="Only submit new samples, ignore duplicates", required=False,
     )
-    parser.add_argument(
-        "--max", type=int, action="store", default=None, help="Maximum samples to add in a row", required=False
-    )
-    parser.add_argument(
-        "--pattern", type=str, action="store", default=None, help="Pattern of files to submit", required=False
-    )
-    parser.add_argument(
-        "--shuffle", action="store_true", default=False, help="Shuffle samples before submitting them", required=False
-    )
-    parser.add_argument(
-        "--unique",
-        action="store_true",
-        default=False,
-        help="Only submit new samples, ignore duplicates",
-        required=False,
-    )
-    parser.add_argument(
-        "--quiet", action="store_true", default=False, help="Only print text on failure", required=False
-    )
-    parser.add_argument(
-        "--procdump", action="store_true", default=False, help="Dump, upload and process proc/memdumps", required=False
-    )
+    parser.add_argument("--quiet", action="store_true", default=False, help="Only print text on failure", required=False)
+    parser.add_argument("--procdump", action="store_true", default=False, help="Dump, upload and process proc/memdumps", required=False)
 
     try:
         args = parser.parse_args()
@@ -317,9 +263,7 @@ def main():
                                 verify = False
                             else:
                                 verify = True
-                            response = requests.post(
-                                url, auth=(args.user, args.password), files=files, data=data, verify=verify
-                            )
+                            response = requests.post(url, auth=(args.user, args.password), files=files, data=data, verify=verify)
                         else:
                             response = requests.post(url, auth=(args.user, args.password), files=files, data=data)
                     else:
@@ -367,17 +311,10 @@ def main():
             tasks_count = len(task_ids)
             if tasks_count > 1:
                 if not args.quiet:
-                    print(
-                        (bold(green("Success")) + ': File "{0}" added as task with IDs {1}'.format(file_path, task_ids))
-                    )
+                    print((bold(green("Success")) + ': File "{0}" added as task with IDs {1}'.format(file_path, task_ids)))
             elif tasks_count > 0:
                 if not args.quiet:
-                    print(
-                        (
-                            bold(green("Success"))
-                            + ': File "{0}" added as task with ID {1}'.format(file_path, task_ids[0])
-                        )
-                    )
+                    print((bold(green("Success")) + ': File "{0}" added as task with ID {1}'.format(file_path, task_ids[0])))
             else:
                 print((bold(red("Error")) + ": adding task to database"))
 

@@ -687,8 +687,7 @@ def vba_extract_functions(vba_content_lines):
 
             declared_func_name = vba_line[vba_line.find(func_type) + len(func_type) : vba_line.find(" Lib ")]
             external_func_name = vba_line[
-                vba_line.find(' Alias "')
-                + len(' Alias "') : vba_line.find('" (', vba_line.find(' Alias "') + len(' Alias "'))
+                vba_line.find(' Alias "') + len(' Alias "') : vba_line.find('" (', vba_line.find(' Alias "') + len(' Alias "'))
             ]
             func_name = declared_func_name + " (" + external_func_name + ")" + " (External)"
 
@@ -728,12 +727,7 @@ def vba_extract_functions(vba_content_lines):
         # Some macros have the word "Function" as string inside a code line.
         # This should remove FP funtions, by checking the line start
         legit_declare_line_start = False
-        if (
-            vba_line.startswith("Sub")
-            or vba_line.startswith("Function")
-            or vba_line.startswith("Private")
-            or vba_line.startswith("Public")
-        ):
+        if vba_line.startswith("Sub") or vba_line.startswith("Function") or vba_line.startswith("Private") or vba_line.startswith("Public"):
             legit_declare_line_start = True
 
         is_func_end = vba_line.startswith("End Sub") or vba_line.startswith("End Function")
@@ -931,15 +925,7 @@ def find_keywords_in_graph(vba_func_dict, DG):
                 DG.node[func_name]["keywords"] = DG.node[func_name]["keywords"] + ","
 
             DG.node[func_name]["keywords"] = (
-                DG.node[func_name]["keywords"]
-                + "<font color='"
-                + keyword_color
-                + "'>"
-                + dic_key
-                + "["
-                + str(keyword_count)
-                + "]"
-                + "</font>"
+                DG.node[func_name]["keywords"] + "<font color='" + keyword_color + "'>" + dic_key + "[" + str(keyword_count) + "]" + "</font>"
             )
 
         # handle autorun keywords
@@ -986,10 +972,7 @@ def find_change_flow(vba_func_dict, DG):
 
                         # show this connection as a function call
                         DG.add_edge(
-                            func_name,
-                            changed_object + "_Change",
-                            label="Triggers",
-                            fontcolor=color_scheme["COLOR_TRIGGERED_CALL_EDGE"],
+                            func_name, changed_object + "_Change", label="Triggers", fontcolor=color_scheme["COLOR_TRIGGERED_CALL_EDGE"],
                         )
     return DG
 
@@ -1245,12 +1228,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("-o", "--output", required=False, help='output folder (default: "output")')
     ap.add_argument(
-        "-c",
-        "--colors",
-        required=False,
-        type=int,
-        choices=[0, 1, 2, 3],
-        help="color scheme number [0, 1, 2, 3] (default: 0 - B&W)",
+        "-c", "--colors", required=False, type=int, choices=[0, 1, 2, 3], help="color scheme number [0, 1, 2, 3] (default: 0 - B&W)",
     )
 
     if is_pipe:
@@ -1261,9 +1239,7 @@ def main():
 
     else:
         input_group = ap.add_mutually_exclusive_group(required=True)
-        input_group.add_argument(
-            "-i", "--input", required=False, default=False, help="olevba generated file or .bas file"
-        )
+        input_group.add_argument("-i", "--input", required=False, default=False, help="olevba generated file or .bas file")
         input_group.add_argument("-f", "--file", required=False, default=False, help="Office file with macros")
 
         cmd_args = vars(ap.parse_args())

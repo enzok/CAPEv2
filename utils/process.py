@@ -83,11 +83,7 @@ def process(target=None, copy_path=None, task=None, report=False, auto=False, ca
             port = repconf.mongodb.port
             db = repconf.mongodb.db
             conn = MongoClient(
-                host,
-                port=port,
-                username=repconf.mongodb.get("username", None),
-                password=repconf.mongodb.get("password", None),
-                authSource=db,
+                host, port=port, username=repconf.mongodb.get("username", None), password=repconf.mongodb.get("password", None), authSource=db,
             )
             mdata = conn[db]
             analyses = mdata.analysis.find({"info.id": int(task_id)})
@@ -152,9 +148,7 @@ def init_logging(auto=False, tid=0, debug=False):
             if cfg.logging.enabled:
                 days = cfg.logging.backup_count
                 interval = cfg.logging.interval
-                fh = logging.handlers.TimedRotatingFileHandler(
-                    os.path.join(CUCKOO_ROOT, "log", "process.log"), when=interval, backupCount=days
-                )
+                fh = logging.handlers.TimedRotatingFileHandler(os.path.join(CUCKOO_ROOT, "log", "process.log"), when=interval, backupCount=days)
             else:
                 fh = logging.handlers.WatchedFileHandler(os.path.join(CUCKOO_ROOT, "log", "process.log"))
         else:
@@ -193,9 +187,7 @@ def processing_finished(future):
     del pending_task_id_map[task_id]
 
 
-def autoprocess(
-    parallel=1, failed_processing=False, maxtasksperchild=7, memory_debugging=False, processing_timeout=300
-):
+def autoprocess(parallel=1, failed_processing=False, maxtasksperchild=7, memory_debugging=False, processing_timeout=300):
     maxcount = cfg.cuckoo.max_analysis_count
     count = 0
     db = Database()
@@ -266,49 +258,22 @@ def autoprocess(
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "id", type=str, help="ID of the analysis to process " "(auto for continuous processing of unprocessed tasks)."
-    )
-    parser.add_argument(
-        "-c", "--caperesubmit", help="Allow CAPE resubmit processing.", action="store_true", required=False
-    )
+    parser.add_argument("id", type=str, help="ID of the analysis to process " "(auto for continuous processing of unprocessed tasks).")
+    parser.add_argument("-c", "--caperesubmit", help="Allow CAPE resubmit processing.", action="store_true", required=False)
     parser.add_argument("-d", "--debug", help="Display debug messages", action="store_true", required=False)
     parser.add_argument("-r", "--report", help="Re-generate report", action="store_true", required=False)
+    parser.add_argument("-s", "--signatures", help="Re-execute signatures on the report", action="store_true", required=False)
     parser.add_argument(
-        "-s", "--signatures", help="Re-execute signatures on the report", action="store_true", required=False
+        "-p", "--parallel", help="Number of parallel threads to use (auto mode only).", type=int, required=False, default=1,
     )
     parser.add_argument(
-        "-p",
-        "--parallel",
-        help="Number of parallel threads to use (auto mode only).",
-        type=int,
-        required=False,
-        default=1,
+        "-fp", "--failed-processing", help="reprocess failed processing", action="store_true", required=False, default=False,
     )
     parser.add_argument(
-        "-fp",
-        "--failed-processing",
-        help="reprocess failed processing",
-        action="store_true",
-        required=False,
-        default=False,
+        "-mc", "--maxtasksperchild", help="Max children tasks per worker", action="store", type=int, required=False, default=7,
     )
     parser.add_argument(
-        "-mc",
-        "--maxtasksperchild",
-        help="Max children tasks per worker",
-        action="store",
-        type=int,
-        required=False,
-        default=7,
-    )
-    parser.add_argument(
-        "-md",
-        "--memory-debugging",
-        help="Enable logging garbage collection related info",
-        action="store_true",
-        required=False,
-        default=False,
+        "-md", "--memory-debugging", help="Enable logging garbage collection related info", action="store_true", required=False, default=False,
     )
     parser.add_argument(
         "-pt",

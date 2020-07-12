@@ -239,9 +239,7 @@ class Emotet(Parser):
                             hb = struct.unpack("b", filebuf[c2list_va_offset + 29 : c2list_va_offset + 30])[0]
                             if hb:
                                 delta += 1
-                            c2_list_va = struct.unpack(
-                                "i", filebuf[c2list_va_offset + delta : c2list_va_offset + delta + 4]
-                            )[0]
+                            c2_list_va = struct.unpack("i", filebuf[c2list_va_offset + delta : c2list_va_offset + delta + 4])[0]
                             if c2_list_va - image_base > 0x20000:
                                 c2_list_rva = c2_list_va & 0xFFFF
                             else:

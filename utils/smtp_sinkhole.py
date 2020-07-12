@@ -71,15 +71,11 @@ class SmtpSink(SMTPServer):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        prog="smtp_sinkhole.py", usage="%(prog)s [host [port]]", description="SMTP Sinkhole"
-    )
+    parser = argparse.ArgumentParser(prog="smtp_sinkhole.py", usage="%(prog)s [host [port]]", description="SMTP Sinkhole")
     parser.add_argument("host", nargs="?", default="127.0.0.1")
     parser.add_argument("port", nargs="?", type=int, default=1025)
     parser.add_argument("--dir", default=None, help="Directory used to dump emails.")
-    parser.add_argument(
-        "--forward", action="store_true", default=False, help="Forward emails to specific email address"
-    )
+    parser.add_argument("--forward", action="store_true", default=False, help="Forward emails to specific email address")
 
     args = parser.parse_args()
 

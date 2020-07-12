@@ -163,9 +163,7 @@ def sep_unquarantine(f):
                     data[offset + 5 + i] ^= 0xFF
                 if has_header:
                     headerlen = 12 + struct.unpack_from("<I", data[offset + 5 + 8 : offset + 5 + 12])[0] + 28
-                    binsize = struct.unpack_from("<I", data[offset + 5 + headerlen - 12 : offset + 5 + headerlen - 8])[
-                        0
-                    ]
+                    binsize = struct.unpack_from("<I", data[offset + 5 + headerlen - 12 : offset + 5 + headerlen - 8])[0]
                     collectedsize += len(tagdata) - headerlen
                     if collectedsize > binsize:
                         binlen = binsize
@@ -594,10 +592,7 @@ def kav_unquarantine(file):
         if idname == "cNP_QB_FULLNAME":
             vallen = length - idlen
             origname = (
-                six.text_type(data[curoffset + 8 + idlen : curoffset + 4 + length])
-                .decode("utf-16")
-                .encode("utf8", "ignore")
-                .rstrip("\0")
+                six.text_type(data[curoffset + 8 + idlen : curoffset + 4 + length]).decode("utf-16").encode("utf8", "ignore").rstrip("\0")
             )
         curoffset += 4 + length
         if curoffset >= metaoffset + metalen:

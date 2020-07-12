@@ -69,21 +69,11 @@ def check_apk_file(apk_file):
 # -------------------------------------------------------------
 def logo():
     print("\n")
-    print(
-        " ______     __  __     __     ______   ______        ______     ______     ______     __  __     ______     __   __   "
-    )
-    print(
-        '/\  ___\   /\ \_\ \   /\ \   /\__  _\ /\  ___\      /\  == \   /\  == \   /\  __ \   /\ \/ /    /\  ___\   /\ "-.\ \  '
-    )
-    print(
-        '\ \___  \  \ \  __ \  \ \ \  \/_/\ \/ \ \___  \     \ \  __<   \ \  __<   \ \ \/\ \  \ \  _"-.  \ \  __\   \ \ \-.  \ '
-    )
-    print(
-        ' \/\_____\  \ \_\ \_\  \ \_\    \ \_\  \/\_____\     \ \_____\  \ \_\ \_\  \ \_____\  \ \_\ \_\  \ \_____\  \ \_\\\\"\_\\'
-    )
-    print(
-        "  \/_____/   \/_/\/_/   \/_/     \/_/   \/_____/      \/_____/   \/_/ /_/   \/_____/   \/_/\/_/   \/_____/   \/_/ \/_/"
-    )
+    print(" ______     __  __     __     ______   ______        ______     ______     ______     __  __     ______     __   __   ")
+    print('/\  ___\   /\ \_\ \   /\ \   /\__  _\ /\  ___\      /\  == \   /\  == \   /\  __ \   /\ \/ /    /\  ___\   /\ "-.\ \  ')
+    print('\ \___  \  \ \  __ \  \ \ \  \/_/\ \/ \ \___  \     \ \  __<   \ \  __<   \ \ \/\ \  \ \  _"-.  \ \  __\   \ \ \-.  \ ')
+    print(' \/\_____\  \ \_\ \_\  \ \_\    \ \_\  \/\_____\     \ \_____\  \ \_\ \_\  \ \_____\  \ \_\ \_\  \ \_____\  \ \_\\\\"\_\\')
+    print("  \/_____/   \/_/\/_/   \/_/     \/_/   \/_____/      \/_____/   \/_/ /_/   \/_____/   \/_/\/_/   \/_____/   \/_/ \/_/")
     print("\n")
     print(" Find the C&C for this Spynote mallie!")
     print(" Jacob Soo")
@@ -96,13 +86,7 @@ if __name__ == "__main__":
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument("-f", "--file", action="store", nargs=1, dest="szFilename", help="filename", metavar="filename")
     group.add_argument(
-        "-d",
-        "--directory",
-        action="store",
-        nargs=1,
-        dest="szDirectory",
-        help="Location of directory.",
-        metavar="directory",
+        "-d", "--directory", action="store", nargs=1, dest="szDirectory", help="Location of directory.", metavar="directory",
     )
 
     args = parser.parse_args()

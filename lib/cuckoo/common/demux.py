@@ -20,11 +20,7 @@ try:
 
     HAS_SFLOCK = True
 except ImportError:
-    print(
-        "You must install sflock\n"
-        "sudo apt-get install p7zip-full rar unace-nonfree cabextract\n"
-        "pip3 install -U sflock"
-    )
+    print("You must install sflock\n" "sudo apt-get install p7zip-full rar unace-nonfree cabextract\n" "pip3 install -U sflock")
     HAS_SFLOCK = False
 
 log = logging.getLogger(__name__)

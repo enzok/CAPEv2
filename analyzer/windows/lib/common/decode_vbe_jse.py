@@ -314,9 +314,7 @@ def Decode(data):
 
     result = ""
     index = -1
-    for char in (
-        data.replace("@&", chr(10)).replace("@#", chr(13)).replace("@*", ">").replace("@!", "<").replace("@$", "@")
-    ):
+    for char in data.replace("@&", chr(10)).replace("@#", chr(13)).replace("@*", ">").replace("@!", "<").replace("@$", "@"):
         byte = ord(char)
         if byte < 128:
             index = index + 1
@@ -349,9 +347,7 @@ def DecodeVBEJSE(content, options):
 
 
 def Main():
-    oParser = optparse.OptionParser(
-        usage="usage: %prog [options] [file]\n" + __description__, version="%prog " + __version__
-    )
+    oParser = optparse.OptionParser(usage="usage: %prog [options] [file]\n" + __description__, version="%prog " + __version__)
     oParser.add_option("-m", "--man", action="store_true", default=False, help="Print manual")
     (options, args) = oParser.parse_args()
 

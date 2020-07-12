@@ -248,10 +248,7 @@ class RunAuxiliary(object):
                 continue
             except:
                 log.exception(
-                    "Error performing callback %r on auxiliary module %r",
-                    name,
-                    module.__class__.__name__,
-                    extra={"task_id": self.task["id"]},
+                    "Error performing callback %r on auxiliary module %r", name, module.__class__.__name__, extra={"task_id": self.task["id"]},
                 )
 
             enabled.append(module)
@@ -323,19 +320,14 @@ class RunProcessing(object):
             # Run the processing module and retrieve the generated data to be
             # appended to the general results container.
             log.debug(
-                'Executing processing module "%s" on analysis at ' '"%s"',
-                current.__class__.__name__,
-                self.analysis_path,
+                'Executing processing module "%s" on analysis at ' '"%s"', current.__class__.__name__, self.analysis_path,
             )
             pretime = datetime.now()
             data = current.run()
             posttime = datetime.now()
             timediff = posttime - pretime
             self.results["statistics"]["processing"].append(
-                {
-                    "name": current.__class__.__name__,
-                    "time": float("%d.%03d" % (timediff.seconds, timediff.microseconds / 1000)),
-                }
+                {"name": current.__class__.__name__, "time": float("%d.%03d" % (timediff.seconds, timediff.microseconds / 1000)),}
             )
 
             # If succeeded, return they module's key name and the data to be
@@ -400,16 +392,9 @@ class RunProcessing(object):
         if self.results.get("detections", False):
             family = self.results["detections"]
             self.results["malfamily_tag"] = "Yara"
-        elif (
-            not family
-            and "suricata" in self.results
-            and "alerts" in self.results["suricata"]
-            and self.results["suricata"]["alerts"]
-        ):
+        elif not family and "suricata" in self.results and "alerts" in self.results["suricata"] and self.results["suricata"]["alerts"]:
             for alert in self.results["suricata"]["alerts"]:
-                if alert.get("signature", "") and alert["signature"].startswith(
-                    ("ET TROJAN", "ETPRO TROJAN", "ET MALWARE", "ET CNC")
-                ):
+                if alert.get("signature", "") and alert["signature"].startswith(("ET TROJAN", "ETPRO TROJAN", "ET MALWARE", "ET CNC")):
                     family = get_suricata_family(alert["signature"])
                     if family:
                         self.results["malfamily_tag"] = "Suricata"
@@ -499,9 +484,7 @@ class RunSignatures(object):
                 # version, skip this signature.
                 if StrictVersion(version) < StrictVersion(current.minimum.split("-")[0]):
                     log.debug(
-                        "You are running an older incompatible version "
-                        'of Cuckoo, the signature "%s" requires '
-                        "minimum version %s",
+                        "You are running an older incompatible version " 'of Cuckoo, the signature "%s" requires ' "minimum version %s",
                         current.name,
                         current.minimum,
                     )
@@ -518,9 +501,7 @@ class RunSignatures(object):
                 # version, skip this signature.
                 if StrictVersion(version) > StrictVersion(current.maximum.split("-")[0]):
                     log.debug(
-                        "You are running a newer incompatible version "
-                        'of Cuckoo, the signature "%s" requires '
-                        "maximum version %s",
+                        "You are running a newer incompatible version " 'of Cuckoo, the signature "%s" requires ' "maximum version %s",
                         current.name,
                         current.maximum,
                     )
@@ -690,10 +671,7 @@ class RunSignatures(object):
             log.debug("Running non-evented signatures")
 
             for signature in complete_list:
-                if (
-                    not signature.filter_analysistypes
-                    or self.results["target"]["category"] in signature.filter_analysistypes
-                ):
+                if not signature.filter_analysistypes or self.results["target"]["category"] in signature.filter_analysistypes:
                     match = self.process(signature)
                     # If the signature is matched, add it to the list.
                     if match:
@@ -800,10 +778,7 @@ class RunReporting:
             posttime = datetime.now()
             timediff = posttime - pretime
             self.results["statistics"]["reporting"].append(
-                {
-                    "name": current.__class__.__name__,
-                    "time": float("%d.%03d" % (timediff.seconds, timediff.microseconds / 1000)),
-                }
+                {"name": current.__class__.__name__, "time": float("%d.%03d" % (timediff.seconds, timediff.microseconds / 1000)),}
             )
 
         except CuckooDependencyError as e:

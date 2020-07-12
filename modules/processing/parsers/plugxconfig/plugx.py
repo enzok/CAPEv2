@@ -272,11 +272,7 @@ class PlugXConfig:
                 cfg_blob = cfg_blob[calcsize("<6L") :]
                 config_output.update({"Screenshots": ("%r\0" % (screenshots != 0))})
                 config_output.update(
-                    {
-                        "Screenshots params": (
-                            "%d sec / Zoom %d / %d bits / Quality %d / Keep %d days\0" % (freq, zoom, color, qual, days)
-                        )
-                    }
+                    {"Screenshots params": ("%d sec / Zoom %d / %d bits / Quality %d / Keep %d days\0" % (freq, zoom, color, qual, days))}
                 )
                 screen_path = self.get_str_utf16le(cfg_blob[:str_sz])
                 cfg_blob = cfg_blob[str_sz:]
@@ -318,9 +314,7 @@ class PlugXConfig:
                             {
                                 "P2P Scan range %d start": (
                                     i,
-                                    socket.inet_ntoa(
-                                        p2p_start[i * calcsize("<L") : i * calcsize("<L") + calcsize("<L")]
-                                    ),
+                                    socket.inet_ntoa(p2p_start[i * calcsize("<L") : i * calcsize("<L") + calcsize("<L")]),
                                 )
                             }
                         )
@@ -328,9 +322,7 @@ class PlugXConfig:
                             {
                                 "P2P Scan range %d stop": (
                                     i,
-                                    socket.inet_ntoa(
-                                        p2p_stop[i * calcsize("<L") : i * calcsize("<L") + calcsize("<L")]
-                                    ),
+                                    socket.inet_ntoa(p2p_stop[i * calcsize("<L") : i * calcsize("<L") + calcsize("<L")]),
                                 )
                             }
                         )

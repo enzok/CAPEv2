@@ -38,9 +38,7 @@ class ProcDump(Processing):
         for file_name in file_names:
             file_path = os.path.join(self.procdump_path, file_name)
 
-            file_info = File(
-                file_path=file_path, guest_paths=meta[file_path]["metadata"], file_name=file_name
-            ).get_all()
+            file_info = File(file_path=file_path, guest_paths=meta[file_path]["metadata"], file_name=file_name).get_all()
             metastrings = meta[file_path].get("metadata", "").split(";?")
             if len(metastrings) < 3:
                 continue

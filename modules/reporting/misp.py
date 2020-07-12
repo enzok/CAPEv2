@@ -155,9 +155,7 @@ class MISP(Report):
         # TODO: Use expanded
         for r in results.get("dropped", []) or []:
             with open(r.get("path"), "rb") as f:
-                event.add_attribute(
-                    "malware-sample", value=os.path.basename(r.get("path")), data=BytesIO(f.read()), expand="binary"
-                )
+                event.add_attribute("malware-sample", value=os.path.basename(r.get("path")), data=BytesIO(f.read()), expand="binary")
         event.run_expansions()
         self.misp.update_event(event)
         """
@@ -212,9 +210,7 @@ class MISP(Report):
         self.misper = dict()
 
         try:
-            if self.options.get("upload_iocs", False) and results.get("malscore", 0) >= self.options.get(
-                "min_malscore", 0
-            ):
+            if self.options.get("upload_iocs", False) and results.get("malscore", 0) >= self.options.get("min_malscore", 0):
                 distribution = int(self.options.get("distribution", 0))
                 threat_level_id = int(self.options.get("threat_level_id", 4))
                 analysis = int(self.options.get("analysis", 0))
@@ -226,9 +222,7 @@ class MISP(Report):
                 if results.get("detections", ""):
                     malfamily = results["detections"]
 
-                response = self.misp.search(
-                    "attributes", value=results["target"]["file"]["sha256"], return_format="json", pythonify=True
-                )
+                response = self.misp.search("attributes", value=results["target"]["file"]["sha256"], return_format="json", pythonify=True)
                 if response:
                     event = self.misp.get_event(response[0].event_id, pythonify=True)
                 else:

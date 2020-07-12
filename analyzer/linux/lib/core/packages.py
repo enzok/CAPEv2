@@ -164,9 +164,7 @@ class Package(object):
         cmd = apicalls(self.target, **kwargs)
         stap_start = time.time()
         log.info(cmd)
-        self.proc = subprocess.Popen(
-            cmd, env={"XAUTHORITY": "/root/.Xauthority", "DISPLAY": ":0"}, stderr=subprocess.PIPE, shell=True
-        )
+        self.proc = subprocess.Popen(cmd, env={"XAUTHORITY": "/root/.Xauthority", "DISPLAY": ":0"}, stderr=subprocess.PIPE, shell=True)
 
         while "systemtap_module_init() returned 0" not in self.proc.stderr.readline():
             # log.debug(self.proc.stderr.readline())
@@ -182,9 +180,7 @@ class Package(object):
         # cmd = apicalls(self.target, **kwargs)
         cmd = "%s %s" % (self.target, " ".join(kwargs["args"]))
         stap_start = time.time()
-        self.proc = subprocess.Popen(
-            cmd, env={"XAUTHORITY": "/root/.Xauthority", "DISPLAY": ":0"}, stderr=subprocess.PIPE, shell=True
-        )
+        self.proc = subprocess.Popen(cmd, env={"XAUTHORITY": "/root/.Xauthority", "DISPLAY": ":0"}, stderr=subprocess.PIPE, shell=True)
 
         log.debug(self.proc.stderr.readline())
 

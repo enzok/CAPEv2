@@ -72,9 +72,7 @@ def connect_to_es():
 
     delidx = rep_config.elasticsearchdb.index + "-*"
     try:
-        es = Elasticsearch(
-            hosts=[{"host": rep_config.elasticsearchdb.host, "port": rep_config.elasticsearchdb.port,}], timeout=60
-        )
+        es = Elasticsearch(hosts=[{"host": rep_config.elasticsearchdb.host, "port": rep_config.elasticsearchdb.port,}], timeout=60)
     except:
         log.warning("Unable to connect to ElasticSearch")
 
@@ -276,9 +274,9 @@ def cuckoo_clean_failed_url_tasks():
         log.info("Can't connect to mongo")
         return
 
-    rtmp = results_db.analysis.find(
-        {"info.category": "url", "network.http.0": {"$exists": False}}, {"info.id": 1}, sort=[("_id", -1)]
-    ).limit(100)
+    rtmp = results_db.analysis.find({"info.category": "url", "network.http.0": {"$exists": False}}, {"info.id": 1}, sort=[("_id", -1)]).limit(
+        100
+    )
     if rtmp and rtmp.count() > 0:
         resolver_pool.map(lambda tid: delete_data(tid), rtmp)
 
@@ -348,16 +346,10 @@ def cuckoo_clean_before_day(args):
 
     print("number of matching records %s before suri/custom filter " % len(id_arr))
     if id_arr and args.suricata_zero_alert_filter:
-        result = list(
-            results_db.analysis.find({"suricata.alerts.alert": {"$exists": False}, "$or": id_arr}, {"info.id": 1})
-        )
+        result = list(results_db.analysis.find({"suricata.alerts.alert": {"$exists": False}, "$or": id_arr}, {"info.id": 1}))
         id_arr = [entry["info"]["id"] for entry in result]
     if id_arr and args.custom_include_filter:
-        result = list(
-            results_db.analysis.find(
-                {"info.custom": {"$regex": args.custom_include_filter}, "$or": id_arr}, {"info.id": 1}
-            )
-        )
+        result = list(results_db.analysis.find({"info.custom": {"$regex": args.custom_include_filter}, "$or": id_arr}, {"info.id": 1}))
         id_arr = [entry["info"]["id"] for entry in result]
     print("number of matching records %s" % len(id_arr))
     resolver_pool.map(lambda tid: delete_data(tid), id_arr)
@@ -380,23 +372,17 @@ def cuckoo_clean_sorted_pcap_dump():
 
     done = False
     while not done:
-        rtmp = results_db.analysis.find(
-            {"network.sorted_pcap_id": {"$exists": True}}, {"info.id": 1}, sort=[("_id", -1)]
-        ).limit(100)
+        rtmp = results_db.analysis.find({"network.sorted_pcap_id": {"$exists": True}}, {"info.id": 1}, sort=[("_id", -1)]).limit(100)
         if rtmp and rtmp.count() > 0:
             for e in rtmp:
                 if e["info"]["id"]:
                     print(e["info"]["id"])
                     try:
-                        results_db.analysis.update(
-                            {"info.id": int(e["info"]["id"])}, {"$unset": {"network.sorted_pcap_id": ""}}
-                        )
+                        results_db.analysis.update({"info.id": int(e["info"]["id"])}, {"$unset": {"network.sorted_pcap_id": ""}})
                     except:
                         print("failed to remove sorted pcap from db for id %s" % (e["info"]["id"]))
                     try:
-                        path = os.path.join(
-                            CUCKOO_ROOT, "storage", "analyses", "%s" % (e["info"]["id"]), "dump_sorted.pcap"
-                        )
+                        path = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % (e["info"]["id"]), "dump_sorted.pcap")
                         os.remove(path)
                     except Exception as e:
                         print("failed to remove sorted_pcap from disk %s" % (e))
@@ -450,12 +436,7 @@ def cuckoo_dedup_cluster_queue():
     dist_session = create_session(rep_config.distributed.db, echo=False)
     dist_db = dist_session()
     hash_dict = dict()
-    duplicated = (
-        session.query(Sample, Task)
-        .join(Task)
-        .filter(Sample.id == Task.sample_id, Task.status == "pending")
-        .order_by(Sample.sha256)
-    )
+    duplicated = session.query(Sample, Task).join(Task).filter(Sample.id == Task.sample_id, Task.status == "pending").order_by(Sample.sha256)
 
     for sample, task in duplicated:
         try:
@@ -507,9 +488,7 @@ def cuckoo_clean_range(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--clean", help="Remove all tasks and samples and their associated data", action="store_true", required=False
-    )
+    parser.add_argument("--clean", help="Remove all tasks and samples and their associated data", action="store_true", required=False)
     parser.add_argument(
         "--range-clean",
         help="Remove range of tasks STARTING_TASK through ENDING_TASK",
@@ -525,45 +504,25 @@ if __name__ == "__main__":
         action="store_true",
         required=False,
     )
-    parser.add_argument(
-        "--delete-older-than-days", help="Remove all tasks older than X number of days", type=int, required=False
-    )
+    parser.add_argument("--delete-older-than-days", help="Remove all tasks older than X number of days", type=int, required=False)
     parser.add_argument("--pcap-sorted-clean", help="remove sorted pcap from jobs", action="store_true", required=False)
     parser.add_argument(
-        "--suricata-zero-alert-filter",
-        help="only remove events with zero suri alerts DELETE AFTER ONLY",
-        action="store_true",
-        required=False,
+        "--suricata-zero-alert-filter", help="only remove events with zero suri alerts DELETE AFTER ONLY", action="store_true", required=False,
     )
     parser.add_argument(
-        "--urls-only-filter",
-        help="only remove url events filter DELETE AFTER ONLY",
-        action="store_true",
-        required=False,
+        "--urls-only-filter", help="only remove url events filter DELETE AFTER ONLY", action="store_true", required=False,
     )
     parser.add_argument(
-        "--files-only-filter",
-        help="only remove files events filter DELETE AFTER ONLY",
-        action="store_true",
-        required=False,
+        "--files-only-filter", help="only remove files events filter DELETE AFTER ONLY", action="store_true", required=False,
     )
     parser.add_argument(
-        "--custom-include-filter",
-        help="Only include jobs that match the custom field DELETE AFTER ONLY",
-        required=False,
+        "--custom-include-filter", help="Only include jobs that match the custom field DELETE AFTER ONLY", required=False,
     )
     parser.add_argument(
-        "--bson-suri-logs-clean",
-        help="clean bson and suri logs from analysis dirs",
-        required=False,
-        action="store_true",
+        "--bson-suri-logs-clean", help="clean bson and suri logs from analysis dirs", required=False, action="store_true",
     )
-    parser.add_argument(
-        "--pending-clean", help="Remove all tasks marked as failed", required=False, action="store_true"
-    )
-    parser.add_argument(
-        "--malscore", help="Remove all tasks with malscore <= X", required=False, action="store", type=int
-    )
+    parser.add_argument("--pending-clean", help="Remove all tasks marked as failed", required=False, action="store_true")
+    parser.add_argument("--malscore", help="Remove all tasks with malscore <= X", required=False, action="store", type=int)
     parser.add_argument("--tlp", help="Remove all tasks with TLP", required=False, default=False, action="store_true")
     parser.add_argument(
         "-drs",

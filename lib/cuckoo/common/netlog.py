@@ -273,9 +273,7 @@ class BsonParser(object):
                 args = dec.get("args", [])
 
                 if len(args) != len(argnames):
-                    log.warning(
-                        "Inconsistent arg count (compared to arg names) " "on %s: %s names %s", dec, argnames, apiname
-                    )
+                    log.warning("Inconsistent arg count (compared to arg names) " "on %s: %s names %s", dec, argnames, apiname)
                     continue
 
                 argdict = dict((argnames[i], converters[i](args[i])) for i in range(len(args)))

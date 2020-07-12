@@ -37,9 +37,7 @@ class ProcessMemory(Processing):
                 continue
             data = b""
             for chunk in memmap["chunks"]:
-                if int(chunk["start"], 16) >= int(memmap["start"], 16) and int(chunk["end"], 16) <= int(
-                    memmap["end"], 16
-                ):
+                if int(chunk["start"], 16) >= int(memmap["start"], 16) and int(chunk["end"], 16) <= int(memmap["end"], 16):
                     file_item.seek(chunk["offset"])
                     data += file_item.read(int(chunk["size"], 16))
 

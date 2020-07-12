@@ -111,6 +111,4 @@ class IcedID(Parser):
         major_version = yara_scan(filebuf, "$major_ver")
         if major_version:
             version_offset = int(major_version["$major_ver"])
-            self.reporter.add_metadata(
-                "other", {"Major Version": str(struct.unpack("B", filebuf[version_offset + 8])[0])}
-            )
+            self.reporter.add_metadata("other", {"Major Version": str(struct.unpack("B", filebuf[version_offset + 8])[0])})

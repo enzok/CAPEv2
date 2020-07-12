@@ -234,11 +234,7 @@ QEMU_ARGS = {
             "-device",
             "e1000,netdev=net_{vmname},mac={mac}",  # virtio-net-pci doesn't work here
         ],
-        "params": {
-            "memory": "64M",
-            "kernel": "{imagepath}/vmlinuz-2.6.32-5-sh7751r",
-            "initrd": "{imagepath}/initrd.img-2.6.32-5-sh7751r",
-        },
+        "params": {"memory": "64M", "kernel": "{imagepath}/vmlinuz-2.6.32-5-sh7751r", "initrd": "{imagepath}/initrd.img-2.6.32-5-sh7751r",},
     },
     "sparc": {
         "cmdline": [
@@ -371,9 +367,7 @@ class QEMU(Machinery):
         log.debug("Executing QEMU %r", final_cmdline)
 
         try:
-            proc = subprocess.Popen(
-                final_cmdline, universal_newlines=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
-            )
+            proc = subprocess.Popen(final_cmdline, universal_newlines=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             self.state[vm_info.name] = proc
         except OSError as e:
             raise CuckooMachineError("QEMU failed starting the machine: %s" % e)

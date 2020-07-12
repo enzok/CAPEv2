@@ -223,9 +223,7 @@ class FileUpload(ProtocolHandler):
                             "filepath": filepath.decode("utf-8", "replace") if filepath else "",
                             "pids": pids,
                             "metadata": metadata.decode("utf-8", "replace"),
-                            "category": category.decode("utf-8")
-                            if category in (b"CAPE", b"files", b"memory", b"procdump")
-                            else "",
+                            "category": category.decode("utf-8") if category in (b"CAPE", b"files", b"memory", b"procdump") else "",
                         },
                         ensure_ascii=False,
                     ),
@@ -401,9 +399,7 @@ class GeventResultServerWorker(gevent.server.StreamServer):
                 ctx.cancel()
                 if ctx.buf:
                     # This is usually not a good sign
-                    log.warning(
-                        "Task #%s with protocol %s has unprocessed data before getting disconnected", task_id, protocol
-                    )
+                    log.warning("Task #%s with protocol %s has unprocessed data before getting disconnected", task_id, protocol)
         finally:
             task_log_stop(task_id)
 

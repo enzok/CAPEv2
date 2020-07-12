@@ -49,11 +49,7 @@ class ReSubmitExtractedEXE(Report):
         meta = dict()
         report = dict(results)
 
-        if (
-            "options" in report["info"]
-            and "resubmitjob" in report["info"]["options"]
-            and report["info"]["options"]["resubmitjob"]
-        ):
+        if "options" in report["info"] and "resubmitjob" in report["info"]["options"] and report["info"]["options"]["resubmitjob"]:
             return
 
         # copy all the options from current
@@ -97,16 +93,9 @@ class ReSubmitExtractedEXE(Report):
                     and "native" not in dropped["type"]
                 ):
                     if dropped["sha256"] not in filesdict:
-                        srcpath = os.path.join(
-                            CUCKOO_ROOT, "storage", "analyses", str(report["info"]["id"]), "files", dropped["sha256"]
-                        )
+                        srcpath = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(report["info"]["id"]), "files", dropped["sha256"])
                         linkdir = os.path.join(
-                            CUCKOO_ROOT,
-                            "storage",
-                            "analyses",
-                            str(report["info"]["id"]),
-                            "files",
-                            dropped["sha256"] + "_link",
+                            CUCKOO_ROOT, "storage", "analyses", str(report["info"]["id"]), "files", dropped["sha256"] + "_link",
                         )
 
                         metastrings = meta[dropped["path"]].get("metadata", "").split(";?")
@@ -141,9 +130,7 @@ class ReSubmitExtractedEXE(Report):
                             ftype = suricata_file_e["file_info"]["type"]
                             if ("PE32" in ftype or "MS-DOS" in ftype) and "DLL" not in ftype and "native" not in ftype:
                                 if suricata_file_e["file_info"]["sha256"] not in filesdict:
-                                    filesdict[suricata_file_e["file_info"]["sha256"]] = suricata_file_e["file_info"][
-                                        "path"
-                                    ]
+                                    filesdict[suricata_file_e["file_info"]["sha256"]] = suricata_file_e["file_info"]["path"]
                                     self.resubcnt = self.resubcnt + 1
 
         for e in filesdict:

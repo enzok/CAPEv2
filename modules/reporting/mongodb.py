@@ -45,11 +45,7 @@ class MongoDB(Report):
 
         try:
             self.conn = MongoClient(
-                host,
-                port=port,
-                username=self.options.get("username", None),
-                password=self.options.get("password", None),
-                authSource=db,
+                host, port=port, username=self.options.get("username", None), password=self.options.get("password", None), authSource=db,
             )
             self.db = self.conn[db]
         except TypeError:
@@ -190,15 +186,8 @@ class MongoDB(Report):
                     report["f_mlist_cnt"] = len(entry["data"])
 
         # Other info we want quick access to from the web UI
-        if (
-            results.get("virustotal", False)
-            and "positives" in results["virustotal"]
-            and "total" in results["virustotal"]
-        ):
-            report["virustotal_summary"] = "%s/%s" % (
-                results["virustotal"]["positives"],
-                results["virustotal"]["total"],
-            )
+        if results.get("virustotal", False) and "positives" in results["virustotal"] and "total" in results["virustotal"]:
+            report["virustotal_summary"] = "%s/%s" % (results["virustotal"]["positives"], results["virustotal"]["total"],)
         if results.get("suricata", False):
 
             keywords = ("tls", "alerts", "files", "http", "ssh", "dns")
@@ -257,9 +246,7 @@ class MongoDB(Report):
                             for j, parent_dict in enumerate(report[parent_key]):
                                 child_key, csize = self.debug_dict_size(parent_dict)[0]
                                 if csize > size_filter:
-                                    log.warn(
-                                        "results['%s']['%s'] deleted due to size: %s" % (parent_key, child_key, csize)
-                                    )
+                                    log.warn("results['%s']['%s'] deleted due to size: %s" % (parent_key, child_key, csize))
                                     del report[parent_key][j][child_key]
                         else:
                             child_key, csize = self.debug_dict_size(report[parent_key])[0]

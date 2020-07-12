@@ -84,10 +84,7 @@ class AnalysisManager(threading.Thread):
         # If the analysis storage folder already exists, we need to abort the
         # analysis or previous results will be overwritten and lost.
         if os.path.exists(self.storage):
-            log.error(
-                "Task #{0}: Analysis results folder already exists at path '{1}', "
-                "analysis aborted".format(self.task.id, self.storage)
-            )
+            log.error("Task #{0}: Analysis results folder already exists at path '{1}', " "analysis aborted".format(self.task.id, self.storage))
             return False
 
         # If we're not able to create the analysis storage folder, we have to
@@ -146,10 +143,7 @@ class AnalysisManager(threading.Thread):
             else:
                 shutil.copy(self.binary, new_binary_path)
         except (AttributeError, OSError) as e:
-            log.error(
-                "Task #{0}: Unable to create symlink/copy from '{1}' to "
-                "'{2}': {3}".format(self.task.id, self.binary, self.storage, e)
-            )
+            log.error("Task #{0}: Unable to create symlink/copy from '{1}' to " "'{2}': {3}".format(self.task.id, self.binary, self.storage, e))
 
         return True
 
@@ -181,9 +175,7 @@ class AnalysisManager(threading.Thread):
                 time.sleep(1)
             else:
                 log.info(
-                    "Task #{}: acquired machine {} (label={}, platform={})".format(
-                        self.task.id, machine.name, machine.label, machine.platform
-                    )
+                    "Task #{}: acquired machine {} (label={}, platform={})".format(self.task.id, machine.name, machine.label, machine.platform)
                 )
                 break
 
@@ -227,9 +219,7 @@ class AnalysisManager(threading.Thread):
                                 if not exported_symbol.name:
                                     continue
                                 if isinstance(exported_symbol.name, bytes):
-                                    exports.append(
-                                        re.sub(b"[^A-Za-z0-9_?@-]", b"", exported_symbol.name).decode("utf-8")
-                                    )
+                                    exports.append(re.sub(b"[^A-Za-z0-9_?@-]", b"", exported_symbol.name).decode("utf-8"))
                                 else:
                                     exports.append(re.sub("[^A-Za-z0-9_?@-]", "", exported_symbol.name))
                             except Exception as e:
@@ -252,9 +242,7 @@ class AnalysisManager(threading.Thread):
         self.socks5s = _load_socks5_operational()
 
         log.info(
-            "Task #{0}: Starting analysis of {1} '{2}'".format(
-                self.task.id, self.task.category.upper(), convert_to_printable(self.task.target)
-            )
+            "Task #{0}: Starting analysis of {1} '{2}'".format(self.task.id, self.task.category.upper(), convert_to_printable(self.task.target))
         )
 
         # Initialize the analysis folders.
@@ -315,9 +303,7 @@ class AnalysisManager(threading.Thread):
             unlocked = False
 
             # Mark the selected analysis machine in the database as started.
-            guest_log = self.db.guest_start(
-                self.task.id, self.machine.name, self.machine.label, machinery.__class__.__name__
-            )
+            guest_log = self.db.guest_start(self.task.id, self.machine.name, self.machine.label, machinery.__class__.__name__)
             # Start the machine.
             machinery.start(self.machine.label)
 
@@ -505,9 +491,7 @@ class AnalysisManager(threading.Thread):
         elif self.route in self.socks5s:
             self.interface = ""
         else:
-            log.warning(
-                "Unknown network routing destination specified, " "ignoring routing for this analysis: %r", self.route
-            )
+            log.warning("Unknown network routing destination specified, " "ignoring routing for this analysis: %r", self.route)
             self.interface = None
             self.rt_table = None
 
@@ -515,8 +499,7 @@ class AnalysisManager(threading.Thread):
         # some reason, its tunX interface will no longer be available.
         if self.interface and not rooter("nic_available", self.interface):
             log.error(
-                "The network interface '%s' configured for this analysis is "
-                "not available at the moment, switching to route=none mode.",
+                "The network interface '%s' configured for this analysis is " "not available at the moment, switching to route=none mode.",
                 self.interface,
             )
             self.route = "none"
@@ -535,11 +518,7 @@ class AnalysisManager(threading.Thread):
 
         elif self.route == "tor":
             self.rooter_response = rooter(
-                "socks5_enable",
-                self.machine.ip,
-                str(self.cfg.resultserver.port),
-                str(routing.tor.dnsport),
-                str(routing.tor.proxyport),
+                "socks5_enable", self.machine.ip, str(self.cfg.resultserver.port), str(routing.tor.dnsport), str(routing.tor.proxyport),
             )
 
         elif self.route in self.socks5s:
@@ -592,11 +571,7 @@ class AnalysisManager(threading.Thread):
 
         elif self.route == "tor":
             self.rooter_response = rooter(
-                "socks5_disable",
-                self.machine.ip,
-                str(self.cfg.resultserver.port),
-                str(routing.tor.dnsport),
-                str(routing.tor.proxyport),
+                "socks5_disable", self.machine.ip, str(self.cfg.resultserver.port), str(routing.tor.dnsport), str(routing.tor.proxyport),
             )
 
         elif self.route in self.socks5s:
@@ -649,8 +624,7 @@ class Scheduler:
             machine_lock = threading.Lock()
 
         log.info(
-            'Using "%s" machine manager with max_analysis_count=%d, '
-            "max_machines_count=%d, and max_vmstartup_count=%d",
+            'Using "%s" machine manager with max_analysis_count=%d, ' "max_machines_count=%d, and max_vmstartup_count=%d",
             machinery_name,
             self.cfg.cuckoo.max_analysis_count,
             self.cfg.cuckoo.max_machines_count,
@@ -668,9 +642,7 @@ class Scheduler:
 
         if not os.path.exists(conf):
             raise CuckooCriticalError(
-                "The configuration file for machine "
-                'manager "{0}" does not exist at path:'
-                " {1}".format(machinery_name, conf)
+                "The configuration file for machine " 'manager "{0}" does not exist at path:' " {1}".format(machinery_name, conf)
             )
 
         # Provide a dictionary with the configuration options to the

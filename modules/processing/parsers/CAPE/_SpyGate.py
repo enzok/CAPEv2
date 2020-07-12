@@ -192,23 +192,11 @@ def generateIOC(md5, confDict):
     # Create the list for Registry Artefacts
     regIOC = []
     regIOC.append(
-        (
-            "contains",
-            "RegistryItem",
-            "RegistryItem/Path",
-            "string",
-            "HKEY_LOCAL_MACHINE\Software\Microsoft\Active Setup\Installed Components",
-        )
+        ("contains", "RegistryItem", "RegistryItem/Path", "string", "HKEY_LOCAL_MACHINE\Software\Microsoft\Active Setup\Installed Components",)
     )
     regIOC.append(("is", "RegistryItem", "RegistryItem/Value", "string", confDict["ActiveXKey"]))
     regIOC.append(
-        (
-            "contains",
-            "RegistryItem",
-            "RegistryItem/Path",
-            "string",
-            "HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run",
-        )
+        ("contains", "RegistryItem", "RegistryItem/Path", "string", "HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run",)
     )
     regIOC.append(("is", "RegistryItem", "RegistryItem/Value", "string", confDict["HKLMValue"]))
     # add each list to our master list

@@ -253,19 +253,11 @@ class BeaconSettings:
         self.settings["bProcInject_StartRWX"] = packedSetting(43, confConsts.TYPE_SHORT, isBool=True, boolFalseValue=4)
         self.settings["bProcInject_UseRWX"] = packedSetting(44, confConsts.TYPE_SHORT, isBool=True, boolFalseValue=32)
         self.settings["bProcInject_MinAllocSize"] = packedSetting(45, confConsts.TYPE_INT)
-        self.settings["ProcInject_PrependAppend_x86"] = packedSetting(
-            46, confConsts.TYPE_STR, 256, isBlob=True, isProcInjectTransform=True
-        )
-        self.settings["ProcInject_PrependAppend_x64"] = packedSetting(
-            47, confConsts.TYPE_STR, 256, isBlob=True, isProcInjectTransform=True
-        )
-        self.settings["ProcInject_Execute"] = packedSetting(
-            51, confConsts.TYPE_STR, 128, isBlob=True, enum=self.EXECUTE_TYPE
-        )
+        self.settings["ProcInject_PrependAppend_x86"] = packedSetting(46, confConsts.TYPE_STR, 256, isBlob=True, isProcInjectTransform=True)
+        self.settings["ProcInject_PrependAppend_x64"] = packedSetting(47, confConsts.TYPE_STR, 256, isBlob=True, isProcInjectTransform=True)
+        self.settings["ProcInject_Execute"] = packedSetting(51, confConsts.TYPE_STR, 128, isBlob=True, enum=self.EXECUTE_TYPE)
         # If True then allocation is using NtMapViewOfSection
-        self.settings["ProcInject_AllocationMethod"] = packedSetting(
-            52, confConsts.TYPE_SHORT, enum=self.ALLOCATION_FUNCTIONS
-        )
+        self.settings["ProcInject_AllocationMethod"] = packedSetting(52, confConsts.TYPE_SHORT, enum=self.ALLOCATION_FUNCTIONS)
 
         # Unknown data, silencing for now
         # self.settings['ProcInject_Stub'] = packedSetting(53, confConsts.TYPE_STR, 16, isBlob=True)
@@ -351,8 +343,7 @@ if __name__ == "__main__":
     parser.add_argument("--quiet", help="Do not print missing settings", action="store_true", default=False)
     parser.add_argument(
         "--version",
-        help="Try as specific cobalt version (3 or 4). If not specified, tries both. \n"
-        "For decoded configs, this must be set for accuracy.",
+        help="Try as specific cobalt version (3 or 4). If not specified, tries both. \n" "For decoded configs, this must be set for accuracy.",
         type=int,
     )
     args = parser.parse_args()

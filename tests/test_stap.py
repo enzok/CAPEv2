@@ -175,11 +175,7 @@ def test_staplog():
             },
             {
                 "api": "execve",
-                "arguments": {
-                    "p0": "/usr/bin/sh",
-                    "p1": ["sh", "-c", "/tmp/comma,sh"],
-                    "p2": ["COMMA_IN_ARRAY=it,works", "HOME=/root"],
-                },
+                "arguments": {"p0": "/usr/bin/sh", "p1": ["sh", "-c", "/tmp/comma,sh"], "p2": ["COMMA_IN_ARRAY=it,works", "HOME=/root"],},
                 "instruction_pointer": "b774dcf9",
                 "pid": 680,
                 "process_name": "python",
@@ -191,11 +187,7 @@ def test_staplog():
             },
             {
                 "api": "execve",
-                "arguments": {
-                    "p0": "/usr/bin/sh",
-                    "p1": ["sh", "-c", "/tmp/bracket]sh"],
-                    "p2": ["LANGUAGE=en_US:en", "HOME=/root"],
-                },
+                "arguments": {"p0": "/usr/bin/sh", "p1": ["sh", "-c", "/tmp/bracket]sh"], "p2": ["LANGUAGE=en_US:en", "HOME=/root"],},
                 "instruction_pointer": "b774dcf9",
                 "pid": 680,
                 "process_name": "python",

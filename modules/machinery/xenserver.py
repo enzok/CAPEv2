@@ -82,9 +82,7 @@ class XenServerMachinery(Machinery):
             sess = XenAPI.Session(self.options.xenserver.url)
         except:
             raise CuckooMachineError(
-                "Could not connect to XenServer: invalid "
-                "or incorrect url, please ensure the url "
-                "is correct in xenserver.conf"
+                "Could not connect to XenServer: invalid " "or incorrect url, please ensure the url " "is correct in xenserver.conf"
             )
 
         try:

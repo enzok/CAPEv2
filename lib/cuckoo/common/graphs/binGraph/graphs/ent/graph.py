@@ -83,9 +83,7 @@ def args_setup(arg_parser):
                     The "name" value is the name of the bytes for the legend, the "bytes" value is the bytes to count the percentage of per section, the "colour" value maybe a matplotlib colour
                     ( r,g,b etc.), a hex with or without an alpha value, or not defined (a seeded colour is chosen). The easiest way to construct these values is to create a dictionary and convert it using \'print(json.loads(dict))\'""",
     )
-    arg_parser.add_argument(
-        "--entcolour", type=str, metavar="#cf3da2ff", default=__entcolour__, help="Colour of the Entropy line"
-    )
+    arg_parser.add_argument("--entcolour", type=str, metavar="#cf3da2ff", default=__entcolour__, help="Colour of the Entropy line")
 
 
 # # Validate graph specific arguments - Set the defaults here
@@ -98,11 +96,7 @@ def args_validation(args):
     # # Test to see what matplotlib backend is setup
     backend = matplotlib.get_backend()
     if not backend == "TkAgg":
-        log.warning(
-            '{} matplotlib backend in use. This graph generation was tested with "TkAgg", bugs may lie ahead...'.format(
-                backend
-            )
-        )
+        log.warning('{} matplotlib backend in use. This graph generation was tested with "TkAgg", bugs may lie ahead...'.format(backend))
 
     # # Test to see if we should use defaults
     if args.graphtype == "all":
@@ -128,9 +122,7 @@ def args_validation(args):
             ibyte = {}
 
             if not type(ib) == dict:
-                raise ArgValidationEx(
-                    'Error validating --ibytes - "{}" value is not a dict: "{}"'.format(name, bytelist)
-                )
+                raise ArgValidationEx('Error validating --ibytes - "{}" value is not a dict: "{}"'.format(name, bytelist))
             elif type(ib) == dict:
                 if not ("name" in list(ib.keys()) and "bytes" in list(ib.keys())):
                     raise ArgValidationEx("Error validating --ibytes - name or bytes field not present: {}".format(ib))
@@ -177,11 +169,7 @@ def generate(abs_fpath, fname, blob, chunks=__chunks__, ibytes=__ibytes_dict__, 
             chunksize = -(-fs // chunks)
             nr_chunksize = fs / chunks
 
-        log.debug(
-            "Filesize: {}, Chunksize (rounded): {}, Chunksize: {}, Chunks: {}".format(
-                fs, chunksize, nr_chunksize, chunks
-            )
-        )
+        log.debug("Filesize: {}, Chunksize (rounded): {}, Chunksize: {}, Chunks: {}".format(fs, chunksize, nr_chunksize, chunks))
         log.debug("Using ibytes: {}".format(ibytes))
         log.debug("Producing shannon ent with chunksize {}".format(chunksize))
 
@@ -233,12 +221,7 @@ def generate(abs_fpath, fname, blob, chunks=__chunks__, ibytes=__ibytes_dict__, 
         for index, _ in enumerate(ibytes):
             c = ibytes[index]["colour"]
             axBytePc.plot(
-                np.array(ibytes[index]["percentages"]),
-                label=ibytes[index]["name"],
-                c=c,
-                zorder=zorder,
-                linewidth=1.2,
-                alpha=0.75,
+                np.array(ibytes[index]["percentages"]), label=ibytes[index]["name"], c=c, zorder=zorder, linewidth=1.2, alpha=0.75,
             )
             zorder -= 1
 
@@ -294,9 +277,7 @@ def generate(abs_fpath, fname, blob, chunks=__chunks__, ibytes=__ibytes_dict__, 
                         end_of_last_section = section_offset + section_size
 
                     # # Get longest section name
-                    longest_section_name = (
-                        len(section_name) if len(section_name) > longest_section_name else longest_section_name
-                    )
+                    longest_section_name = len(section_name) if len(section_name) > longest_section_name else longest_section_name
 
                 # # End of final section vline
                 host.axvline(x=end_of_last_section, linestyle="--", zorder=zorder)
@@ -333,9 +314,7 @@ def generate(abs_fpath, fname, blob, chunks=__chunks__, ibytes=__ibytes_dict__, 
                     host.text(x=section_offset, y=1.07, s=section_name, rotation=45, va="bottom", ha="left")
 
                     # # Get longest section name
-                    longest_section_name = (
-                        len(section_name) if len(section_name) > longest_section_name else longest_section_name
-                    )
+                    longest_section_name = len(section_name) if len(section_name) > longest_section_name else longest_section_name
 
                 # # Eval the space required to show the section names
                 if longest_section_name <= 5:
@@ -536,9 +515,7 @@ if __name__ == "__main__":
         metavar="malware.exe",
         help="Give me a graph of this file. See - if this is the only argument specified.",
     )
-    parser.add_argument(
-        "--showplt", action="store_true", default=__showplt__, help="Show plot interactively (disables saving to file)"
-    )
+    parser.add_argument("--showplt", action="store_true", default=__showplt__, help="Show plot interactively (disables saving to file)")
     parser.add_argument(
         "--format",
         type=str,
@@ -548,9 +525,7 @@ if __name__ == "__main__":
         metavar="png",
         help="Graph output format",
     )
-    parser.add_argument(
-        "--figsize", type=int, nargs=2, default=__figsize__, metavar="#", help="Figure width and height in inches"
-    )
+    parser.add_argument("--figsize", type=int, nargs=2, default=__figsize__, metavar="#", help="Figure width and height in inches")
     parser.add_argument("--dpi", type=int, default=__figdpi__, metavar=__figdpi__, help="Figure dpi")
     parser.add_argument(
         "--blob",

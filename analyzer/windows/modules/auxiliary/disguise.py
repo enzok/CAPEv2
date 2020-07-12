@@ -33,9 +33,7 @@ class Disguise(Auxiliary):
 
         output = None
         try:
-            output = subprocess.check_output(
-                [psexec_path, "-accepteula", "-nobanner", "-s"] + command, stderr=subprocess.STDOUT
-            )
+            output = subprocess.check_output([psexec_path, "-accepteula", "-nobanner", "-s"] + command, stderr=subprocess.STDOUT)
         except subprocess.CalledProcessError as e:
             log.error(e.output)
 
@@ -103,9 +101,7 @@ class Disguise(Auxiliary):
                 self._office_helper(productPath + "\\Security", "MarkInternalAsUnsafe", REG_DWORD, 0)
                 self._office_helper(productPath + "\\Security\\ProtectedView", "DisableAttachmentsInPV", REG_DWORD, 1)
                 self._office_helper(productPath + "\\Security\\ProtectedView", "DisableInternetFilesInPV", REG_DWORD, 1)
-                self._office_helper(
-                    productPath + "\\Security\\ProtectedView", "DisableUnsafeLocationsInPV", REG_DWORD, 1
-                )
+                self._office_helper(productPath + "\\Security\\ProtectedView", "DisableUnsafeLocationsInPV", REG_DWORD, 1)
                 # self._office_helper("HKEY_CURRENT_USER\\Software\\Policies\\Microsoft\\Office\\{}\\{}\\Security".format(oVersion, software), "MarkInternalAsUnsafe", REG_DWORD, 0)
                 self._office_helper(productPath + "\\Security", "ExtensionHardening", 0)
 

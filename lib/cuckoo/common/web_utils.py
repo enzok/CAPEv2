@@ -49,9 +49,7 @@ if repconf.elasticsearchdb.enabled:
         es_as_db = True
     baseidx = repconf.elasticsearchdb.index
     fullidx = baseidx + "-*"
-    es = Elasticsearch(
-        hosts=[{"host": repconf.elasticsearchdb.host, "port": repconf.elasticsearchdb.port,}], timeout=60
-    )
+    es = Elasticsearch(hosts=[{"host": repconf.elasticsearchdb.host, "port": repconf.elasticsearchdb.port,}], timeout=60)
 
 VALID_LINUX_TYPES = ["Bourne-Again", "POSIX shell script", "ELF", "Python"]
 
@@ -220,10 +218,7 @@ def download_file(
                 return (
                     "error",
                     jsonize(
-                        {
-                            "error": "API key provided is not a valid {0} key or is not authorized for "
-                            "{0} downloads".format(service)
-                        },
+                        {"error": "API key provided is not a valid {0} key or is not authorized for " "{0} downloads".format(service)},
                         response=True,
                     ),
                 )
@@ -233,10 +228,7 @@ def download_file(
                     render(
                         request,
                         "error.html",
-                        {
-                            "error": "API key provided is not a valid {0} key or is not authorized for "
-                            "{0} downloads".format(service)
-                        },
+                        {"error": "API key provided is not a valid {0} key or is not authorized for " "{0} downloads".format(service)},
                     ),
                 )
         else:
@@ -262,12 +254,7 @@ def download_file(
                     return (
                         "error",
                         jsonize(
-                            {
-                                "error": "Hashes mismatch, original hash: {} - retrieved hash: {}".format(
-                                    fhash, retrieved_hash
-                                )
-                            },
-                            response=True,
+                            {"error": "Hashes mismatch, original hash: {} - retrieved hash: {}".format(fhash, retrieved_hash)}, response=True,
                         ),
                     )
                 else:
@@ -276,11 +263,7 @@ def download_file(
                         render(
                             request,
                             "error.html",
-                            {
-                                "error": "Hashes mismatch, original hash: {} - retrieved hash: {}".format(
-                                    fhash, retrieved_hash
-                                )
-                            },
+                            {"error": "Hashes mismatch, original hash: {} - retrieved hash: {}".format(fhash, retrieved_hash)},
                         ),
                     )
 
@@ -296,9 +279,7 @@ def download_file(
         else:
             return (
                 "error",
-                render(
-                    request, "error.html", {"error": "Error writing {} download file to temporary path".format(service)}
-                ),
+                render(request, "error.html", {"error": "Error writing {} download file to temporary path".format(service)}),
             )
 
     onesuccess = True
@@ -324,11 +305,7 @@ def download_file(
                         return (
                             "error",
                             jsonize(
-                                {
-                                    "error": "Wrong platform, {} VM select for {} sample".format(
-                                        machine_details.platform, platform
-                                    )
-                                },
+                                {"error": "Wrong platform, {} VM select for {} sample".format(machine_details.platform, platform)},
                                 response=True,
                             ),
                         )
@@ -336,11 +313,7 @@ def download_file(
                         return render(
                             request,
                             "error.html",
-                            {
-                                "error": "Wrong platform, {} VM selected for {} sample".format(
-                                    machine_details.platform, platform
-                                )
-                            },
+                            {"error": "Wrong platform, {} VM selected for {} sample".format(machine_details.platform, platform)},
                         )
                 else:
                     task_machines = [machine]
@@ -514,24 +487,18 @@ search_term_map = {
 
 def perform_ttps_search(value):
     if repconf.mongodb.enabled and len(value) == 5 and value.upper().startswith("T") and value[1:].isdigit():
-        return results_db.analysis.find({"ttps." + value.uppwer(): {"$exist": 1}}, {"info.id": 1, "_id": 0}).sort(
-            [["_id", -1]]
-        )
+        return results_db.analysis.find({"ttps." + value.uppwer(): {"$exist": 1}}, {"info.id": 1, "_id": 0}).sort([["_id", -1]])
 
 
 def perform_malscore_search(value):
     if repconf.mongodb.enabled:
-        return results_db.analysis.find({"malscore": {"$gte": float(value)}}, perform_search_filters).sort(
-            [["_id", -1]]
-        )
+        return results_db.analysis.find({"malscore": {"$gte": float(value)}}, perform_search_filters).sort([["_id", -1]])
 
 
 def perform_search(term, value):
     if repconf.mongodb.enabled and repconf.elasticsearchdb.enabled and essearch and not term:
         numhits = es.search(index=fullidx, doc_type="analysis", q="%s" % value, size=0)["hits"]["total"]
-        return es.search(index=fullidx, doc_type="analysis", q="%s" % value, sort="task_id:desc", size=numhits)["hits"][
-            "hits"
-        ]
+        return es.search(index=fullidx, doc_type="analysis", q="%s" % value, sort="task_id:desc", size=numhits)["hits"]["hits"]
 
     if term in ("md5", "sha1", "sha256", "sha512"):
         query_val = value

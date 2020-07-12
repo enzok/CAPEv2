@@ -70,14 +70,9 @@ class PlugX_zip(Package):
                         if name.endswith(".zip"):
                             # Recurse.
                             try:
-                                self.extract_zip(
-                                    os.path.join(extract_path, name), extract_path, password, recursion_depth + 1
-                                )
+                                self.extract_zip(os.path.join(extract_path, name), extract_path, password, recursion_depth + 1)
                             except BadZipfile:
-                                log.warning(
-                                    "Nested zip file '%s' name end with 'zip' extension is not a valid zip. Skip extracting"
-                                    % name
-                                )
+                                log.warning("Nested zip file '%s' name end with 'zip' extension is not a valid zip. Skip extracting" % name)
                             except RuntimeError as run_err:
                                 log.error("Error to extract nested zip file %s with details: %s" % name, run_err)
 

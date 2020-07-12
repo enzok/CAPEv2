@@ -37,20 +37,12 @@ def build_handshake(src, dst, sport, dport, pktdump, smac, dmac):
     portdst = dport
     client_isn = random.randint(1024, 10000)
     server_isn = random.randint(1024, 10000)
-    syn = (
-        Ether(src=smac, dst=dmac)
-        / IP(src=ipsrc, dst=ipdst)
-        / TCP(flags="S", sport=portsrc, dport=portdst, seq=client_isn)
-    )
+    syn = Ether(src=smac, dst=dmac) / IP(src=ipsrc, dst=ipdst) / TCP(flags="S", sport=portsrc, dport=portdst, seq=client_isn)
     synack = (
-        Ether(src=dmac, dst=smac)
-        / IP(src=ipdst, dst=ipsrc)
-        / TCP(flags="SA", sport=portdst, dport=portsrc, seq=server_isn, ack=syn.seq + 1)
+        Ether(src=dmac, dst=smac) / IP(src=ipdst, dst=ipsrc) / TCP(flags="SA", sport=portdst, dport=portsrc, seq=server_isn, ack=syn.seq + 1)
     )
     ack = (
-        Ether(src=smac, dst=dmac)
-        / IP(src=ipsrc, dst=ipdst)
-        / TCP(flags="A", sport=portsrc, dport=portdst, seq=syn.seq + 1, ack=synack.seq + 1)
+        Ether(src=smac, dst=dmac) / IP(src=ipsrc, dst=ipdst) / TCP(flags="A", sport=portsrc, dport=portdst, seq=syn.seq + 1, ack=synack.seq + 1)
     )
     pktdump.write(syn)
     pktdump.write(synack)
@@ -63,15 +55,9 @@ def build_finshake(src, dst, sport, dport, seq, ack, pktdump, smac, dmac):
     ipdst = dst
     portsrc = sport
     portdst = dport
-    finAck = (
-        Ether(src=smac, dst=dmac)
-        / IP(src=ipsrc, dst=ipdst)
-        / TCP(flags="FA", sport=sport, dport=dport, seq=seq, ack=ack)
-    )
+    finAck = Ether(src=smac, dst=dmac) / IP(src=ipsrc, dst=ipdst) / TCP(flags="FA", sport=sport, dport=dport, seq=seq, ack=ack)
     finalAck = (
-        Ether(src=dmac, dst=smac)
-        / IP(src=ipdst, dst=ipsrc)
-        / TCP(flags="A", sport=dport, dport=sport, seq=finAck.ack, ack=finAck.seq + 1)
+        Ether(src=dmac, dst=smac) / IP(src=ipdst, dst=ipsrc) / TCP(flags="A", sport=dport, dport=sport, seq=finAck.ack, ack=finAck.seq + 1)
     )
     pktdump.write(finAck)
     pktdump.write(finalAck)
@@ -92,12 +78,7 @@ def make_pkts(src, dst, sport, dport, seq, ack, payload, pktdump, smac, dmac):
     portsrc = sport
     portdst = dport
     for segment in segments:
-        p = (
-            Ether(src=smac, dst=dmac)
-            / IP(src=ipsrc, dst=ipdst)
-            / TCP(flags="PA", sport=sport, dport=dport, seq=seq, ack=ack)
-            / segment
-        )
+        p = Ether(src=smac, dst=dmac) / IP(src=ipsrc, dst=ipdst) / TCP(flags="PA", sport=sport, dport=dport, seq=seq, ack=ack) / segment
         returnAck = (
             Ether(src=dmac, dst=smac)
             / IP(src=ipdst, dst=ipsrc)
@@ -178,9 +159,7 @@ def saz_to_pcap(sazpath):
                 elif m and m.group("hostip"):
                     dst = m.group("hostip")
             req = open(fiddler_raw_dir + fid + "_c.txt").read()
-            m = re.match(
-                r"^(?P<verb>[^\r\n\s]+)\s+(?P<host_and_port>https?\:\/\/[^\/\r\n\:]+(\:(?P<dport>\d{1,5}))?)\/", req
-            )
+            m = re.match(r"^(?P<verb>[^\r\n\s]+)\s+(?P<host_and_port>https?\:\/\/[^\/\r\n\:]+(\:(?P<dport>\d{1,5}))?)\/", req)
             if m and m.group("verb") != "CONNECT":
                 req = req.replace(m.group("host_and_port"), "", 1)
                 if m.group("dport") and int(m.group("dport")) <= 65535:
@@ -209,9 +188,7 @@ def saz_to_pcap(sazpath):
                     return None
 
                 req = open(fiddler_raw_dir + fid + "_c.txt").read()
-                m = re.match(
-                    r"^(?P<verb>[^\r\n\s]+)\s+(?P<host_and_port>https?\:\/\/[^\/\r\n\:]+(\:(?P<dport>\d{1,5}))?)\/", req
-                )
+                m = re.match(r"^(?P<verb>[^\r\n\s]+)\s+(?P<host_and_port>https?\:\/\/[^\/\r\n\:]+(\:(?P<dport>\d{1,5}))?)\/", req)
                 if m and m.group("verb") != "CONNECT":
                     req = req.replace(m.group("host_and_port"), "", 1)
                     if m.group("dport") and int(m.group("dport")) <= 65535:

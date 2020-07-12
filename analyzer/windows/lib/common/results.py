@@ -93,13 +93,9 @@ class NetlogConnection(object):
 class NetlogBinary(NetlogConnection):
     def __init__(self, guest_path, uploaded_path, duplicated):
         if duplicated:
-            NetlogConnection.__init__(
-                self, proto=b"DUPLICATEBINARY\n%s\n%s\n" % (uploaded_path.encode("utf-8", "replace"), guest_path)
-            )
+            NetlogConnection.__init__(self, proto=b"DUPLICATEBINARY\n%s\n%s\n" % (uploaded_path.encode("utf-8", "replace"), guest_path))
         else:
-            NetlogConnection.__init__(
-                self, proto=b"BINARY\n%s\n%s\n" % (uploaded_path.encode("utf-8", "replace"), guest_path)
-            )
+            NetlogConnection.__init__(self, proto=b"BINARY\n%s\n%s\n" % (uploaded_path.encode("utf-8", "replace"), guest_path))
         self.connect()
 
 

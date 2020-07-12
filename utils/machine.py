@@ -89,15 +89,7 @@ def main():
 
     if args.add:
         db.add_machine(
-            args.vmname,
-            args.vmname,
-            args.ip,
-            args.platform,
-            args.tags,
-            args.interface,
-            args.snapshot,
-            resultserver_ip,
-            int(resultserver_port),
+            args.vmname, args.vmname, args.ip, args.platform, args.tags, args.interface, args.snapshot, resultserver_ip, int(resultserver_port),
         )
         db.unlock_machine(args.vmname)
 

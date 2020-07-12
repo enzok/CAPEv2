@@ -58,18 +58,12 @@ TASK_DISTRIBUTED_COMPLETED = "distributed_completed"
 
 # Secondary table used in association Machine - Tag.
 machines_tags = Table(
-    "machines_tags",
-    Base.metadata,
-    Column("machine_id", Integer, ForeignKey("machines.id")),
-    Column("tag_id", Integer, ForeignKey("tags.id")),
+    "machines_tags", Base.metadata, Column("machine_id", Integer, ForeignKey("machines.id")), Column("tag_id", Integer, ForeignKey("tags.id")),
 )
 
 # Secondary table used in association Task - Tag.
 tasks_tags = Table(
-    "tasks_tags",
-    Base.metadata,
-    Column("task_id", Integer, ForeignKey("tasks.id")),
-    Column("tag_id", Integer, ForeignKey("tags.id")),
+    "tasks_tags", Base.metadata, Column("task_id", Integer, ForeignKey("tasks.id")), Column("tag_id", Integer, ForeignKey("tags.id")),
 )
 
 
@@ -226,9 +220,7 @@ class Sample(Base):
         """
         return json.dumps(self.to_dict())
 
-    def __init__(
-        self, md5, crc32, sha1, sha256, sha512, file_size, file_type=None, ssdeep=None, parent=None, source_url=None
-    ):
+    def __init__(self, md5, crc32, sha1, sha256, sha512, file_size, file_type=None, ssdeep=None, parent=None, source_url=None):
         self.md5 = md5
         self.sha1 = sha1
         self.crc32 = crc32
@@ -503,9 +495,7 @@ class Database(object, metaclass=Singleton):
                 self.engine = create_engine(connection_string)
         except ImportError as e:
             lib = e.message.split()[-1]
-            raise CuckooDependencyError(
-                "Missing database driver, unable to " "import %s (install with `pip " "install %s`)" % (lib, lib)
-            )
+            raise CuckooDependencyError("Missing database driver, unable to " "import %s (install with `pip " "install %s`)" % (lib, lib))
 
     def _get_or_create(self, session, model, **kwargs):
         """Get an ORM instance or create it if not exist.
@@ -1657,10 +1647,7 @@ class Database(object, metaclass=Singleton):
                     parent = parent[0]
             elif task_id:
                 _, parent = (
-                    session.query(Task.sample_id, Sample.parent)
-                    .join(Sample, Sample.id == Task.sample_id)
-                    .filter(Task.id == task_id)
-                    .first()
+                    session.query(Task.sample_id, Sample.parent).join(Sample, Sample.id == Task.sample_id).filter(Task.id == task_id).first()
                 )
 
             if parent:
@@ -1828,11 +1815,7 @@ class Database(object, metaclass=Singleton):
         session = self.Session()
         try:
             if details:
-                task = (
-                    session.query(Task)
-                    .options(joinedload("guest"), joinedload("errors"), joinedload("tags"))
-                    .get(task_id)
-                )
+                task = session.query(Task).options(joinedload("guest"), joinedload("errors"), joinedload("tags")).get(task_id)
             else:
                 task = session.query(Task).get(task_id)
         except SQLAlchemyError as e:
@@ -1952,25 +1935,16 @@ class Database(object, metaclass=Singleton):
                     tasks = results_db.analysis.find({sizes_mongo.get(len(sample_hash), ""): sample_hash})
                     if tasks:
                         for task in tasks:
-                            path = os.path.join(
-                                CUCKOO_ROOT, "storage", "analyses", str(task["info"]["id"]), "files", sample_hash
-                            )
+                            path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task["info"]["id"]), "files", sample_hash)
                             if os.path.exists(path):
                                 sample = [path]
                                 break
 
                 if sample is None:
                     # search in temp folder if not found in binaries
-                    db_sample = (
-                        session.query(Task)
-                        .filter(query_filter == sample_hash)
-                        .filter(Sample.id == Task.sample_id)
-                        .all()
-                    )
+                    db_sample = session.query(Task).filter(query_filter == sample_hash).filter(Sample.id == Task.sample_id).all()
                     if db_sample is not None:
-                        samples = [
-                            _f for _f in [tmp_sample.to_dict().get("target", "") for tmp_sample in db_sample] if _f
-                        ]
+                        samples = [_f for _f in [tmp_sample.to_dict().get("target", "") for tmp_sample in db_sample] if _f]
                         # hash validation and if exist
                         samples = [path for path in samples if os.path.exists(path)]
                         for path in samples:
@@ -1981,9 +1955,7 @@ class Database(object, metaclass=Singleton):
 
                 if sample is None:
                     # search in Suricata files folder
-                    tasks = results_db.analysis.find(
-                        {"suricata.files.sha256": sample_hash}, {"suricata.files.file_info.path": 1, "_id": 0}
-                    )
+                    tasks = results_db.analysis.find({"suricata.files.sha256": sample_hash}, {"suricata.files.file_info.path": 1, "_id": 0})
                     if tasks:
                         for task in tasks:
                             path = task["suricata"]["files"]["file_info"]["path"]

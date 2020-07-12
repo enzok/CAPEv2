@@ -171,23 +171,11 @@ class Sniffer(Auxiliary):
                 ["scp", "-q", "/tmp/%d.sh" % self.task.id, remote_host + ":/tmp/%d.sh" % self.task.id], stderr=DEVNULL
             )
             remote_output = subprocess.check_output(
-                [
-                    "ssh",
-                    remote_host,
-                    "nohup",
-                    "/bin/bash",
-                    "/tmp/%d.sh" % self.task.id,
-                    ">",
-                    "/tmp/log",
-                    "2>",
-                    "/tmp/err",
-                ],
+                ["ssh", remote_host, "nohup", "/bin/bash", "/tmp/%d.sh" % self.task.id, ">", "/tmp/log", "2>", "/tmp/err",],
                 stderr=subprocess.STDOUT,
             )
 
-            self.pid = subprocess.check_output(
-                ["ssh", remote_host, "cat", "/tmp/%d.pid" % self.task.id], stderr=DEVNULL
-            ).strip()
+            self.pid = subprocess.check_output(["ssh", remote_host, "cat", "/tmp/%d.pid" % self.task.id], stderr=DEVNULL).strip()
             log.info(
                 "Started remote sniffer @ %s with (interface=%s, host=%s, " "dump path=%s, pid=%s)",
                 remote_host,
@@ -197,25 +185,18 @@ class Sniffer(Auxiliary):
                 self.pid,
             )
             remote_output = subprocess.check_output(
-                ["ssh", remote_host, "rm", "-f", "/tmp/%d.pid" % self.task.id, "/tmp/%d.sh" % self.task.id],
-                stderr=DEVNULL,
+                ["ssh", remote_host, "rm", "-f", "/tmp/%d.pid" % self.task.id, "/tmp/%d.sh" % self.task.id], stderr=DEVNULL,
             )
 
         else:
             try:
                 self.proc = subprocess.Popen(pargs, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             except (OSError, ValueError):
-                log.exception(
-                    "Failed to start sniffer (interface=%s, host=%s, " "dump path=%s)", interface, host, file_path
-                )
+                log.exception("Failed to start sniffer (interface=%s, host=%s, " "dump path=%s)", interface, host, file_path)
                 return
 
             log.info(
-                "Started sniffer with PID %d (interface=%s, host=%s, " "dump path=%s)",
-                self.proc.pid,
-                interface,
-                host,
-                file_path,
+                "Started sniffer with PID %d (interface=%s, host=%s, " "dump path=%s)", self.proc.pid, interface, host, file_path,
             )
 
     def stop(self):
@@ -237,9 +218,7 @@ class Sniffer(Auxiliary):
             file_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % self.task.id, "dump.pcap")
             file_path2 = "/tmp/tcp.dump.%d" % self.task.id
 
-            remote_output = subprocess.check_output(
-                ["scp", "-q", remote_host + ":" + file_path2, file_path], stderr=DEVNULL
-            )
+            remote_output = subprocess.check_output(["scp", "-q", remote_host + ":" + file_path2, file_path], stderr=DEVNULL)
             remote_output = subprocess.check_output(["ssh", remote_host, "rm", "-f", file_path2], stderr=DEVNULL)
             return
 

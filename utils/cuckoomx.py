@@ -124,12 +124,8 @@ def get_new_emails(db):
 
                             if attachment:
                                 # unpack it
-                                z = ZipFile(
-                                    File(contents=attachment, password=email_config.cuckoomx.get("archive_password"))
-                                )
-                                files = list(
-                                    z.unpack(password=email_config.cuckoomx.get("archive_password"), duplicates=[])
-                                )
+                                z = ZipFile(File(contents=attachment, password=email_config.cuckoomx.get("archive_password")))
+                                files = list(z.unpack(password=email_config.cuckoomx.get("archive_password"), duplicates=[]))
                                 for file in files:
                                     new_file = db.query(CUCKOOMX).filter(CUCKOOMX.sha256 == file.sha256).first()
                                     if new_file is None:

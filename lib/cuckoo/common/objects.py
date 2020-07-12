@@ -173,11 +173,7 @@ def IsPEImage(buf, size=False):
         return False
 
     # if ((pNtHeader->FileHeader.Machine == 0) || (pNtHeader->FileHeader.SizeOfOptionalHeader == 0 || pNtHeader->OptionalHeader.SizeOfHeaders == 0))
-    if (
-        struct.unpack("<H", nt_headers[4:6]) == 0
-        or struct.unpack("<H", nt_headers[20:22]) == 0
-        or struct.unpack("<H", nt_headers[84:86]) == 0
-    ):
+    if struct.unpack("<H", nt_headers[4:6]) == 0 or struct.unpack("<H", nt_headers[20:22]) == 0 or struct.unpack("<H", nt_headers[84:86]) == 0:
         return False
 
     # if (!(pNtHeader->FileHeader.Characteristics & IMAGE_FILE_EXECUTABLE_IMAGE))
@@ -261,9 +257,7 @@ class File(object):
         return file_name
 
     def valid(self):
-        return (
-            os.path.exists(self.file_path) and os.path.isfile(self.file_path) and os.path.getsize(self.file_path) != 0
-        )
+        return os.path.exists(self.file_path) and os.path.isfile(self.file_path) and os.path.getsize(self.file_path) != 0
 
     def get_data(self):
         """Read file contents.
@@ -416,9 +410,7 @@ class File(object):
 
             if file_type is None:
                 try:
-                    p = subprocess.Popen(
-                        ["file", "-b", "-L", self.file_path], universal_newlines=True, stdout=subprocess.PIPE
-                    )
+                    p = subprocess.Popen(["file", "-b", "-L", self.file_path], universal_newlines=True, stdout=subprocess.PIPE)
                     file_type = p.stdout.read().strip()
                 except:
                     pass
@@ -449,11 +441,7 @@ class File(object):
 
             if file_type is None:
                 try:
-                    p = subprocess.Popen(
-                        ["file", "-b", "-L", "--mime-type", self.file_path],
-                        universal_newlines=True,
-                        stdout=subprocess.PIPE,
-                    )
+                    p = subprocess.Popen(["file", "-b", "-L", "--mime-type", self.file_path], universal_newlines=True, stdout=subprocess.PIPE,)
                     file_type = p.stdout.read().strip()
                 except:
                     pass
@@ -493,8 +481,7 @@ class File(object):
             assert len(str(self.file_path)) == len(self.file_path)
         except (UnicodeEncodeError, AssertionError):
             log.warning(
-                "Can't run Yara rules on %r as Unicode paths are currently " "not supported in combination with Yara!",
-                self.file_path,
+                "Can't run Yara rules on %r as Unicode paths are currently " "not supported in combination with Yara!", self.file_path,
             )
             return results
 

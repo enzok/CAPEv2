@@ -72,9 +72,7 @@ def check_webgui_mongo():
             )
             conn.server_info()
         except pymongo.errors.ServerSelectionTimeoutError:
-            log.warning(
-                "You have enabled webgui but mongo ins't working, see mongodb manual for correct instalation and configuration"
-            )
+            log.warning("You have enabled webgui but mongo ins't working, see mongodb manual for correct instalation and configuration")
             bad = True
         finally:
             conn.close()
@@ -152,9 +150,7 @@ def init_logging():
     if cuckoo.logging.enabled:
         days = cuckoo.logging.backup_count
         interval = cuckoo.logging.interval
-        fh = logging.handlers.TimedRotatingFileHandler(
-            os.path.join(CUCKOO_ROOT, "log", "cuckoo.log"), when=interval, backupCount=days
-        )
+        fh = logging.handlers.TimedRotatingFileHandler(os.path.join(CUCKOO_ROOT, "log", "cuckoo.log"), when=interval, backupCount=days)
     else:
         fh = logging.handlers.WatchedFileHandler(os.path.join(CUCKOO_ROOT, "log", "cuckoo.log"))
     fh.setFormatter(formatter)
@@ -266,9 +262,7 @@ def init_yara():
                     assert len(str(filepath)) == len(filepath)
                 except (UnicodeEncodeError, AssertionError):
                     log.warning(
-                        "Can't load Yara rules at %r as Unicode filepaths are "
-                        "currently not supported in combination with Yara!",
-                        filepath,
+                        "Can't load Yara rules at %r as Unicode filepaths are " "currently not supported in combination with Yara!", filepath,
                     )
                     continue
 
@@ -392,9 +386,7 @@ def init_routing():
             # )
             #    add = 0
             if not rooter("rt_available", entry.rt_table):
-                raise CuckooStartupError(
-                    "The routing table that has been configured for " "VPN %s is not available." % entry.name
-                )
+                raise CuckooStartupError("The routing table that has been configured for " "VPN %s is not available." % entry.name)
             vpns[entry.name] = entry
 
             # Disable & enable NAT on this network interface. Disable it just
@@ -411,26 +403,19 @@ def init_routing():
     if routing.routing.route not in ("none", "internet", "tor", "inetsim"):
         if not routing.vpn.enabled:
             raise CuckooStartupError(
-                "A VPN has been configured as default routing interface for "
-                "VMs, but VPNs have not been enabled in vpn.conf"
+                "A VPN has been configured as default routing interface for " "VMs, but VPNs have not been enabled in vpn.conf"
             )
 
         if routing.routing.route not in vpns and routing.routing.route not in socks5s:
-            raise CuckooStartupError(
-                "The VPN/Socks5 defined as default routing target has not been " "configured in routing.conf."
-            )
+            raise CuckooStartupError("The VPN/Socks5 defined as default routing target has not been " "configured in routing.conf.")
 
     # Check whether the dirty line exists if it has been defined.
     if routing.routing.internet != "none":
         if not rooter("nic_available", routing.routing.internet):
-            raise CuckooStartupError(
-                "The network interface that has been configured as dirty " "line is not available."
-            )
+            raise CuckooStartupError("The network interface that has been configured as dirty " "line is not available.")
 
         if not rooter("rt_available", routing.routing.rt_table):
-            raise CuckooStartupError(
-                "The routing table that has been configured for dirty " "line interface is not available."
-            )
+            raise CuckooStartupError("The routing table that has been configured for dirty " "line interface is not available.")
 
         # Disable & enable NAT on this network interface. Disable it just
         # in case we still had the same rule from a previous run.
@@ -462,9 +447,7 @@ def init_routing():
     # Check if inetsim interface exists, if yes then enable nat
     if routing.inetsim.enabled and routing.inetsim.interface:
         if not rooter("nic_available", routing.inetsim.interface):
-            raise CuckooStartupError(
-                "The network interface that has been configured as inetsim " "line is not available."
-            )
+            raise CuckooStartupError("The network interface that has been configured as inetsim " "line is not available.")
 
         # Disable & enable NAT on this network interface. Disable it just
         # in case we still had the same rule from a previous run.

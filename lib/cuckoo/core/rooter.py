@@ -74,9 +74,7 @@ def rooter(command, *args, **kwargs):
     try:
         s.connect(cfg.cuckoo.rooter)
     except socket.error as e:
-        log.critical(
-            "Unable to passthrough root command as we're unable to " "connect to the rooter unix socket: %s.", e
-        )
+        log.critical("Unable to passthrough root command as we're unable to " "connect to the rooter unix socket: %s.", e)
         lock.release()
         return
 
