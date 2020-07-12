@@ -197,6 +197,7 @@ class Package(object):
         return newpath
 
 
+
 class Auxiliary(object):
     def __init__(self, options={}, config=None):
         """@param options: options dict."""

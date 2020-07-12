@@ -1,10 +1,11 @@
-===========================
-Current REST API depricated
-===========================
+================
+Current REST API
+================
 
-To see current REST api see /api/ you will find all endpoints and details how to do requests
+To see current REST api see ``/api/`` you will find all endpoints and details how to do requests
 
-.. _`capesandbox api example`: https://capesandbox.com/api/
+
+`api example`: https://capesandbox.com/api/
 
 ===================
 REST API depricated
@@ -13,10 +14,6 @@ REST API depricated
 As mentioned in :doc:`submit`, CAPE provides a simple and lightweight REST
 API server implemented in `Bottle.py`_, therefore in order to make the service
 work you'll need it installed. Bottle release must be 0.10 or above.
-
-On Debian/Ubuntu::
-
-    $ sudo apt-get install python-bottle
 
 With Pip::
 
