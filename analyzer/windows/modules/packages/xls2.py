@@ -9,7 +9,7 @@ from lib.api.utils import Utils
 util = Utils()
 
 
-class XLS(Package):
+class XLS2(Package):
     """Excel analysis package."""
 
     PATHS = [
