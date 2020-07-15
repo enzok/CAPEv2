@@ -13,7 +13,6 @@ class IE(Package):
         ("ProgramFiles", "Internet Explorer", "iexplore.exe"),
     ]
 
-
     def __init__(self, options={}, config=None):
         self.config = config
         self.options = options
