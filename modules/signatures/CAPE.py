@@ -43,8 +43,8 @@ class CAPE_Compression(Signature):
 
     def on_call(self, call, process):
         if call["api"] == "RtlDecompressBuffer":
-            buf = self.get_raw_argument(call, "UncompressedBuffer")
-            size = int(self.get_raw_argument(call, "UncompressedBufferLength"), 0)
+            buf = self.get_argument(call, "UncompressedBuffer")
+            size = int(self.get_argument(call, "UncompressedBufferLength"), 0)
             self.compressed_binary = IsPEImage(buf, size)
 
     def on_complete(self):
@@ -69,8 +69,8 @@ class CAPE_RegBinary(Signature):
 
     def on_call(self, call, process):
         if call["api"] == "RegSetValueExA" or call["api"] == "RegSetValueExW":
-            buf = self.get_raw_argument(call, "Buffer")
-            size = self.get_raw_argument(call, "BufferLength")
+            buf = self.get_argument(call, "Buffer")
+            size = self.get_argument(call, "BufferLength")
             if buf:
                 self.reg_binary = IsPEImage(buf, size)
 
@@ -96,8 +96,8 @@ class CAPE_Decryption(Signature):
 
     def on_call(self, call, process):
         if call["api"] == "CryptDecrypt":
-            buf = self.get_raw_argument(call, "Buffer")
-            size = self.get_raw_argument(call, "Length")
+            buf = self.get_argument(call, "Buffer")
+            size = self.get_argument(call, "Length")
             self.encrypted_binary = IsPEImage(buf, size)
 
     def on_complete(self):
@@ -124,20 +124,20 @@ class CAPE_Unpacker(Signature):
         if process["process_name"] == "WINWORD.EXE" or process["process_name"] == "EXCEL.EXE" or process["process_name"] == "POWERPNT.EXE":
             return False
         if call["api"] == "NtAllocateVirtualMemory":
-            protection = int(self.get_raw_argument(call, "Protection"), 0)
-            regionsize = int(self.get_raw_argument(call, "RegionSize"), 0)
+            protection = int(self.get_argument(call, "Protection"), 0)
+            regionsize = int(self.get_argument(call, "RegionSize"), 0)
             handle = self.get_argument(call, "ProcessHandle")
             if handle == "0xffffffff" and protection & EXECUTABLE_FLAGS and regionsize >= EXTRACTION_MIN_SIZE:
                 return True
         if call["api"] == "VirtualProtectEx":
-            protection = int(self.get_raw_argument(call, "Protection"), 0)
-            size = int(self.get_raw_argument(call, "Size"), 0)
+            protection = int(self.get_argument(call, "Protection"), 0)
+            size = int(self.get_argument(call, "Size"), 0)
             handle = self.get_argument(call, "ProcessHandle")
             if handle == "0xffffffff" and protection & EXECUTABLE_FLAGS and size >= EXTRACTION_MIN_SIZE:
                 return True
         elif call["api"] == "NtProtectVirtualMemory":
-            protection = int(self.get_raw_argument(call, "NewAccessProtection"), 0)
-            size = int(self.get_raw_argument(call, "NumberOfBytesProtected"), 0)
+            protection = int(self.get_argument(call, "NewAccessProtection"), 0)
+            size = int(self.get_argument(call, "NumberOfBytesProtected"), 0)
             handle = self.get_argument(call, "ProcessHandle")
             if handle == "0xffffffff" and protection & EXECUTABLE_FLAGS and size >= EXTRACTION_MIN_SIZE:
                 return True
@@ -430,7 +430,7 @@ class CAPE_EvilGrab(Signature):
                 self.reg_evilgrab_keyname = True
 
         if call["api"] == "RegSetValueExA" or call["api"] == "RegSetValueExW":
-            length = self.get_raw_argument(call, "BufferLength")
+            length = self.get_argument(call, "BufferLength")
             if length and length > 0x10000 and self.reg_evilgrab_keyname is True:
                 self.reg_binary = True
 
@@ -461,13 +461,13 @@ class CAPE_PlugX(Signature):
 
     def on_call(self, call, process):
         if call["api"] == "RtlDecompressBuffer":
-            dos_header = self.get_raw_argument(call, "UncompressedBuffer")[:2]
+            dos_header = self.get_argument(call, "UncompressedBuffer")[:2]
             # IMAGE_DOS_SIGNATURE or PLUGX_SIGNATURE
             if dos_header in ("MZ", "XV", "GULP"):
                 self.compressed_binary = True
 
         if call["api"] == "memcpy":
-            count = self.get_raw_argument(call, "count")
+            count = self.get_argument(call, "count")
             if count in (0xAE4, 0xBE4, 0x150C, 0x1510, 0x1516, 0x170C, 0x1B18, 0x1D18, 0x2540, 0x254C, 0x2D58, 0x36A4, 0x4EA4,):
                 self.config_copy = True
 
