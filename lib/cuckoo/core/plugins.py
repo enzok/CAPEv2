@@ -148,6 +148,8 @@ suricata_blacklist = (
     "wscript",
     # "http",
     "ptsecurity",
+    "request",
+    "suspicious",
 )
 
 
