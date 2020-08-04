@@ -142,7 +142,7 @@ def convert(data):
 
 
 def static_config_parsers(yara_hit, file_data, cape_config):
-    # Process CAPE Yara hits
+    """Process CAPE Yara hits"""
     cape_name = yara_hit.replace("_", " ")
     parser_loaded = False
     # Attempt to import a parser for the hit
@@ -189,7 +189,6 @@ def static_config_parsers(yara_hit, file_data, cape_config):
             log.error("CAPE: DC3-MWCP config parsing error with {}: {}".format(cape_name, e))
 
     if not parser_loaded and cape_name in cape_malware_parsers:
-        parser_loaded = True
         try:
             # changed from cape_config to cape_configraw because of avoiding overridden. duplicated value name.
             cape_configraw = cape_malware_parsers[cape_name].config(file_data)
