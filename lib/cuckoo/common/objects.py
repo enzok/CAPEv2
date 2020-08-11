@@ -599,7 +599,6 @@ class ProcDump(object):
             PAGE_EXECUTE_READWRITE: "RWX",
             PAGE_EXECUTE_WRITECOPY: "RWXC",
         }
-        self.file_path = dump_file
 
     def __del__(self):
         self.close()
@@ -669,7 +668,6 @@ class ProcDump(object):
             alloc["type"] = mem_type
             alloc["offset"] = offset
             alloc["PE"] = False
-            alloc["cape_yara"] = File(self.file_path).get_yara(category="CAPE")
             try:
                 if f.read(2) == b"MZ":
                     alloc["PE"] = True

@@ -76,7 +76,6 @@
                                 <th>Size</th>
                                 <th>Protection</th>
                                 <th>PE</th>
-                                <th>CAPE Yara</th>
                                 <th>Download</th>
                             </tr>
                             {% for memmap in proc.address_space %}
@@ -93,11 +92,6 @@
                                     <td><span class="label label-success">Yes</span></td>
                                     {% else %}
                                     <td><span class="label label-primary">No</span></td>
-                                    {% endif %}
-                                    {% if memmap.cape_yara %}
-                                    <td><span class="label label-success">{{memmap.cape_yara}}</span></td>
-                                    {% else %}
-                                    <td><span class="label label-primary">-</span></td>
                                     {% endif %}
                                     {% if proc.file %}
                                     <td><a class="btn btn-default btn-small" href="{% url "procdump" analysis.info.id proc.pid memmap.start memmap.end %}">Download</a></td>
