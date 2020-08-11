@@ -133,6 +133,9 @@ class SubmitCAPE(Report):
             if "procdump=1" in self.task_options:
                 self.task_options = self.task_options.replace("procdump=1", "procdump=0", 1)
 
+            if "procmemdump=1" in self.task_options:
+                self.task_options = self.task_options.replace("procmemdump=1", "procmemdump=0", 1)
+
             if "extraction=1" in self.task_options:
                 self.task_options = self.task_options.replace("extraction=1", "extraction=0", 1)
 
@@ -337,6 +340,8 @@ class SubmitCAPE(Report):
         # we want to switch off automatic process dumps in CAPE submissions
         if self.task_options and "procdump=1" in self.task_options:
             self.task_options = self.task_options.replace("procdump=1", "procdump=0", 1)
+        if self.task_options and "procmemdump=1" in self.task_options:
+            self.task_options = self.task_options.replace("procmemdump=1", "procmemdump=0", 1)
         if self.task_options_stack:
             self.task_options = ",".join(self.task_options_stack)
 
