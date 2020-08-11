@@ -72,7 +72,6 @@ def process(target=None, copy_path=None, task=None, report=False, auto=False, ca
         log.info("[%s] (3) GC object counts: %d, %d", task_id, len(gc.get_objects()), len(gc.garbage))
 
     RunSignatures(task=task_dict, results=results).run()
-
     if memory_debugging:
         gc.collect()
         log.info("[%s] (4) GC object counts: %d, %d", task_id, len(gc.get_objects()), len(gc.garbage))
@@ -191,7 +190,7 @@ def autoprocess(parallel=1, failed_processing=False, maxtasksperchild=7, memory_
     maxcount = cfg.cuckoo.max_analysis_count
     count = 0
     db = Database()
-    pool = pebble.ProcessPool(max_workers=parallel, max_tasks=maxtasksperchild, initializer=init_worker)
+    # pool = multiprocessing.Pool(parallel, init_worker)
 
     try:
         log.info("Processing analysis data")
@@ -203,49 +202,51 @@ def autoprocess(parallel=1, failed_processing=False, maxtasksperchild=7, memory_
                 time.sleep(5)
                 continue
 
-            # If we're here, getting parallel tasks should at least
-            # have one we don't know.
-            if failed_processing:
-                tasks = db.list_tasks(status=TASK_FAILED_PROCESSING, limit=parallel, order_by=Task.completed_on.asc())
-            else:
-                tasks = db.list_tasks(status=TASK_COMPLETED, limit=parallel, order_by=Task.completed_on.asc())
-
-            added = False
-            # For loop to add only one, nice. (reason is that we shouldn't overshoot maxcount)
-            for task in tasks:
-                # Not-so-efficient lock.
-                if pending_task_id_map.get(task.id):
-                    continue
-                log.info("Processing analysis data for Task #%d", task.id)
-                if task.category == "file":
-                    sample = db.view_sample(task.sample_id)
-                    copy_path = os.path.join(CUCKOO_ROOT, "storage", "binaries", sample.sha256)
+            with pebble.ProcessPool(max_workers=parallel, max_tasks=maxtasksperchild, initializer=init_worker) as pool:
+                # If we're here, getting parallel tasks should at least
+                # have one we don't know.
+                if failed_processing:
+                    tasks = db.list_tasks(status=TASK_FAILED_PROCESSING, limit=parallel, order_by=Task.completed_on.asc())
                 else:
-                    copy_path = None
-                args = task.target, copy_path
-                kwargs = dict(report=True, auto=True, task=task, memory_debugging=memory_debugging)
-                if memory_debugging:
-                    gc.collect()
-                    log.info("[%d] (before) GC object counts: %d, %d", task.id, len(gc.get_objects()), len(gc.garbage))
+                    tasks = db.list_tasks(status=TASK_COMPLETED, limit=parallel, order_by=Task.completed_on.asc())
+                added = False
+                # For loop to add only one, nice. (reason is that we shouldn't overshoot maxcount)
+                for task in tasks:
+                    # Not-so-efficient lock.
+                    if pending_task_id_map.get(task.id):
+                        continue
+                    log.info("Processing analysis data for Task #%d", task.id)
+                    if task.category == "file":
+                        sample = db.view_sample(task.sample_id)
+                        copy_path = os.path.join(CUCKOO_ROOT, "storage", "binaries", sample.sha256)
+                    else:
+                        copy_path = None
+                    args = task.target, copy_path
+                    kwargs = dict(report=True, auto=True, task=task, memory_debugging=memory_debugging)
+                    if memory_debugging:
+                        gc.collect()
+                        log.info("[%d] (before) GC object counts: %d, %d", task.id, len(gc.get_objects()), len(gc.garbage))
 
-                future = pool.schedule(process, args, kwargs, timeout=processing_timeout)
-                pending_future_map[future] = task.id
-                pending_task_id_map[task.id] = future
-                future.add_done_callback(processing_finished)
-                if memory_debugging:
-                    gc.collect()
-                    log.info("[%d] (after) GC object counts: %d, %d", task.id, len(gc.get_objects()), len(gc.garbage))
+                    # result = pool.apply_async(process, args, kwargs)
+                    future = pool.schedule(process, args, kwargs, timeout=processing_timeout)
+                    pending_future_map[future] = task.id
+                    pending_task_id_map[task.id] = future
+                    future.add_done_callback(processing_finished)
+                    if memory_debugging:
+                        gc.collect()
+                        log.info("[%d] (after) GC object counts: %d, %d", task.id, len(gc.get_objects()), len(gc.garbage))
 
-                count += 1
-                added = True
-                break
+                    count += 1
+                    added = True
+                    break
 
-            if not added:
-                # don't hog cpu
-                time.sleep(5)
+                if not added:
+                    # don't hog cpu
+                    time.sleep(5)
 
     except KeyboardInterrupt:
         # ToDo verify in finally
+        # pool.terminate()
         raise
     except:
         import traceback
@@ -258,22 +259,16 @@ def autoprocess(parallel=1, failed_processing=False, maxtasksperchild=7, memory_
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("id", type=str, help="ID of the analysis to process " "(auto for continuous processing of unprocessed tasks).")
+    parser.add_argument("id", type=str, help="ID of the analysis to process (auto for continuous processing of unprocessed tasks).")
     parser.add_argument("-c", "--caperesubmit", help="Allow CAPE resubmit processing.", action="store_true", required=False)
     parser.add_argument("-d", "--debug", help="Display debug messages", action="store_true", required=False)
     parser.add_argument("-r", "--report", help="Re-generate report", action="store_true", required=False)
     parser.add_argument("-s", "--signatures", help="Re-execute signatures on the report", action="store_true", required=False)
+    parser.add_argument("-p", "--parallel", help="Number of parallel threads to use (auto mode only).", type=int, required=False, default=1)
+    parser.add_argument("-fp", "--failed-processing", help="reprocess failed processing", action="store_true", required=False, default=False)
+    parser.add_argument("-mc", "--maxtasksperchild", help="Max children tasks per worker", action="store", type=int, required=False, default=7)
     parser.add_argument(
-        "-p", "--parallel", help="Number of parallel threads to use (auto mode only).", type=int, required=False, default=1,
-    )
-    parser.add_argument(
-        "-fp", "--failed-processing", help="reprocess failed processing", action="store_true", required=False, default=False,
-    )
-    parser.add_argument(
-        "-mc", "--maxtasksperchild", help="Max children tasks per worker", action="store", type=int, required=False, default=7,
-    )
-    parser.add_argument(
-        "-md", "--memory-debugging", help="Enable logging garbage collection related info", action="store_true", required=False, default=False,
+        "-md", "--memory-debugging", help="Enable logging garbage collection related info", action="store_true", required=False, default=False
     )
     parser.add_argument(
         "-pt",
