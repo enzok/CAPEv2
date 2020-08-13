@@ -49,6 +49,21 @@ class ProcessMemory(Processing):
             res.append(File(path).get_all())
         return res
 
+    def get_yara_memblock(self, addr_space, yaraoffset):
+        lastoffset = 0
+        lastmemmap = addr_space[0]
+        for memmap in addr_space:
+            for chunk in memmap["chunks"]:
+                offset = chunk["offset"]
+                if offset > yaraoffset > lastoffset:
+                    if int(memmap["start"], 16) < int(chunk["start"], 16) < int(memmap["end"], 16):
+                        return memmap["start"]
+                    else:
+                        return lastmemmap["start"]
+                lastoffset = offset
+            lastmemmap = memmap
+        return
+
     def run(self):
         """Run analysis.
         @return: structured results.
@@ -90,6 +105,13 @@ class ProcessMemory(Processing):
                     cape_yara=dmp_file.get_yara(category="CAPE"),
                     address_space=procdump.pretty_print(),
                 )
+
+                for hit in proc["cape_yara"]:
+                    hit["memblocks"] = dict()
+                    for item in hit["addresses"]:
+                        memblock = self.get_yara_memblock(proc["address_space"], hit["addresses"][item])
+                        if memblock:
+                            hit["memblocks"][item] = memblock
 
                 # if self.options.get("extract_pe", False)
                 extracted_pes = self.get_procmemory_pe(proc)
