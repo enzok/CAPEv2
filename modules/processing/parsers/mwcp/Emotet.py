@@ -40,7 +40,6 @@ rule Emotet
         $snippet8 = {85 C0 74 ?? B9 [2] 40 00 33 D2 89 [1-2] 89 [1-2] 8B [1-2] 89 [1-2] EB ?? 41 89 [1-2] 39 14 CD [2] 40 00 75 ?? 8B CE E8 [4] 85 C0 74 ?? 33 C0 40 5E C3}
         $ref_rsa = {6A 00 6A 01 FF 76 [0-4] FF [2-3] C0 74 ?? 8D 4D ?? E8 ?? ?? FF FF 8D 45 ?? B9 ?? ?? 40 00 8D 55 ?? 89 45 ?? E8}
     condition:
-        //check for MZ Signature at offset 0
         uint16(0) == 0x5A4D and (($snippet1) and ($snippet2)) or ($snippet3) or ($snippet4) or ($snippet5) or ($snippet6) or ($snippet7) or ($snippet8) or ($ref_rsa)
 }
 
