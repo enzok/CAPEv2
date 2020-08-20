@@ -10,6 +10,7 @@ if sys.version_info[:2] < (3, 6):
     sys.exit("You are running an incompatible version of Python, please use >= 3.6")
 import logging
 import urllib3
+import certifi
 import argparse
 import tarfile
 from io import BytesIO
@@ -29,7 +30,7 @@ def install(enabled, force, rewrite, filepath):
     else:
         print("Downloading modules from {0}".format(URL))
         try:
-            http = urllib3.PoolManager()
+            http = urllib3.PoolManager(ca_certs=certifi.where())
             data = http.request("GET", URL).data
             t = tarfile.TarFile.open(fileobj=BytesIO(data), mode="r:gz")
         except Exception as e:
