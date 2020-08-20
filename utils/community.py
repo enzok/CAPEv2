@@ -60,7 +60,7 @@ def install(enabled, force, rewrite, filepath):
         # E.g., "community-master/modules/signatures".
         name_start = "%s/%s" % (directory, folder)
         for member in members:
-            if not member.name.endswith("triddef.trd"):
+            if member.name.endswith("triddef.trd"):
                 continue
 
             if not member.name.startswith(name_start) or name_start == member.name:
