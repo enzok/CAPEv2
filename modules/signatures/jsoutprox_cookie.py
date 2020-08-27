@@ -33,7 +33,7 @@ class JSOutProxCookie(Signature):
 
     def __init__(self, *args, **kwargs):
         Signature.__init__(self, *args, **kwargs)
-        self.cookieRex = "Cookie: _{0,1}\w+=(\w+)"
+        self.cookieRex = "Cookie: [_\.]{0,1}\w+=(\w+)"
 
     filter_apinames = set(["WSASend"])
 
