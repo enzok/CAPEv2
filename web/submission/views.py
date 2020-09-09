@@ -362,7 +362,7 @@ def index(request, resubmit_hash=False):
                         "error.html",
                         {
                             "error": "You uploaded a file that exceeds the maximum allowed upload size "
-                            "specified in web/web/local_settings.py."
+                            "specified in conf/web.conf"
                         },
                     )
 
@@ -622,7 +622,7 @@ def index(request, resubmit_hash=False):
                 task_machines = [vm.name for vm in db.list_machines(platform=platform)]
             elif machine:
                 machine_details = db.view_machine(machine[0])
-                if not machine_details.platform == platform:
+                if hasattr(machine_details, "platform") and not machine_details.platform == platform:
                     return render(
                         request,
                         "error.html",

@@ -5,7 +5,6 @@ import os
 import sys
 import socket
 import tarfile
-
 import logging
 from datetime import datetime, timedelta
 import tempfile
@@ -19,7 +18,7 @@ from django.shortcuts import render, redirect
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_safe
 from ratelimit.decorators import ratelimit
-from io import StringIO, BytesIO
+from io import BytesIO
 from bson.objectid import ObjectId
 from django.contrib.auth.decorators import login_required
 import csv
@@ -306,10 +305,7 @@ def tasks_create_file(request):
                 task_machines.append(machine)
             # Error if its not
             else:
-                resp = {
-                    "error": True,
-                    "error_value": ("Machine '{0}' does not exist. " "Available: {1}".format(machine, ", ".join(vm_list))),
-                }
+                resp = {"error": True, "error_value": ("Machine '{0}' does not exist. " "Available: {1}".format(machine, ", ".join(vm_list)))}
                 return jsonize(resp, response=True)
         # Parse a max file size to be uploaded
         max_file_size = apiconf.filecreate.get("upload_limit")
@@ -561,10 +557,7 @@ def tasks_create_url(request):
                 task_machines.append(machine)
             # Error if its not
             else:
-                resp = {
-                    "error": True,
-                    "error_value": ("Machine '{0}' does not exist. " "Available: {1}".format(machine, ", ".join(vm_list))),
-                }
+                resp = {"error": True, "error_value": ("Machine '{0}' does not exist. " "Available: {1}".format(machine, ", ".join(vm_list)))}
                 return jsonize(resp, response=True)
 
         if referrer:
@@ -661,10 +654,7 @@ def tasks_create_dlnexec(request):
                 task_machines.append(machine)
             # Error if its not
             else:
-                resp = {
-                    "error": True,
-                    "error_value": ("Machine '{0}' does not exist. " "Available: {1}".format(machine, ", ".join(vm_list))),
-                }
+                resp = {"error": True, "error_value": ("Machine '{0}' does not exist. " "Available: {1}".format(machine, ", ".join(vm_list)))}
                 return jsonize(resp, response=True)
 
         if referrer:
@@ -772,10 +762,7 @@ def tasks_vtdl(request):
                 task_machines.append(machine)
             # Error if its not
             else:
-                resp = {
-                    "error": True,
-                    "error_value": ("Machine '{0}' does not exist. " "Available: {1}".format(machine, ", ".join(vm_list))),
-                }
+                resp = {"error": True, "error_value": ("Machine '{0}' does not exist. " "Available: {1}".format(machine, ", ".join(vm_list)))}
                 return jsonize(resp, response=True)
         enforce_timeout = bool(request.POST.get("enforce_timeout", False))
         referrer = False
@@ -1193,10 +1180,7 @@ def tasks_reschedule(request, task_id):
         resp["error"] = False
         resp["data"] = "Task ID {0} has been rescheduled".format(task_id)
     else:
-        resp = {
-            "error": True,
-            "error_value": ("An error occured while trying to reschedule " "Task ID {0}".format(task_id)),
-        }
+        resp = {"error": True, "error_value": ("An error occured while trying to reschedule " "Task ID {0}".format(task_id))}
 
     return jsonize(resp, response=True)
 
@@ -1349,7 +1333,7 @@ def tasks_report(request, task_id, report_format="json"):
             return jsonize(resp, response=True)
 
         fname = "%s_reports.tar.bz2" % task_id
-        s = StringIO()
+        s = BytesIO()
         tar = tarfile.open(name=fname, fileobj=s, mode="w:bz2")
         for rep in os.listdir(srcdir):
             tar.add(os.path.join(srcdir, rep), arcname=rep)
@@ -1362,7 +1346,7 @@ def tasks_report(request, task_id, report_format="json"):
     elif report_format.lower() in bz_formats:
         bzf = bz_formats[report_format.lower()]
         srcdir = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%d" % task_id)
-        s = StringIO()
+        s = BytesWarning()
 
         # By default go for bz2 encoded tar files (for legacy reasons.)
         # tarmode = tar_formats.get("tar", "w:bz2")
@@ -1641,7 +1625,7 @@ def tasks_screenshot(request, task_id, screenshot="all"):
 
     if screenshot == "all":
         fname = "%s_screenshots.tar.bz2" % task_id
-        s = StringIO()
+        s = BytesIO()
         tar = tarfile.open(fileobj=s, mode="w:bz2")
         for shot in os.listdir(srcdir):
             tar.add(os.path.join(srcdir, shot), arcname=shot)
@@ -1716,7 +1700,7 @@ def tasks_dropped(request, task_id):
 
     else:
         fname = "%s_dropped.tar.bz2" % task_id
-        s = StringIO()
+        s = BytesIO()
         tar = tarfile.open(fileobj=s, mode="w:bz2")
         for dirfile in os.listdir(srcdir):
             tar.add(os.path.join(srcdir, dirfile), arcname=dirfile)
@@ -1866,7 +1850,7 @@ def tasks_procmemory(request, task_id, pid="all"):
             return jsonize(resp, response=True)
 
         fname = "%s_procdumps.tar.bz2" % task_id
-        s = StringIO()
+        s = BytesIO()
         tar = tarfile.open(fileobj=s, mode="w:bz2")
         for memdump in os.listdir(srcdir):
             tar.add(os.path.join(srcdir, memdump), arcname=memdump)
@@ -1879,7 +1863,7 @@ def tasks_procmemory(request, task_id, pid="all"):
         if os.path.exists(srcfile):
             if apiconf.taskprocmemory.get("compress"):
                 fname = srcfile.split("/")[-1]
-                s = StringIO()
+                s = BytesIO()
                 tar = tarfile.open(fileobj=s, mode="w:bz2")
                 tar.add(srcfile, arcname=fname)
                 tar.close()
