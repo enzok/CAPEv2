@@ -305,8 +305,11 @@ def index(request, resubmit_hash=False):
                 content = False
                 content = get_file_content(paths)
                 if not content:
-                    return render(request, "error.html", {"error": "Can't find {} on disk, {}".format(resubmission_hash, str(paths))},)
-                base_dir = tempfile.mkdtemp(prefix="resubmit_", dir=settings.TEMP_PATH)
+                    return render(request, "error.html", {"error": "Can't find {} on disk, {}".format(resubmission_hash, str(paths))})
+                folder = os.path.join(settings.TEMP_PATH, "cape-resubmit")
+                if not os.path.exists(folder):
+                    os.makedirs(folder)
+                base_dir = tempfile.mkdtemp(prefix="resubmit_", dir=folder)
                 if opt_filename:
                     filename = base_dir + "/" + opt_filename
                 else:
@@ -673,8 +676,11 @@ def index(request, resubmit_hash=False):
                 else:
                     hashlist.append(vtdl)
 
+                folder = os.path.join(settings.VTDL_PATH, "cape-vt")
+                if not os.path.exists(folder):
+                    os.makedirs(folder)
                 for h in hashlist:
-                    base_dir = tempfile.mkdtemp(prefix="cuckoovtdl", dir=settings.VTDL_PATH)
+                    base_dir = tempfile.mkdtemp(prefix="capevtdl", dir=folder)
                     task_ids_tmp = list()
                     if opt_filename:
                         filename = base_dir + "/" + opt_filename
@@ -774,7 +780,7 @@ def index(request, resubmit_hash=False):
             return render(request, "submission/complete.html", data)
 
         else:
-            return render(request, "error.html", {"error": "Error adding task to Cuckoo's database."})
+            return render(request, "error.html", {"error": "Error adding task to CAPE's database."})
     else:
         enabledconf = dict()
         enabledconf["vt"] = settings.VTDL_ENABLED
@@ -794,7 +800,7 @@ def index(request, resubmit_hash=False):
             enabledconf["tags"] = True
 
         if not enabledconf["tags"]:
-            #  load multi machinery tags:
+            # load multi machinery tags:
             # Get enabled machinery
             machinery = cfg.cuckoo.get("machinery")
             if machinery == "multi":
