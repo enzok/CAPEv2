@@ -1148,7 +1148,7 @@ def procdump(request, task_id, process_id, start, end):
     tmp_file_path = None
     response = False
     if enabledconf["mongodb"]:
-        analysis = results_db.analysis.find_one({"info.id": int(task_id)}, {"procdump": 1, "_id": 0}, sort=[("_id", pymongo.DESCENDING)])
+        analysis = results_db.analysis.find_one({"info.id": int(task_id)}, {"procmemory": 1, "_id": 0}, sort=[("_id", pymongo.DESCENDING)])
     if es_as_db:
         analysis = es.search(index=fullidx, doc_type="analysis", q='info.id: "%s"' % task_id)["hits"]["hits"][0]["_source"]
 
@@ -1158,7 +1158,7 @@ def procdump(request, task_id, process_id, start, end):
         if not os.path.exists(dumpfile):
             return render(request, "error.html", {"error": "File not found"})
         f = zipfile.ZipFile(dumpfile, "r")
-        tmpdir = tempfile.mkdtemp(prefix="cuckooprocdump_", dir=settings.TEMP_PATH)
+        tmpdir = tempfile.mkdtemp(prefix="capememdump_", dir=settings.TEMP_PATH)
         tmp_file_path = f.extract(origname, path=tmpdir)
         f.close()
         dumpfile = tmp_file_path
