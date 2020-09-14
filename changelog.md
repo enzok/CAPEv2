@@ -1,3 +1,11 @@
+### [14-09-2020]
+* Added ability to enable/disable some of 3rd part services for malware detection, like: VirusTotal, ClamAV, Suricata
+
+### [13-09-2020]
+* Enable ratelimit on download any file, to avoid scrapping, to change limits, edit: `api.conf` -> `download_file`
+* Error message for ratelimit can be configured in `web/web/settings.py`
+* Fixed a lot of bugs/typos, thanks Flake8 + GitHub Actions :)
+
 ### [11-08-2020]
 * Update suricata socket path in processing.conf as in cape2.sh from `/var/run/` to `/tmp/`
 * Fix pebble pool restart on timeout

@@ -7,9 +7,6 @@ __author__ = "Didier Stevens"
 __version__ = "0.0.9"
 __date__ = "2018/12/09"
 
-import collections
-import glob
-
 """
 
 Source code put in public domain by Didier Stevens, no Copyright
@@ -55,6 +52,8 @@ import string
 import hashlib
 import json
 from io import StringIO
+import collections
+import glob
 
 try:
     import yara
@@ -285,7 +284,7 @@ def LoadPlugins(plugins, verbose):
                     scriptPlugin = os.path.join(scriptPath, plugin)
                     if os.path.exists(scriptPlugin):
                         plugin = scriptPlugin
-            exec(open(plugin, "r")) in globals(), globals()
+            exec(open(plugin, "r").read(), globals(), globals())
         except Exception as e:
             print("Error loading plugin: %s" % plugin)
             if verbose:
@@ -315,7 +314,7 @@ def LoadDecoders(decoders, verbose):
                     scriptDecoder = os.path.join(scriptPath, decoder)
                     if os.path.exists(scriptDecoder):
                         decoder = scriptDecoder
-            exec(open(decoder, "r")) in globals(), globals()
+            exec(open(decoder, "r").read(), globals(), globals())
         except Exception as e:
             print("Error loading decoder: %s" % decoder)
             if verbose:
@@ -599,7 +598,7 @@ def ParseCutTerm(argument):
     else:
         return (
             CUTTERM_FIND,
-            (oMatch.group(1), int(Replace(oMatch.group(2), {None: "1"})), ParseInteger(Replace(oMatch.group(3), {None: "0"})),),
+            (oMatch.group(1), int(Replace(oMatch.group(2), {None: "1"})), ParseInteger(Replace(oMatch.group(3), {None: "0"}))),
             argument[len(oMatch.group(0)) :],
         )
 
@@ -834,7 +833,7 @@ def RTFSub(oStringIO, prefix, rules, options):
                 except:
                     data = ""
             object.append({"id": counter, "name": str(counter), "content": binascii.b2a_base64(data).strip("\n")})
-        print(json.dumps({"version": 2, "id": "didierstevens.com", "type": "content", "fields": ["id", "name", "content"], "items": object,}))
+        print(json.dumps({"version": 2, "id": "didierstevens.com", "type": "content", "fields": ["id", "name", "content"], "items": object}))
         return
 
     if options.select == "":
@@ -910,7 +909,7 @@ def RTFSub(oStringIO, prefix, rules, options):
                                     linePrinted = True
                                 print(
                                     "               YARA rule%s: %s"
-                                    % (IFF(oDecoder.Name() == "", "", " (stream decoder: %s)" % oDecoder.Name()), result.rule,)
+                                    % (IFF(oDecoder.Name() == "", "", " (stream decoder: %s)" % oDecoder.Name()), result.rule)
                                 )
                                 if options.yarastrings:
                                     for stringdata in result.strings:
@@ -1034,17 +1033,11 @@ def Main():
         help="decode hexadecimal data; append 0 in case of uneven number of hexadecimal digits",
     )
     oParser.add_option("-S", "--hexshift", action="store_true", default=False, help="shift one nibble")
-    oParser.add_option(
-        "-p", "--plugins", type=str, default="", help="plugins to load (separate plugins with a comma , ; @file supported)",
-    )
+    oParser.add_option("-p", "--plugins", type=str, default="", help="plugins to load (separate plugins with a comma , ; @file supported)")
     oParser.add_option("--pluginoptions", type=str, default="", help="options for the plugin")
     oParser.add_option("-q", "--quiet", action="store_true", default=False, help="only print output from plugins")
-    oParser.add_option(
-        "-y", "--yara", help="YARA rule-file, @file or directory to check streams (YARA search doesn't work with -s option)",
-    )
-    oParser.add_option(
-        "-D", "--decoders", type=str, default="", help="decoders to load (separate decoders with a comma , ; @file supported)",
-    )
+    oParser.add_option("-y", "--yara", help="YARA rule-file, @file or directory to check streams (YARA search doesn't work with -s option)")
+    oParser.add_option("-D", "--decoders", type=str, default="", help="decoders to load (separate decoders with a comma , ; @file supported)")
     oParser.add_option("--decoderoptions", type=str, default="", help="options for the decoder")
     oParser.add_option("--yarastrings", action="store_true", default=False, help="Print YARA strings")
     oParser.add_option("-V", "--verbose", action="store_true", default=False, help="verbose output with decoder errors")
