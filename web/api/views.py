@@ -20,6 +20,7 @@ from django.views.decorators.http import require_safe
 from io import BytesIO
 from bson.objectid import ObjectId
 from django.contrib.auth.decorators import login_required
+from ratelimit.decorators import ratelimit
 import csv
 
 sys.path.append(settings.CUCKOO_PATH)
@@ -44,7 +45,6 @@ from lib.cuckoo.common.web_utils import (
     validate_task,
     my_rate_minutes,
     my_rate_seconds,
-    apilimiter,
     apiconf,
     rateblock,
     )
