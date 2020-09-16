@@ -1397,6 +1397,7 @@ class Office(object):
             # Create IOC and category vars. We do this before processing the
             # macro(s) to avoid overwriting data when there are multiple
             # macros in a single file.
+            macro_folder = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(self.results["info"]["id"]), "macros")
             macrores["Analysis"] = dict()
             macrores["Analysis"]["AutoExec"] = list()
             macrores["Analysis"]["Suspicious"] = list()
@@ -1411,6 +1412,15 @@ class Office(object):
                     macrores["Code"][outputname] = list()
                     macrores["Code"][outputname].append((convert_to_printable(vba_filename), convert_to_printable(vba_code)))
                     autoexec = detect_autoexec(vba_code)
+                    if "Excel 4.0 macro sheet".lower() in vba_code.lower():
+                        if not os.path.exists(macro_folder):
+                            os.makedirs(macro_folder)
+                        macro_file = os.path.join(macro_folder, outputname)
+                        with open(macro_file, "wb") as f:
+                            f.write(convert_to_printable(vba_code).encode("utf8"))
+                        macrores["info"][outputname]["yara_macro"] = File(macro_file).get_yara(category="macro")
+                        macrores["info"][outputname]["yara_macro"] = File(macro_file).get_yara(category="CAPE")
+
                     suspicious = detect_suspicious(vba_code)
                     iocs = False
                     try:
