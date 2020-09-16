@@ -1485,7 +1485,7 @@ class Office(object):
                 "start_with_shell": False,
                 "return_deobfuscated": True,
                 "no_indent": False,
-                "output_formula_format": "CELL:[[CELL_ADDR]], [[STATUS]], [[INT-FORMULA]]",
+                "output_formula_format": "CELL:[[CELL-ADDR]], [[STATUS]], [[INT-FORMULA]]",
                 "day": 0,
                 "password": password,
             }
