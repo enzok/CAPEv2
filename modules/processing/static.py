@@ -1418,7 +1418,7 @@ class Office(object):
                     macro_file = os.path.join(macro_folder, outputname)
                     with open(macro_file, "wb") as f:
                         f.write(convert_to_printable(vba_code).encode("utf8"))
-                    macrores["info"][outputname] = list()
+                    macrores["info"][outputname] = dict()
                     macrores["info"][outputname]["yara_macro"] = File(macro_file).get_yara(category="macro")
                     macrores["info"][outputname]["yara_macro"] = File(macro_file).get_yara(category="CAPE")
 
@@ -1500,7 +1500,7 @@ class Office(object):
                     macro_file = os.path.join(macro_folder, "xlm_macro")
                     with open(macro_file, "wb") as f:
                         f.write(convert_to_printable(deofuscated_xlm).encode("utf8"))
-                    xlmmacro["info"] = list()
+                    xlmmacro["info"] = dict()
                     xlmmacro["info"]["yara_macro"] = File(macro_file).get_yara(category="macro")
                     xlmmacro["info"]["yara_macro"] = File(macro_file).get_yara(category="CAPE")
             except Exception as e:
