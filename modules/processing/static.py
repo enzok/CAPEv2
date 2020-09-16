@@ -1493,7 +1493,7 @@ class Office(object):
             try:
                 deofuscated_xlm = XLMMacroDeobf(**xlm_kwargs)
                 if deofuscated_xlm:
-                    xlmmacro = results["office"]["XLMMacroDeobfuscator"]
+                    xlmmacro = results["office"]["XLMMacroDeobfuscator"] = dict()
                     xlmmacro["Code"]= deofuscated_xlm
                     if not os.path.exists(macro_folder):
                         os.makedirs(macro_folder)
