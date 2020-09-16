@@ -1416,8 +1416,8 @@ class Office(object):
                     if not os.path.exists(macro_folder):
                         os.makedirs(macro_folder)
                     macro_file = os.path.join(macro_folder, outputname)
-                    with open(macro_file, "wb") as f:
-                        f.write(convert_to_printable(vba_code).encode("utf8"))
+                    with open(macro_file, "w") as f:
+                        f.write(convert_to_printable(vba_code))
                     macrores["info"][outputname] = dict()
                     macrores["info"][outputname]["yara_macro"] = File(macro_file).get_yara(category="macro")
                     macrores["info"][outputname]["yara_macro"] = File(macro_file).get_yara(category="CAPE")
@@ -1498,8 +1498,8 @@ class Office(object):
                     if not os.path.exists(macro_folder):
                         os.makedirs(macro_folder)
                     macro_file = os.path.join(macro_folder, "xlm_macro")
-                    with open(macro_file, "wb") as f:
-                        f.write(deofuscated_xlm.encode("utf8"))
+                    with open(macro_file, "w") as f:
+                        f.write("\n".join(deofuscated_xlm))
                     xlmmacro["info"] = dict()
                     xlmmacro["info"]["yara_macro"] = File(macro_file).get_yara(category="macro")
                     xlmmacro["info"]["yara_macro"] = File(macro_file).get_yara(category="CAPE")
