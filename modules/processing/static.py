@@ -1420,7 +1420,7 @@ class Office(object):
                         f.write(convert_to_printable(vba_code))
                     macrores["info"][outputname] = dict()
                     macrores["info"][outputname]["yara_macro"] = File(macro_file).get_yara(category="macro")
-                    macrores["info"][outputname]["yara_macro"].append(File(macro_file).get_yara(category="CAPE"))
+                    macrores["info"][outputname]["yara_macro"].extend(File(macro_file).get_yara(category="CAPE"))
 
                     suspicious = detect_suspicious(vba_code)
                     iocs = False
@@ -1502,7 +1502,7 @@ class Office(object):
                         f.write("\n".join(deofuscated_xlm))
                     xlmmacro["info"] = dict()
                     xlmmacro["info"]["yara_macro"] = File(macro_file).get_yara(category="macro")
-                    xlmmacro["info"]["yara_macro"].append(File(macro_file).get_yara(category="CAPE"))
+                    xlmmacro["info"]["yara_macro"].extend(File(macro_file).get_yara(category="CAPE"))
             except Exception as e:
                 log.error(e, exc_info=True)
 
