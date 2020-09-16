@@ -1499,7 +1499,7 @@ class Office(object):
                         os.makedirs(macro_folder)
                     macro_file = os.path.join(macro_folder, "xlm_macro")
                     with open(macro_file, "wb") as f:
-                        f.write(convert_to_printable(deofuscated_xlm).encode("utf8"))
+                        f.write(deofuscated_xlm.encode("utf8"))
                     xlmmacro["info"] = dict()
                     xlmmacro["info"]["yara_macro"] = File(macro_file).get_yara(category="macro")
                     xlmmacro["info"]["yara_macro"] = File(macro_file).get_yara(category="CAPE")
