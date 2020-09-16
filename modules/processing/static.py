@@ -1375,6 +1375,7 @@ class Office(object):
             log.error(e, exc_info=True)
 
         metares = officeresults["Metadata"] = dict()
+        macro_folder = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(self.results["info"]["id"]), "macros")
         # The bulk of the metadata checks are in the OLE Structures
         # So don't check if we're dealing with XML.
         if olefile.isOleFile(filepath):
@@ -1392,12 +1393,12 @@ class Office(object):
             metares["HasMacros"] = "Yes"
             macrores = officeresults["Macro"] = dict()
             macrores["Code"] = dict()
+            macrores["info"] = dict()
             decoded_strs = ""
             ctr = 0
             # Create IOC and category vars. We do this before processing the
             # macro(s) to avoid overwriting data when there are multiple
             # macros in a single file.
-            macro_folder = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(self.results["info"]["id"]), "macros")
             macrores["Analysis"] = dict()
             macrores["Analysis"]["AutoExec"] = list()
             macrores["Analysis"]["Suspicious"] = list()
@@ -1412,14 +1413,14 @@ class Office(object):
                     macrores["Code"][outputname] = list()
                     macrores["Code"][outputname].append((convert_to_printable(vba_filename), convert_to_printable(vba_code)))
                     autoexec = detect_autoexec(vba_code)
-                    if "Excel 4.0 macro sheet".lower() in vba_code.lower():
-                        if not os.path.exists(macro_folder):
-                            os.makedirs(macro_folder)
-                        macro_file = os.path.join(macro_folder, outputname)
-                        with open(macro_file, "wb") as f:
-                            f.write(convert_to_printable(vba_code).encode("utf8"))
-                        macrores["info"][outputname]["yara_macro"] = File(macro_file).get_yara(category="macro")
-                        macrores["info"][outputname]["yara_macro"] = File(macro_file).get_yara(category="CAPE")
+                    if not os.path.exists(macro_folder):
+                        os.makedirs(macro_folder)
+                    macro_file = os.path.join(macro_folder, outputname)
+                    with open(macro_file, "wb") as f:
+                        f.write(convert_to_printable(vba_code).encode("utf8"))
+                    macrores["info"][outputname] = list()
+                    macrores["info"][outputname]["yara_macro"] = File(macro_file).get_yara(category="macro")
+                    macrores["info"][outputname]["yara_macro"] = File(macro_file).get_yara(category="CAPE")
 
                     suspicious = detect_suspicious(vba_code)
                     iocs = False
@@ -1492,7 +1493,16 @@ class Office(object):
             try:
                 deofuscated_xlm = XLMMacroDeobf(**xlm_kwargs)
                 if deofuscated_xlm:
-                    xlmmacro = results["office"]["XLMMacroDeobfuscator"] = deofuscated_xlm
+                    xlmmacro = results["office"]["XLMMacroDeobfuscator"]
+                    xlmmacro["Code"]= deofuscated_xlm
+                    if not os.path.exists(macro_folder):
+                        os.makedirs(macro_folder)
+                    macro_file = os.path.join(macro_folder, "xlm_macro")
+                    with open(macro_file, "wb") as f:
+                        f.write(convert_to_printable(deofuscated_xlm).encode("utf8"))
+                    xlmmacro["info"] = list()
+                    xlmmacro["info"]["yara_macro"] = File(macro_file).get_yara(category="macro")
+                    xlmmacro["info"]["yara_macro"] = File(macro_file).get_yara(category="CAPE")
             except Exception as e:
                 log.error(e, exc_info=True)
 
