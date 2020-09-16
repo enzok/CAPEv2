@@ -353,9 +353,6 @@ class GuestManager(object):
 
             try:
                 status = self.get("/status", timeout=5).json()
-            except Exception as e:
-                log.error(e, exc_info=True)
-                continue
             except CuckooGuestError:
                 # this might fail due to timeouts or just temporary network
                 # issues thus we don't want to abort the analysis just yet and
@@ -363,7 +360,7 @@ class GuestManager(object):
                 log.warning("Virtual Machine /status failed. This can indicate the " "guest losing network connectivity")
                 continue
             except Exception as e:
-                log.error("Virtual machine /status failed. %s", e)
+                log.error("Virtual machine /status failed. %s", e, exc_info=True)
                 continue
 
             if status["status"] == "complete":
