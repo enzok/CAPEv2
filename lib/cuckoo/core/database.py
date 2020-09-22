@@ -1958,10 +1958,12 @@ class Database(object, metaclass=Singleton):
                     tasks = results_db.analysis.find({"suricata.files.sha256": sample_hash}, {"suricata.files.file_info.path": 1, "_id": 0})
                     if tasks:
                         for task in tasks:
-                            path = task["suricata"]["files"]["file_info"]["path"]
-                            if os.path.exists(path):
-                                sample = [path]
-                                break
+                            for item in task["suricata"]["files"] or []:
+                                path = ["file_info"]["path"]
+                                if sample_hash in path:
+                                    if os.path.exists(path):
+                                        sample = [path]
+                                        break
 
             except AttributeError:
                 pass
