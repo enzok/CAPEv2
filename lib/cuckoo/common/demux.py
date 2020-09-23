@@ -204,8 +204,11 @@ def demux_sflock(filename, options):
             if retlist:
                 unpacked.extract(tmp_dir)
 
-    except Exception as err:
-        pass
+    except Exception as e:
+        log.error(e, exc_info=True)
+
+    if cuckoo_conf.cuckoo.delete_archive:
+        os.remove(filename)
 
     return retlist
 
