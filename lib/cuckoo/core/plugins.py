@@ -89,12 +89,13 @@ def list_plugins(group=None):
         return _modules
 
 
-suricata_whitelist = (
+suricata_passlist = (
     "agenttesla",
     "medusahttp",
+    "vjworm",
 )
 
-suricata_blacklist = (
+suricata_blocklist = (
     "abuse",
     "agent",
     "base64",
@@ -152,6 +153,12 @@ suricata_blacklist = (
     "suspicious",
 )
 
+et_categories = ("ET TROJAN",
+                 "ETPRO TROJAN",
+                 "ET MALWARE",
+                 "ETPRO MALWARE",
+                 "ET CNC",
+                 "ETPRO CNC")
 
 def get_suricata_family(signature):
     """
@@ -162,13 +169,12 @@ def get_suricata_family(signature):
     """
     # ToDo Trojan-Proxy
     family = False
-    # alert["signature"].startswith(("ET JA3 HASH")):
     words = re.findall(r"[A-Za-z0-9/\-]+", signature)
     famcheck = words[2]
     if "/" in famcheck:
         famcheck_list = famcheck.split("/")  # [-1]
         for fam_name in famcheck_list:
-            if not any([black in fam_name.lower() for black in suricata_blacklist]):
+            if not any([block in fam_name.lower() for block in suricata_blocklist]):
                 famcheck = fam_name
                 break
     famchecklower = famcheck.lower()
@@ -181,10 +187,10 @@ def get_suricata_family(signature):
     if famchecklower == "ptsecurity":
         famcheck = words[3]
         famchecklower = famcheck.lower()
-    isbad = any([black in famchecklower for black in suricata_blacklist])
+    isbad = any([block in famchecklower for block in suricata_blocklist])
     if not isbad and len(famcheck) >= 4:
         family = famcheck.title()
-    isgood = any([white in famchecklower for white in suricata_whitelist])
+    isgood = any([allow in famchecklower for allow in suricata_passlist])
     if isgood and len(famcheck) >= 4:
         family = famcheck.title()
     return family
@@ -321,9 +327,7 @@ class RunProcessing(object):
         try:
             # Run the processing module and retrieve the generated data to be
             # appended to the general results container.
-            log.debug(
-                'Executing processing module "%s" on analysis at ' '"%s"', current.__class__.__name__, self.analysis_path,
-            )
+            log.debug('Executing processing module "%s" on analysis at ' '"%s"', current.__class__.__name__, self.analysis_path)
             pretime = datetime.now()
             data = current.run()
             posttime = datetime.now()
@@ -381,9 +385,7 @@ class RunProcessing(object):
                     if not hasattr(self.results, "debug"):
                         self.results.setdefault("debug", dict()).setdefault("errors", list())
                     self.results["debug"]["errors"].append(
-                        "Behavioral log {0} too big to be processed,"
-                        " skipped. Increase analysis_size_limit in"
-                        " cuckoo.conf".format(file_name)
+                        "Behavioral log {0} too big to be processed, skipped. Increase analysis_size_limit in cuckoo.conf".format(file_name)
                     )
                     continue
         else:
@@ -397,7 +399,7 @@ class RunProcessing(object):
                 self.results["malfamily_tag"] = "Yara"
             elif self.cfg.detections.suricata and not family and "suricata" in self.results and "alerts" in self.results["suricata"] and self.results["suricata"]["alerts"]:
                 for alert in self.results["suricata"]["alerts"]:
-                    if alert.get("signature", "") and alert["signature"].startswith(("ET TROJAN", "ETPRO TROJAN", "ET MALWARE", "ET CNC")):
+                    if alert.get("signature", "") and alert["signature"].startswith(et_categories):
                         family = get_suricata_family(alert["signature"])
                         if family:
                             self.results["malfamily_tag"] = "Suricata"
