@@ -14,6 +14,7 @@ import zipfile
 import tempfile
 import datetime
 import subprocess
+from io import BytesIO
 from urllib.parse import quote
 
 from django.conf import settings
@@ -45,6 +46,13 @@ try:
     HAVE_REQUEST = True
 except ImportError:
     HAVE_REQUEST = False
+
+try:
+    import pyzipper
+    HAVE_PYZIPPER = True
+except ImportError:
+    print("Missed dependency: pip3 install pyzipper -U")
+    HAVE_PYZIPPER = False
 
 TASK_LIMIT = 25
 
@@ -149,6 +157,7 @@ def get_analysis_info(db, id=-1, task=None):
 
     if rtmp:
         for keyword in (
+            "detections",
             "virustotal_summary",
             "mlist_cnt",
             "f_mlist_cnt",
@@ -915,12 +924,7 @@ def report(request, task_id):
                 results_db.analysis.aggregate([{"$match": {"info.id": int(task_id)}},
                                                {"$project": {"_id": 0, "cape_size": {"$size": "$CAPE.sha256"},
                                                              "cape_conf_size": {"$size": "$CAPE.cape_config"}}}]))
-            if tmp_data[0]["cape_size"]:
-                report["CAPE"] = tmp_data[0]["cape_size"]
-            elif tmp_data[0]["cape_conf_size"]:
-                report["CAPE"] = tmp_data[0]["cape_conf_size"]
-            else:
-                report["CAPE"] = 0
+            report["CAPE"] = tmp_data[0]["cape_size"] or tmp_data[0]["cape_conf_size"] or 0
     except Exception as e:
         report["CAPE"] = 0
 
@@ -1066,7 +1070,8 @@ def file_nl(request, category, task_id, dlfile):
 def file(request, category, task_id, dlfile):
     file_name = dlfile
     cd = ""
-
+    mem_zip = False
+    size = 0
     extmap = {
         "memdump": ".dmp",
         "memdumpstrings": ".dmp.strings",
@@ -1094,12 +1099,19 @@ def file(request, category, task_id, dlfile):
             path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "memory", file_name + ".dmp")
             file_name += ".dmp"
         if path and category in ("samplezip", "droppedzip", "CAPEZIP", "procdumpzip", "memdumpzip"):
-            try:
-                print(file_name, path)
-                cmd = ["7z", "a", "-y", "-p" + settings.ZIP_PWD, os.path.join(tempfile.gettempdir(), file_name + ".zip"), path]
-                _ = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
-            except subprocess.CalledProcessError as e:
-                return render(request, "error.html", {"error": "7zip error: {}".format(e)})
+            if HAVE_PYZIPPER:
+                mem_zip = BytesIO()
+                with pyzipper.AESZipFile(mem_zip, 'w', compression=pyzipper.ZIP_LZMA, encryption=pyzipper.WZ_AES) as zf:
+                    pwd = settings.ZIP_PWD
+                    zf.setpassword(pwd.encode('utf8'))
+                    zf.writestr('test.txt', "What ever you do, don't tell anyone!")
+            else:
+                try:
+                    print(file_name, path)
+                    cmd = ["7z", "a", "-y", "-p" + settings.ZIP_PWD, os.path.join(tempfile.gettempdir(), file_name + ".zip"), path]
+                    _ = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
+                except subprocess.CalledProcessError as e:
+                    return render(request, "error.html", {"error": "7zip error: {}".format(e)})
             file_name += ".zip"
             path = os.path.join(tempfile.gettempdir(), file_name)
             cd = "application/zip"
@@ -1152,16 +1164,22 @@ def file(request, category, task_id, dlfile):
     if not cd:
         cd = "application/octet-stream"
     try:
+        if category in ("samplezip", "droppedzip", "CAPEZIP", "procdumpzip", "memdumpzip"):
+            if mem_zip:
+                data = mem_zip.getvalue()
+            else:
+                data = open(path, "rb").read()
+        size = len(data)
         #resp = StreamingHttpResponse(FileWrapper(open(path, "rb"), 8192), content_type=cd)
-        resp = HttpResponse(open(path, "rb").read(), content_type=cd)
+        resp = HttpResponse(data, content_type=cd)
     except:
-        if path.endswith(".zip"):
+        if path.endswith(".zip") and os.path.exists(path):
             os.remove(path)
         return render(request, "error.html", {"error": "File {} not found".format(path)})
 
-    resp["Content-Length"] = os.path.getsize(path)
+    resp["Content-Length"] = size # os.path.getsize(path)
     resp["Content-Disposition"] = "attachment; filename=" + file_name
-    if path.endswith(".zip"):
+    if path.endswith(".zip") and os.path.exists(path):
         os.remove(path)
     return resp
 

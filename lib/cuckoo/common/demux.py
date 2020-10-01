@@ -207,7 +207,7 @@ def demux_sflock(filename, options):
     except Exception as e:
         log.error(e, exc_info=True)
 
-    if cuckoo_conf.cuckoo.delete_archive:
+    if cuckoo_conf.cuckoo.delete_archive and retlist:
         os.remove(filename)
 
     return retlist

@@ -43,6 +43,7 @@ from lib.cuckoo.common.web_utils import (
     get_file_content,
     recon,
     _download_file,
+    parse_request_arguments,
 )
 from lib.cuckoo.common.objects import File
 
@@ -180,29 +181,15 @@ def index(request, resubmit_hash=False):
     if request.META["HTTP_X_REMOTE_USER"] and settings.SUBMITTER_ENABLED:
         submitter = request.META["HTTP_X_REMOTE_USER"]
     if request.method == "POST":
-        package = request.POST.get("package", "")
-        timeout = min(force_int(request.POST.get("timeout")), 60 * 60 * 24)
-        options = request.POST.get("options", "")
-        lin_options = request.POST.get("lin_options", "")
-        priority = force_int(request.POST.get("priority"))
-        machine = request.POST.get("machine", "")
-        clock = request.POST.get("clock", datetime.datetime.now().strftime("%m-%d-%Y %H:%M:%S"))
-        if not clock:
-            clock = datetime.datetime.now().strftime("%m-%d-%Y %H:%M:%S")
-        if "1970" in clock:
-            clock = datetime.datetime.now().strftime("%m-%d-%Y %H:%M:%S")
-        custom = request.POST.get("custom", "")
-        memory = bool(request.POST.get("memory", False))
-        enforce_timeout = bool(request.POST.get("enforce_timeout", False))
-        referrer = validate_referrer(request.POST.get("referrer", None))
-        tags = request.POST.get("tags", None)
-        static = bool(request.POST.get("static", False))
+
+        static, package, timeout, priority, options, machine, platform, tags, custom, memory, \
+            clock, enforce_timeout, shrike_url, shrike_msg, shrike_sid, shrike_refer, unique, referrer, \
+            tlp = parse_request_arguments(request)
+
         all_tags = load_vms_tags()
         if tags and not all([tag.strip() in all_tags for tag in tags.split(",")]):
             return render(request, "error.html", {"error": "Check Tags help, you have introduced incorrect tag(s)"})
 
-        if lin_options:
-            options = lin_options
         # This is done to remove spaces in options but not breaks custom paths
         options = ",".join(
             "=".join(value.strip() for value in option.split("=", 1)) for option in options.split(",") if option and "=" in option
@@ -376,7 +363,6 @@ def index(request, resubmit_hash=False):
                 # Moving sample from django temporary file to Cuckoo temporary storage to
                 # let it persist between reboot (if user like to configure it in that way).
                 path = store_temp_file(sample.read(), filename)
-
                 if unique and db.check_file_uniq(File(path).get_sha256()):
                     return render(request, "error.html", {"error": "Duplicated file, disable unique option to force submission"})
 
@@ -389,7 +375,8 @@ def index(request, resubmit_hash=False):
                             continue
 
                     orig_options, timeout, enforce_timeout = recon(path, orig_options, timeout, enforce_timeout)
-                    if timeout and web_conf.public.enabled and web_conf.public.timeout:
+
+                    if timeout and web_conf.public.enabled and web_conf.public.timeout and timeout > web_conf.public.timeout:
                         timeout = web_conf.public.timeout
 
                 platform = get_platform(magic_type)
