@@ -13,7 +13,6 @@ import json
 import zipfile
 import tempfile
 import datetime
-import subprocess
 from io import BytesIO
 from urllib.parse import quote
 
@@ -1098,20 +1097,18 @@ def file(request, category, task_id, dlfile):
         elif category.startswith("memdumpzip"):
             path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "memory", file_name + ".dmp")
             file_name += ".dmp"
-        if path and category in ("samplezip", "droppedzip", "CAPEZIP", "procdumpzip", "memdumpzip"):
+        if path and not os.path.exists(path):
+            return render(request, "error.html", {"error": "File {} not found".format(os.path.basename(path))})
+        if category in ("samplezip", "droppedzip", "CAPEZIP", "procdumpzip", "memdumpzip"):
             if HAVE_PYZIPPER:
                 mem_zip = BytesIO()
                 with pyzipper.AESZipFile(mem_zip, 'w', compression=pyzipper.ZIP_LZMA, encryption=pyzipper.WZ_AES) as zf:
                     pwd = settings.ZIP_PWD
                     zf.setpassword(pwd.encode('utf8'))
-                    zf.writestr('test.txt', "What ever you do, don't tell anyone!")
+                    with open(path, "rb") as f:
+                        zf.writestr(os.path.basename(path), f.read())
             else:
-                try:
-                    print(file_name, path)
-                    cmd = ["7z", "a", "-y", "-p" + settings.ZIP_PWD, os.path.join(tempfile.gettempdir(), file_name + ".zip"), path]
-                    _ = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
-                except subprocess.CalledProcessError as e:
-                    return render(request, "error.html", {"error": "7zip error: {}".format(e)})
+                return render(request, "error.html", {"error": "Missed pyzipper library"})
             file_name += ".zip"
             path = os.path.join(tempfile.gettempdir(), file_name)
             cd = "application/zip"
@@ -1167,15 +1164,16 @@ def file(request, category, task_id, dlfile):
         if category in ("samplezip", "droppedzip", "CAPEZIP", "procdumpzip", "memdumpzip"):
             if mem_zip:
                 data = mem_zip.getvalue()
-            else:
-                data = open(path, "rb").read()
+        else:
+            data = open(path, "rb").read()
         size = len(data)
         #resp = StreamingHttpResponse(FileWrapper(open(path, "rb"), 8192), content_type=cd)
         resp = HttpResponse(data, content_type=cd)
-    except:
+    except Exception as e:
+        print(e)
         if path.endswith(".zip") and os.path.exists(path):
             os.remove(path)
-        return render(request, "error.html", {"error": "File {} not found".format(path)})
+        return render(request, "error.html", {"error": "File {} not found".format(os.path.basename(path))})
 
     resp["Content-Length"] = size # os.path.getsize(path)
     resp["Content-Disposition"] = "attachment; filename=" + file_name

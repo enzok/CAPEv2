@@ -18,6 +18,7 @@ from django.shortcuts import render, redirect
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_safe
 from io import BytesIO
+
 from bson.objectid import ObjectId
 from django.contrib.auth.decorators import login_required
 from ratelimit.decorators import ratelimit
@@ -48,6 +49,12 @@ from lib.cuckoo.common.web_utils import (
     rateblock,
     )
 
+try:
+    import pyzipper
+    HAVE_PYZIPPER = True
+except ImportError:
+    HAVE_PYZIPPER = False
+    print("Missed pyzipper dependency: pip3 install pyzipper -U")
 
 log = logging.getLogger(__name__)
 
@@ -236,7 +243,7 @@ def tasks_create_file(request):
                 resp = {"error": True, "error_value": ("Machine '{0}' does not exist. " "Available: {1}".format(machine, ", ".join(vm_list)))}
                 return jsonize(resp, response=True)
         # Parse a max file size to be uploaded
-        max_file_size = apiconf.filecreate.get("upload_limit")
+        max_file_size = settings.MAX_UPLOAD_SIZE
         if not max_file_size or int(max_file_size) == 0:
             max_file_size = 5 * 1048576
         else:
@@ -1602,7 +1609,7 @@ def tasks_procmemory(request, task_id, pid="all"):
 
     if pid == "all":
         if not apiconf.taskprocmemory.get("all"):
-            resp = {"error": True, "error_value": "Downloading of all process memory dumps " "is disabled"}
+            resp = {"error": True, "error_value": "Downloading of all process memory dumps is disabled"}
             return jsonize(resp, response=True)
 
         fname = "%s_procdumps.tar.bz2" % task_id
@@ -1689,7 +1696,7 @@ def tasks_fullmemory(request, task_id):
 
 @ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
 @ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
-def get_files(request, stype, value):
+def file(request, stype, value):
     if request.method != "GET":
         resp = {"error": True, "error_value": "Method not allowed"}
         return jsonize(resp, response=True)
@@ -1849,29 +1856,28 @@ def tasks_payloadfiles(request, task_id):
     if check["error"]:
         return jsonize(check, response=True)
 
-    cd = "application/zip"
-
     try:
         zippwd = settings.ZIP_PWD
     except AttributeError:
         zippwd = "infected"
 
-    zipname = "cape_payloads_{}.zip".format(task_id)
-    zip_file = os.path.join(settings.TEMP_PATH, "zip-upload", zipname)
     capepath = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "CAPE")
-    if os.path.exists(capepath):
-        for fname in next(os.walk(capepath))[2]:
-            if len(fname) == 64:
-                filepath = os.path.join(capepath, fname)
-                rc = subprocess.call(["7z", "a", "-p" + zippwd, "-tzip", "-y", zip_file] + [filepath])
-                if rc == 0:
-                    continue
-                else:
-                    return render(request, "error.html", {"error": "7z response code: {}".format(rc)})
 
-        resp = StreamingHttpResponse(FileWrapper(open(zip_file), 8192), content_type=cd)
-        resp["Content-Length"] = os.path.getsize(zip_file)
-        resp["Content-Disposition"] = "attachment; filename=" + zipname
+    if os.path.exists(capepath):
+        mem_zip = BytesIO()
+        with pyzipper.AESZipFile(mem_zip, 'w', compression=pyzipper.ZIP_LZMA, encryption=pyzipper.WZ_AES) as zf:
+            zf.setpassword(zippwd)
+            for fname in next(os.walk(capepath))[2]:
+                if len(fname) == 64:
+                    filepath = os.path.join(capepath, fname)
+                    with open(filepath, "rb") as f:
+                        zf.writestr(os.path.basename(filepath), f.read())
+
+        # ToDo
+        #resp = StreamingHttpResponse(FileWrapper(open(zip_file), 8192), content_type="application/zip")
+        resp = HttpResponse(mem_zip.getvalue(), ontent_type="application/zip")
+        resp["Content-Length"] = os.path.getsize(len(mem_zip))
+        resp["Content-Disposition"] = "attachment; filename=" + "cape_payloads_{}.zip".format(task_id)
         return resp
     else:
         resp = {"error": True, "error_value": "No CAPE file(s) for task {}.".format(task_id)}
@@ -1893,29 +1899,30 @@ def tasks_procdumpfiles(request, task_id):
     if check["error"]:
         return jsonize(check, response=True)
 
-    cd = "application/zip"
-
     try:
         zippwd = settings.ZIP_PWD
     except AttributeError:
-        zippwd = "infected"
+        zippwd = b"infected"
 
-    zipname = "cape_payloads_{}.zip".format(task_id)
-    zip_file = os.path.join(settings.TEMP_PATH, "zip-upload", zipname)
+    # ToDo add all/one
+
     procdumppath = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "procdump")
-    if os.path.exists(procdumppath):
-        for fname in next(os.walk(procdumppath))[2]:
-            if len(fname) == 64:
-                filepath = os.path.join(procdumppath, fname)
-                rc = subprocess.call(["7z", "a", "-p" + zippwd, "-tzip", "-y", zip_file] + [filepath])
-                if rc == 0:
-                    continue
-                else:
-                    return render(request, "error.html", {"error": "7z response code: {}".format(rc)})
 
-        resp = StreamingHttpResponse(FileWrapper(open(zip_file), 8192), content_type=cd)
-        resp["Content-Length"] = os.path.getsize(zip_file)
-        resp["Content-Disposition"] = "attachment; filename=" + zipname
+    if os.path.exists(procdumppath):
+        mem_zip = BytesIO()
+        with pyzipper.AESZipFile(mem_zip, 'w', compression=pyzipper.ZIP_LZMA, encryption=pyzipper.WZ_AES) as zf:
+            zf.setpassword(zippwd)
+            for fname in next(os.walk(procdumppath))[2]:
+                if len(fname) == 64:
+                    filepath = os.path.join(procdumppath, fname)
+                    with open(filepath, "rb") as f:
+                        zf.writestr(os.path.basename(filepath), f.read())
+
+        #ToDo
+        #resp = StreamingHttpResponse(FileWrapper(open(zip_file), 8192), content_type="application/zip")
+        resp = HttpResponse(mem_zip.getvalue(), ontent_type="application/zip")
+        resp["Content-Length"] = os.path.getsize(len(mem_zip))
+        resp["Content-Disposition"] = "attachment; filename=" + "cape_payloads_{}.zip".format(task_id)
         return resp
     else:
         resp = {"error": True, "error_value": "No procdump file(s) for task {}.".format(task_id)}
