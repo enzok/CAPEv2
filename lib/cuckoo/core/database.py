@@ -1314,7 +1314,9 @@ class Database(object, metaclass=Singleton):
         Handles ZIP file submissions, submitting each extracted file to the database
         Returns a list of added task IDs
         """
+        task_id = False
         task_ids = []
+        config = {}
         sample_parent_id = None
         # force auto package for linux files
         if platform == "linux":
@@ -1338,7 +1340,6 @@ class Database(object, metaclass=Singleton):
 
         # create tasks for each file in the archive
         for file in extracted_files:
-            config = False
             if static:
                 config = static_extraction(file)
                 if config:
@@ -1366,10 +1367,14 @@ class Database(object, metaclass=Singleton):
                     tlp=tlp,
                     source_url=source_url,
                 )
-                if task_id:
-                    task_ids.append(task_id)
+            if task_id:
+                task_ids.append(task_id)
 
-        return task_ids
+        details = {}
+        if config:
+            details = {"config": config.get("cape_config", {})}
+        # this is aim to return custom data, think of this as kwargs
+        return task_ids, details
 
     @classlock
     def add_pcap(
