@@ -244,7 +244,7 @@ class BeaconSettings:
         self.settings["Jitter"] = packedSetting(5, confConsts.TYPE_SHORT)
         self.settings["MaxDNS"] = packedSetting(6, confConsts.TYPE_SHORT)
         # Silencing for now
-        # self.settings['PublicKey'] = packedSetting(7, confConsts.TYPE_STR, 256, isBlob=True)
+        self.settings['PublicKey'] = packedSetting(7, confConsts.TYPE_STR, 256, isBlob=True)
         self.settings["C2Server"] = packedSetting(8, confConsts.TYPE_STR, 256)
         self.settings["UserAgent"] = packedSetting(9, confConsts.TYPE_STR, 128)
         self.settings["HttpPostUri"] = packedSetting(10, confConsts.TYPE_STR, 64)
@@ -311,6 +311,7 @@ class cobaltstrikeConfig:
         return bytes([cfg_offset ^ confConsts.XORBYTES[version] for cfg_offset in cfg_blob])
 
     def _parse_config(self, version, quiet=False, as_json=False):
+        parsed_config = dict()
         re_start_match = re.search(confConsts.START_PATTERNS[version], self.data)
         re_start_decoded_match = re.search(confConsts.START_PATTERN_DECODED, self.data)
 
@@ -326,7 +327,6 @@ class cobaltstrikeConfig:
         else:
             full_config_data = self.data[decoded_config_offset : decoded_config_offset + confConsts.CONFIG_SIZE]
 
-        parsed_config = {}
         settings = BeaconSettings(version).settings.items()
         for conf_name, packed_conf in settings:
             parsed_setting = packed_conf.pretty_repr(full_config_data)
@@ -361,8 +361,7 @@ class cobaltstrikeConfig:
 
         if not version:
             for ver in SUPPORTED_VERSIONS:
-                if self._parse_config(version=ver, quiet=quiet, as_json=as_json):
-                    return True
+                return self._parse_config(version=ver, quiet=quiet, as_json=as_json)
         else:
             if self._parse_config(version=version, quiet=quiet, as_json=as_json):
                 return True
@@ -389,4 +388,6 @@ if __name__ == "__main__":
     args = parser.parse_args()
     with open(args.path, "rb") as f:
         data = f.read()
-    cobaltstrikeConfig(data).parse_config(version=args.version, quiet=args.quiet, as_json=args.json)
+    parsed_config = cobaltstrikeConfig(data).parse_config(version=args.version, quiet=args.quiet, as_json=args.json)
+    if args.json:
+        print(json.dumps(parsed_config, cls=Base64Encoder))
