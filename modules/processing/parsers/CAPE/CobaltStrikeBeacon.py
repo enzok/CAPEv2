@@ -361,7 +361,9 @@ class cobaltstrikeConfig:
 
         if not version:
             for ver in SUPPORTED_VERSIONS:
-                return self._parse_config(version=ver, quiet=quiet, as_json=as_json)
+                conf = self._parse_config(version=ver, quiet=quiet, as_json=as_json)
+                if conf:
+                    return conf
         else:
             if self._parse_config(version=version, quiet=quiet, as_json=as_json):
                 return True
