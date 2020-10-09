@@ -282,16 +282,8 @@ class BeaconSettings:
 
 
 class cobaltstrikeConfig:
-    def __init__(self, f):
-        '''
-        f: file path or file-like object
-        '''
-        self.data = None
-        if isinstance(f, str):
-            with open(f, 'rb') as fobj:
-                self.data = fobj.read()
-        else:
-            self.data = f.read()
+    def __init__(self, data):
+        self.data = data
 
     """Parse the CobaltStrike configuration"""
 
@@ -375,4 +367,6 @@ if __name__ == "__main__":
         type=int,
     )
     args = parser.parse_args()
+    with open(args.path, "rb") as f:
+        data = f.read()
     cobaltstrikeConfig(args.path).parse_config(version=args.version, quiet=args.quiet, as_json=args.json)
