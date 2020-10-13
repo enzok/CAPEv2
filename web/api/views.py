@@ -27,6 +27,8 @@ import csv
 sys.path.append(settings.CUCKOO_PATH)
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.config import Config
+from utils.cleaners import delete_mongo_data
+from lib.cuckoo.core.database import TASK_REPORTED
 from lib.cuckoo.common.saztopcap import saz_to_pcap
 from lib.cuckoo.core.database import Database, Task
 from lib.cuckoo.common.quarantine import unquarantine
@@ -982,18 +984,20 @@ def tasks_delete(request, task_id):
             continue
 
         # ToDo missed mongo?
-        if db.delete_task(task_id):
+        if db.delete_task(task):
+            delete_folder(os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task))
+            delete_mongo_data(task)
+
             s_deleted.append(task)
-            delete_folder(os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id))
         else:
             f_deleted.append(task)
 
-    if f_deleted:
-        resp["error"] = True
-        resp["failed"] = "Task(s) ID(s) {0} failed to remove".format(",".join(s_deleted))
-
     if s_deleted:
         resp["data"] = "Task(s) ID(s) {0} has been deleted".format(",".join(s_deleted))
+
+    if f_deleted:
+        resp["error"] = True
+        resp["failed"] = "Task(s) ID(s) {0} failed to remove".format(",".join(f_deleted))
 
     return jsonize(resp, response=True)
 
