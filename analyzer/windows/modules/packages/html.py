@@ -17,6 +17,11 @@ class HTML(Package):
     PATHS = [
         ("ProgramFiles", "Internet Explorer", "iexplore.exe"),
     ]
+    def __init__(self, options={}, config=None):
+        self.config = config
+        self.options = options
+        self.options["disable_hook_content"] = 3
+        self.options["exclude-apis"] = "memcpy"
 
     def start(self, path):
         iexplore = self.get_path("browser")
