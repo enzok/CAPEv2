@@ -297,32 +297,24 @@ def index(request, resubmit_hash=False):
                 if unique and db.check_file_uniq(File(path).get_sha256()):
                     return render(request, "error.html", {"error": "Duplicated file, disable unique option to force submission"})
 
-                magic_type = get_magic_type(path)
-                if disable_x64 is True:
-                    if magic_type and ("x86-64" in magic_type or "PE32+" in magic_type):
-                        if len(samples) == 1:
-                            return render(request, "error.html", {"error": "Sorry no x64 support yet"})
-                        else:
-                            continue
-
                 if timeout and web_conf.public.enabled and web_conf.public.timeout and timeout > web_conf.public.timeout:
                     timeout = web_conf.public.timeout
 
+                magic_type = get_magic_type(path)
                 platform = get_platform(magic_type)
                 if machine.lower() == "all":
-                    task_machines = [vm.name for vm in db.list_machines(platform=platform)]
+                    details["task_machines"] = [vm.name for vm in db.list_machines(platform=platform)]
                 elif machine:
                     machine_details = db.view_machine(machine)
                     if hasattr(machine_details, "platform") and not machine_details.platform == platform:
                         return render(request, "error.html", {"error": "Wrong platform, {} VM selected for {} sample".format(machine_details.platform, platform)}, )
                     else:
-                        task_machines = [machine]
+                        details["task_machines"] = [machine]
 
                 else:
-                    task_machines = ["first"]
-
-                content = get_file_content(path)
-
+                    details["task_machines"] = ["first"]
+                details["path"] = path
+                details["content"] = get_file_content(path)
                 status, task_ids = download_file(**details)
 
         elif "quarantine" in request.FILES:

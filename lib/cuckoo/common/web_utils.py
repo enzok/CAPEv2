@@ -315,7 +315,7 @@ def download_file(**kwargs):
 
     onesuccess = False
     if tags:
-        if not all([tag.strip() in all_vms_tags for tag in kwargs["tags"].split(",")]):
+        if not all([tag.strip() in all_vms_tags for tag in tags.split(",")]):
             return "error", {"error": "Check Tags help, you have introduced incorrect tag(s)"}
         elif all([tag in tags for tag in ("x64", "x86")]):
             return "error", {"error": "Check Tags help, you have introduced x86 and x64 tags for the same task, choose only 1"}
@@ -360,14 +360,13 @@ def download_file(**kwargs):
         if len(kwargs["request"].FILES) == 1:
             return "error", {"error": "Sorry no x64 support yet"}
 
-    kwargs["orig_options"], timeout, enforce_timeout = recon(kwargs["path"], kwargs.get("orig_options", ""), timeout, enforce_timeout)
-    if "pony" in kwargs["path"]:
-        fix_section_permission(kwargs["path"])
-
+    options, timeout, enforce_timeout = recon(kwargs["path"], options, timeout, enforce_timeout)
     if not kwargs.get("task_machines", []):
         kwargs["task_machines"] = [None]
 
     for machine in kwargs.get("task_machines", []):
+        if machine == "first":
+            machine = None
 
         # Keep this as demux_sample_and_add_to_db in DB
         task_ids_new, extra_details = db.demux_sample_and_add_to_db(
