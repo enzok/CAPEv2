@@ -1464,7 +1464,7 @@ class Office(object):
                 metares["DocumentType"] = indicator.name
 
         if HAVE_XLM_DEOBF and processing_conf.xlsdeobf.enabled:
-            password = self.options.get("xlm_password", "")
+            password = self.options.get("password", "")
             xlm_kwargs = {
                 "file": filepath,
                 "noninteractive": True,
@@ -1473,7 +1473,7 @@ class Office(object):
                 "return_deobfuscated": True,
                 "no_indent": False,
                 "output_formula_format": "CELL:[[CELL-ADDR]], [[STATUS]], [[INT-FORMULA]]",
-                "day": 0,
+                "day": -1,
                 "password": password,
             }
 
