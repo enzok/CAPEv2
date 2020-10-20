@@ -312,7 +312,10 @@ def download_file(**kwargs):
     static, package, timeout, priority, options, machine, platform, tags, custom, memory, \
             clock, enforce_timeout, shrike_url, shrike_msg, shrike_sid, shrike_refer, unique, referrer, \
             tlp = parse_request_arguments(kwargs["request"])
-
+    if options:
+        options += "," + kwargs["options"]
+    else:
+        options = kwargs["options"]
     onesuccess = False
     if tags:
         if not all([tag.strip() in all_vms_tags for tag in tags.split(",")]):
@@ -360,7 +363,7 @@ def download_file(**kwargs):
         if len(kwargs["request"].FILES) == 1:
             return "error", {"error": "Sorry no x64 support yet"}
 
-    options, timeout, enforce_timeout = recon(kwargs["path"], options, timeout, enforce_timeout)
+    #options, timeout, enforce_timeout = recon(kwargs["path"], options, timeout, enforce_timeout)
     if not kwargs.get("task_machines", []):
         kwargs["task_machines"] = [None]
 
