@@ -308,7 +308,6 @@ def get_platform(magic):
         return "windows"
 
 def download_file(**kwargs):
-
     static, package, timeout, priority, options, machine, platform, tags, custom, memory, \
             clock, enforce_timeout, shrike_url, shrike_msg, shrike_sid, shrike_refer, unique, referrer, \
             tlp = parse_request_arguments(kwargs["request"])
