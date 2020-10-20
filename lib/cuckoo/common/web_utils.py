@@ -312,9 +312,8 @@ def download_file(**kwargs):
             clock, enforce_timeout, shrike_url, shrike_msg, shrike_sid, shrike_refer, unique, referrer, \
             tlp = parse_request_arguments(kwargs["request"])
     if options:
-        options += "," + kwargs["options"]
-    else:
-        options = kwargs["options"]
+        options += ","
+    options = kwargs["options"]
     onesuccess = False
     if tags:
         if not all([tag.strip() in all_vms_tags for tag in tags.split(",")]):
