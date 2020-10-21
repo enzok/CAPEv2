@@ -14,23 +14,10 @@ import binascii
 import subprocess
 
 from lib.cuckoo.common.constants import CUCKOO_ROOT
-from lib.cuckoo.common.defines import (
-    PAGE_NOACCESS,
-    PAGE_READONLY,
-    PAGE_READWRITE,
-    PAGE_WRITECOPY,
-    PAGE_EXECUTE,
-    PAGE_EXECUTE_READ,
-)
-from lib.cuckoo.common.defines import (
-    PAGE_EXECUTE_READWRITE,
-    PAGE_EXECUTE_WRITECOPY,
-    PAGE_GUARD,
-    PAGE_NOCACHE,
-    PAGE_WRITECOMBINE,
-)
+from lib.cuckoo.common.defines import PAGE_NOACCESS, PAGE_READONLY, PAGE_READWRITE, PAGE_WRITECOPY, PAGE_EXECUTE, PAGE_EXECUTE_READ
+from lib.cuckoo.common.defines import PAGE_EXECUTE_READWRITE, PAGE_EXECUTE_WRITECOPY, PAGE_GUARD, PAGE_NOCACHE, PAGE_WRITECOMBINE
+#from lib.cuckoo.core.startup import init_yara
 from lib.cuckoo.common.exceptions import CuckooStartupError
-
 
 try:
     import magic
@@ -133,11 +120,11 @@ IMAGE_NT_SIGNATURE = 0x00004550
 OPTIONAL_HEADER_MAGIC_PE = 0x10B
 OPTIONAL_HEADER_MAGIC_PE_PLUS = 0x20B
 IMAGE_FILE_EXECUTABLE_IMAGE = 0x0002
+IMAGE_FILE_DLL = 0x2000
 IMAGE_FILE_MACHINE_I386 = 0x014C
 IMAGE_FILE_MACHINE_AMD64 = 0x8664
 DOS_HEADER_LIMIT = 0x40
 PE_HEADER_LIMIT = 0x200
-
 
 def IsPEImage(buf, size=False):
     if not buf:
@@ -253,6 +240,8 @@ class File(object):
         self._sha256 = None
         self._sha512 = None
         self._pefile = False
+        self.file_type = None
+        self.pe = None
 
     def get_name(self):
         """Get file name.
@@ -397,16 +386,43 @@ class File(object):
         """Get MIME file type.
         @return: file type.
         """
-        file_type = None
+        if self.file_type:
+            return self.file_type
         if self.file_path:
-            if HAVE_MAGIC:
+            try:
+                if IsPEImage(self.file_data):
+                    self._pefile = True
+                    if not HAVE_PEFILE:
+                        if not File.notified_pefile:
+                            File.notified_pefile = True
+                            log.warning("Unable to import pefile (install with `pip3 install pefile`)")
+                    else:
+                        try:
+                            self.pe = pefile.PE(data=self.file_data, fast_load=True)
+                        except pefile.PEFormatError:
+                            log.error('DOS Header magic not found.')
+                        if self.pe:
+                            is_dll = self.pe.is_dll()
+                            is_x64 = self.pe.FILE_HEADER.Machine == IMAGE_FILE_MACHINE_AMD64
+                            # Emulate magic for now
+                            if is_dll and is_x64:
+                                self.file_type = "PE32+ executable (DLL) (GUI) x86-64, for MS Windows"
+                            elif is_dll:
+                                self.file_type = "PE32 executable (DLL) (GUI) Intel 80386, for MS Windows"
+                            elif is_x64:
+                                self.file_type = "PE32+ executable (GUI) x86-64, for MS Windows"
+                            else:
+                                self.file_type = "PE32 executable (GUI) Intel 80386, for MS Windows"
+            except Exception as e:
+                log.error(e, exc_info=True)
+            if self.file_type is None and HAVE_MAGIC:
                 try:
                     ms = magic.open(magic.MAGIC_SYMLINK)
                     ms.load()
-                    file_type = ms.file(self.file_path)
+                    self.file_type = ms.file(self.file_path)
                 except:
                     try:
-                        file_type = magic.from_file(self.file_path)
+                        self.file_type = magic.from_file(self.file_path)
                     except:
                         pass
                 finally:
@@ -415,14 +431,14 @@ class File(object):
                     except:
                         pass
 
-            if file_type is None:
+            if self.file_type is None:
                 try:
                     p = subprocess.Popen(["file", "-b", "-L", self.file_path], universal_newlines=True, stdout=subprocess.PIPE)
-                    file_type = p.stdout.read().strip()
+                    self.file_type = p.stdout.read().strip()
                 except:
                     pass
 
-        return file_type
+        return self.file_type
 
     def get_content_type(self):
         """Get MIME content file type (example: image/jpeg).
@@ -448,7 +464,7 @@ class File(object):
 
             if file_type is None:
                 try:
-                    p = subprocess.Popen(["file", "-b", "-L", "--mime-type", self.file_path], universal_newlines=True, stdout=subprocess.PIPE,)
+                    p = subprocess.Popen(["file", "-b", "-L", "--mime-type", self.file_path], universal_newlines=True, stdout=subprocess.PIPE)
                     file_type = p.stdout.read().strip()
                 except:
                     pass
@@ -486,9 +502,7 @@ class File(object):
             # https://github.com/VirusTotal/yara-python/issues/48
             assert len(str(self.file_path)) == len(self.file_path)
         except (UnicodeEncodeError, AssertionError):
-            log.warning(
-                "Can't run Yara rules on %r as Unicode paths are currently " "not supported in combination with Yara!", self.file_path,
-            )
+            log.warning("Can't run Yara rules on %r as Unicode paths are currently not supported in combination with Yara!", self.file_path)
             return results
         """
 
@@ -566,26 +580,11 @@ class File(object):
         infos["cape_yara"] = self.get_yara(category="CAPE")
         infos["clamav"] = self.get_clamav()
 
-        if not HAVE_PEFILE:
-            if not File.notified_pefile:
-                File.notified_pefile = True
-                log.warning("Unable to import pefile (install with `pip3 install pefile`)")
-        else:
-            try:
-                # read pefile once and share
-                if IsPEImage(self.file_data) is False:
-                    return infos
-                try:
-                    pe = pefile.PE(data=self.file_data, fast_load=True)
-                except pefile.PEFormatError:
-                    log.error('DOS Header magic not found.')
-                    return infos
-                if pe:
-                    infos["entrypoint"] = self.get_entrypoint(pe)
-                    infos["ep_bytes"] = self.get_ep_bytes(pe)
-                    infos["timestamp"] = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(pe.FILE_HEADER.TimeDateStamp))
-            except Exception as e:
-                log.error(e, exc_info=True)
+        if self.pe:
+            infos["entrypoint"] = self.get_entrypoint(self.pe)
+            infos["ep_bytes"] = self.get_ep_bytes(self.pe)
+            infos["timestamp"] = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(self.pe.FILE_HEADER.TimeDateStamp))
+
         return infos
 
 
