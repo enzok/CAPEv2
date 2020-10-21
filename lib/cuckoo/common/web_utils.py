@@ -16,7 +16,6 @@ CUCKOO_ROOT = os.path.normpath(os.path.join(_current_dir, "..", "..", ".."))
 sys.path.append(CUCKOO_ROOT)
 
 from django.http import HttpResponse
-from django.shortcuts import render
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.objects import HAVE_PEFILE, pefile, IsPEImage
 from lib.cuckoo.core.rooter import _load_socks5_operational
@@ -158,7 +157,6 @@ apilimiter = {
 
 # https://django-ratelimit.readthedocs.io/en/stable/rates.html#callables
 def my_rate_seconds(group, request):
-
     # RateLimits not enabled
     if rateblock is False:
         return "99999999999999/s"
@@ -183,7 +181,6 @@ def my_rate_seconds(group, request):
     return "0/s"
 
 def my_rate_minutes(group, request):
-
     # RateLimits not enabled
     if rateblock is False:
         return "99999999999999/m"
@@ -266,12 +263,9 @@ def fix_section_permission(path):
             return
         for id in range(len(pe.sections)):
             if pe.sections[id].Name.rstrip("\0") == ".rdata" and hex(pe.sections[id].Characteristics)[:3] == "0x4":
-                log.info("section found")
                 pe.sections[id].Characteristics += pefile.SECTION_CHARACTERISTICS["IMAGE_SCN_MEM_WRITE"]
-                log.info(pe.sections[id].Characteristics)
                 pe.write(filename=path)
         pe.close()
-        log.info("close")
     except Exception as e:
         log.info(e)
 
@@ -308,7 +302,25 @@ def get_platform(magic):
         return "windows"
 
 def download_file(**kwargs):
-    static, package, timeout, priority, options, machine, platform, tags, custom, memory, \
+    """ Example of kwargs
+    {
+        "errors": [],
+        "content": content,
+        "request": request,
+        "task_id": [],
+        "url": False,
+        "params": {},
+        "headers": {},
+        "service": "tasks_create_file_API",
+        "path": tmp_path,
+        "fhash": False,
+        "options": options,
+        "only_extraction": False,
+        "task_machines": task_machines,
+    }
+    """
+
+    static, package, timeout, priority, _, machine, platform, tags, custom, memory, \
             clock, enforce_timeout, shrike_url, shrike_msg, shrike_sid, shrike_refer, unique, referrer, \
             tlp = parse_request_arguments(kwargs["request"])
     onesuccess = False
