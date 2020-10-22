@@ -1581,13 +1581,13 @@ def comments(request, task_id):
 
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def vtupload(request, category, task_id, filename, dlfile):
-    if enabledconf["vtupload"] and settings.VTDL_PRIV_KEY:
+    if enabledconf["vtupload"] and settings.VTDL_KEY:
         try:
             if category == "sample":
                 path = os.path.join(CUCKOO_ROOT, "storage", "binaries", dlfile)
             elif category == "dropped":
                 path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "files", filename)
-            params = {"apikey": settings.VTDL_PRIV_KEY}
+            params = {"apikey": settings.VTDL_KEY}
             files = {"file": (filename, open(path, "rb"))}
             response = requests.post("https://www.virustotal.com/vtapi/v2/file/scan", files=files, params=params)
             response_code = response.json()["response_code"]
