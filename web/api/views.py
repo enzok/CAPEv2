@@ -55,7 +55,6 @@ repconf = Config("reporting")
 
 if repconf.mongodb.enabled:
     import pymongo
-
     results_db = pymongo.MongoClient(
         settings.MONGO_HOST, port=settings.MONGO_PORT, username=settings.MONGO_USER, password=settings.MONGO_PASS, authSource=settings.MONGO_DB,
     )[settings.MONGO_DB]
@@ -1948,11 +1947,18 @@ def tasks_config(request, task_id, cape_name=False):
                 # In case compress results processing module is not enabled
                 pass
             data = []
-            for cape in buf["CAPE"]:
-                if isinstance(cape, dict) and cape.get("cape_config"):
-                    if cape_name and cape.get("cape_name", "") == cape_name:
-                        return jsonize(cape["cape_config"], response=True)
-                    data.append(cape)
+
+            if not isinstance(buf["CAPE"], list) and buf["CAPE"].get("cape_configs"):
+                if cape_name and buf["CAPE"]["cape_configs"].get("cape_name", "") == cape_name:
+                    return jsonize({cape_name.lower(): buf["CAPE"]["cape_configs"][cape_name]}, response=True)
+                data = buf["CAPE"]["cape_configs"]
+            # ToDo remove in v3
+            elif buf["CAPE"]:
+                for cape in buf["CAPE"]:
+                    if isinstance(cape, dict) and cape.get("cape_config"):
+                        if cape_name and cape.get("cape_name", "") == cape_name:
+                            return jsonize(cape["cape_config"], response=True)
+                        data.append(cape)
             if data:
                 resp = {"error": False, "configs": data}
             else:

@@ -21,7 +21,6 @@ from lib.cuckoo.common.exceptions import CuckooStartupError
 
 try:
     import magic
-
     HAVE_MAGIC = True
 except ImportError:
     HAVE_MAGIC = False
@@ -382,6 +381,36 @@ class File(object):
         except Exception:
             return None
 
+    def get_content_type(self):
+        """Get MIME content file type (example: image/jpeg).
+        @return: file content type.
+        """
+        file_type = None
+        if HAVE_MAGIC:
+            if hasattr(magic, "from_file"):
+                try:
+                    file_type = magic.from_file(self.file_path)
+                except Exception as e:
+                    log.error(e, exc_info=True)
+            if not file_type and hasattr(magic, "open"):
+                try:
+                    ms = magic.open(magic.MAGIC_MIME|magic.MAGIC_SYMLINK)
+                    ms.load()
+                    file_type = ms.file(self.file_path)
+                    ms.close()
+                except Exception as e:
+                    log.error(e, exc_info=True)
+
+        if file_type is None:
+            try:
+                p = subprocess.Popen(["file", "-b", "-L", "--mime-type", self.file_path], universal_newlines=True, stdout=subprocess.PIPE)
+                file_type = p.stdout.read().strip()
+            except Exception as e:
+                log.error(e, exc_info=True)
+
+        return file_type
+
+
     def get_type(self):
         """Get MIME file type.
         @return: file type.
@@ -400,7 +429,8 @@ class File(object):
                         try:
                             self.pe = pefile.PE(data=self.file_data, fast_load=True)
                         except pefile.PEFormatError:
-                            log.error('DOS Header magic not found.')
+                            self.file_type = "PE image for MS Windows"
+                            log.error('Unable to instantiate pefile on image')
                         if self.pe:
                             is_dll = self.pe.is_dll()
                             is_x64 = self.pe.FILE_HEADER.Machine == IMAGE_FILE_MACHINE_AMD64
@@ -415,61 +445,11 @@ class File(object):
                                 self.file_type = "PE32 executable (GUI) Intel 80386, for MS Windows"
             except Exception as e:
                 log.error(e, exc_info=True)
-            if self.file_type is None and HAVE_MAGIC:
-                try:
-                    ms = magic.open(magic.MAGIC_SYMLINK)
-                    ms.load()
-                    self.file_type = ms.file(self.file_path)
-                except:
-                    try:
-                        self.file_type = magic.from_file(self.file_path)
-                    except:
-                        pass
-                finally:
-                    try:
-                        ms.close()
-                    except:
-                        pass
 
-            if self.file_type is None:
-                try:
-                    p = subprocess.Popen(["file", "-b", "-L", self.file_path], universal_newlines=True, stdout=subprocess.PIPE)
-                    self.file_type = p.stdout.read().strip()
-                except:
-                    pass
+            if not self.file_type:
+                self.file_type = self.get_content_type()
 
         return self.file_type
-
-    def get_content_type(self):
-        """Get MIME content file type (example: image/jpeg).
-        @return: file content type.
-        """
-        file_type = None
-        if self.file_path:
-            if HAVE_MAGIC:
-                try:
-                    ms = magic.open(magic.MAGIC_MIME | magic.MAGIC_SYMLINK)
-                    ms.load()
-                    file_type = ms.file(self.file_path)
-                except:
-                    try:
-                        file_type = magic.from_file(self.file_path, mime=True)
-                    except:
-                        pass
-                finally:
-                    try:
-                        ms.close()
-                    except:
-                        pass
-
-            if file_type is None:
-                try:
-                    p = subprocess.Popen(["file", "-b", "-L", "--mime-type", self.file_path], universal_newlines=True, stdout=subprocess.PIPE)
-                    file_type = p.stdout.read().strip()
-                except:
-                    pass
-
-        return file_type
 
     def _yara_encode_string(self, s):
         # Beware, spaghetti code ahead.
