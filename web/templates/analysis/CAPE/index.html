@@ -30,6 +30,11 @@
                         </td>
                     </tr>
                 {% endfor %}
+                <tr>
+                    <th></th>
+                    <td><a href="{% url "configdownload" id file.cape_name%}" class="btn btn-primary btn-small">Download</a>
+                    </td>
+                </tr>
             </table>
         </div>
         </tr>
