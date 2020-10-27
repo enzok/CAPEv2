@@ -72,7 +72,7 @@ if enabledconf["mongodb"]:
     from bson.objectid import ObjectId
 
     results_db = pymongo.MongoClient(
-        settings.MONGO_HOST, port=settings.MONGO_PORT, username=settings.MONGO_USER, password=settings.MONGO_PASS, authSource=settings.MONGO_DB,
+        settings.MONGO_HOST, port=settings.MONGO_PORT, username=settings.MONGO_USER, password=settings.MONGO_PASS, authSource=settings.MONGO_DB
     )[settings.MONGO_DB]
 es_as_db = False
 essearch = False
@@ -327,7 +327,7 @@ def index(request, page=1):
     return render(
         request,
         "analysis/index.html",
-        {"files": analyses_files, "urls": analyses_urls, "pcaps": analyses_pcaps, "paging": paging, "config": enabledconf,},
+        {"files": analyses_files, "urls": analyses_urls, "pcaps": analyses_pcaps, "paging": paging, "config": enabledconf},
     )
 
 
@@ -389,12 +389,11 @@ def load_files(request, task_id, category):
             if ajax_mongo_schema.get(category, "").startswith("CAPE"):
                 bingraph_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "bingraph")
                 if os.path.exists(bingraph_path):
-                    #import code;code.interact(local=dict(locals(), **globals()))
-                    if isinstance(data.get(category, {}), dict) and "payloads" in data.get(category, {}):
-                        cape_files = data.get(category, {}).get("payloads", []) or []
+                    if isinstance(data.get("CAPE", {}), dict) and "payloads" in data.get("CAPE", {}):
+                        cape_files = data.get("CAPE", {}).get("payloads", []) or []
                     #ToDo remove in CAPEv3
                     else:
-                        cape_files = data.get(category, []) or []
+                        cape_files = data.get("CAPE", []) or []
                     for block in cape_files:
                         if not block.get("sha256"):
                             continue
@@ -453,7 +452,7 @@ def chunk(request, task_id, pid, pagenum):
 
         if es_as_db:
             record = es.search(
-                index=fullidx, doc_type="analysis", q='behavior.processes.process_id: "%s" and info.id:' '"%s"' % (pid, task_id),
+                index=fullidx, doc_type="analysis", q='behavior.processes.process_id: "%s" and info.id:' '"%s"' % (pid, task_id)
             )["hits"]["hits"][0]["_source"]
 
         if not record:
@@ -941,19 +940,12 @@ def report(request, task_id):
         report["dropped"] = 0
 
     try:
-        if report.get("info", {}).get("category", "").lower() == "static":
-            report["CAPE"] = len(list(results_db.analysis.find({"info.id": int(task_id)}, {"_id": 0, "CAPE": 1})))
-        else:
-            tmp_data = list(
-                results_db.analysis.aggregate([{"$match": {"info.id": int(task_id)}},
-                                               {"$project": {"_id": 0, "cape_size": {"$size": "$CAPE.sha256"},
-                                                             "cape_conf_size": {"$size": "$CAPE.cape_config"}}}]))
-            report["CAPE"] = tmp_data[0]["cape_size"] or tmp_data[0]["cape_conf_size"] or 0
-            # ToDo remove in CAPEv3 *_old
-
-            if not report["CAPE"]:
-                tmp_data = list(results_db.analysis.aggregate([{"$match": {"info.id": int(task_id)}}, {"$project": {"_id": 0, "cape_size_old": {"$size": "$CAPE.sha256"}, "cape_conf_size_old": {"$size": "$CAPE.cape_config"}}}]))
-                report["CAPE_old"] = tmp_data[0]["cape_size_old"] or tmp_data[0]["cape_conf_size_old"] or 0
+        tmp_data = list(results_db.analysis.aggregate([{"$match": {"info.id": int(task_id)}}, {"$project": {"_id": 0, "cape_size": {"$size": "$CAPE.payloads.sha256"}, "cape_conf_size": {"$size": "$CAPE.configs"}}}]))
+        report["CAPE"] = tmp_data[0]["cape_size"] or tmp_data[0]["cape_conf_size"] or 0
+        # ToDo remove in CAPEv3 *_old
+        if not report["CAPE"]:
+            tmp_data = list(results_db.analysis.aggregate([{"$match": {"info.id": int(task_id)}}, {"$project": {"_id": 0, "cape_size_old": {"$size": "$CAPE.sha256"}, "cape_conf_size_old": {"$size": "$CAPE.cape_config"}}}]))
+            report["CAPE_old"] = tmp_data[0]["cape_size_old"] or tmp_data[0]["cape_conf_size_old"] or 0
     except Exception as e:
         print(e)
         report["CAPE"] = 0
@@ -1342,7 +1334,7 @@ def full_memory_dump_file(request, analysis_number):
             if res and res.ok and res.json()["status"] == 1:
                 url = res.json()["url"]
                 dist_task_id = res.json()["task_id"]
-                return redirect(url.replace(":8090", ":8000") + "api/tasks/get/fullmemory/" + str(dist_task_id) + "/", permanent=True,)
+                return redirect(url.replace(":8090", ":8000") + "api/tasks/get/fullmemory/" + str(dist_task_id) + "/", permanent=True)
         except Exception as e:
             print(e)
     if filename:
@@ -1393,7 +1385,7 @@ def search(request):
             return render(
                 request,
                 "analysis/search.html",
-                {"analyses": None, "term": request.POST["search"], "error": "Search term too short, minimum 3 characters required",},
+                {"analyses": None, "term": request.POST["search"], "error": "Search term too short, minimum 3 characters required"},
             )
 
         # name:foo or name: foo
@@ -1427,7 +1419,7 @@ def search(request):
                 )
             else:
                 return render(
-                    request, "analysis/search.html", {"analyses": None, "term": None, "error": "Unable to recognize the search syntax"},
+                    request, "analysis/search.html", {"analyses": None, "term": None, "error": "Unable to recognize the search syntax"}
                 )
 
         analyses = []
@@ -1443,7 +1435,7 @@ def search(request):
                 continue
             analyses.append(new)
         return render(
-            request, "analysis/search.html", {"analyses": analyses, "config": enabledconf, "term": request.POST["search"], "error": None},
+            request, "analysis/search.html", {"analyses": analyses, "config": enabledconf, "term": request.POST["search"], "error": None}
         )
     else:
         return render(request, "analysis/search.html", {"analyses": None, "term": None, "error": None})

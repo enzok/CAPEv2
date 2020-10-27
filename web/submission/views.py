@@ -21,7 +21,12 @@ from django.shortcuts import redirect, render
 from django.contrib.auth.decorators import login_required
 
 sys.path.append(settings.CUCKOO_PATH)
+from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.config import Config
+from lib.cuckoo.common.quarantine import unquarantine
+from lib.cuckoo.common.saztopcap import saz_to_pcap
+from lib.cuckoo.core.database import Database
+from lib.cuckoo.core.rooter import vpns, _load_socks5_operational
 from lib.cuckoo.common.utils import (
     store_temp_file,
     sanitize_filename,
@@ -29,21 +34,14 @@ from lib.cuckoo.common.utils import (
     generate_fake_name,
     get_options,
 )
-from lib.cuckoo.common.quarantine import unquarantine
-from lib.cuckoo.common.saztopcap import saz_to_pcap
-from lib.cuckoo.core.database import Database
-from lib.cuckoo.core.rooter import vpns, _load_socks5_operational
 from lib.cuckoo.common.web_utils import (
-    get_magic_type,
     download_file,
-    disable_x64,
     get_file_content,
     _download_file,
     parse_request_arguments,
     all_vms_tags,
     download_from_vt,
 )
-from lib.cuckoo.common.objects import File
 
 # this required for hash searches
 FULL_DB = False
@@ -222,7 +220,6 @@ def index(request, resubmit_hash=False):
         options = options[:-1]
         tlp = request.POST.get("tlp", None)
 
-        task_machines = []
         opt_apikey = False
         opts = get_options(options)
         if opts:
@@ -244,7 +241,6 @@ def index(request, resubmit_hash=False):
             "fhash": False,
             "options": options,
             "only_extraction": False,
-            "task_machines": task_machines,
             "tlp": tlp,
         }
 
@@ -264,19 +260,6 @@ def index(request, resubmit_hash=False):
                 else:
                     filename = base_dir + "/" + sanitize_filename(resubmission_hash)
                 path = store_temp_file(content, filename)
-                magic_type = get_magic_type(path)
-                platform = get_platform(magic_type)
-                if machine.lower() == "all":
-                    details["task_machines"] = [vm.name for vm in db.list_machines(platform=platform)]
-                elif machine:
-                    machine_details = db.view_machine(machine)
-                    if hasattr(machine_details, "platform") and not machine_details.platform == platform:
-                        return render(request, "error.html", {"error": "Wrong platform, {} VM selected for {} sample".format(machine_details.platform, platform)}, )
-                    else:
-                        details["task_machines"] = [machine]
-
-                else:
-                    details["task_machines"] = ["first"]
                 details["path"] = path
                 details["content"] = content
                 status, task_ids_tmp = download_file(**details)
@@ -313,18 +296,6 @@ def index(request, resubmit_hash=False):
                 if timeout and web_conf.public.enabled and web_conf.public.timeout and timeout > web_conf.public.timeout:
                     timeout = web_conf.public.timeout
 
-                magic_type = get_magic_type(path)
-                platform = get_platform(magic_type)
-                if machine.lower() == "all":
-                    details["task_machines"] = [vm.name for vm in db.list_machines(platform=platform)]
-                elif machine:
-                    machine_details = db.view_machine(machine)
-                    if hasattr(machine_details, "platform") and not machine_details.platform == platform:
-                        return render(request, "error.html", {"error": "Wrong platform, {} VM selected for {} sample".format(machine_details.platform, platform)}, )
-                    else:
-                        details["task_machines"] = [machine]
-                else:
-                    details["task_machines"] = ["first"]
                 details["path"] = path
                 details["content"] = get_file_content(path)
                 status, task_ids_tmp = download_file(**details)
@@ -358,15 +329,6 @@ def index(request, resubmit_hash=False):
 
                 if not path:
                     return render(request, "error.html", {"error": "You uploaded an unsupported quarantine file."})
-
-                if machine.lower() == "all":
-                    task_machines = [vm.name for vm in db.list_machines(platform="windows")]
-                elif machine:
-                    machine_details = db.view_machine(machine)
-                    if not machine_details.platform == "windows":
-                        return render(request, "error.html", {"error": "Wrong platform, linux VM selected for {} sample".format(machine_details.platform)})
-                    else:
-                        task_machines = [machine]
 
                 details["path"] = path
                 details["content"] = get_file_content(path)
@@ -433,17 +395,22 @@ def index(request, resubmit_hash=False):
 
             url = url.replace("hxxps://", "https://").replace("hxxp://", "http://").replace("[.]", ".")
 
+            #use only windows machines for URL submissions
+            platform = "windows"
+
             if machine.lower() == "all":
                 machines = [vm.name for vm in db.list_machines(platform=platform)]
             elif machine:
                 machine_details = db.view_machine(machine)
                 if hasattr(machine_details, "platform") and not machine_details.platform == platform:
-                    return render(request, "error.html", {"error": "Wrong platform, {} VM selected for {} sample".format(machine_details.platform, platform)}, )
+                    return render(request, "error.html",
+                                  {"error": "Wrong platform, {} VM selected for {} sample".format(machine_details.platform, platform)})
                 else:
                     machines = [machine]
-
             else:
-                machines = [None]
+                # Use first machine in list
+                all_machines = [vm.name for vm in db.list_machines(platform=platform)]
+                machines = [all_machines[0]]
 
             for entry in machines:
                 task_id = db.add_url(
@@ -480,15 +447,6 @@ def index(request, resubmit_hash=False):
             if "." not in name:
                 name = get_user_filename(options, custom) or generate_fake_name()
 
-            if machine.lower() == "all":
-                details["task_machines"] = [vm.name for vm in db.list_machines(platform=platform)]
-            elif machine:
-                machine_details = db.view_machine(machine[0])
-                if hasattr(machine_details, "platform") and not machine_details.platform == platform:
-                    return render(request, "error.html", {"error": "Wrong platform, {} VM selected for {} sample".format(machine_details.platform, platform)})
-                else:
-                    details["task_machines"] = [machine]
-
             path = store_temp_file(response, name)
             details["path"] = path
             details["content"] = get_file_content(path)
@@ -504,7 +462,6 @@ def index(request, resubmit_hash=False):
             else:
                 if opt_apikey:
                     details["apikey"] = opt_apikey
-                details["task_machines"] = machine
                 details = download_from_vt(request.POST.get("vtdl").strip(), details, opt_filename, settings)
 
         if details.get("task_ids"):
