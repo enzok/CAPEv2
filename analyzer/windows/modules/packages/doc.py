@@ -14,7 +14,7 @@ class DOC(Package):
     def __init__(self, options={}, config=None):
         self.config = config
         self.options = options
-        self.options["exclude-apis"] = "memcpy"
+        self.options["office"] = "1"
 
     PATHS = [
         ("ProgramFiles", "Microsoft Office", "WINWORD.EXE"),
@@ -23,16 +23,11 @@ class DOC(Package):
         ("ProgramFiles", "Microsoft Office", "WORDVIEW.EXE"),
     ]
 
-    def __init__(self, options={}, config=None):
-        self.config = config
-        self.options = options
-        #self.options["disable_hook_content"] = 4
-        self.options["exclude-apis"] = "memcpy"
-
     def start(self, path):
         word = self.get_path_glob("Microsoft Office Word")
         if "." not in os.path.basename(path):
             new_path = path + ".doc"
             os.rename(path, new_path)
             path = new_path
-        return self.execute(word, '"%s" /q /dde /n' % path, path)
+
+        return self.execute(word, "\"%s\" /q" % path, path)
