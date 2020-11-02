@@ -108,8 +108,8 @@ session = create_session(reporting_conf.distributed.db, echo=False)
 
 def node_status(url, name, ht_user, ht_pass):
     try:
-        r = requests.get(os.path.join(url, "cuckoo", "status"), params={"username": ht_user, "password": ht_pass}, verify=False, timeout=200,)
-        return r.json()["tasks"]
+        r = requests.get(os.path.join(url, "cuckoo", "status/"), params={"username": ht_user, "password": ht_pass}, verify=False, timeout=200)
+        return r.json().get("data", {})["tasks"]
     except Exception as e:
         log.critical("Possible invalid Cuckoo node (%s): %s", name, e)
     return {}
@@ -117,12 +117,12 @@ def node_status(url, name, ht_user, ht_pass):
 
 def node_fetch_tasks(status, url, ht_user, ht_pass, action="fetch", since=0):
     try:
-        url = os.path.join(url, "tasks", "list")
+        url = os.path.join(url, "tasks", "list/")
         params = dict(status=status, ids=True, username=ht_user, password=ht_pass)
         if action == "fetch":
             params["completed_after"] = since
         r = requests.get(url, params=params, verify=False)
-        return r.json()["tasks"]
+        return r.json().get("data", [])
     except Exception as e:
         log.critical("Error listing completed tasks (node %s): %s", url, e)
 
@@ -131,7 +131,7 @@ def node_fetch_tasks(status, url, ht_user, ht_pass, action="fetch", since=0):
 
 def node_list_machines(url, ht_user, ht_pass):
     try:
-        r = requests.get(os.path.join(url, "machines", "list"), params={"username": ht_user, "password": ht_pass}, verify=False)
+        r = requests.get(os.path.join(url, "machines", "list/"), params={"username": ht_user, "password": ht_pass}, verify=False)
         for machine in r.json()["data"]:
             yield Machine(name=machine["name"], platform=machine["platform"], tags=machine["tags"])
     except Exception as e:
@@ -140,7 +140,7 @@ def node_list_machines(url, ht_user, ht_pass):
 
 def node_get_report(task_id, fmt, url, ht_user, ht_pass, stream=False):
     try:
-        url = os.path.join(url, "tasks", "get", "report", "%d" % task_id, fmt)
+        url = os.path.join(url, "tasks", "get", "report", "%d/" % task_id, fmt)
         return requests.get(url, stream=stream, params={"username": ht_user, "password": ht_pass}, verify=False, timeout=300)
     except Exception as e:
         log.critical("Error fetching report (task #%d, node %s): %s", task_id, url, e)
@@ -180,7 +180,7 @@ def node_submit_task(task_id, node_id):
                     password=node.ht_pass,
                 )
 
-            url = os.path.join(node.url, "tasks", "create", "file")
+            url = os.path.join(node.url, "tasks", "create", "file/")
             # If the file does not exist anymore, ignore it and move on
             # to the next file.
             if not os.path.exists(task.path):
@@ -196,10 +196,8 @@ def node_submit_task(task_id, node_id):
             files = dict(file=open(task.path, "rb"))
             r = requests.post(url, data=data, files=files, verify=False)
         elif task.category == "url":
-            url = os.path.join(node.url, "tasks", "create", "url")
-            r = requests.post(
-                url, data={"url": task.path, "options": task.options, "username": node.ht_user, "password": node.ht_pass}, verify=False,
-            )
+            url = os.path.join(node.url, "tasks", "create", "url/")
+            r = requests.post(url, data={"url": task.path, "options": task.options, "username": node.ht_user, "password": node.ht_pass}, verify=False)
         else:
             log.debug("Target category is: {}".format(task.category))
             db.close()
@@ -211,8 +209,8 @@ def node_submit_task(task_id, node_id):
 
         # Zip files preprocessed, so only one id
         if r and r.status_code == 200:
-            if "task_ids" in r.json() and len(r.json()["task_ids"]) > 0 and r.json()["task_ids"] is not None:
-                task.task_id = r.json()["task_ids"][0]
+            if "task_ids" in r.json().get("data", {}) and len(r.json().get("data", {})["task_ids"]) > 0 and r.json().get("data", {})["task_ids"] is not None:
+                task.task_id = r.json().get("data", {})["task_ids"][0]
                 check = True
             elif "task_id" in r.json() and r.json()["task_id"] > 0 and r.json()["task_id"] is not None:
                 task.task_id = r.json()["task_id"]
@@ -493,9 +491,7 @@ class Retriever(threading.Thread):
                     continue
 
                 if report.status_code != 200:
-                    log.info(
-                        "dist report retrieve failed - status_code {}: task_id: {} from node: {}".format(report.status_code, t.task_id, node_id)
-                    )
+                    log.info("dist report retrieve failed - status_code {}: task_id: {} from node: {}".format(report.status_code, t.task_id, node_id))
                     if report.status_code == 400 and (node_id, task.get("id")) not in self.cleaner_queue.queue:
                         self.cleaner_queue.put((node_id, task.get("id")))
                     continue
@@ -801,7 +797,7 @@ class StatusThread(threading.Thread):
                         if not res:
                             continue
                         # Balance the tasks, works fine if no tags are set
-                        node_name = min(STATUSES, key=lambda k: STATUSES[k]["completed"] + STATUSES[k]["pending"] + STATUSES[k]["running"],)
+                        node_name = min(STATUSES, key=lambda k: STATUSES[k]["completed"] + STATUSES[k]["pending"] + STATUSES[k]["running"])
                         if node_name != node.name:
                             node = db.query(Node).filter_by(name=node_name).first()
 

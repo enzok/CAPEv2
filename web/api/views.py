@@ -204,7 +204,6 @@ def tasks_create_file(request):
         # Parse potential POST options (see submission/views.py)
         quarantine = request.POST.get("quarantine", "")
         pcap = request.POST.get("pcap", "")
-
         unique = bool(request.POST.get("unique", False))
         static = request.POST.get("static", "")
         priority = force_int(request.POST.get("priority"))
@@ -216,10 +215,22 @@ def tasks_create_file(request):
                 options += ","
             options += "procmemdump=1,procdump=1"
 
+        details = {
+            "errors": [],
+            "request": request,
+            "task_id": [],
+            "url": False,
+            "params": {},
+            "headers": {},
+            "service": "tasks_create_file_API",
+            "fhash": False,
+            "options": options,
+            "only_extraction": False,
+        }
+
         task_ids_tmp = []
         task_machines = []
         vm_list = []
-        details = {}
         for vm in db.list_machines():
             vm_list.append(vm.label)
 
@@ -260,6 +271,7 @@ def tasks_create_file(request):
                 resp = {"error": True, "error_value": "File size exceeds API limit"}
                 return jsonize(resp, response=True)
             tmp_path = store_temp_file(sample.read(), sanitize_filename(sample.name))
+            details["path"] = tmp_path
             if unique and db.check_file_uniq(File(tmp_path).get_sha256()):
                 details["errors"].append({sample.name: "Not unique, as unique option set"})
                 continue
@@ -295,22 +307,7 @@ def tasks_create_file(request):
                     details["errors"].append({os.path.basename(tmp_path):"Error submitting file - bad file type"})
                     continue
             else:
-                content = get_file_content(tmp_path)
-                details = {
-                    "errors": [],
-                    "content": content,
-                    "request": request,
-                    "task_id": [],
-                    "url": False,
-                    "params": {},
-                    "headers": {},
-                    "service": "tasks_create_file_API",
-                    "path": tmp_path,
-                    "fhash": False,
-                    "options": options,
-                    "only_extraction": False,
-                }
-
+                details["content"] = get_file_content(tmp_path)
                 status, task_ids_tmp = download_file(**details)
                 if status == "error":
                     details["errors"].append({os.path.basename(tmp_path): task_ids_tmp})
@@ -1171,6 +1168,9 @@ def tasks_iocs(request, task_id, detail=None):
         if data["target"]["category"] == "file":
             del data["target"]["file"]["path"]
             del data["target"]["file"]["guest_paths"]
+            for x in data["target"]["file"]["yara"]:
+                for i in range(0, len(x["strings"])):
+                    x["strings"][i] = x["strings"][i].hex()
 
     data["network"] = {}
     if "network" in list(buf.keys()) and buf["network"]:
@@ -1830,11 +1830,13 @@ def tasks_payloadfiles(request, task_id):
     try:
         zippwd = settings.ZIP_PWD
     except AttributeError:
-        zippwd = "infected"
+        zippwd = b"infected"
 
     capepath = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "CAPE")
 
     if os.path.exists(capepath):
+        if not HAVE_PYZIPPER:
+            return jsonize({"error": True, "error_value": "Install pyzipper to be able to download files"}, response=True)
         mem_zip = BytesIO()
         with pyzipper.AESZipFile(mem_zip, 'w', compression=pyzipper.ZIP_LZMA, encryption=pyzipper.WZ_AES) as zf:
             zf.setpassword(zippwd)
@@ -1844,15 +1846,15 @@ def tasks_payloadfiles(request, task_id):
                     with open(filepath, "rb") as f:
                         zf.writestr(os.path.basename(filepath), f.read())
 
-        # ToDo
-        #resp = StreamingHttpResponse(FileWrapper(open(zip_file), 8192), content_type="application/zip")
-        resp = HttpResponse(mem_zip.getvalue(), ontent_type="application/zip")
-        resp["Content-Length"] = os.path.getsize(len(mem_zip))
-        resp["Content-Disposition"] = "attachment; filename=" + "cape_payloads_{}.zip".format(task_id)
+
+        mem_zip.seek(0)
+        resp = StreamingHttpResponse(mem_zip, content_type="application/zip")
+        #resp = HttpResponse(mem_zip.getvalue(), content_type="application/zip")
+        resp["Content-Length"] = len(mem_zip.getvalue())
+        resp["Content-Disposition"] = f"attachment; filename=cape_payloads_{task_id}.zip"
         return resp
     else:
-        resp = {"error": True, "error_value": "No CAPE file(s) for task {}.".format(task_id)}
-        return jsonize(resp, response=True)
+        return jsonize({"error": True, "error_value": f"No CAPE file(s) for task {task_id}."}, response=True)
 
 
 @ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
@@ -1879,7 +1881,10 @@ def tasks_procdumpfiles(request, task_id):
 
     procdumppath = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "procdump")
 
+    #ToDo check bad rturn
     if os.path.exists(procdumppath):
+        if not HAVE_PYZIPPER:
+            return jsonize({"error": True, "error_value": "Install pyzipper to be able to download files"}, response=True)
         mem_zip = BytesIO()
         with pyzipper.AESZipFile(mem_zip, 'w', compression=pyzipper.ZIP_LZMA, encryption=pyzipper.WZ_AES) as zf:
             zf.setpassword(zippwd)
@@ -1889,14 +1894,14 @@ def tasks_procdumpfiles(request, task_id):
                     with open(filepath, "rb") as f:
                         zf.writestr(os.path.basename(filepath), f.read())
 
-        #ToDo
-        #resp = StreamingHttpResponse(FileWrapper(open(zip_file), 8192), content_type="application/zip")
-        resp = HttpResponse(mem_zip.getvalue(), ontent_type="application/zip")
-        resp["Content-Length"] = os.path.getsize(len(mem_zip))
-        resp["Content-Disposition"] = "attachment; filename=" + "cape_payloads_{}.zip".format(task_id)
+        mem_zip.seek(0)
+        resp = StreamingHttpResponse(mem_zip, content_type="application/zip")
+        #resp = HttpResponse(mem_zip.getvalue(), content_type="application/zip")
+        resp["Content-Length"] = len(mem_zip.getvalue())
+        resp["Content-Disposition"] = f"attachment; filename=cape_payloads_{task_id}.zip"
         return resp
     else:
-        resp = {"error": True, "error_value": "No procdump file(s) for task {}.".format(task_id)}
+        resp = {"error": True, "error_value": f"No procdump file(s) for task {task_id}."}
         return jsonize(resp, response=True)
 
 

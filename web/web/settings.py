@@ -56,7 +56,9 @@ zip_cfg = aux_cfg.zipped_download
 
 URL_ANALYSIS = web_cfg.url_analysis.get("enabled", False)
 DLNEXEC = web_cfg.dlnexec.get("enabled", False)
-ZIP_PWD = zip_cfg.get("zip_pwd", "inf3ct3d")
+ZIP_PWD = zip_cfg.get("zip_pwd", b"infected")
+if not isinstance(ZIP_PWD, bytes):
+    ZIP_PWD = ZIP_PWD.encode("utf-8")
 MOLOCH_BASE = moloch_cfg.get("base", None)
 MOLOCH_NODE = moloch_cfg.get("node", None)
 MOLOCH_ENABLED = moloch_cfg.get("enabled", False)
@@ -219,7 +221,7 @@ LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
     "filters": {"require_debug_false": {"()": "django.utils.log.RequireDebugFalse"}},
-    "handlers": {"mail_admins": {"level": "ERROR", "filters": ["require_debug_false"], "class": "django.utils.log.AdminEmailHandler",}},
+    "handlers": {"mail_admins": {"level": "ERROR", "filters": ["require_debug_false"], "class": "django.utils.log.AdminEmailHandler"}},
     "loggers": {"django.request": {"handlers": ["mail_admins"], "level": "ERROR", "propagate": True,},},
 }
 
