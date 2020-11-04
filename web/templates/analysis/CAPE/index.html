@@ -33,14 +33,11 @@
             {% endfor %}
             <tr>
                 <th></th>
-                <td><a href="{% url "configdownload" id file.cape_name%}" class="btn btn-primary btn-small">Download</a>
+                <td><a href="{% url "configdownload" id family%}" class="btn btn-primary btn-small">Download</a>
                 </td>
             </tr>
             </table>
         </div>
-        {% if file.related_tasks %}
-            <div class="alert alert-success">The triggered CAPE job X can be viewed <a href="{% url "report" task_id %}">here</a></div>
-        {% endif %}
     {% endfor %}
 {% endif %}
 {% if CAPE.payloads %}

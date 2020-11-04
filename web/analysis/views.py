@@ -1655,13 +1655,12 @@ def configdownload(request, task_id, cape_name):
         except:
             # In case compress results processing module is not enabled
             pass
-        for cape in buf.get("CAPE", []):
-            if isinstance(cape, dict) and cape.get("cape_name", "") == cape_name:
+        for cape in buf.get("CAPE", {}).get("configs", []):
+            if cape_name in cape:
                 filepath = tempfile.NamedTemporaryFile(delete=False, dir=settings.TEMP_PATH)
-                for key in cape["cape_config"]:
-                    filepath.write("{}\t{}\n".format(key, cape["cape_config"][key]).encode("utf8"))
+                filepath.write("{}\t{}\n".format(cape_name, cape[cape_name]).encode("utf8"))
                 filepath.close()
-                filename = cape["cape_name"] + "_config.txt"
+                filename = cape_name + "_config_.txt"
                 newpath = os.path.join(os.path.dirname(filepath.name), filename)
                 shutil.move(filepath.name, newpath)
                 try:
@@ -1672,9 +1671,7 @@ def configdownload(request, task_id, cape_name):
                 except Exception as e:
                     return render(request, "error.html", {"error": "{}".format(e)})
             else:
-                return render(request, "error.html", {"error": "data doesn't exist"}, status=404)
-        else:
-            return render(request, "error.html", {"error": "CAPE for task {} does not exist.".format(task_id)})
+                return render(request, "error.html", {"error": "Config data doesn't exist"}, status=404)
     else:
         return render(request, "error.html", {"error": "Could not retrieve results for task {} from db.".format(task_id)})
 
