@@ -58,12 +58,12 @@ TASK_DISTRIBUTED_COMPLETED = "distributed_completed"
 
 # Secondary table used in association Machine - Tag.
 machines_tags = Table(
-    "machines_tags", Base.metadata, Column("machine_id", Integer, ForeignKey("machines.id")), Column("tag_id", Integer, ForeignKey("tags.id")),
+    "machines_tags", Base.metadata, Column("machine_id", Integer, ForeignKey("machines.id")), Column("tag_id", Integer, ForeignKey("tags.id"))
 )
 
 # Secondary table used in association Task - Tag.
 tasks_tags = Table(
-    "tasks_tags", Base.metadata, Column("task_id", Integer, ForeignKey("tasks.id")), Column("tag_id", Integer, ForeignKey("tags.id")),
+    "tasks_tags", Base.metadata, Column("task_id", Integer, ForeignKey("tasks.id")), Column("tag_id", Integer, ForeignKey("tags.id"))
 )
 
 
@@ -1968,15 +1968,28 @@ class Database(object, metaclass=Singleton):
                                 break
 
                     for category in ("dropped", "procdump"):
+                    tasks = results_db.analysis.find({"CAPE.payloads." + sizes_mongo.get(len(sample_hash), ""): sample_hash},
+                                                     {"CAPE.payloads": 1, "_id": 0, "info.id":1 })
+                    if tasks:
+                        for task in tasks:
+                            for block in task.get("CAPE", {}).get("payloads", []) or []:
+                                if block[sizes_mongo.get(len(sample_hash), "")] == sample_hash:
+                                    path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task["info"]["id"]), folders.get("CAPE"),
+                                                        block["sha256"])
+                                    if os.path.exists(path):
+                                        sample = [path]
+                                        break
+                            if sample:
+                                break
+
+                    for category in ("dropped", "procdump"):
                         # we can't filter more if query isn't sha256
-                        tasks = results_db.analysis.find({category + "." + sizes_mongo.get(len(sample_hash), ""): sample_hash},
-                                                         {category: 1, "_id": 0, "info.id":1 })
+                        tasks = results_db.analysis.find({category + "." + sizes_mongo.get(len(sample_hash), ""): sample_hash}, {category: 1, "_id": 0, "info.id":1 })
                         if tasks:
                             for task in tasks:
                                 for block in task.get(category, []) or []:
                                     if block[sizes_mongo.get(len(sample_hash), "")] == sample_hash:
-                                        path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task["info"]["id"]), folders.get(category),
-                                                            block["sha256"])
+                                        path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task["info"]["id"]), folders.get(category), block["sha256"])
                                         if os.path.exists(path):
                                             sample = [path]
                                             break
