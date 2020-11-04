@@ -1625,58 +1625,6 @@ def vtupload(request, category, task_id, filename, dlfile):
 
 
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
-def configdownload(request, task_id, cape_name):
-    cd = "text/plain"
-    task = db.view_task(task_id)
-    if not task:
-        return render(request, "error.html", {"error": "Task ID {} does not existNone".format(task_id)})
-
-    buf = dict()
-    if enabledconf["mongodb"]:
-        buf = results_db.analysis.find_one({"info.id": int(task_id)}, {"CAPE": 1}, sort=[("_id", pymongo.DESCENDING)])
-    if enabledconf["jsondump"] and not buf:
-        jfile = os.path.join(CUCKOO_ROOT, "storage", "analysis", f"{task_id}", "reports", "report.json")
-        with open(jfile, "r") as jdata:
-            buf = json.load(jdata)
-    if es_as_db and not buf:
-        rtmp = es.search(index=fullidx, doc_type="analysis", q='info.id: "%s"' % str(task_id))["hits"]["hits"]
-        if len(rtmp) > 1:
-            buf = rtmp[-1]["_source"]
-        elif len(rtmp) == 1:
-            buf = rtmp[0]["_source"]
-        else:
-            buf = None
-    if not buf:
-        return render(request, "error.html", {"error": "No storage methods enabled"})
-
-    if buf.get("CAPE"):
-        try:
-            buf["CAPE"] = json.loads(zlib.decompress(buf["CAPE"]))
-        except:
-            # In case compress results processing module is not enabled
-            pass
-        for cape in buf.get("CAPE", {}).get("configs", []):
-            if cape_name in cape:
-                filepath = tempfile.NamedTemporaryFile(delete=False, dir=settings.TEMP_PATH)
-                filepath.write("{}\t{}\n".format(cape_name, cape[cape_name]).encode("utf8"))
-                filepath.close()
-                filename = cape_name + "_config_.txt"
-                newpath = os.path.join(os.path.dirname(filepath.name), filename)
-                shutil.move(filepath.name, newpath)
-                try:
-                    resp = StreamingHttpResponse(FileWrapper(open(newpath), 8192), content_type=cd)
-                    resp["Content-Length"] = os.path.getsize(newpath)
-                    resp["Content-Disposition"] = "attachment; filename=" + filename
-                    return resp
-                except Exception as e:
-                    return render(request, "error.html", {"error": "{}".format(e)})
-            else:
-                return render(request, "error.html", {"error": "Config data doesn't exist"}, status=404)
-    else:
-        return render(request, "error.html", {"error": "Could not retrieve results for task {} from db.".format(task_id)})
-
-
-@conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def reschedule(request, task_id):
     task = db.view_task(task_id)
 
