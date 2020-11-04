@@ -1954,21 +1954,6 @@ class Database(object, metaclass=Singleton):
 
                 if sample is None:
                     tasks = results_db.analysis.find({"CAPE.payloads." + sizes_mongo.get(len(sample_hash), ""): sample_hash},
-                                                         {"CAPE.payloads": 1, "_id": 0, "info.id":1 })
-                    if tasks:
-                        for task in tasks:
-                            for block in task.get("CAPE", {}).get("payloads", []) or []:
-                                if block[sizes_mongo.get(len(sample_hash), "")] == sample_hash:
-                                    path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task["info"]["id"]), folders.get("CAPE"),
-                                                        block["sha256"])
-                                    if os.path.exists(path):
-                                        sample = [path]
-                                        break
-                            if sample:
-                                break
-
-                    for category in ("dropped", "procdump"):
-                    tasks = results_db.analysis.find({"CAPE.payloads." + sizes_mongo.get(len(sample_hash), ""): sample_hash},
                                                      {"CAPE.payloads": 1, "_id": 0, "info.id":1 })
                     if tasks:
                         for task in tasks:
@@ -1984,12 +1969,14 @@ class Database(object, metaclass=Singleton):
 
                     for category in ("dropped", "procdump"):
                         # we can't filter more if query isn't sha256
-                        tasks = results_db.analysis.find({category + "." + sizes_mongo.get(len(sample_hash), ""): sample_hash}, {category: 1, "_id": 0, "info.id":1 })
+                        tasks = results_db.analysis.find({category + "." + sizes_mongo.get(len(sample_hash), ""): sample_hash},
+                                                         {category: 1, "_id": 0, "info.id":1 })
                         if tasks:
                             for task in tasks:
                                 for block in task.get(category, []) or []:
                                     if block[sizes_mongo.get(len(sample_hash), "")] == sample_hash:
-                                        path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task["info"]["id"]), folders.get(category), block["sha256"])
+                                        path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task["info"]["id"]), folders.get(category),
+                                                            block["sha256"])
                                         if os.path.exists(path):
                                             sample = [path]
                                             break
