@@ -1137,7 +1137,6 @@ def file(request, category, task_id, dlfile):
                 mem_zip = BytesIO()
                 with pyzipper.AESZipFile(mem_zip, 'w', compression=pyzipper.ZIP_LZMA, encryption=pyzipper.WZ_AES) as zf:
                     pwd = settings.ZIP_PWD
-                    zf.setpassword(pwd.encode('utf8'))
                     with open(path, "rb") as f:
                         zf.writestr(os.path.basename(path), f.read())
             else:
