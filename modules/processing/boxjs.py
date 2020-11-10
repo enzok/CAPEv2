@@ -122,7 +122,7 @@ class BoxJS(Processing):
         # Delete the results.
         try:
             requests.delete(base_url, timeout=self.timeout)
-        except (requests.ConnectionError, ValueError) as e:
+        except (requests.ConnectionError, ValueError, requests.exceptions.ReadTimeout) as e:
             raise CuckooOperationalError("Unable to send a DELETE request: %r" % e.message)
 
         return results
