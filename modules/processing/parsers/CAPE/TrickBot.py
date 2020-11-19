@@ -41,15 +41,28 @@ rule TrickBot
     condition:
         uint16(0) == 0x5A4D and ($snippet1)
 }
+
+rule TrickBot2
+{
+    meta:
+        author = "enzok"
+        description = "TrickBot Payload"
+        cape_type = "TrickBot Payload"
+    strings:
+        $transform = {8A 6C 24 ?? 8A 4C 24 ?? 8B BC 24 [4] 8A D5 8A F9 8A DD 80 E1 47 F6 D2 F6 D7 80 E3 47 8A F2 80 E7 B8 80 E6 B8 0A CF 0A DE 32 CB 88 4C 24 ?? 8A 5C 24 ?? 8A F3 22 DA F6 D6 22 F5 0A DE 88 5C 24 ?? 8A FB 88 5C 24 ?? 8A 74 24 ?? F6 D7 22 FE 22 D6 F6 D6 22 DE 22 F5 0A FB 0A D6 88 7C 24 ?? 88 54 24}
+
+    condition:
+        uint16(0) == 0x5A4D and ($transform)
+}
 """
 
 
-def yara_scan(raw_data, rule_name):
+def yara_scan(raw_data, rule, rule_name):
     addresses = {}
     yara_rules = yara.compile(source=rule_source)
     matches = yara_rules.match(data=raw_data)
     for match in matches:
-        if match.rule == "TrickBot":
+        if match.rule == rule:
             for item in match.strings:
                 if item[1] == rule_name:
                     addresses[item[1]] = item[0]
@@ -136,7 +149,7 @@ def decode_onboard_config(data):
             return data[8 : length + 8]
 
     # Following code by grahamaustin
-    snippet = yara_scan(data, "$snippet1")
+    snippet = yara_scan(data, "TrickBot", "$snippet1")
     if not snippet:
         return
     offset = int(snippet["$snippet1"])
@@ -157,6 +170,29 @@ def decode_onboard_config(data):
     if length < 4000:
         return data[8 : length + 8]
 
+
+def host_transform(data, server_list):
+    if not yara_scan(data, "TrickBot2", "$transform"):
+        return []
+    new_list = []
+    if server_list:
+        for ip in server_list:
+            host_ip, port = ip.split(":")
+            o1, o2, o3, o4 = list(map(lambda  x: int(x), host_ip.split(".")))
+            n1 = ((~o3 & 0xFF) & 0xB8 | o3 & 0x47) ^ ((~o1 & 0xFF) & 0xB8 | o1 & 0x47)
+            n3 = o3 & (~o4 & 0xFF) | (~o3 & 0xFF) & o4
+            n4 = o3 & (~o2 & 0xFF) | o2 & (~o3 & 0xFF)
+            n2 = (~o2 & 0xFF) & n3 | o2 & (~n3 & 0xFF)
+
+            # Concatenate new IP Address - Port is hardcoded in binary despite being transformed disabling for now
+            #pt = ~(n4 << 8) & 0x67F6FF48 ^ (~o1 & 0x67F6FF48 | o1 & 0xB7)
+            #nport = int(port) & (~pt & 0xFFFF) | pt & (~int(port) & 0xFFFF)
+
+            nport = 443
+            new_host = ".".join([str(n1), str(n2), str(n3), str(n4)]) + ":" + str(nport)
+            new_list.append(new_host)
+
+    return new_list
 
 def config(data):
     xml = decode_onboard_config(data)
@@ -180,5 +216,9 @@ def config(data):
             val = child.text
 
         raw_config[tag] = val
+
+    new_serves = host_transform(data, raw_config["servs"])
+    if new_serves:
+        raw_config["servs"] = new_serves
 
     return raw_config
