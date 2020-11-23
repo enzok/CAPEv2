@@ -1074,17 +1074,22 @@ def report(request, task_id):
 
 def file_nl(request, category, task_id, dlfile):
     file_name = dlfile
+    base_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id))
+    path = False
     if category == "screenshot":
         file_name = file_name + ".jpg"
-        path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "shots", file_name)
+        path = os.path.join(base_path, "shots", file_name)
         cd = "image/jpeg"
 
     elif category == "bingraph":
-        path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "bingraph", file_name + "-ent.svg")
+        path = os.path.join(base_path, str(task_id), "bingraph", file_name + "-ent.svg")
         file_name = file_name + "-ent.svg"
         cd = "image/svg+xml"
     else:
         return render(request, "error.html", {"error": "Category not defined"})
+
+    if path and not os.path.normpath(path).startswith(base_path):
+        return render(request, "error.html", {"error": "File not found"})
 
     try:
         resp = StreamingHttpResponse(FileWrapper(open(path, "rb"), 8192), content_type=cd)
@@ -1381,11 +1386,7 @@ def search(request):
 
         # Check on search size. But malscore can be a single digit number.
         if term != "malscore" and len(value) < 3:
-            return render(
-                request,
-                "analysis/search.html",
-                {"analyses": None, "term": request.POST["search"], "error": "Search term too short, minimum 3 characters required"},
-            )
+            return render(request, "analysis/search.html", {"analyses": None, "term": request.POST["search"], "error": "Search term too short, minimum 3 characters required"},)
 
         # name:foo or name: foo
         value = value.lstrip()
@@ -1402,6 +1403,12 @@ def search(request):
             elif re.match(r"^([a-fA-F\d]{128})$", value):
                 term = "sha512"
 
+        if term == "ids":
+            if all([v.strip().isdigit() for v in value.split(",")]):
+                value = [int(v.strip()) for v in filter(None, value.split(","))]
+            else:
+                return render(request, "analysis/search.html", {"analyses": None, "term": request.POST["search"], "error": "Not all values are integers"})
+
         try:
             if term == "malscore":
                 records = perform_malscore_search(value)
@@ -1411,15 +1418,9 @@ def search(request):
                 records = perform_search(term, value)
         except ValueError:
             if term:
-                return render(
-                    request,
-                    "analysis/search.html",
-                    {"analyses": None, "term": request.POST["search"], "error": "Invalid search term: %s" % term},
-                )
+                return render( request, "analysis/search.html", {"analyses": None, "term": request.POST["search"], "error": "Invalid search term: %s" % term},)
             else:
-                return render(
-                    request, "analysis/search.html", {"analyses": None, "term": None, "error": "Unable to recognize the search syntax"}
-                )
+                return render(request, "analysis/search.html", {"analyses": None, "term": None, "error": "Unable to recognize the search syntax"})
 
         analyses = []
         for result in records or []:
