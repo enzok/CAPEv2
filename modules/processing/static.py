@@ -114,6 +114,7 @@ except ImportError:
 
 from lib.cuckoo.common.utils import convert_to_printable
 from lib.cuckoo.common.pdftools.pdfid import PDFiD, PDFiD2JSON
+from lib.cuckoo.common.cape_utils import flare_capa_details
 
 try:
     from peepdf.PDFCore import PDFParser
@@ -987,6 +988,9 @@ class PortableExecutable(object):
         peresults["guest_signers"] = self._get_guest_digital_signers()
         if peresults.get("imports", False):
             peresults["imported_dll_count"] = len([x for x in peresults["imports"] if x.get("dll")])
+
+        if processing_conf.flare_capa.enabled:
+            results["flare_capa"] = flare_capa_details(self.file_path)
 
         return results
 
@@ -2559,7 +2563,7 @@ class EncodedScriptFile(object):
 
             o = o + 1
 
-        if (c % 2 ** 32) != struct.unpack("I", source[o : o + 8].decode("base64"))[0]:
+        if (c % 2 ** 32) != base64.b64decode(struct.unpack("I", source[o : o + 8]))[0]:
             log.info("Invalid checksum for Encoded WSF file!")
 
         return "".join(chr(ch) for ch in r)

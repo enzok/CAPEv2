@@ -41,6 +41,7 @@ from lib.cuckoo.common.web_utils import (
     parse_request_arguments,
     all_vms_tags,
     download_from_vt,
+    perform_search,
 )
 
 # this required for hash searches
@@ -147,7 +148,7 @@ def index(request, resubmit_hash=False):
 
         static, package, timeout, priority, options, machine, platform, tags, custom, memory, \
             clock, enforce_timeout, shrike_url, shrike_msg, shrike_sid, shrike_refer, unique, referrer, \
-            tlp = parse_request_arguments(request)
+            tlp, tags_tasks, route, cape = parse_request_arguments(request)
 
         # This is done to remove spaces in options but not breaks custom paths
         options = ",".join(
@@ -175,9 +176,6 @@ def index(request, resubmit_hash=False):
 
         if request.POST.get("tor"):
             options += "tor=yes,"
-
-        if request.POST.get("route", None):
-            options += "route={0},".format(request.POST.get("route", None))
 
         if request.POST.get("process_dump"):
             options += "procdump=0,"
@@ -227,7 +225,7 @@ def index(request, resubmit_hash=False):
 
         status = "ok"
         task_ids_tmp = list()
-
+        existent_tasks = dict()
         details = {
             "errors": [],
             "content": False,
@@ -267,6 +265,10 @@ def index(request, resubmit_hash=False):
                     details["errors"].append({os.path.basename(filename): task_ids_tmp})
                 else:
                     details["task_ids"] = task_ids_tmp
+                    records = perform_search("sha256", resubmission_hash)
+                    for record in records:
+                        existent_tasks.setdefault(record["target"]["file"]["sha256"], list())
+                        existent_tasks[record["target"]["file"]["sha256"]].append(record)
             else:
                 return render(request, "error.html", {"error": "File not found on hdd for resubmission"})
 
@@ -290,7 +292,8 @@ def index(request, resubmit_hash=False):
                 # Moving sample from django temporary file to Cuckoo temporary storage to
                 # let it persist between reboot (if user like to configure it in that way).
                 path = store_temp_file(sample.read(), filename)
-                if unique and db.check_file_uniq(File(path).get_sha256()):
+                sha256 = File(path).get_sha256()
+                if unique and db.check_file_uniq(sha256):
                     return render(request, "error.html", {"error": "Duplicated file, disable unique option to force submission"})
 
                 if timeout and web_conf.public.enabled and web_conf.public.timeout and timeout > web_conf.public.timeout:
@@ -302,6 +305,10 @@ def index(request, resubmit_hash=False):
                 if status == "error":
                     details["errors"].append({os.path.basename(path): task_ids_tmp})
                 else:
+                    records = perform_search("sha256", sha256)
+                    for record in records:
+                        existent_tasks.setdefault(record["target"]["file"]["sha256"], list())
+                        existent_tasks[record["target"]["file"]["sha256"]].append(record)
                     details["task_ids"] = task_ids_tmp
 
         elif "quarantine" in request.FILES:
@@ -468,8 +475,9 @@ def index(request, resubmit_hash=False):
             tasks_count = len(details["task_ids"])
         else:
             tasks_count = 0
+
         if tasks_count > 0:
-            data = {"tasks": details["task_ids"], "tasks_count": tasks_count, "errors": details["errors"]}
+            data = {"tasks": details["task_ids"], "tasks_count": tasks_count, "errors": details["errors"], "existent_tasks": existent_tasks}
             return render(request, "submission/complete.html", data)
         else:
             return render(request, "error.html", {"error": "Error adding task(s) to CAPE's database.", "errors": details["errors"]})
