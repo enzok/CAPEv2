@@ -158,7 +158,7 @@ def main():
     if args.capa_rules:
         flare_capa_rules()
 
-    if not (enabled and args.capa_rules):
+    if not enabled and not args.capa_rules:
         print(colors.red("You need to enable a category!\n"))
         parser.print_help()
         return
