@@ -163,7 +163,7 @@ def main():
         if not enabled:
             return
 
-    if not enabled and not args.capa_rules:
+    if not enabled:
         print(colors.red("You need to enable a category!\n"))
         parser.print_help()
         return
