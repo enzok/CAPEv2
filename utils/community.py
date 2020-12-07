@@ -3,6 +3,7 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
+import shutil
 import os
 import sys
 import zipfile
@@ -29,6 +30,8 @@ def flare_capa_rules():
         http = urllib3.PoolManager()
         data = http.request("GET", "https://github.com/fireeye/capa-rules/archive/master.zip").data
         dest_folder = os.path.join(CUCKOO_ROOT, "data")
+        shutil.rmtree((os.path.join(dest_folder, "capa-rules-master")), ignore_errors=True)
+        shutil.rmtree((os.path.join(dest_folder, "capa-rules")), ignore_errors=True)
         zipfile.ZipFile(BytesIO(data)).extractall(path=dest_folder)
         os.rename(os.path.join(dest_folder, "capa-rules-master"), os.path.join(dest_folder, "capa-rules"))
         print("[+] FLARE CAPA rules installed")
@@ -157,6 +160,8 @@ def main():
 
     if args.capa_rules:
         flare_capa_rules()
+        if not enabled:
+            return
 
     if not enabled and not args.capa_rules:
         print(colors.red("You need to enable a category!\n"))
@@ -171,3 +176,4 @@ if __name__ == "__main__":
         main()
     except KeyboardInterrupt:
         pass
+
