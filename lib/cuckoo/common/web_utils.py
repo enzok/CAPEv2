@@ -20,7 +20,7 @@ from django.http import HttpResponse
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.objects import HAVE_PEFILE, pefile, IsPEImage
 from lib.cuckoo.core.rooter import _load_socks5_operational
-from lib.cuckoo.core.database import Database, Task, TASK_REPORTED
+from lib.cuckoo.core.database import Database, Task, Sample, TASK_REPORTED
 from lib.cuckoo.common.utils import get_ip_address, bytes2str, validate_referrer, sanitize_filename
 
 cfg = Config("cuckoo")
