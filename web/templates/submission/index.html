@@ -59,7 +59,7 @@ $(document).ready( function() {
 });
 </script>
 <div class="row">
-    <div class="col-md-6 col-md-offset-3 mx-auto">
+    <div class="col-md-7 col-md-offset-3 mx-auto">
         <form role="form" action="" method="post" enctype="multipart/form-data">
             {% csrf_token %}
             <div class="tabbable">
@@ -571,17 +571,12 @@ $(document).ready( function() {
                                 </label>
                             </div>
                             {% if config.posproc %}
-                            <div class="checkbox">
+                            <div class="form-check">
                                 <label>
                                     <input type="checkbox" name="posproc" /> Enable Fake POS process for analysis
                                 </label>
                             </div>
                             {% endif %}
-                            <div class="checkbox">
-                                <label>
-                                    <input type="checkbox" name="combo" /> Enable combo analysis
-                                </label>
-                            </div>
                         </div>
                     </div>
                 </div>
