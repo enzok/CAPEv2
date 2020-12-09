@@ -73,7 +73,7 @@ $(function() {
     </div>
 {% endif %}
 
-<ul class="nav nav-tabs">
+<ul class="nav nav-tabs flex-sm-row flex-sm-nowrap">
     <li class="nav-item"><a class="nav-link active" href="#overview" data-toggle="tab">Quick Overview</a></li>
     {% if analysis.static or config.virustotal and analysis.virustotal %}<li class="nav-item"><a class="nav-link" href="#static" data-toggle="tab">Static Analysis</a></li>{% endif %}
     <li class="nav-item"><a class="nav-link" href="#behavior" data-toggle="tabajax" data-url="/analysis/load_files/{{analysis.info.id}}/behavior/" data-toggle="tab">Behavioral Analysis</a></li>
