@@ -193,7 +193,7 @@
             {% endif %}
         {% if file.flare_capa%}
         <tr>
-            <th><p><a class="btn btn-secondary" data-toggle="collapse" href="#flare_capa_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="flare_capa_{{file.sha256}}">FLARE CAPA</a></p></th>
+            <th><p><a class="btn btn-secondary btn-small" data-toggle="collapse" href="#flare_capa_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="flare_capa_{{file.sha256}}">FLARE CAPA</a></p></th>
             <td>
             <div class="collapse" id="flare_capa_{{file.sha256}}">
                 <div class="card card-body">
@@ -216,7 +216,7 @@
         </br>
         {% else %}
         <tr>
-            <th><p><a class="btn btn-secondary" href="{% url "on_demand" "flare_capa" id "CAPE" file.sha256 %}" role="button">Generate FLARE CAPA</a></p></th>
+            <th><p><a class="btn btn-secondary btn-small" href="{% url "on_demand" "flare_capa" id "CAPE" file.sha256 %}" role="button">Generate FLARE CAPA</a></p></th>
             <td></td>
         </tr>
         {% endif %} {% if bingraph.enabled and bingraph.content|getkey:file.sha256 %}
@@ -226,7 +226,7 @@
         </tr>
         {% else %}
         <tr>
-            <th><p><a class="btn btn-secondary" href="{% url "on_demand" "bingraph" id "CAPE" file.sha256 %}" role="button">Generate Bingraph</a></p></th>
+            <th><p><a class="btn btn-secondary btn-small" href="{% url "on_demand" "bingraph" id "CAPE" file.sha256 %}" role="button">Generate Bingraph</a></p></th>
             <td></td>
         </tr>
         {% endif %}
