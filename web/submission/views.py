@@ -206,13 +206,14 @@ def index(request, resubmit_hash=False):
         if request.POST.get("posproc"):
             options += "posproc=1,"
 
+        if request.POST.get("dumptls"):
+            options += "dumptls=1,"
+
         if submitter:
             options += "submitter={},".format(submitter)
 
         # Add reg-dump option as default
         options += "dump-reg=1,"
-        # Add dump tls secrets option as default
-        options += "dumptls=1,"
 
         options = options[:-1]
         tlp = request.POST.get("tlp", None)

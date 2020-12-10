@@ -18,7 +18,7 @@ class DumpTLSMasterSecrets(Auxiliary):
         """@param options: options dict."""
         self.config = config
         self.options = options
-        self.options["tls"] = "1"
+        #self.options["dumptls"] = "1"
 
     def start(self):
         proc_info = PROCESSENTRY32()
@@ -45,4 +45,4 @@ class DumpTLSMasterSecrets(Auxiliary):
             else:
                 log.warning("An unknown error occurred while trying to inject into "
                     "the lsass.exe process to dump TLS master secrets: %s", e)
-        self.options["tls"] = "0"
+        #self.options["dumptls"] = "0"
