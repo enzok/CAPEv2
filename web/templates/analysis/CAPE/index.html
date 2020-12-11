@@ -219,16 +219,19 @@
             <th><p><a class="btn btn-secondary btn-small" href="{% url "on_demand" "flare_capa" id "CAPE" file.sha256 %}" role="button">Generate FLARE CAPA</a></p></th>
             <td></td>
         </tr>
-        {% endif %} {% if bingraph.enabled and bingraph.content|getkey:file.sha256 %}
+        {% endif %}
+        {% if bingraph.enabled and bingraph.content|getkey:file.sha256 %}
         <tr>
             <th><p><a href="{% url "file_nl" "bingraph" id file.sha256 %}" class="btn btn-secondary btn-small">Download graph</a></p></th>
             <td>{{ bingraph.content|getkey:file.sha256|safe }} </td>
         </tr>
         {% else %}
-        <tr>
-            <th><p><a class="btn btn-secondary btn-small" href="{% url "on_demand" "bingraph" id "CAPE" file.sha256 %}" role="button">Generate Bingraph</a></p></th>
-            <td></td>
-        </tr>
+            {% if bingraph.enabled %}
+            <tr>
+                <th><p><a class="btn btn-secondary btn-small" href="{% url "on_demand" "bingraph" id "CAPE" file.sha256 %}" role="button">Generate Bingraph</a></p></th>
+                <td></td>
+            </tr>
+            {% endif %}
         {% endif %}
         </table>
     </div>

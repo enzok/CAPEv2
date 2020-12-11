@@ -1002,7 +1002,7 @@ class PortableExecutable(object):
             peresults["imported_dll_count"] = len([x for x in peresults["imports"] if x.get("dll")])
 
         pretime = datetime.now()
-        capa_details = flare_capa_details(self.file_path, "binary")
+        capa_details = flare_capa_details(self.file_path, "static")
         if capa_details:
             results["flare_capa"] = capa_details
         self.add_statistic_tmp("flare_capa", "time", pretime)

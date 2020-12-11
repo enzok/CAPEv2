@@ -1732,7 +1732,7 @@ def on_demand(request, service: str, task_id: int, category: str, sha256):
         return render(request, "error.html", {"error": "Not supported/enabled service on demand"})
 
     base_path = os.path.join(CUCKOO_ROOT, "storage", "analyses")
-    if category == "binary":
+    if category == "static":
         path = os.path.join(base_path, str(task_id), "binary")
     else:
         path = os.path.join(base_path, str(task_id), category, sha256)
@@ -1760,7 +1760,16 @@ def on_demand(request, service: str, task_id: int, category: str, sha256):
     if details:
         buf = results_db.analysis.find_one({"info.id": int(task_id)}, {"_id": 1, category: 1})
         if category == "CAPE":
-            for block in buf["CAPE"].get("payloads", []) or []:
+            for block in buf[category].get("payloads", []) or []:
+                if block.get("sha256") == sha256:
+                    block[service] = details
+                    break
+
+        if category == "static":
+            buf["static"][service] = details
+
+        if category == "procdump":
+            for block in buf[category] or []:
                 if block.get("sha256") == sha256:
                     block[service] = details
                     break
