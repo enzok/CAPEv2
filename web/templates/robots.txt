@@ -2,3 +2,13 @@ User-agent: SemrushBot
 Disallow: /
 User-agent: MJ12bot
 Disallow: /
+User-agent: Barkrowler
+Disallow: /
+User-agent: Googlebot-Image
+Disallow: /
+User-agent: PetalBot
+Disallow: /
+User-agent: sogou spider
+Disallow: /
+User-agent: sogou+spider
+Disallow: /

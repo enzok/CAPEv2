@@ -1221,16 +1221,18 @@ def file(request, category, task_id, dlfile):
     try:
         if category in ("samplezip", "droppedzip", "CAPEZIP", "procdumpzip", "memdumpzip"):
             if mem_zip:
-                data = mem_zip.getvalue()
+                mem_zip.seek(0)
+                resp = StreamingHttpResponse(mem_zip, content_type=cd)
+                resp["Content-Length"] = len(mem_zip.getvalue())
         else:
-            data = open(path, "rb").read()
-        size = len(data)
-        #resp = StreamingHttpResponse(FileWrapper(open(path, "rb"), 8192), content_type=cd)
-        resp = HttpResponse(data, content_type=cd)
+            if not os.path.exists(path):
+                 return render(request, "error.html", {"error": "File {} not found".format(os.path.basename(path))})
+            resp = StreamingHttpResponse(FileWrapper(open(path, 'rb'), 8091), content_type=cd)
+            resp["Content-Length"] = os.path.getsize(path)
+        resp["Content-Disposition"] = "attachment; filename={0}".format(os.path.basename(path))
+        return resp
     except Exception as e:
         print(e)
-        if path.endswith(".zip") and os.path.exists(path):
-            os.remove(path)
         return render(request, "error.html", {"error": "File {} not found".format(os.path.basename(path))})
 
     resp["Content-Length"] = size # os.path.getsize(path)
@@ -1242,6 +1244,8 @@ def file(request, category, task_id, dlfile):
 
 @require_safe
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
+@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
+@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
 def procdump(request, task_id, process_id, start, end):
     origname = process_id + ".dmp"
     tmpdir = None
@@ -1269,19 +1273,24 @@ def procdump(request, task_id, process_id, start, end):
 
     file_name = "{0}_{1:x}.dmp".format(process_id, int(start, 16))
 
-    for proc in analysis.get("procmemory", []) or []:
-        if proc["pid"] == int(process_id):
-            data = b""
-            for memmap in proc["address_space"]:
-                for chunk in memmap["chunks"]:
-                    if int(chunk["start"], 16) >= int(start, 16) and int(chunk["end"], 16) <= int(end, 16):
-                        file_item.seek(chunk["offset"])
-                        data += file_item.read(int(chunk["size"], 16))
-            if len(data):
-                content_type = "application/octet-stream"
-                response = HttpResponse(data, content_type=content_type)
-                response["Content-Disposition"] = "attachment; filename={0}".format(file_name)
-                break
+    if file_item and analysis and "procmemory" in analysis:
+        for proc in analysis["procmemory"]:
+            if proc["pid"] == int(process_id):
+                s = BytesIO()
+                for memmap in proc["address_space"]:
+                    for chunk in memmap["chunks"]:
+                        if int(chunk["start"], 16) >= int(start, 16) and int(chunk["end"], 16) <= int(end, 16):
+                            file_item.seek(chunk["offset"])
+                            s.write(file_item.read(int(chunk["size"], 16)))
+                s.seek(0)
+                size = s.getvalue()
+                if size:
+                    content_type = "application/octet-stream"
+                    response = StreamingHttpResponse(s, content_type=content_type)
+                    response["Content-Length"] = size
+                    response["Content-Disposition"] = "attachment; filename={0}".format(file_name)
+                    break
+
 
     if file_item:
         file_item.close()
@@ -1343,6 +1352,8 @@ def filereport(request, task_id, category):
 
 
 @require_safe
+@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
+@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def full_memory_dump_file(request, analysis_number):
     file_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(analysis_number), "memory.dmp")
@@ -1373,6 +1384,8 @@ def full_memory_dump_file(request, analysis_number):
 
 
 @require_safe
+@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
+@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def full_memory_dump_strings(request, analysis_number):
     file_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(analysis_number), "memory.dmp.strings")
@@ -1394,6 +1407,8 @@ def full_memory_dump_strings(request, analysis_number):
 
 
 @csrf_exempt
+@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
+@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def search(request):
     if "search" in request.POST:
@@ -1581,6 +1596,8 @@ def pcapstream(request, task_id, conntuple):
     return HttpResponse(json.dumps(packets), content_type="application/json")
 
 
+@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
+@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def comments(request, task_id):
     if request.method == "POST" and settings.COMMENTS:

@@ -140,6 +140,7 @@ apilimiter = {
     "tasks_surifile": apiconf.tasksurifile,
     "tasks_rollingsuri": apiconf.rollingsuri,
     "tasks_rollingshrike": apiconf.rollingshrike,
+    "task_procdump": apiconf.taskprocdump,
     "tasks_procmemory": apiconf.taskprocmemory,
     "tasks_fullmemory": apiconf.taskprocmemory,
     "get_files": apiconf.sampledl,
@@ -155,6 +156,10 @@ apilimiter = {
     "file": apiconf.download_file,
     "filereport": apiconf.filereport,
     "statistics": apiconf.statistics,
+    "full_memory_dump_file": apiconf.full_memory_dump_file,
+    "full_memory_dump_file_strings": apiconf.full_memory_dump_file_strings,
+    "comments": apiconf.comments,
+    "search": apiconf.web_search,
 }
 
 # https://django-ratelimit.readthedocs.io/en/stable/rates.html#callables
