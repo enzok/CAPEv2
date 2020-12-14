@@ -14,9 +14,6 @@
         {% if config.virustotal %}
             <li class="nav-item"><a class="nav-link" href="#static_antivirus_tab" data-toggle="tab">VirusTotal</a></li>
         {% endif %}
-        {% if config.flare_capa %}
-            <li class="nav-item"><a class="nav-link" href="#static_flare_capa_tab" data-toggle="tab">FLARE CAPA</a></li>
-        {% endif %}
     </ul>
     <div class="tab-content">
         {% if analysis.info.category in "file,static" %}
@@ -59,17 +56,6 @@
             <div class="tab-pane fade show" id="static_antivirus_tab">
                 {% include "analysis/static/_antivirus.html" %}
             </div>
-        {% endif %}
-        {% if analysis.static.flare_capa %}
-            <div class="tab-pane fade show" id="static_flare_capa_tab">
-                {% include "analysis/static/_flare_capa.html" %}
-            </div>
-        {% else %}
-            {% if "PE32" in analysis.target.file.type or "MS-DOS executable" in analysis.target.file.type %}
-                <div class="tab-pane fade show" id="static_flare_capa_tab">
-                    <p><a class="btn btn-secondary" href="{% url "on_demand" "flare_capa" analysis.info.id "static" analysis.target.file.sha256 %}" role="button">Generate FLARE CAPA</a></p>
-                </div>
-            {% endif %}
         {% endif %}
     </div>
 </div>
