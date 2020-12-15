@@ -19,6 +19,7 @@ from lib.cuckoo.common.utils import (
     logtime,
     default_converter,
     bytes2str,
+    get_options,
 )
 
 log = logging.getLogger(__name__)
@@ -346,9 +347,7 @@ class Processes:
         """@param  logs_path: logs path."""
         self.task = task
         self._logs_path = logs_path
-        self.options = dict(
-            (value.strip() for value in option.split("=", 1)) for option in self.task["options"].split(",") if option and "=" in option
-        )
+        self.options = get_options(self.task["options"])
 
     def run(self):
         """Run analysis.
