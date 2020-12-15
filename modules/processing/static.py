@@ -1504,7 +1504,7 @@ class Office(object):
                     xlmmacro["info"]["yara_macro"] = File(macro_file).get_yara(category="macro")
                     xlmmacro["info"]["yara_macro"].extend(File(macro_file).get_yara(category="CAPE"))
             except AttributeError as e:
-                if "'NoneType' object has no attribute 'workbook'" in str(e):
+                if "no attribute 'workbook'" in str(e) or "Can't find workbook" in str(e):
                     log.info("Workbook not found. Probably not an Excel file.")
             except Exception as e:
                 log.error(e, exc_info=True)
