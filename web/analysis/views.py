@@ -1065,7 +1065,7 @@ def report(request, task_id):
     if os.path.exists(vba2graph_svg_path):
         vba2graph_svg_content = open(vba2graph_svg_path, "rb").read()
 
-    bingraph = processing_cfg.bingraph.enabled
+    bingraph = reporting_cfg.bingraph.enabled
     bingraph_dict_content = {}
     bingraph_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "bingraph")
     if os.path.exists(bingraph_path):
@@ -1707,9 +1707,9 @@ def statistics_data(request, days=7):
         return render(request, "error.html", {"error": "Provide days as number"})
 
 on_demand_config_mapper = {
-    "bingraph": processing_cfg,
+    "bingraph": reporting_cfg,
     "vba2graph": processing_cfg,
-    "flare_capa": reporting_cfg,
+    "flare_capa": processing_cfg,
 }
 
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
