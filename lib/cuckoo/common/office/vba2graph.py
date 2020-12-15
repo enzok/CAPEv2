@@ -31,7 +31,7 @@ import sys
 import errno
 import argparse
 import regex as re
-import StringIO
+from io import StringIO
 from subprocess import Popen
 
 # ****************************************************************************
