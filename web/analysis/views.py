@@ -1063,7 +1063,7 @@ def report(request, task_id):
     vba2graph_svg_content = ""
     vba2graph_svg_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "vba2graph", "svg", "vba2graph.svg")
     if os.path.exists(vba2graph_svg_path):
-        vba2graph_svg_content = open(vba2graph_svg_path, "rb").read()
+        vba2graph_svg_content = open(vba2graph_svg_path, "rb").read().decode('utf8')
 
     bingraph = reporting_cfg.bingraph.enabled
     bingraph_dict_content = {}
