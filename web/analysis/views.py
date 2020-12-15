@@ -1059,14 +1059,13 @@ def report(request, task_id):
             except Exception as e:
                 print(e)
 
-    vba2graph = False
+    vba2graph = processing_cfg.vba2graph.enabled
     vba2graph_svg_content = ""
     vba2graph_svg_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "vba2graph", "svg", "vba2graph.svg")
     if os.path.exists(vba2graph_svg_path):
         vba2graph_svg_content = open(vba2graph_svg_path, "rb").read()
-        vba2graph = True
 
-    bingraph = False
+    bingraph = processing_cfg.bingraph.enabled
     bingraph_dict_content = {}
     bingraph_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "bingraph")
     if os.path.exists(bingraph_path):
@@ -1074,8 +1073,6 @@ def report(request, task_id):
             tmp_file = os.path.join(bingraph_path, file)
             with open(tmp_file, "r") as f:
                 bingraph_dict_content.setdefault(os.path.basename(tmp_file).split("-")[0], f.read())
-    if bingraph_dict_content:
-        bingraph = True
 
     return render(
         request,
@@ -1709,8 +1706,9 @@ def statistics_data(request, days=7):
     else:
         return render(request, "error.html", {"error": "Provide days as number"})
 
-on_demain_config_mapper = {
+on_demand_config_mapper = {
     "bingraph": processing_cfg,
+    "vba2graph": processing_cfg,
     "flare_capa": reporting_cfg,
 }
 
@@ -1731,7 +1729,7 @@ def on_demand(request, service: str, task_id: int, category: str, sha256):
         # 4. reload page
     """
 
-    if service not in ("bingraph", "flare_capa") and not on_demain_config_mapper.get(service, {}).get(service, {}).get("on_demand"):
+    if service not in ("bingraph", "flare_capa", "vba2graph") and not on_demand_config_mapper.get(service, {}).get(service, {}).get("on_demand"):
         return render(request, "error.html", {"error": "Not supported/enabled service on demand"})
 
     if category == "static":
