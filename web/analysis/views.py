@@ -1734,9 +1734,6 @@ def on_demand(request, service: str, task_id: int, category: str, sha256):
     if service not in ("bingraph", "flare_capa") and not on_demain_config_mapper.get(service, {}).get(service, {}).get("on_demand"):
         return render(request, "error.html", {"error": "Not supported/enabled service on demand"})
 
-    base_path = os.path.join(CUCKOO_ROOT, "storage", "analyses")
-    if category == "static":
-        path = os.path.join(base_path, str(task_id), "binary")
     if category == "static":
         path = os.path.join(ANALYSIS_BASE_PATH, str(task_id), "binary")
     else:
@@ -1750,7 +1747,7 @@ def on_demand(request, service: str, task_id: int, category: str, sha256):
         details = flare_capa_details(path, category.lower(), on_demand=True)
 
     elif service == "vba2graph" and HAVE_VBA2GRAPH:
-        vba2graph_func(path, task_id, on_demand=True)
+        vba2graph_func(path, str(task_id), on_demand=True)
 
     elif service == "bingraph" and HAVE_BINGRAPH and reporting_cfg.bingraph.enabled and reporting_cfg.bingraph.on_demand and not os.path.exists(os.path.join(ANALYSIS_BASE_PATH, str(task_id), "bingraph", sha256+"-ent.svg")):
         bingraph_path = os.path.join(ANALYSIS_BASE_PATH, str(task_id), "bingraph")

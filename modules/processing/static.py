@@ -84,7 +84,7 @@ from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.objects import File, IsPEImage
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.objects import File
-
+from lib.cuckoo.common.cape_utils import vba2graph_func
 import lib.cuckoo.common.office.vbadeobf as vbadeobf
 
 try:
@@ -1461,16 +1461,8 @@ class Office(object):
             if macrores["Analysis"]["HexStrings"] == []:
                 del macrores["Analysis"]["HexStrings"]
 
-            if HAVE_VBA2GRAPH and processing_conf.vba2graph.enabled:
-                try:
-                    vba2graph_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(self.results["info"]["id"]), "vba2graph")
-                    if not os.path.exists(vba2graph_path):
-                        os.makedirs(vba2graph_path)
-                    vba_code = vba2graph_from_vba_object(filepath)
-                    if vba_code:
-                        vba2graph_gen(vba_code, vba2graph_path)
-                except Exception as e:
-                    log.error(e, exc_info=True)
+            vba2graph_func(filepath, str(self.results["info"]["id"]))
+
         else:
             metares["HasMacros"] = "No"
 
