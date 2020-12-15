@@ -188,7 +188,7 @@
                 </div>
                 <hr />
                 {% endif %}
-                {% if analysis.static.office.Macro.Code and not analysis.static.office.XLMMacroDeobfuscator%}
+                {% if analysis.static.office.Macro.Code and not analysis.static.office.XLMMacroDeobfuscator %}
                 <div>
                     <div id="macro">
                     <h4>Extracted Macros</h4>
@@ -212,16 +212,16 @@
                     </div>
                 </div>
                 <hr />
-                {% endif %}
                 {% if graphs.vba2graph.enabled %}
                     {% if graphs.vba2graph.content %}
                         <h4>Vba2Graph</h4>
                         {{ graphs.vba2graph.content|safe }}
                         </br>
                     {% else %}
-                    <h4>Vba2Graph</h4>
-                    <p><a class="btn btn-secondary  btn-sm" href="{% url "on_demand" "vba2graph" analysis.info.id "static" analysis.target.file.sha256 %}" role="button">Generate VBA2Graph</a></p>
+                        <h4>Vba2Graph</h4>
+                        <p><a class="btn btn-secondary  btn-sm" href="{% url "on_demand" "vba2graph" analysis.info.id "static" analysis.target.file.sha256 %}" role="button">Generate VBA2Graph</a></p>
                     {% endif %}
+                {% endif %}
                 {% endif %}
             {% endif %}
         {% endif %}
