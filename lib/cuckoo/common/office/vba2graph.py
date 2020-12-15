@@ -42,7 +42,7 @@ from networkx.drawing.nx_pydot import write_dot
 try:
     from oletools.olevba import VBA_Parser
     # Temporary workaround. Change when oletools 0.56 will be released.
-    # VBA_Parser.detect_vba_stomping = lambda self: False
+    VBA_Parser.detect_vba_stomping = lambda self: False
     HAVE_OLETOOLS = True
 except ImportError:
     HAVE_OLETOOLS = False
