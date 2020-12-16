@@ -1708,8 +1708,8 @@ def statistics_data(request, days=7):
 
 on_demand_config_mapper = {
     "bingraph": reporting_cfg,
-    "vba2graph": processing_cfg,
     "flare_capa": processing_cfg,
+    "vba2graph": processing_cfg,
 }
 
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
