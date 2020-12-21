@@ -162,6 +162,8 @@ def is_valid_type(magic):
 def get_filenames(retlist, tmp_dir, children):
     try:
         for child in children:
+            if child.filesize == 0:
+                continue
             at = child.astree()
             magic = child.magic
             if (
