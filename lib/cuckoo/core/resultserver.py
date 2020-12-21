@@ -58,7 +58,6 @@ RESULT_UPLOADABLE = (
     b"extracted",
     b"files",
     b"memory",
-    b"procdump",
     b"shots",
     b"sysmon",
     b"stap",
