@@ -20,7 +20,7 @@ class HTML(Package):
     def __init__(self, options={}, config=None):
         self.config = config
         self.options = options
-        self.options["disable_hook_content"] = 3
+        self.options["minhook"] = 1
         self.options["exclude-apis"] = "memcpy"
 
     def start(self, path):
