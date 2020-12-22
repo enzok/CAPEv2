@@ -211,8 +211,6 @@ def index(request, resubmit_hash=False):
 
         # Add reg-dump option as default
         options += "dump-reg=1,"
-        # Add dump tls secrets option as default
-        options += "dumptls=1,"
 
         options = options[:-1]
         tlp = request.POST.get("tlp", None)
@@ -438,6 +436,9 @@ def index(request, resubmit_hash=False):
                     shrike_msg=shrike_msg,
                     shrike_sid=shrike_sid,
                     shrike_refer=shrike_refer,
+                    route=route,
+                    cape=cape,
+                    tags_tasks=tags_tasks,
                 )
                 details["task_ids"].append(task_id)
 

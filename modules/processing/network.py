@@ -4,6 +4,7 @@
 
 from __future__ import absolute_import
 import os
+import sys
 import socket
 import struct
 import tempfile
@@ -21,6 +22,11 @@ try:
 except ImportError:
     import re
 
+# required to work webgui
+CUCKOO_ROOT = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..", "..")
+sys.path.append(CUCKOO_ROOT)
+
+
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.dns import resolve
@@ -29,9 +35,9 @@ from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.utils import convert_to_printable
 from lib.cuckoo.common.exceptions import CuckooProcessingError
 from dns.reversename import from_address
-from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.ja3.ja3 import parse_variable_array, convert_to_ja3_segment, process_extensions
-from lib.cuckoo.common.safelist import is_safelisted_domain, is_safelisted_ip
+#from lib.cuckoo.common.safelist import is_safelisted_domain, is_safelisted_ip
+from data.safelist.domains import domain_passlist
 
 try:
     import GeoIP
@@ -83,6 +89,19 @@ ip_passlist_file = proc_cfg.network.ipwhitelist_file
 # Be less verbose about httpreplay logging messages.
 logging.getLogger("httpreplay").setLevel(logging.CRITICAL)
 
+if enabled_passlist and passlist_file:
+    with open(os.path.join(CUCKOO_ROOT, passlist_file), "r") as f:
+        for domain in list(set(f.readlines())):
+            if domain.startswith("#") or len(domain.strip()) == 0:
+                # comment or empty line
+                continue
+            domain_passlist.append(domain)
+
+
+ip_passlist = set()
+if enabled_ip_passlist and ip_passlist_file:
+    with open(os.path.join(CUCKOO_ROOT, ip_passlist_file), "r") as f:
+        ip_passlist = set(f.read().split("\n"))
 
 class Pcap:
     """Reads network data from PCAP file."""
@@ -125,56 +144,6 @@ class Pcap:
         # Dictionary containing all the results of this processing.
         self.results = {}
         # DNS ignore list
-        self.domain_passlist = [
-            # Certificate Trust Update domains
-            "^ocsp\.usertrust\.com$",
-            "\.windows\.com$",
-            "^ocsp\.comodoca\.com$",
-            "^ctldl\.windowsupdate\.com$",
-            "^crl\.microsoft\.com$",
-            "^urs\.microsoft\.com$",
-            "\.microsoft\.com$",
-            "\.skype\.com$",
-            "\.live\.com$",
-            "clients[0-9]+\.google\.com$",
-            "\.googleapis\.com$",
-            "\.gvt1\.com$",
-            "\.msftncsi\.com$",
-            "^apps\.identrust\.com$",
-            "^isrg\.trustid\.ocsp\.identrust\.com$",
-            "^urs\.microsoft\.com$",
-            "^config\.edge\.skype\.com$",
-            "^client-office365-tas\.msedge\.net$",
-            "^files\.acrobat\.com$",
-            "^acroipm2\.adobe\.com$",
-            "^acroipm\.adobe\.com$",
-            "^ocsp\.trust-provider\.com$",
-            "^ocsp\.comodoca4\.com$",
-            "^ocsp\.pki\.goog$",
-            "^oneclient.sfx.ms$",
-            "^ocsp\.verisign\.com$",
-            "^s2\.symcb\.com$",
-            "^sv\.symcd\.com$",
-            "^s\.symcd\.com$",
-            "^ts-ocsp\.ws\.symantec\.com$",
-            "^ocsp\.thawte\.com$",
-            "^crl\.thawte\.com$",
-            "^crt\.comodoca\.com$",
-            "^crt\.usertrust\.com$",
-            "^ocsp\.sectigo\.com$",
-            "^crl\.globalsign\.net$",
-            "^cacerts\.digicert\.com$"
-        ]
-
-        if enabled_passlist and passlist_file:
-            with open(os.path.join(CUCKOO_ROOT, passlist_file), "r") as f:
-                self.domain_passlist += self.domain_passlist + f.read().split("\n")
-                self.domain_passlist = list(set(self.domain_passlist))
-
-        self.ip_passlist = set()
-        if enabled_ip_passlist and ip_passlist_file:
-            with open(os.path.join(CUCKOO_ROOT, ip_passlist_file), "r") as f:
-                self.ip_passlist = set(f.read().split("\n"))
 
     def _dns_gethostbyname(self, name):
         """Get host by name wrapper.
@@ -245,7 +214,7 @@ class Pcap:
                 ip = convert_to_printable(connection["dst"])
 
                 if ip not in self.hosts:
-                    if ip in self.ip_passlist:
+                    if ip in ip_passlist:
                         return False
                     self.hosts.append(ip)
 
@@ -464,15 +433,13 @@ class Pcap:
                 query["answers"].append(ans)
 
             if enabled_passlist:
-                for reject in self.domain_passlist:
-                    if reject.startswith("#") or len(reject.strip()) == 0:
-                        continue  # comment or empty line
+                for reject in domain_passlist:
                     try:
                         if re.search(reject, query["request"]):
                             if query["answers"]:
                                 for addip in query["answers"]:
                                     if addip["type"] == "A" or addip["type"] == "AAAA":
-                                        self.ip_passlist.add(addip["data"])
+                                        ip_passlist.add(addip["data"])
                             return True
                     except re.RegexError as e:
                         log.error(("bad regex", reject, e))
@@ -548,10 +515,7 @@ class Pcap:
                 entry["host"] = conn["dst"]
 
             if enabled_passlist:
-                for reject in self.domain_passlist:
-                    # comment or empty line
-                    if reject.startswith("#") or len(reject.strip()) == 0:
-                        continue
+                for reject in domain_passlist:
                     if re.search(reject, entry["host"]):
                         return False
 
@@ -588,7 +552,6 @@ class Pcap:
         try:
             record = dpkt.ssl.TLSRecord(data)
         except dpkt.NeedData as e:
-            log.error("dpkt.NeedData: {}".format(str(e)), exc_info=True)
             return
         except Exception as e:
             log.exception("Error reading possible TLS Record")
@@ -596,13 +559,11 @@ class Pcap:
 
         # Is this a valid TLS packet?
         if record.type not in dpkt.ssl.RECORD_TYPES:
-            log.info("record.type not in dpkt.ssl.RECORD_TYPES")
             return
 
         try:
             record = dpkt.ssl.RECORD_TYPES[record.type](record.data)
         except (dpkt.NeedData, dpkt.ssl.SSL3Exception):
-            log.info((dpkt.NeedData, dpkt.ssl.SSL3Exception))
             return
 
         # Is this a TLSv1 Handshake packet?
@@ -611,7 +572,6 @@ class Pcap:
 
         # We're only interested in the TLS Server Hello packets.
         if not isinstance(record.data, dpkt.ssl.TLSServerHello):
-            log.info("# We're only interested in the TLS Server Hello packets.")
             return
 
         # Extract the server random and the session id.
@@ -657,9 +617,9 @@ class Pcap:
         """
 
         if enabled_passlist:
-            if conn["src"] in self.ip_passlist:
+            if conn["src"] in ip_passlist:
                 return False
-            if conn["dst"] in self.ip_passlist:
+            if conn["dst"] in ip_passlist:
                 return False
 
         try:
@@ -886,13 +846,13 @@ class Pcap:
         if enabled_passlist:
 
             for host in self.results["hosts"]:
-                for delip in self.ip_passlist:
+                for delip in ip_passlist:
                     if delip == host["ip"]:
                         self.results["hosts"].remove(host)
 
             for keyword in ("tcp", "udp", "icmp"):
                 for host in self.results[keyword]:
-                    for delip in self.ip_passlist:
+                    for delip in ip_passlist:
                         if delip == host["src"] or delip == host["dst"]:
                             self.results[keyword].remove(host)
 
@@ -940,8 +900,26 @@ class Pcap2(object):
         for s, ts, protocol, sent, recv in l:
             srcip, srcport, dstip, dstport = s
 
-            if is_safelisted_ip(dstip):
-                continue
+            if enabled_passlist:
+                """
+                if is_safelisted_ip(dstip):
+                    continue
+                """
+                #ToDo rewrite the whole safelists
+                #ip or host
+
+                if dstip in ip_passlist:
+                    continue
+
+                hostname = False
+                if protocol == "smtp":
+                    hostname = sent.hostname
+                elif protocol in ("http", "https"):
+                    hostname = sent.headers.get("host")
+
+                for reject in domain_passlist:
+                    if hostname and re.search(reject, hostname):
+                        return False
 
             if protocol == "smtp":
                 results["smtp_ex"].append({
@@ -966,13 +944,17 @@ class Pcap2(object):
                 })
 
             if protocol == "http" or protocol == "https":
-                request = sent.raw.split(b"\r\n\r\n", 1)[0]
-                response = recv.raw.split(b"\r\n\r\n", 1)[0]
+                response = b""
+                request = b""
+                if isinstance(sent.raw, bytes):
+                    request = sent.raw.split(b"\r\n\r\n", 1)[0]
+                if isinstance(recv.raw, bytes):
+                    response = recv.raw.split(b"\r\n\r\n", 1)[0]
 
                 # TODO Don't create empty files (e.g., the sent body for a GET request or a 301/302 HTTP redirect).
-                req_md5 = md5(sent.body.encode("utf-8") or b"").hexdigest()
-                req_sha1 = sha1(sent.body.encode("utf-8") or b"").hexdigest()
-                req_sha256 = sha256(sent.body.encode("utf-8") or b"").hexdigest()
+                req_md5 = md5(sent.body or b"").hexdigest()
+                req_sha1 = sha1(sent.body or b"").hexdigest()
+                req_sha256 = sha256(sent.body or b"").hexdigest()
                 req_path = os.path.join(self.network_path, req_sha1)
                 if sent.body:
                     open(req_path, "wb").write(sent.body or b"")
@@ -1018,7 +1000,6 @@ class Pcap2(object):
                     "path": resp_path,
                 })
 
-        print(results)
         return results
 
 class NetworkAnalysis(Processing):
@@ -1060,15 +1041,14 @@ class NetworkAnalysis(Processing):
 
         ja3_fprints = self._import_ja3_fprints()
 
-        sorted_path = self.pcap_path.replace("dump.", "dump_sorted.")
-
         results = {}
         # Save PCAP file hash.
         if os.path.exists(self.pcap_path):
             results["pcap_sha256"] = File(self.pcap_path).get_sha256()
 
-        sorted_path = self.pcap_path.replace("dump.", "dump_sorted.")
+        """
         if proc_cfg.network.sort_pcap:
+            sorted_path = self.pcap_path.replace("dump.", "dump_sorted.")
             sort_pcap(self.pcap_path, sorted_path)
             # Sorted PCAP file hash.
             if os.path.exists(sorted_path):
@@ -1078,7 +1058,8 @@ class NetworkAnalysis(Processing):
                 pcap_path = self.pcap_path
         else:
             pcap_path = self.pcap_path
-
+        """
+        pcap_path = self.pcap_path
         results.update(Pcap(pcap_path, ja3_fprints).run())
         # buf = Pcap(self.pcap_path, ja3_fprints).run()
         # results = Pcap(sorted_path, ja3_fprints).run()
@@ -1097,18 +1078,17 @@ class NetworkAnalysis(Processing):
     def get_tlsmaster(self):
         """Obtain the client/server random to TLS master secrets mapping that we have obtained through dynamic analysis."""
         tlsmaster = {}
-        dump_tls_log = os.path.join(self.analysis_path, "dumptls", "dumptls.log")
+        dump_tls_log = os.path.join(self.analysis_path, "tlsdump", "tlsdump.log")
         if not os.path.exists(dump_tls_log):
             return tlsmaster
 
-        for entry in open(dump_tls_log, "rb").readlines() or []:
+        for entry in open(dump_tls_log, "r").readlines() or []:
             client_random, server_random, master_secret = entry.split(",")
             client_random = binascii.a2b_hex(client_random.split(":")[-1].strip())
             server_random = binascii.a2b_hex(server_random.split(":")[-1].strip())
             master_secret = binascii.a2b_hex(master_secret.split(":")[-1].strip())
             tlsmaster[client_random, server_random] = master_secret
         return tlsmaster
-
 
 
 def iplayer_from_raw(raw, linktype=1):
@@ -1131,9 +1111,7 @@ def conn_from_flowtuple(ft):
     sip, sport, dip, dport, offset, relts = ft
     return {"src": sip, "sport": sport, "dst": dip, "dport": dport, "offset": offset, "time": relts}
 
-
-# input_iterator should be a class that also supports writing so we can use
-# it for the temp files
+# input_iterator should be a class that also supports writing so we can use it for the temp files
 # this code is mostly taken from some SO post, can't remember the url though
 def batch_sort(input_iterator, output_path, buffer_size=32000, output_class=None):
     """batch sort helper with temporary files, supports sorting large stuff"""

@@ -4,6 +4,7 @@
 
 from __future__ import absolute_import
 import os
+import sys
 import json
 import logging
 from datetime import datetime, timedelta
@@ -470,11 +471,9 @@ class Database(object, metaclass=Singleton):
             last = tmp_session.query(AlembicVersion).first()
             tmp_session.close()
             if last.version_num != SCHEMA_VERSION and schema_check:
-                raise CuckooDatabaseError(
-                    "DB schema version mismatch: found {0}, expected {1}. "
-                    "Try to apply all migrations (cd utils/db_migration/ && "
-                    "alembic upgrade head).".format(last.version_num, SCHEMA_VERSION)
-                )
+                print("DB schema version mismatch: found {0}, expected {1}. Try to apply all migrations".format(last.version_num, SCHEMA_VERSION))
+                print(red("cd utils/db_migration/ && alembic upgrade head"))
+                sys.exit()
 
     def __del__(self):
         """Disconnects pool."""
@@ -1250,8 +1249,7 @@ class Database(object, metaclass=Singleton):
         source_url=False,
         route=None,
         cape=False,
-        tags_tasks=False
-
+        tags_tasks=False,
     ):
         """Add a task to database from file path.
         @param file_path: sample path.
@@ -1525,6 +1523,9 @@ class Database(object, metaclass=Singleton):
         shrike_refer=None,
         parent_id=None,
         tlp=None,
+        route=None,
+        cape=False,
+        tags_tasks=False,
     ):
         """Add a task to database from url.
         @param url: url.
@@ -1539,6 +1540,9 @@ class Database(object, metaclass=Singleton):
         @param enforce_timeout: toggle full timeout execution.
         @param clock: virtual machine clock time
         @param tlp: TLP sharing designation
+        @param route: Routing route
+        @param cape: CAPE options
+        @param tags_tasks: Task tags so users can tag their jobs
         @return: cursor or None.
         """
 
@@ -1567,6 +1571,9 @@ class Database(object, metaclass=Singleton):
             shrike_refer,
             parent_id,
             tlp,
+            route = route,
+            cape = cape,
+            tags_tasks = tags_tasks,
         )
 
     @classlock
