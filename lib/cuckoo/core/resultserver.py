@@ -61,7 +61,6 @@ RESULT_UPLOADABLE = (
     b"stap",
     b"procdump",
     b"debugger",
-    b"dumptls",
 )
 RESULT_DIRECTORIES = RESULT_UPLOADABLE + (b"reports", b"logs")
 
@@ -214,7 +213,7 @@ class FileUpload(ProtocolHandler):
             raise
         # ToDo we need Windows path
         # filter screens/curtain/sysmon
-        if not dump_path.startswith((b"shots/", b"curtain/", b"aux/", b"sysmon/", b"debugger/", b"dumptls")):
+        if not dump_path.startswith((b"shots/", b"curtain/", b"aux/", b"sysmon/", b"debugger/")):
             # Append-writes are atomic
             with open(self.filelog, "a") as f:
                 print(
@@ -339,7 +338,6 @@ class GeventResultServerWorker(gevent.server.StreamServer):
             "stap",
             "procdump",
             "debugger",
-            "dumptls",
         )
 
         for folder in folders:
