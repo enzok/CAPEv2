@@ -136,11 +136,12 @@ def demux_office(filename, password):
     if HAS_SFLOCK:
         ofile = OfficeFile(sfFile.from_path(filename))
         d = ofile.decrypt(password)
-        with open(decrypted_name, "w") as outs:
-            outs.write(d.contents)
-        # TODO add decryption verification checks
-        if "Encrypted" not in d.magic:
-            retlist.append(decrypted_name)
+        if hasattr(d, "contents"):
+            with open(decrypted_name, "w") as outs:
+                outs.write(d.contents)
+            # TODO add decryption verification checks
+            if "Encrypted" not in d.magic:
+                retlist.append(decrypted_name)
     else:
         raise CuckooDemuxError("MS Office decryptor not available")
 
