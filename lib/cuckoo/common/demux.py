@@ -113,9 +113,8 @@ def options2passwd(options):
             try:
                 key, value = field.split("=", 1)
                 if key == "password":
-                    # sflock requires password to be bytes object for Py3
-                    if isinstance(value, str):
-                        value = value.encode("utf8")
+                    if isinstance(value, bytes):
+                        value = value.decode("utf8")
                     password = value
                     break
             except Exception as err:
@@ -188,7 +187,7 @@ def get_filenames(retlist, tmp_dir, children):
 def demux_sflock(filename, options):
     retlist = []
     try:
-        password = b""
+        password = ""
         tmp_pass = options2passwd(options)
         if tmp_pass:
             password = tmp_pass
