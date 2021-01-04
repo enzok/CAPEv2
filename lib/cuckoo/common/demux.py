@@ -11,6 +11,7 @@ import logging
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.exceptions import CuckooDemuxError
+from lib.cuckoo.common.utils import get_options
 
 try:
     from sflock import unpack
@@ -108,18 +109,9 @@ OFFICE_TYPES = ["Composite Document File",
 def options2passwd(options):
     password = False
     if "password=" in options:
-        fields = options.split(",")
-        for field in fields:
-            try:
-                key, value = field.split("=", 1)
-                if key == "password":
-                    if isinstance(value, bytes):
-                        value = value.decode("utf8")
-                    password = value
-                    break
-            except Exception as err:
-                log.error(err, exc_info=True)
-                pass
+        password = get_options(options).get("password")
+        if password and isinstance(password, bytes):
+            password = password.decode("utf8")
 
     return password
 

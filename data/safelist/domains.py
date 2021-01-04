@@ -39,6 +39,8 @@ domain_passlist = [
     "^crl\.globalsign\.net$",
     "^cacerts\.digicert\.com$",
     "^ocsp\.digicert\.com$",
+    "^crl3\.digicert\.com$"
+    "^crl4\.digicert\.com$"
     "\.amazontrust\.com$",
     "\.opera\.com",
     "\.ss2\.us$",
@@ -55,4 +57,7 @@ domain_passlist = [
     "^www\.bing\.com$",
     "^api\.bing\.com$",
     "^crl\.pki\.goog$",
+    "^crl\.identrust\.com$",
+    "^r3.o.lencr.org$",
+
 ]
