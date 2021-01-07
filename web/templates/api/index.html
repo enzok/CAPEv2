@@ -616,15 +616,15 @@ curl {{ config.api.url }}/api/files/get/sha256/[sha256 hash]/</pre>
       </tr>
       <tr>
         <td>CAPE Status</td>
-        {% if config.cuckoostatus.enabled %}
+        {% if config.capestatus.enabled %}
         <td><span class="badge badge-success">Yes</span></td>
         {% else %}
         <td><span class="badge badge-danger">No</span></td>
         {% endif %}
         <td>
           <ul>
-            <li>RPS: {{ config.cuckoostatus.rps }}</li>
-            <li>RPM: {{ config.cuckoostatus.rpm }}</li>
+            <li>RPS: {{ config.capestatus.rps }}</li>
+            <li>RPM: {{ config.capestatus.rpm }}</li>
           </ul>
         </td>
         <td>View the current status of the CAPE host. Return object will be JSON.</td>

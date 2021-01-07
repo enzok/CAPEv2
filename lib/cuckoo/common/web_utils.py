@@ -147,7 +147,7 @@ apilimiter = {
     "get_files": apiconf.sampledl,
     "machines_list": apiconf.machinelist,
     "machines_view": apiconf.machineview,
-    "cuckoo_status": apiconf.cuckoostatus,
+    "cuckoo_status": apiconf.capestatus,
     "task_x_hours": apiconf.task_x_hours,
     "tasks_latest": apiconf.tasks_latest,
     # "post_processing":

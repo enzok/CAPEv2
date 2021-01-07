@@ -1774,7 +1774,7 @@ def cape_status(request):
         return jsonize(resp, response=True)
 
     resp = {}
-    if not apiconf.cuckoostatus.get("enabled"):
+    if not apiconf.capestatus.get("enabled"):
         resp["error"] = True
         resp["error_value"] = "CAPE Status API is disabled"
     else:
