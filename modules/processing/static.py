@@ -1112,7 +1112,11 @@ class PDF(object):
 
         log.debug("About to parse with PDFParser")
         parser = PDFParser()
-        ret, self.pdf = parser.parse(filepath, forceMode=True, looseMode=True, manualAnalysis=False)
+        try:
+            ret, self.pdf = parser.parse(filepath, forceMode=True, looseMode=True, manualAnalysis=False)
+        except Exception as e:
+            log.debug("Error parsing pdf: {}".format(e))
+            return result
         urlset = set()
         annoturiset = set()
         objects = []
