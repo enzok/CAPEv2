@@ -142,7 +142,7 @@ def get_platform(magic):
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def index(request, resubmit_hash=False):
     submitter = []
-    if request.META["HTTP_X_REMOTE_USER"] and settings.SUBMITTER_ENABLED:
+    if request.META["HTTP_X_REMOTE_USER"] and web_conf.submitter.enabled:
         submitter = request.META["HTTP_X_REMOTE_USER"]
     if request.method == "POST":
 

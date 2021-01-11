@@ -63,10 +63,8 @@ MOLOCH_NODE = moloch_cfg.get("node", None)
 MOLOCH_ENABLED = moloch_cfg.get("enabled", False)
 
 VTDL_ENABLED = vtdl_cfg.get("enabled", False)
-VTDL_KEY = vtdl_cfg.get("dlkey", None)
+VTDL_KEY = vtdl_cfg.get("dlintelkey", None)
 VTDL_PATH = vtdl_cfg.get("dlpath", None)
-
-SUBMITTER_ENABLED = Config().submitter.get("enabled", False)
 
 TEMP_PATH = Config().cuckoo.get("tmppath", "/tmp")
 
