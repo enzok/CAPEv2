@@ -37,6 +37,7 @@ if cfg.mongodb.get("enabled") and cfg.elasticsearchdb.get("enabled") and not cfg
     raise Exception("Both database backend reporting modules are enabled. Please only enable ElasticSearch or MongoDB.")
 
 WEB_AUTHENTICATION = web_cfg.web_auth.get("enabled", False)
+WEB_OAUTH = web_cfg.oauth
 
 # Get connection options from reporting.conf.
 MONGO_HOST = cfg.mongodb.get("host", "127.0.0.1")
@@ -167,6 +168,7 @@ TEMPLATES = [
                 "django.template.context_processors.tz",
                 "django.template.context_processors.request",
                 "django.contrib.messages.context_processors.messages",
+                "django_settings_export.settings_export",
             ],
             "loaders": ["django.template.loaders.filesystem.Loader", "django.template.loaders.app_directories.Loader",],
         },
@@ -186,7 +188,11 @@ MIDDLEWARE = [
     "web.headers.CuckooHeaders",
     #'web.middleware.ExceptionMiddleware',
     #'ratelimit.middleware.RatelimitMiddleware',
+    'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'django_otp.middleware.OTPMiddleware',
 ]
+
+OTP_TOTP_ISSUER = 'CAPE Sandbox'
 
 # Header/protection related
 SECURE_BROWSER_XSS_FILTER = True
@@ -214,6 +220,9 @@ INSTALLED_APPS = (
     "compare",
     "api",
     "ratelimit",
+
+    'django_otp',
+    'django_otp.plugins.otp_totp',
 
     #allauth
     'django.contrib.sites',
@@ -326,6 +335,8 @@ INSTALLED_APPS = (
     "captcha", # https://pypi.org/project/django-recaptcha/
 )
 
+TWOFA = web_cfg.web_auth.get("2fa", False)
+
 NOCAPTCHA = web_cfg.web_auth.get("captcha", False)
 # create your keys here -> https://www.google.com/recaptcha/about/
 RECAPTCHA_PRIVATE_KEY = 'TEST_PUBLIC_KEY'
@@ -337,26 +348,6 @@ RECAPTCHA_REQUIRED_SCORE = 0.85
 
 CRISPY_TEMPLATE_PACK = 'bootstrap4'
 
-SOCIALACCOUNT_PROVIDERS = {
-    'google': {
-        'SCOPE': [
-            'profile',
-            'email',
-        ],
-        'AUTH_PARAMS': {
-            'access_type': 'online',
-        }
-    },
-    'github': {
-        'SCOPE': [
-            'user',
-            'repo',
-            'read:org',
-        ],
-    },
-}
-
-
 AUTHENTICATION_BACKENDS = (
  #used for default signin such as loggin into admin panel
  'django.contrib.auth.backends.ModelBackend',
@@ -364,6 +355,11 @@ AUTHENTICATION_BACKENDS = (
  #used for social authentications
  'allauth.account.auth_backends.AuthenticationBackend',
 )
+
+SETTINGS_EXPORT = [
+    'WEB_AUTHENTICATION',
+    'WEB_OAUTH',
+]
 
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 if web_cfg.registration.get("email_verification", False):
@@ -418,6 +414,21 @@ MAX_UPLOAD_SIZE = web_cfg.general.max_sample_size
 
 # Don't forget to give some love to @doomedraven ;)
 RATELIMIT_ERROR_MSG = "Too many request without apikey! You have exceed your free request per minute. We are researcher friendly and provide api, but if you buy a good whiskey to @doomedraven, we will be even more friendlier ;). Limits can be changed in conf/api.conf"
+
+SECURE_REFERRER_POLICY = "same-origin" # "no-referrer-when-downgrade"
+
+# https://django-csp.readthedocs.io/en/latest/configuration.html
+CSP_DEFAULT_SRC = ["'self'"]
+# When DEBUG is on we don't require HTTPS on our resources because in a local environment
+# we generally don't have access to HTTPS. However, when DEBUG is off, such as in our
+# production environment, we want all our resources to load over HTTPS
+CSP_UPGRADE_INSECURE_REQUESTS = not DEBUG
+# For roughly 60% of the requests to our django server we should include the report URI.
+# This helps keep down the number of CSP reports sent from client web browsers
+CSP_REPORT_PERCENTAGE = 0.6
+CSP_FONT_SRC = ["https://fonts.googleapis.com"]
+CSP_STYLE_SRC = ["'self'"]
+CSP_IMG_SRC = ["'self'"]
 
 # Hack to import local settings.
 try:
