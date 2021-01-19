@@ -1602,7 +1602,7 @@ def vtupload(request, category, task_id, filename, dlfile):
                 path = os.path.join(CUCKOO_ROOT, "storage", "binaries", dlfile)
             elif category == "dropped":
                 path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "files", filename)
-            params = {"apikey": settings.VTDL_KEY}
+            params = {"x-apikey": settings.VTDL_KEY}
             files = {"file": (filename, open(path, "rb"))}
             response = requests.post("https://www.virustotal.com/api/v3/files", files=files, params=params)
             if response.ok:
