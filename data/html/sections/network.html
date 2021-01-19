@@ -226,43 +226,6 @@
          </div>
         {% endif %}
 
-        {% if results.suricata.alerts %}
-        <div>
-            {% if summary_report %}
-                <h4>Suricata Alerts</h4>
-                <div id="surialert">
-             {% else %}
-                <h4><a href="javascript:showHide('surialert');">Suricata Alerts</a></h4>
-                <div id="surialert" style="display: none;">
-            {% endif %}
-            <table class="table table-striped table-bordered">
-                <tr>
-                    <th>Timestamp</th>
-                    <th>Destination IP</th>
-                    <th>Destination Port</th>
-                    <th>Protocol</th>
-                    <th>REV</th>
-                    <th>Signature</th>
-                    <th>Category</th>
-                    <th>Severity</th>
-                </tr>
-                {% for alert in results.suricata.alerts %}
-                <tr>
-                    <td>{{alert.timestamp}}</td>
-                    <td>{{alert.dstip}} </td>
-                    <td>{{alert.dstport}} </td>
-                    <td>{{alert.protocol}}</td>
-                    <td>{{alert.rev}}</td>
-                    <td>{{alert.signature}} </td>
-                    <td>{{alert.category}}</td>
-                    <td>{{alert.severity}}</td>
-                </tr>
-                {% endfor %}
-            </table>
-            </div>
-        </div>
-        {% endif %}
-
         {% if not results.network.hosts and not results.network.domains and not results.network.http and not results.network.irc and not results.network.icmp %}
             Nothing to display.
         {% endif %}
