@@ -1403,7 +1403,7 @@ class Office(object):
             if metares.get("SummaryInformation", {}).get("create_time", ""):
                 metares["SummaryInformation"]["create_time"] = metares["SummaryInformation"]["create_time"]
             if metares.get("SummaryInformation", {}).get("last_saved_time", ""):
-                    metares["SummaryInformation"]["last_saved_time"] = metares["SummaryInformation"]["last_saved_time"]
+                metares["SummaryInformation"]["last_saved_time"] = metares["SummaryInformation"]["last_saved_time"]
             ole.close()
         if vba and vba.detect_vba_macros():
             metares["HasMacros"] = "Yes"
