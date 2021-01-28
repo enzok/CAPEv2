@@ -4,13 +4,17 @@
 
 from __future__ import absolute_import
 from django.conf.urls import url, include
-from django.urls import path, re_path
+from django.urls import path
 
+from rest_framework.authtoken.views import obtain_auth_token
 
-from api import views
+from apiv2 import views
 
 urlpatterns = [
-    url(r"^$", views.index, name="api"),
+    url(r"^$", views.index, name="apiv2"),
+    # disabled due to token auth
+    #url(r'^api-auth/', include('rest_framework.urls', namespace='rest_framework')),
+    path('api-token-auth/', obtain_auth_token, name='api_token_auth'),
     url(r"^tasks/create/file/$", views.tasks_create_file),
     url(r"^tasks/stats/$", views.task_x_hours),
     url(r"^tasks/create/url/$", views.tasks_create_url),
@@ -55,13 +59,11 @@ urlpatterns = [
     url(r"^files/get/(?P<stype>task)/(?P<value>\d+)/$", views.file),
     url(r"^machines/list/$", views.machines_list),
     url(r"^machines/view/(?P<name>[\w$-/:-?{-~!^_`\[\]]+)/$", views.machines_view),
-    url(r"^cape/status/$", views.cape_status),
+    url(r"^cuckoo/status/$", views.cuckoo_status),
     url(r"^tasks/get/rollingsuri/(?P<window>\d+)/$", views.tasks_rollingsuri),
     url(r"^tasks/get/rollingshrike/(?P<window>\d+)/$", views.tasks_rollingshrike),
     url(r"^tasks/get/rollingshrike/(?P<window>\d+)/(?P<msgfilter>[\w$-/:-?{-~!^_`\[\]\s\x5c]+)/$", views.tasks_rollingshrike),
     url(r"^tasks/get/latests/(?P<hours>\d+)/$", views.tasks_latest),
     # url(r"^tasks/add/(?P<category>[A-Za-z0-9]+)/(?P<task_id>\d+)/$", views.post_processing),
-    url(r"^tasks/get/malreport/$", views.malreport),
-    url(r"^tasks/get/malreport/(?P<numdays>\d+)/$", views.malreport),
-    url(r"^tasks/get/malreport/(?P<numdays>\d+)/(?P<startfrom>\d+)/$", views.malreport),
+    url(r"^tasks/statistics/(?P<days>\d+)/$", views.statistics_data),
 ]
