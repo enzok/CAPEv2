@@ -234,6 +234,7 @@ def index(request, resubmit_hash=False):
             "options": options,
             "only_extraction": False,
             "tlp": tlp,
+            "user_id": request.user.id or 0,
         }
 
         if "hash" in request.POST and request.POST.get("hash", False) and request.POST.get("hash")[0] != '':

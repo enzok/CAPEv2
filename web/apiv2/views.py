@@ -590,7 +590,7 @@ def tasks_vtdl(request):
 
 
         details = {
-            "apikey": opt_apikey,
+            "apikey": settings.VTDL_KEY or opt_apikey,
             "errors": [],
             "content": False,
             "request": request,
@@ -1740,10 +1740,8 @@ def machines_view(request, name=None):
 
 #@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
 #@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
-@csrf_exempt
 @api_view(['GET'])
 def cuckoo_status(request):
-
     # get
     # print(request.query_params)
     # post
