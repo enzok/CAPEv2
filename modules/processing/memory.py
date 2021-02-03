@@ -3,7 +3,7 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 # Based on work of Xabier Ugarte-Pedrero
-#  https://github.com/Cisco-Talos/pyrebox/blob/python3migration/pyrebox/volatility_glue.py
+#  https://github.com/Cisco-Talos/pyrebox/blob/python3migration/pyrebox/volatility_glue.py
 
 # Vol3 docs - https://volatility3.readthedocs.io/en/latest/index.html
 from __future__ import absolute_import
@@ -15,25 +15,27 @@ try:
 except ImportError:
     import re
 
+from urllib.request import pathname2url
+
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.exceptions import CuckooProcessingError
 
 try:
-    import volatility.plugins
-    import volatility.symbols
-    from volatility import framework
-    from volatility.cli import text_renderer
-    from volatility.framework import automagic, constants, contexts, exceptions, interfaces, plugins, configuration
-    from volatility.framework.configuration import requirements
+    import volatility3.plugins
+    import volatility3.symbols
+    from volatility3 import framework
+    from volatility3.cli.text_renderer import JsonRenderer
+    from volatility3.framework import automagic, constants, contexts, exceptions, interfaces, plugins, configuration
+    from volatility3.framework.configuration import requirements
     from typing import Any, Dict, List, Optional, Tuple, Union, Type
-    from volatility.framework import interfaces, constants
-    from volatility.framework.configuration import requirements
+    from volatility3.framework import interfaces, constants
 
-    # from volatility.plugins.windows import pslist
+    # from volatility3.plugins.windows import pslist
     HAVE_VOLATILITY = True
 except Exception as e:
+    print("Missed dependency: pip3 install volatility3 -U")
     HAVE_VOLATILITY = False
 
 log = logging.getLogger()
@@ -51,6 +53,51 @@ log = logging.getLogger()
 # console.setFormatter(formatter)
 # log.addHandler(console)
 
+
+class MuteProgress(object):
+    def __init__(self):
+        self._max_message_len = 0
+
+    def __call__(self, progress: Union[int, float], description: str = None):
+        pass
+
+class FileConsumer(interfaces.plugins.FileConsumerInterface):
+    def __init__(self):
+        self.files = []
+
+    def consume_file(self, file: interfaces.plugins.FileInterface):
+        self.files.append(file)
+
+
+class ReturnJsonRenderer(JsonRenderer):
+    def render(self, grid: interfaces.renderers.TreeGrid):
+        final_output = ({}, [])
+
+        def visitor(
+            node: Optional[interfaces.renderers.TreeNode],
+            accumulator: Tuple[Dict[str, Dict[str, Any]], List[Dict[str, Any]]],
+        ) -> Tuple[Dict[str, Dict[str, Any]], List[Dict[str, Any]]]:
+            # Nodes always have a path value, giving them a path_depth of at least 1, we use max just in case
+            acc_map, final_tree = accumulator
+            node_dict = {"__children": []}
+            for column_index in range(len(grid.columns)):
+                column = grid.columns[column_index]
+                renderer = self._type_renderers.get(
+                    column.type, self._type_renderers["default"]
+                )
+                data = renderer(list(node.values)[column_index])
+                if isinstance(data, interfaces.renderers.BaseAbsentValue):
+                    data = None
+                node_dict[column.name] = data
+            if node.parent:
+                acc_map[node.parent.path]["__children"].append(node_dict)
+            else:
+                final_tree.append(node_dict)
+            acc_map[node.path] = node_dict
+            return (acc_map, final_tree)
+
+        error = grid.populate(visitor, final_output, fail_on_errors=False)
+        return final_output[1], error
 
 class VolatilityAPI(object):
     def __init__(self, memdump):
@@ -72,7 +119,7 @@ class VolatilityAPI(object):
 
         """
 
-        volatility.framework.require_interface_version(1, 0, 0)
+        volatility3.framework.require_interface_version(1, 0, 0)
         # Set the PARALLELISM
         # constants.PARALLELISM = constants.Parallelism.Multiprocessing
         # constants.PARALLELISM = constants.Parallelism.Threading
@@ -81,7 +128,7 @@ class VolatilityAPI(object):
         # Do the initialization
         self.context = contexts.Context()  # Construct a blank context
         # Will not log as console's default level is WARNING
-        failures = framework.import_files(volatility.plugins, True)
+        failures = framework.import_files(volatility3.plugins, True)
 
         self.automagics = automagic.available(self.context)
         # Initialize the list of plugins in case the plugin needs it
@@ -95,28 +142,48 @@ class VolatilityAPI(object):
         return volatility_interface
 
 
+        ctx = contexts.Context()
+        constants.PARALLELISM = constants.Parallelism.Off
+        failures = framework.import_files(volatility3.plugins, True)
+        automagics = automagic.available(ctx)
+        plugin_list = framework.list_plugins()
+        json_renderer = ReturnJsonRenderer
+        seen_automagics = set()
+        for amagic in automagics:
+            if amagic in seen_automagics:
+                continue
+            seen_automagics.add(amagic)
+        plugin = plugin_list.get(plugin_class)
+        base_config_path = "plugins"
+        single_location = "file:" + pathname2url(memdump)
+        ctx.config["automagic.LayerStacker.single_location"] = single_location
+        automagics = automagic.choose_automagic(automagics, plugin)
+        constructed = plugins.construct_plugin(ctx, automagics, plugin, base_config_path, MuteProgress(), None)
+
+
+
 '''
 try:
-    import volatility.conf as conf
-    import volatility.registry as registry
-    import volatility.commands as commands
-    import volatility.utils as utils
-    import volatility.plugins.malware.devicetree as devicetree
-    import volatility.plugins.malware.apihooks as apihooks
-    import volatility.plugins.getsids as sidm
-    import volatility.plugins.privileges as privm
-    import volatility.plugins.taskmods as taskmods
-    import volatility.win32.tasks as tasks
-    import volatility.obj as obj
-    import volatility.exceptions as exc
-    import volatility.plugins.filescan as filescan
-    import volatility.protos as protos
+    import volatility3.conf as conf
+    import volatility3.registry as registry
+    import volatility3.commands as commands
+    import volatility3.utils as utils
+    import volatility3.plugins.malware.devicetree as devicetree
+    import volatility3.plugins.malware.apihooks as apihooks
+    import volatility3.plugins.getsids as sidm
+    import volatility3.plugins.privileges as privm
+    import volatility3.plugins.taskmods as taskmods
+    import volatility3.win32.tasks as tasks
+    import volatility3.obj as obj
+    import volatility3.exceptions as exc
+    import volatility3.plugins.filescan as filescan
+    import volatility3.protos as protos
 
     HAVE_VOLATILITY = True
     rootlogger = logging.getLogger()
     # re-use the rootlogger level (so if we want to debug, it works for volatility)
-    logging.getLogger("volatility.obj").setLevel(rootlogger.level)
-    logging.getLogger("volatility.utils").setLevel(rootlogger.level)
+    logging.getLogger("volatility3.obj").setLevel(rootlogger.level)
+    logging.getLogger("volatility3.utils").setLevel(rootlogger.level)
 except ImportError:
     HAVE_VOLATILITY = False
 
@@ -323,7 +390,7 @@ class VolatilityAPI(object):
         results = []
 
         command = self.plugins["gdt"](self.config)
-        # Comment: this code is pretty much ripped from render_text in volatility.
+        # Comment: this code is pretty much ripped from render_text in volatility3.
         for n, entry in command.calculate():
             selector = n * 8
 
@@ -376,7 +443,7 @@ class VolatilityAPI(object):
 
         command = self.plugins["ssdt"](self.config)
 
-        # Comment: this code is pretty much ripped from render_text in volatility.
+        # Comment: this code is pretty much ripped from render_text in volatility3.
         addr_space = self.addr_space
         syscalls = addr_space.profile.syscalls
         bits32 = addr_space.profile.metadata.get("memory_model", "32bit") == "32bit"
@@ -656,7 +723,7 @@ class VolatilityAPI(object):
 
         command = self.plugins["yarascan"](self.config)
         for o, addr, hit, content in command.calculate():
-            # Comment: this code is pretty much ripped from render_text in volatility.
+            # Comment: this code is pretty much ripped from render_text in volatility3.
             # Find out if the hit is from user or kernel mode
             if o is None:
                 owner = "Unknown Kernel Memory"
@@ -1243,7 +1310,7 @@ class VolatilityManager(object):
 
         self.do_strings()
         self.cleanup()
-        
+
         if not self.voptions.basic.delete_memdump:
             results['memory_path'] = self.memfile
         if self.voptions.basic.dostrings:
