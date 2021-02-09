@@ -1,3 +1,12 @@
+### [05-02-2021] Volatility3 integration done, some future optimizations might come later
+* ToDo: pass yara file to exec yarascan
+* Thanks to Xabier Ugarte-Pedrero and dadokkio for their work
+* `pip3 install volatility3`, then check
+    * `conf/processing.conf` -> `[memory]`
+    * `conf/memory.conf` for the plugins
+
+* You will need to download `symbols`, see [volatility3 readme for details](https://github.com/volatilityfoundation/volatility3)
+
 ### [03-02-2021]
 * ratelimit 4 upgrade -> `pip3 install django-ratelimit -U`
 
