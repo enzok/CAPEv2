@@ -334,19 +334,26 @@ class Memory(Processing):
 
         results = {}
         if HAVE_VOLATILITY:
-            if self.memory_path and os.path.exists(self.memory_path):
+            dumpexists = False
+            mempath = self.memory_path
+            zipmempath = mempath + ".zip"
+            if mempath and os.path.exists(mempath):
+                dumpexists = True
+            elif zipmempath and os.path.exists(zipmempath):
+                dumpexists = True
+                mempath = zipmempath
+            if dumpexists:
                 try:
-                    vol = VolatilityManager(self.memory_path)
-                    # only the memory dump and memory dump string paths are returned until vol3 is complete, strings output will be written if configured
-                    # memory dump file will be handled as configured
+                    vol = VolatilityManager(mempath)
                     results = vol.run()
                 except Exception:
                     log.exception("Generic error executing volatility")
                     if self.voptions.basic.delete_memdump_on_exception:
                         try:
-                            os.remove(self.memory_path)
+                            os.remove(mempath)
+                            log.debug('Deleted memory dump file at path "%s" ', mempath)
                         except OSError:
-                            log.error('Unable to delete memory dump file at path "%s" ', self.memory_path)
+                            log.error('Unable to delete memory dump file at path "%s" ', mempath)
             else:
                 log.error("Memory dump not found: to run volatility you have to enable memory_dump")
         else:
