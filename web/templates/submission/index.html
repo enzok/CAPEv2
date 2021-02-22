@@ -232,6 +232,9 @@ $(document).ready( function() {
                                     <select class="form-control" id="form_route" name="route">
                                         {% if internet != "none" %}
                                             <option value="internet"{% if route == "internet" %} selected{% endif %}>Internet (dirty line, {{ internet }})</option>
+                                        {% endif %}}
+                                        {% if random_route %}
+                                            <option value="{{random_route}}" selected>{{random_route}}</option>
                                         {% endif %}
                                         {% if inetsim %}
                                             <option value="inetsim">inetsim/fakenet-ng</option>
@@ -240,14 +243,12 @@ $(document).ready( function() {
                                             <option value="tor">tor</option>
                                         {% endif %}
                                         {% for vpn in vpns %}
-                                            <option value="{{ vpn.name }}"{% if route == vpn.name %} selected{% endif %}>{{ vpn.description }} (VPN, {{ vpn.interface }})</option>
+                                            <option value="{{ vpn.name }}">{{ vpn.description }} (VPN, {{ vpn.interface }})</option>
                                         {% endfor %}
+
                                         {% for socks5 in socks5s|dictsort:"0.lower" %}
-                                            <option value="{{ socks5.name }}"{% if route == socks5.name %} selected{% endif %}>{{ socks5.description }} (socks5)</option>
+                                            <option value="{{ socks5.name }}">{{ socks5.description }} (socks5)</option>
                                         {% endfor %}
-                                        {% if socks5s_random %}
-                                            <option value="{{socks5s_random}}" selected>{{socks5s_random}} (socks5)</option>
-                                        {% endif %}
                                         <option value="none" >Drop all VM traffic</option>
                                     </select>
                                 </div>
