@@ -51,6 +51,7 @@
 </section>
 {% endif %}
 
+{% if results.detections %}
 <section id="malfamily">
     <table class="table table-striped table-bordered">
         <thead>
@@ -60,11 +61,12 @@
         </thead>
         <tbody>
             <tr>
-                <td><h5>{{results.malfamily_tag}}: <span class="badge detection">{{results.detections}}</span></h5></td>
+                <td><h5>{{results.malfamily_tag}}: <span class="badge badge-danger">{{results.detections}}</span></h5></td>
             </tr>
         </tbody>
     </table>
 </section>
+{% endif %}
 
 {% if results.CAPE.configs %}
 <section id="malware_conf">
