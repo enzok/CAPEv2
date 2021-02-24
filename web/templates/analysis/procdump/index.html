@@ -125,9 +125,12 @@
                 <tr>
                     <th></th>
                     <td>
-                        <a href="{% url "file" "procdump" id file.sha256 %}" class="btn btn-secondary btn-sm">Download</a>
+                    {% if config.zipped_download %}
                         <a href="{% url "file" "procdumpzip" id file.sha256 %}" class="btn btn-secondary btn-sm">Download Zip</a>
-                        <a class="btn btn-secondary btn-sm" href="/submit/resubmit/{{file.sha256}}"><span class="fa fa-refresh" aria-hidden="true"></span> Submit file</a>
+                    {% else %}
+                        <a href="{% url "file" "procdump" id file.sha256 %}" class="btn btn-secondary btn-sm">Download</a>
+                    {% endif %}
+                    <a class="btn btn-secondary btn-sm" href="/submit/resubmit/{{file.sha256}}"><span class="fa fa-refresh" aria-hidden="true"></span> Submit file</a>
                     </td>
                 </tr>
                 {% endif %}
