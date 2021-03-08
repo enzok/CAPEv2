@@ -24,18 +24,17 @@ from zipfile import ZipFile
 from datetime import datetime
 from itertools import combinations
 import distutils.util
-from sqlalchemy import Column, ForeignKey, Integer, Text, String, Boolean, DateTime, or_, and_, desc
+from sqlalchemy import or_, and_
 from sqlalchemy.exc import SQLAlchemyError, OperationalError
 
 CUCKOO_ROOT = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..")
 sys.path.append(CUCKOO_ROOT)
 
 from lib.cuckoo.common.config import Config
-from lib.cuckoo.common.utils import store_temp_file, get_options
-from lib.cuckoo.common.dist_db import Node, StringList, Task, Machine, create_session
+from lib.cuckoo.common.utils import get_options
+from lib.cuckoo.common.dist_db import Node, Task, Machine, create_session
 from lib.cuckoo.core.database import (
     Database,
-    TASK_COMPLETED,
     TASK_REPORTED,
     TASK_RUNNING,
     TASK_PENDING,
@@ -109,7 +108,7 @@ session = create_session(reporting_conf.distributed.db, echo=False)
 def node_status(url, name, ht_user, ht_pass):
     try:
         r = requests.get(os.path.join(url, "cuckoo", "status/"), params={"username": ht_user, "password": ht_pass}, verify=False, timeout=200)
-        return r.json().get("data", {})["tasks"]
+        return r.json().get("data", {})
     except Exception as e:
         log.critical("Possible invalid Cuckoo node (%s): %s", name, e)
     return {}
@@ -176,6 +175,7 @@ def node_submit_task(task_id, node_id):
             clock=task.clock,
             memory=task.memory,
             enforce_timeout=task.enforce_timeout,
+            route=task.route,
             username=node.ht_user,
             password=node.ht_pass,
         )
@@ -671,7 +671,7 @@ class StatusThread(threading.Thread):
                     args = dict(package=t.package, category=t.category, timeout=t.timeout, priority=t.priority,
                                 options=t.options+",main_task_id={}".format(t.id), machine=t.machine, platform=t.platform,
                                 tags=tags, custom=t.custom, memory=t.memory, clock=t.clock,
-                                enforce_timeout=t.enforce_timeout, main_task_id=t.id)
+                                enforce_timeout=t.enforce_timeout, main_task_id=t.id, route=t.route)
                     task = Task(path=t.target, **args)
 
                     db.add(task)
@@ -807,7 +807,7 @@ class StatusThread(threading.Thread):
                             #STATUSES[node.name]["enabled"] = False
                         continue
                     failed_count[node.name] = 0
-                    log.info("Status.. %s -> %s", node.name, status)
+                    log.info("Status.. %s -> %s", node.name, status["tasks"])
                     statuses[node.name] = status
                     statuses[node.name]["enabled"] = True
                     STATUSES = statuses
@@ -818,11 +818,11 @@ class StatusThread(threading.Thread):
                             continue
                         # Balance the tasks, works fine if no tags are set
 
-                        node_name = min(STATUSES, key=lambda k: STATUSES[k]["completed"] + STATUSES[k]["pending"] + STATUSES[k]["running"])
+                        node_name = min(STATUSES, key=lambda k: STATUSES[k]["tasks"]["completed"] + STATUSES[k]["tasks"]["pending"] + STATUSES[k]["tasks"]["running"])
                         if node_name != node.name:
                             node = db.query(Node).filter_by(name=node_name).first()
 
-                        pend_tasks_num = MINIMUMQUEUE[node.name] - (STATUSES[node.name]["pending"] + STATUSES[node.name]["running"])
+                        pend_tasks_num = MINIMUMQUEUE[node.name] - (STATUSES[node.name]["tasks"]["pending"] + STATUSES[node.name]["tasks"]["running"])
                     except KeyError:
                         # servers hotplug
                         MINIMUMQUEUE[node.name] = db.query(Machine).filter_by(node_id=node.id).count()
@@ -837,7 +837,7 @@ class StatusThread(threading.Thread):
                         if not res:
                             continue
 
-                    elif statuses.get("master", {}).get("pending", 0) > MINIMUMQUEUE.get("master", 0) and status["pending"] < MINIMUMQUEUE[node.name]:
+                    elif statuses.get("master", {}).get("tasks", {}).get("pending", 0) > MINIMUMQUEUE.get("master", 0) and status["tasks"]["pending"] < MINIMUMQUEUE[node.name]:
                         res = self.submit_tasks(node.name, pend_tasks_num, db=db)
                         if not res:
                             continue

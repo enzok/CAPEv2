@@ -47,8 +47,15 @@ from lib.cuckoo.common.constants import CUCKOO_ROOT, CUCKOO_VERSION
 from lib.cuckoo.common.utils import store_temp_file, delete_folder, sanitize_filename, generate_fake_name
 from lib.cuckoo.common.utils import convert_to_printable, get_user_filename, get_options, validate_referrer
 from lib.cuckoo.common.web_utils import perform_malscore_search, perform_search, perform_ttps_search, search_term_map, get_file_content, statistics
-from lib.cuckoo.common.web_utils import download_file, jsonize, validate_task, apiconf, force_int, _download_file, parse_request_arguments
+from lib.cuckoo.common.web_utils import download_file, validate_task, apiconf, force_int, _download_file, parse_request_arguments
 from lib.cuckoo.common.web_utils import download_from_vt
+
+try:
+    import psutil
+    HAVE_PSUTIL = True
+except ImportError:
+    HAVE_PSUTIL = False
+    print("Missed psutil dependency: pip3 install -U psutil")
 
 try:
     import pyzipper
@@ -1748,6 +1755,9 @@ def machines_view(request, name=None):
         resp["error_value"] = "Machine not found"
     return Response(resp)
 
+def _bytes2gb(size):
+    return int(size/1024/1024/1024)
+
 #@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
 #@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
 @api_view(['GET'])
@@ -1774,6 +1784,24 @@ def cuckoo_status(request):
                 reported=db.count_tasks("reported"),
             ),
         )
+
+        if HAVE_PSUTIL:
+            du = psutil.disk_usage('/')
+            hdd_free = _bytes2gb(du.free)
+            hdd_total = _bytes2gb(du.total)
+            hdd_used = _bytes2gb(du.used)
+            hdd_percent_used = du.percent
+
+            vu = psutil.virtual_memory()
+            ram_free = _bytes2gb(vu.free)
+            ram_total = _bytes2gb(vu.total)
+            ram_used = _bytes2gb(vu.used)
+
+            # add more from https://pypi.org/project/psutil/
+            resp["data"]["server"] = {
+                "storage": {"free": hdd_free, "total": hdd_total, "used": hdd_used, "used_by": "{}%".format(hdd_percent_used)},
+                "ram": {"free": ram_free, "total": ram_total, "used": ram_used},
+            }
     return Response(resp)
 
 
@@ -1997,7 +2025,7 @@ def statistics_data(requests, days):
 @api_view(['POST'])
 def tasks_delete_many(request):
     response = {}
-    for task_id in request.data.get("ids", "").split(",") or []:
+    for task_id in request.POST.get("ids", "").split(",") or []:
         task_id = int(task_id)
         task = db.view_task(task_id)
         if task:
@@ -2014,8 +2042,7 @@ def tasks_delete_many(request):
         else:
             response.setdefault(task_id, "not exists")
     response["status"] = "OK"
-    return jsonize(response)
-
+    return Response(response)
 
 def limit_exceeded(request, exception):
     resp = {"error": True, "error_value": "Rate limit exceeded for this API"}
