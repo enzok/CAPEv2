@@ -1453,7 +1453,7 @@ def search(request):
 def remove(request, task_id):
     """Remove an analysis.
     """
-    if not enabledconf["delete"] or not request.user.is_stuff:
+    if not enabledconf["delete"]:
         return render(request, "success_simple.html", {"message": "buy a lot of whyskey to admin ;)"})
 
     if enabledconf["mongodb"]:
@@ -1567,8 +1567,6 @@ def pcapstream(request, task_id, conntuple):
     return HttpResponse(json.dumps(packets), content_type="application/json")
 
 
-@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
-@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def comments(request, task_id):
     if request.method == "POST" and settings.COMMENTS:
