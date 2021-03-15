@@ -1,6 +1,6 @@
 {% load analysis_tags %}
-<div class="card ">
-    <table class="table table-striped">
+<div class="panel panel-default">
+    <table class="table table-striped table-bordered">
         <tr>
             <th>Task ID</th>
             <td>{{analysis.info.id}}</td>
@@ -36,5 +36,11 @@
             <th></th>
             <td><a href="{% url "reschedule" analysis.info.id %}" class="btn btn-primary btn-small">Reschedule</a></td>
         </tr>
+        {% if analysis.info.user_id %}
+        <tr>
+            <th>Task submitted by user id:</th>
+            <td>{{analysis.info.user_id}}</td>
+        </tr>
+        {% endif %}
     </table>
 </div>
