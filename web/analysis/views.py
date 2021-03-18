@@ -419,7 +419,7 @@ def load_files(request, task_id, category):
                                 with open(tmp_file, "r") as f:
                                     bingraph_dict_content.setdefault(block["sha256"], f.read())
 
-                    if ajax_mongo_schema.get(category, "").startswith("CAPE"):
+                    if ajax_mongo_schema.get(category, "").startswith("CAPE") and data:
                         if isinstance(data.get("CAPE", {}), dict) and "payloads" in data.get("CAPE", {}):
                             cape_files = data.get("CAPE", {}).get("payloads", []) or []
                         #ToDo remove in CAPEv3
@@ -992,6 +992,13 @@ def report(request, task_id):
     except Exception as e:
         print(e)
         report["procdump_size"] = 0
+
+    try:
+        tmp_data = list(results_db.analysis.aggregate([{"$match": {"info.id": int(task_id)}}, {"$project": {"_id": 1}}]))
+        report["memory"] = tmp_data[0]["_id"]  or 0
+    except Exception as e:
+        print(e)
+        report["memory"] = 0
 
 
     reports_exist = False
