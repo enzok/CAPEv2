@@ -105,7 +105,7 @@ class Carbanak(Parser):
         data = data_sections[0].get_data()
         for item in data.split(b'\x00'):
             try:
-                dec = decode_string(item, sbox)
+                dec = decode_string(item, sbox).decode('utf8')
             except Exception as err:
                 pass
             if dec:
