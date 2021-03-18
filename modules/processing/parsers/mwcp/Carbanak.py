@@ -17,6 +17,8 @@ import struct
 import pefile
 import yara
 import logging
+import re2 as re
+
 log = logging.getLogger(__name__)
 
 rule_source = '''
@@ -83,7 +85,6 @@ class Carbanak(Parser):
         filebuf = self.file_object.file_data
         pe = pefile.PE(data=filebuf)
         sbox_init_offset, sbox_delta, sbox_offset = 0, 0, 0
-        dec = None
         matches = yara_rules.match(data=filebuf)
         if not matches:
             return
@@ -97,7 +98,6 @@ class Carbanak(Parser):
             return
         sbox_delta = struct.unpack("I", filebuf[sbox_init_offset + 7 : sbox_init_offset + 11])[0]
         sbox_offset = pe.get_offset_from_rva(sbox_delta + pe.get_rva_from_offset(sbox_init_offset) + 11)
-        log.info("sbox_offset 0x%x", sbox_offset)
         sbox = bytes(filebuf[sbox_offset: sbox_offset+128])
         data_sections = [s for s in pe.sections if s.Name.find(b'.rdata') != -1]
         if not data_sections or not sbox:
@@ -106,8 +106,15 @@ class Carbanak(Parser):
         for item in data.split(b'\x00'):
             try:
                 dec = decode_string(item, sbox).decode('utf8')
+                if dec:
+                    if "anunak" in dec:
+                        self.reporter.add_metadata("other", {"strings": dec})
+                    tlds = (".com", ".net", ".org", ".edu")
+                    if dec.endswith(tlds):
+                        self.reporter.add_metadata("other", {"c2_domains": dec})
+                    ver = re.findall('^(\d+\.\d+)$', dec)[0]
+                    if ver:
+                        self.reporter.add_metadata("other", {"version": ver})
             except Exception as err:
                 pass
-            if dec:
-                self.reporter.add_metadata("strings", dec)
         return
