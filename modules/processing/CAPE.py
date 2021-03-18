@@ -64,9 +64,8 @@ QAKBOT_CONFIG = 0x38
 QAKBOT_PAYLOAD = 0x39
 ICEDID_LOADER = 0x40
 ICEDID_BOT = 0x41
-SCRIPT_DUMP = 0x65
 DATADUMP = 0x66
-REGSETVAL = 0x69
+REGDUMP = 0x69
 UPX = 0x1000
 
 log = logging.getLogger(__name__)
@@ -78,7 +77,7 @@ code_mapping = {
     QAKBOT_PAYLOAD: "QakBot Payload",
     UPX: "Unpacked PE Image",
     DATADUMP: "Data Dump",
-    REGSETVAL: "Registry Value Dump",
+    REGDUMP: "Registry Value Dump",
 }
 
 name_mapping = {
@@ -352,11 +351,6 @@ class CAPE(Processing):
                 if config_tmp and config_tmp[cape_name]:
                     config.update(config_tmp)
                 append_file = False
-            # Attempt to decrypt script dump
-            if file_info["cape_type_code"] == SCRIPT_DUMP:
-                data = file_data.decode("utf-16").replace("\x00", "")
-                cape_name = "ScriptDump"
-                append_file = True
 
         # Process CAPE Yara hits
         for hit in file_info["cape_yara"]:
@@ -461,10 +455,6 @@ class CAPE(Processing):
                             # We set append_file to False as we don't wan't to include
                             # the files by default in the CAPE tab
                             self.process_file(file_path, False)
-
-                # Process files that may have been decrypted from ScriptDump
-                for file_path in self.script_dump_files:
-                    self.process_file(file_path, False, meta.get(file_path, {}))
 
         # Finally static processing of submitted file
         if self.task["category"] in ("file", "static"):
