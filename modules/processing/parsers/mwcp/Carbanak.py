@@ -13,9 +13,11 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from mwcp.parser import Parser
-import pefile
 import struct
+import pefile
 import yara
+import logging
+log = logging.getLogger(__name__)
 
 rule_source = '''
 rule Carbanak
@@ -24,15 +26,12 @@ rule Carbanak
         author = "enzok"
         description = "Carnbanak sbox init"
         cape_type = "Carbanak Payload"
-
     strings:
-        $sboxinit = {4? 0F BE 02 4? 8D 05 [-] 4? 8D 4D ?? E8 [3] 00 33 F6 4? 8D 5D ?? 4? 63 F8 8B 45 ?? B? B1 E3 14 06} 
+        $sboxinit = {48 0F BE 02 4? 8D 05 [-] 4? 8D 4D ?? E8 [3] 00 33 F6 4? 8D 5D ?? 4? 63 F8 8B 45 ?? B? B1 E3 14 06} 
     condition:
         uint16(0) == 0x5A4D and any of them
 }
-
 '''
-
 yara_rules = yara.compile(source=rule_source)
 
 def decode_string(src, sbox):
@@ -46,7 +45,6 @@ def decode_string(src, sbox):
     delta = 0
     n = 0
     i = 0
-
     while n < lenstr:
         if rb == 0 :
             nb += 1
@@ -79,36 +77,28 @@ def decode_string(src, sbox):
 
 
 class Carbanak(Parser):
-    DESCRIPTION = "Carbanak string parser."
+    DESCRIPTION = "Carbanak configuration parser."
     AUTHOR = "enzok"
     def run(self):
         filebuf = self.file_object.file_data
-        pe = pefile.PE(data=filebuf, fast_load=False)
-        image_base = pe.OPTIONAL_HEADER.ImageBase
-        sbox_init_offset, sbox_rva = 0, 0
+        pe = pefile.PE(data=filebuf)
+        sbox_init_offset, sbox_delta, sbox_offset = 0, 0, 0
         dec = None
-
         matches = yara_rules.match(data=filebuf)
         if not matches:
             return
-
         for match in matches:
             if match.rule != "Carbanak":
                 continue
             for item in match.strings:
                 if '$sboxinit' in item[1]:
                     sbox_init_offset = int(item[0])
-
-        if sbox_init_offset:
-            sbox_rva = struct.unpack("i", filebuf[sbox_init_offset + 7: sbox_init_offset + 11])[0] - image_base
-        else:
+        if not sbox_init_offset:
             return
-        c2_offset = pe.get_offset_from_rva(sbox_rva)
-        try:
-            sbox = bytes(filebuf[c2_offset: c2_offset + 128])
-        except:
-            return
-
+        sbox_delta = struct.unpack("I", filebuf[sbox_init_offset + 7 : sbox_init_offset + 11])[0]
+        sbox_offset = pe.get_offset_from_rva(sbox_delta + pe.get_rva_from_offset(sbox_init_offset) + 11)
+        log.info("sbox_offset 0x%x", sbox_offset)
+        sbox = bytes(filebuf[sbox_offset: sbox_offset+128])
         data_sections = [s for s in pe.sections if s.Name.find(b'.rdata') != -1]
         if not data_sections or not sbox:
             return None
@@ -119,5 +109,5 @@ class Carbanak(Parser):
             except Exception as err:
                 pass
             if dec:
-                self.reporter.add_metadata("string", dec)
+                self.reporter.add_metadata("strings", dec)
         return
