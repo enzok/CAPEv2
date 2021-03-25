@@ -1,7 +1,7 @@
 flor
 Pebble
 pymisp
-cryptography>=3.1
+cryptography==3.3.2
 requests[security,socks]
 pyOpenSSL
 pefile
@@ -36,6 +36,7 @@ passlib
 pyzipper
 git+https://github.com/Defense-Cyber-Crime-Center/DC3-MWCP.git
 git+https://github.com/kevthehermit/RATDecoders.git
+halo==0.0.30 # till won't be pinned in capa
 git+https://github.com/fireeye/capa.git
 greenlet==0.4.16
 cython
@@ -46,7 +47,6 @@ numpy>=1.15.0
 six>=1.12.0
 statistics>=1.0.3.5
 django>3
-django-ratelimit
 sqlalchemy
 sqlalchemy-utils
 jinja2

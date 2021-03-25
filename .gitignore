@@ -41,3 +41,7 @@ venv/
 virtualenv/
 .virtualenv/
 
+__pycache__/
+*.sqlite
+env/
+.env/
