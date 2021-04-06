@@ -11,7 +11,6 @@ import json
 import logging
 import argparse
 import signal
-import multiprocessing
 import platform
 import resource
 
@@ -101,7 +100,7 @@ def process(target=None, copy_path=None, task=None, report=False, auto=False, ca
             port = repconf.mongodb.port
             db = repconf.mongodb.db
             conn = MongoClient(
-                host, port=port, username=repconf.mongodb.get("username", None), password=repconf.mongodb.get("password", None), authSource=db,
+                host, port=port, username=repconf.mongodb.get("username", None), password=repconf.mongodb.get("password", None), authSource=db
             )
             mdata = conn[db]
             analyses = mdata.analysis.find({"info.id": int(task_id)})
