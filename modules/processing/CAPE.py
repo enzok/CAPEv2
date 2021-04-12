@@ -125,9 +125,13 @@ qakbot_id_map = {
     b"26": "#5",
 }
 
-
 class CAPE(Processing):
     """CAPE output file processing."""
+
+    def detect2pid(self, pid, cape_name):
+        self.results.setdefault("detections2pid", {})
+        self.results["detections2pid"].setdefault(str(pid), list())
+        self.results["detections2pid"][str(pid)].append(cape_name)
 
     def upx_unpack(self, file_data):
         unpacked_file = upx_harness(file_data)
@@ -136,7 +140,6 @@ class CAPE(Processing):
                 if unpacked_hit["name"] == "UPX":
                     # Failed to unpack
                     log.info("CAPE: Failed to unpack UPX")
-                    os.unlink(unpacked_file)
                     break
             if not os.path.exists(self.CAPE_path):
                 os.makedirs(self.CAPE_path)
@@ -369,12 +372,12 @@ class CAPE(Processing):
                 self.upx_unpack(file_data)
 
             # Check for a payload or config hit
-            extraction_types = ["payload", "config", "loader"]
+            extraction_types = ("payload", "config", "loader")
+
             try:
-                for type in extraction_types:
-                    if type in hit["meta"].get("cape_type", "").lower():
-                        file_info["cape_type"] = hit["meta"]["cape_type"]
-                        cape_name = hit["name"].replace("_", " ")
+                if any([file_type in hit["meta"].get("cape_type", "").lower() for file_type in extraction_types]):
+                    file_info["cape_type"] = hit["meta"]["cape_type"]
+                    cape_name = hit["name"].replace("_", " ")
             except Exception as e:
                 print("Cape type error: {}".format(e))
             type_strings = file_info["type"].split()
@@ -388,6 +391,9 @@ class CAPE(Processing):
 
             suppress_parsing_list = ["Cerber", "Ursnif"]
 
+            if hit["name"] == "GuLoader":
+                self.detect2pid(file_info["pid"], "GuLoader")
+
             if hit["name"] in suppress_parsing_list:
                 continue
 
@@ -400,6 +406,8 @@ class CAPE(Processing):
                 if cape_name != "UPX":
                     #ToDo list of keys
                     self.results["detections"] = cape_name
+            if file_info.get("pid"):
+                self.detect2pid(file_info["pid"], cape_name)
 
         # Remove duplicate payloads from web ui
         for cape_file in self.cape["payloads"] or []:
