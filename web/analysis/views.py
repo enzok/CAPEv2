@@ -1450,22 +1450,23 @@ def full_memory_dump_strings(request, analysis_number):
 
 @csrf_exempt
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
-def search(request):
-    if "search" in request.POST:
-        error = None
+def search(request, searched=False):
+    if "search" in request.POST or searched:
+        term = False
+        if not searched and request.POST.get("search"):
+            searched = request.POST["search"]
 
-        try:
-            term, value = request.POST["search"].strip().split(":", 1)
-        except ValueError:
-            term = ""
-            value = request.POST["search"].strip()
+        if ":" in searched:
+            term, value = searched.strip().split(":", 1)
+        else:
+            value = searched.strip()
 
         # Check on search size. But malscore can be a single digit number.
         if term != "malscore" and len(value) < 3:
             return render(
                 request,
                 "analysis/search.html",
-                {"analyses": None, "term": request.POST["search"], "error": "Search term too short, minimum 3 characters required"},
+                {"analyses": None, "term": searched, "error": "Search term too short, minimum 3 characters required"},
             )
 
         # name:foo or name: foo
@@ -1490,7 +1491,7 @@ def search(request):
                 return render(
                     request,
                     "analysis/search.html",
-                    {"analyses": None, "term": request.POST["search"], "error": "Not all values are integers"},
+                    {"analyses": None, "term": searched, "error": "Not all values are integers"},
                 )
 
         try:
@@ -1505,7 +1506,7 @@ def search(request):
                 return render(
                     request,
                     "analysis/search.html",
-                    {"analyses": None, "term": request.POST["search"], "error": "Invalid search term: %s" % term},
+                    {"analyses": None, "term": searched, "error": "Invalid search term: %s" % term},
                 )
             else:
                 return render(
@@ -1527,7 +1528,7 @@ def search(request):
                 continue
             analyses.append(new)
         return render(
-            request, "analysis/search.html", {"analyses": analyses, "config": enabledconf, "term": request.POST["search"], "error": None}
+            request, "analysis/search.html", {"analyses": analyses, "config": enabledconf, "term": searched, "error": None}
         )
     else:
         return render(request, "analysis/search.html", {"analyses": None, "term": None, "error": None})
@@ -1781,11 +1782,11 @@ def on_demand(request, service: str, task_id: int, category: str, sha256):
     @param sha256: file hash for which we want to generate details
     @return: redirect to the same webpage but with missed details included
 
-        # 0. ensure that we not generating this data or data exist
-        # 1. get file path
-        # 2. call to func
-        # 3. store results
-        # 4. reload page
+    # 0. ensure that we not generating this data or data exist
+    # 1. get file path
+    # 2. call to func
+    # 3. store results
+    # 4. reload page
     """
 
     if service not in ("bingraph", "flare_capa", "vba2graph") and not on_demand_config_mapper.get(service, {}).get(service, {}).get(
