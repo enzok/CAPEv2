@@ -59,20 +59,29 @@ if repconf.mitre.enabled:
         from pyattck import Attck
         from pyattck.version import __version_info__ as pyattck_version
 
+        # Version check is broken, fix when merged https://github.com/swimlane/pyattck/pull/57
         if pyattck_version[0] == 2:
-
             attack_file = repconf.mitre.get("local_file", False)
             if attack_file:
                 attack_file = os.path.join(CUCKOO_ROOT, attack_file)
             else:
                 attack_file = False
-            mitre = Attck(dataset_json=attack_file)
+            try:
+                # V3
+                mitre = Attck()
+                if hasattr(mitre, "__ENTERPRISE_GENERATED_DATA_JSON"):
+                    mitre.__ENTERPRISE_GENERATED_DATA_JSON = attack_file
+                else:
+                    # V2
+                    mitre = Attck(dataset_json=attack_file)
+            except TypeError:
+                mitre = Attck(dataset_json=attack_file)
             HAVE_MITRE = True
         else:
             HAVE_MITRE = False
-            print("Missed pyattck dependency: pip3 install pyattck>=2.0.2")
+            print("Missed pyattck dependency: check requirements.txt for exact pyattck version")
     except (ImportError, ModuleNotFoundError):
-        print("Missed pyattck dependency: pip3 install pyattck>=2.0.2")
+        print("Missed pyattck dependency: check requirements.txt for exact pyattck version")
         HAVE_MITRE = False
 else:
     HAVE_MITRE = False
