@@ -69,8 +69,8 @@ if repconf.mitre.enabled:
             try:
                 # V3
                 mitre = Attck()
-                if hasattr(mitre, "__ENTERPRISE_GENERATED_DATA_JSON"):
-                    mitre.__ENTERPRISE_GENERATED_DATA_JSON = attack_file
+                if hasattr(mitre, "_Attck__ENTERPRISE_GENERATED_DATA_JSON"):
+                    mitre._Attck__ENTERPRISE_GENERATED_DATA_JSON = attack_file
                 else:
                     # V2
                     mitre = Attck(dataset_json=attack_file)
