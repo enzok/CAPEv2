@@ -562,6 +562,7 @@
     <Content Include="web\templates\analysis\network\_icmp.html" />
     <Content Include="web\templates\analysis\network\_irc.html" />
     <Content Include="web\templates\analysis\overview\index.html" />
+    <Content Include="web\templates\analysis\overview\_antivirus.html" />
     <Content Include="web\templates\analysis\overview\_file.html" />
     <Content Include="web\templates\analysis\overview\_info.html" />
     <Content Include="web\templates\analysis\overview\_screenshots.html" />
@@ -569,7 +570,6 @@
     <Content Include="web\templates\analysis\overview\_summary.html" />
     <Content Include="web\templates\analysis\overview\_url.html" />
     <Content Include="web\templates\analysis\static\index.html" />
-    <Content Include="web\templates\analysis\static\_antivirus.html" />
     <Content Include="web\templates\analysis\static\_pe32.html" />
     <Content Include="web\templates\analysis\static\_strings.html" />
   </ItemGroup>
