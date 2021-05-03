@@ -1,3 +1,12 @@
+### [02-05-2021] [Square Hammer](https://youtu.be/VqoyKzgkqR4)
+* Add button to ban user and their pending tasks on admin tab
+    * __ACTION REQUIRED!__
+        * `cd utils/db_migration/ && alembic upgrade head`
+        * `sudo systemctl restart cape.service cape-web.service`
+
+### [01-05-2021]
+* Dirty cluster admin utils helper -> `admin/admin.py`, see `-h`
+
 ### [28-04-2021]
 * Strings tab are under the file info on main page
 * VirusTotal tab are also under the file info on main page
