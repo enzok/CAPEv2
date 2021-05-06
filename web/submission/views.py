@@ -209,9 +209,6 @@ def index(request, resubmit_hash=False):
         if submitter:
             options += "submitter={},".format(submitter)
 
-        options = options[:-1]
-        tlp = request.POST.get("tlp", None)
-
         opt_apikey = False
         opts = get_options(options)
         if opts:
@@ -233,7 +230,6 @@ def index(request, resubmit_hash=False):
             "fhash": False,
             "options": options,
             "only_extraction": False,
-            "tlp": tlp,
             "user_id": request.user.id or 0,
         }
 

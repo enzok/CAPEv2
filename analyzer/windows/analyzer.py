@@ -339,7 +339,7 @@ class Analyzer:
         # If no analysis package was specified at submission, we try to select
         # one automatically.
         if not self.config.package:
-            log.debug("No analysis package specified, trying to detect " "it automagically.")
+            log.debug("No analysis package specified, trying to detect it automagically.")
 
             # If the analysis target is a file, we choose the package according
             # to the file format.
@@ -353,7 +353,7 @@ class Analyzer:
             # If we weren't able to automatically determine the proper package,
             # we need to abort the analysis.
             if not package:
-                raise CuckooError("No valid package available for file " "type: {0}".format(self.config.file_type))
+                raise CuckooError("No valid package available for file type: {0}".format(self.config.file_type))
 
             log.info('Automatically selected analysis package "%s"', package)
         # Otherwise just select the specified package.
@@ -369,7 +369,7 @@ class Analyzer:
             #log.debug('Imported analysis package "%s".', package)
         # If it fails, we need to abort the analysis.
         except ImportError:
-            raise CuckooError('Unable to import package "{0}", does ' "not exist.".format(package_name))
+            raise CuckooError('Unable to import package "{0}", does not exist.'.format(package_name))
         except Exception as e:
             log.exception(e)
         # Initialize the package parent abstract.
@@ -378,7 +378,7 @@ class Analyzer:
         try:
             package_class = Package.__subclasses__()[0]
         except IndexError as e:
-            raise CuckooError("Unable to select package class " "(package={0}): {1}".format(package_name, e))
+            raise CuckooError("Unable to select package class (package={0}): {1}".format(package_name, e))
         except Exception as e:
             log.exception(e)
 
