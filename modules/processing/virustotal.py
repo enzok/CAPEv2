@@ -85,6 +85,9 @@ def vt_lookup(category, target, on_demand=False):
                 if engines:
                     virustotal = {}
                     virustotal["names"] = vt_response.get("data", {}).get("attributes", {}).get("names")
+                    virustotal["first_seen"] = vt_response.get("data", {}).get("attributes", {}).get("first_submission_date", "")
+                    virustotal["last_seen"] = vt_response.get("data", {}).get("attributes", {}).get("last_submission_date", "")
+                    virustotal["unique_sources"] = vt_response.get("data", {}).get("attributes", {}).get("unique_sources", "")
                     virustotal["scan_id"] = vt_response.get("data", {}).get("id")
                     virustotal["md5"] = vt_response.get("data", {}).get("attributes", {}).get("md5")
                     virustotal["sha1"] = vt_response.get("data", {}).get("attributes", {}).get("sha1")
