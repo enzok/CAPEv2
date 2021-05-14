@@ -1717,7 +1717,7 @@ def vtupload(request, category, task_id, filename, dlfile):
                 path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "files", filename)
             headers = {"x-apikey": settings.VTDL_KEY}
             files = {"file": (filename, open(path, "rb"))}
-            response = requests.post("https://www.virustotal.com/api/v3/files", files=files, header=headers)
+            response = requests.post("https://www.virustotal.com/api/v3/files", files=files, headers=headers)
             if response.ok:
                 data = response.json().get("data", {})
                 id = data.get("id")
