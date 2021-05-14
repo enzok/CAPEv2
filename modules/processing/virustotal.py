@@ -6,6 +6,7 @@ import os
 import logging
 import requests
 import hashlib
+from time import strftime, localtime
 
 try:
     import re2 as re
@@ -83,10 +84,15 @@ def vt_lookup(category, target, on_demand=False):
                 vt_response = r.json()
                 engines = vt_response.get("data", {}).get("attributes", {}).get("last_analysis_results", {})
                 if engines:
-                    virustotal = {}
+                    virustotal = dict()
                     virustotal["names"] = vt_response.get("data", {}).get("attributes", {}).get("names")
-                    virustotal["first_seen"] = vt_response.get("data", {}).get("attributes", {}).get("first_submission_date", "")
-                    virustotal["last_seen"] = vt_response.get("data", {}).get("attributes", {}).get("last_submission_date", "")
+                    first_seen = vt_response.get("data", {}).get("attributes", {}).get("first_submission_date", False)
+                    timeformat = "%a, %d %b %Y %H:%M:%S %Z"
+                    if first_seen:
+                        virustotal["first_seen"] = strftime(timeformat, localtime(first_seen))
+                    last_seen = vt_response.get("data", {}).get("attributes", {}).get("last_submission_date", False)
+                    if last_seen:
+                        virustotal["last_seen"] = strftime(timeformat, localtime(last_seen))
                     virustotal["unique_sources"] = vt_response.get("data", {}).get("attributes", {}).get("unique_sources", "")
                     virustotal["scan_id"] = vt_response.get("data", {}).get("id")
                     virustotal["md5"] = vt_response.get("data", {}).get("attributes", {}).get("md5")
