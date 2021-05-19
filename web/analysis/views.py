@@ -1588,13 +1588,9 @@ def remove(request, task_id):
                 if analysis["_source"]["behavior"]:
                     for process in analysis["_source"]["behavior"]["processes"]:
                         for call in process["calls"]:
-                            es.delete(
-                                index=esidx, doc_type="calls", id=call,
-                            )
+                            es.delete( index=esidx, doc_type="calls", id=call, )
                 # Delete the analysis results
-                es.delete(
-                    index=esidx, doc_type="analysis", id=esid,
-                )
+                es.delete( index=esidx, doc_type="analysis", id=esid, )
     elif essearch:
         # remove es search data
         analyses = es.search(index=fullidx, doc_type="analysis", q='info.id: "%s"' % task_id)["hits"]["hits"]
@@ -1607,9 +1603,7 @@ def remove(request, task_id):
                 esidx = analysis["_index"]
                 esid = analysis["_id"]
                 # Delete the analysis results
-                es.delete(
-                    index=esidx, doc_type="analysis", id=esid,
-                )
+                es.delete( index=esidx, doc_type="analysis", id=esid, )
 
     db.delete_task(task_id)
 
