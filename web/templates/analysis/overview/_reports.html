@@ -5,7 +5,10 @@
     <div class="container">
         <div class="row">
             {% if config.jsondump %}
-                <div class="col-sm"><a  href="{% url "filereport" analysis.info.id "html" %}">HTML report</a></div>
+                <div class="col-sm"><a href="{% url "filereport" analysis.info.id "json" %}">JSON report</a></div>
+            {% endif %}
+            {% if config.refinedjson %}
+                <div class="col-sm"><a href="{% url "filereport" analysis.info.id "refinedjson" %}">Refined JSON Report</a></div>
             {% endif %}
             {% if config.reporthtml %}
                 <div class="column"><a href="{% url "filereport" analysis.info.id "html" %}">HTML report</a></div>
