@@ -177,8 +177,6 @@ def move_mouse():
 
 
 def click_mouse():
-    # Move mouse to top-middle position.
-    USER32.SetCursorPos(int(RESOLUTION["x"] / 2), 0)
     # Mouse down.
     USER32.mouse_event(2, 0, 0, 0, None)
     KERNEL32.Sleep(50)
@@ -194,12 +192,10 @@ def get_office_window_click_around(hwnd, lparm):
         if any([value in text.value for value in ("- Microsoft", "- Word", "- Excel", "- PowerPoint")]):
             USER32.SetForegroundWindow(hwnd)
             # first click the middle
-            USER32.SetCursorPos(RESOLUTION["x"] / 2, RESOLUTION["y"] / 2)
-            USER32.mouse_event(2, 0, 0, 0, None)
-            USER32.mouse_event(4, 0, 0, 0, None)
+            USER32.SetCursorPos(int(RESOLUTION["x"] / 2), int(RESOLUTION["y"] / 2))
+            click_mouse()
             KERNEL32.Sleep(50)
-            USER32.mouse_event(2, 0, 0, 0, None)
-            USER32.mouse_event(4, 0, 0, 0, None)
+            click_mouse()
             KERNEL32.Sleep(500)
             # click through the middle with offset for cell position on side and scroll bar
             x = 80
@@ -207,32 +203,26 @@ def get_office_window_click_around(hwnd, lparm):
                 # make sure the window still exists
                 if USER32.IsWindowVisible(hwnd):
                     USER32.SetForegroundWindow(hwnd)
-                    USER32.SetCursorPos(x, RESOLUTION["y"] / 2)
-                    USER32.mouse_event(2, 0, 0, 0, None)
-                    USER32.mouse_event(4, 0, 0, 0, None)
+                    USER32.SetCursorPos(x, int(RESOLUTION["y"] / 2))
+                    click_mouse()
                     KERNEL32.Sleep(50)
-                    USER32.mouse_event(2, 0, 0, 0, None)
-                    USER32.mouse_event(4, 0, 0, 0, None)
+                    click_mouse()
                     KERNEL32.Sleep(50)
                     if USER32.IsWindowVisible(hwnd):
                         USER32.SetForegroundWindow(hwnd)
-                        USER32.SetCursorPos(x, (RESOLUTION["y"] / 2) + random.randint(80, 120))
-                        USER32.mouse_event(2, 0, 0, 0, None)
-                        USER32.mouse_event(4, 0, 0, 0, None)
+                        USER32.SetCursorPos(x, int(RESOLUTION["y"] / 2) + random.randint(80, 420))
+                        click_mouse()
                         KERNEL32.Sleep(50)
-                        USER32.mouse_event(2, 0, 0, 0, None)
-                        USER32.mouse_event(4, 0, 0, 0, None)
+                        click_mouse()
                         KERNEL32.Sleep(50)
                     else:
                         break
                     if USER32.IsWindowVisible(hwnd):
                         USER32.SetForegroundWindow(hwnd)
-                        USER32.SetCursorPos(x, (RESOLUTION["y"] / 2) - random.randint(80, 120))
-                        USER32.mouse_event(2, 0, 0, 0, None)
-                        USER32.mouse_event(4, 0, 0, 0, None)
+                        USER32.SetCursorPos(x, int(RESOLUTION["y"] / 2) - random.randint(80, 420))
+                        click_mouse()
                         KERNEL32.Sleep(50)
-                        USER32.mouse_event(2, 0, 0, 0, None)
-                        USER32.mouse_event(4, 0, 0, 0, None)
+                        click_mouse()
                         KERNEL32.Sleep(50)
                     else:
                         break
@@ -332,6 +322,7 @@ class Human(Auxiliary, Thread):
 
                 # only move the mouse 75% of the time, as malware can choose to act on an "idle" system just as it can on an "active" system
                 if random.randint(0, 7) > 1:
+                    USER32.SetCursorPos(int(RESOLUTION["x"] / 2), 0)
                     click_mouse()
                     move_mouse()
 
