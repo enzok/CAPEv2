@@ -316,7 +316,6 @@ class Human(Auxiliary, Thread):
 
             while self.do_run:
                 if officedoc and seconds > 45 and (seconds % 30) == 0 and not OFFICE_CLICK_AROUND and not CLOSED_OFFICE:
-                    log.info("hit timeout doing office click around")
                     USER32.EnumWindows(EnumWindowsProc(get_office_window_click_around), 0)
                     USER32.EnumWindows(EnumWindowsProc(get_office_window), 0)
 

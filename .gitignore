@@ -45,3 +45,5 @@ __pycache__/
 *.sqlite
 env/
 .env/
+*.pyc
+tests/test_objects/
