@@ -189,7 +189,7 @@ def get_office_window_click_around(hwnd, lparm):
     if USER32.IsWindowVisible(hwnd):
         text = create_unicode_buffer(1024)
         USER32.GetWindowTextW(hwnd, text, 1024)
-        if any([value in text.value for value in ("- Microsoft", "- Word", "- Excel", "- PowerPoint")]):
+        if any([value in text.value for value in ("Microsoft Word", "Microsoft Excel", "Microsoft PowerPoint")]):
             USER32.SetForegroundWindow(hwnd)
             # first click the middle
             USER32.SetCursorPos(int(RESOLUTION["x"] / 2), int(RESOLUTION["y"] / 2))
@@ -210,7 +210,7 @@ def get_office_window_click_around(hwnd, lparm):
                     KERNEL32.Sleep(50)
                     if USER32.IsWindowVisible(hwnd):
                         USER32.SetForegroundWindow(hwnd)
-                        USER32.SetCursorPos(x, int(RESOLUTION["y"] / 2) + random.randint(80, 420))
+                        USER32.SetCursorPos(x, int(RESOLUTION["y"] / 2) + random.randint(80, 200))
                         click_mouse()
                         KERNEL32.Sleep(50)
                         click_mouse()
@@ -219,7 +219,7 @@ def get_office_window_click_around(hwnd, lparm):
                         break
                     if USER32.IsWindowVisible(hwnd):
                         USER32.SetForegroundWindow(hwnd)
-                        USER32.SetCursorPos(x, int(RESOLUTION["y"] / 2) - random.randint(80, 420))
+                        USER32.SetCursorPos(x, int(RESOLUTION["y"] / 2) - random.randint(80, 200))
                         click_mouse()
                         KERNEL32.Sleep(50)
                         click_mouse()

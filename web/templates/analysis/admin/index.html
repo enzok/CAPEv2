@@ -26,15 +26,15 @@
         </tr>
         <tr>
             <th></th>
-            <td><a href="{% url "remove" analysis.info.id %}" class="btn btn-secondary btn-sm">Delete task</a></td>
+            <td><a href="{% url "remove" analysis.info.id %}" class="btn btn-primary btn-sm">Delete task</a></td>
         </tr>
         <tr>
             <th></th>
-            <td><a href="{% url "reprocess" analysis.info.id %}" class="btn btn-primary btn-small">Reprocess</a></td>
+            <td><a href="{% url "reprocess" analysis.info.id %}" class="btn btn-primary btn-sm">Reprocess</a></td>
         </tr>
         <tr>
             <th></th>
-            <td><a href="{% url "reschedule" analysis.info.id %}" class="btn btn-primary btn-small">Reschedule</a></td>
+            <td><a href="{% url "reschedule" analysis.info.id %}" class="btn btn-primary btn-sm">Reschedule</a></td>
         </tr>
         {% if analysis.info.user_id %}
         <tr>

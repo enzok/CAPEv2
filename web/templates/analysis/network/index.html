@@ -5,7 +5,7 @@
     <ul class="nav nav-tabs flex-column flex-sm-row" style="margin-bottom: 0;">
         <li class="nav-item active"><a class="nav-link" href="#network_hosts_tab" data-toggle="tab">Hosts ({{ network.hosts|length }})</a></li>
         <li class="nav-item"><a class="nav-link" href="#network_dns_tab" data-toggle="tab">DNS ({{ network.domains|length }})</a></li>
-        <li class="nav-item"><a class="nav-link" href="#network_tcp_tab" data-toggle="tab">TCP ({{ network.tcp|length }})</a></li>
+        <li class="nav-item"><a class="nav-link" href="#network_tcp_tab" data-toggle="tab">TCP ({{ network.tcp|length }}, {{network.dead_hosts|length}})</a></li>
         <li class="nav-item"><a class="nav-link" href="#network_udp_tab" data-toggle="tab">UDP ({{ network.udp|length }})</a></li>
         <li class="nav-item"><a class="nav-link" href="#network_http_tab" data-toggle="tab">
             {% if network.http_ex or network.https_ex %}
