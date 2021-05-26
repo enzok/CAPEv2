@@ -1,32 +1,33 @@
 <script src="{{ STATIC_URL }}js/hexdump.js"></script>
 <section id="tcp" class="tcpudp">
     <h4>TCP</h4>
-    {% if network.tcp %}
-        <div class="row">
-            <div class="col-md-6">
-                <table class="table table-bordered">
-                    <tr>
-                        <th>Source</th>
-                        <th>Source Port</th>
-                        <th>Destination</th>
-                        <th>Destination Port</th>
-                    </tr>
-                    {% for p in network.tcp %}
-                        <tr class="connrow" data="{{p.src}},{{p.sport}},{{p.dst}},{{p.dport}},tcp">
-                            <td>{{p.src}}</td>
-                            <td>{{p.sport}}</td>
-                            <td>{{p.dst}}
-                                {% if network.iplookups %}
-                                    {{ network.iplookups|get_item:p.dst }}
-                                {% endif %}
-                                </td>
-                            <td>{{p.dport}}</td>
+    {% if network.tcp or network.dead_hosts %}
+        {% if network.tcp %}
+            <div class="row">
+                <div class="col-md-6">
+                    <table class="table table-bordered">
+                        <tr>
+                            <th>Source</th>
+                            <th>Source Port</th>
+                            <th>Destination</th>
+                            <th>Destination Port</th>
                         </tr>
-                    {% endfor %}
-                </table>
+                        {% for p in network.tcp %}
+                            <tr class="connrow" data="{{p.src}},{{p.sport}},{{p.dst}},{{p.dport}},tcp">
+                                <td>{{p.src}}</td>
+                                <td>{{p.sport}}</td>
+                                <td>{{p.dst}}
+                                    {% if network.iplookups %}
+                                        {{ network.iplookups|get_item:p.dst }}
+                                    {% endif %}
+                                    </td>
+                                <td>{{p.dport}}</td>
+                            </tr>
+                        {% endfor %}
+                    </table>
+                </div>
+                <div class="stream col-md-6"></div>
             </div>
-            <div class="stream col-md-6"></div>
-        </div>
         {% if network.dead_hosts %}
             <h4>Dead Hosts</h4>
             <div class="row">
