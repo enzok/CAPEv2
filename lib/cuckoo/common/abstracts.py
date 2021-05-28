@@ -55,6 +55,7 @@ except ImportError:
     HAVE_TLDEXTRACT = False
 
 HAVE_MITRE = False
+
 if repconf.mitre.enabled:
     try:
         from pyattck import Attck
@@ -63,9 +64,10 @@ if repconf.mitre.enabled:
             data_path=os.path.join(CUCKOO_ROOT, "data", "mitre"),
             config_file_path=os.path.join(CUCKOO_ROOT, "data", "mitre", "config.yml"),
         )
+        HAVE_MITRE = True
+
     except (ImportError, ModuleNotFoundError):
         print("Missed pyattck dependency: check requirements.txt for exact pyattck version")
-
 
 myresolver = dns.resolver.Resolver()
 myresolver.timeout = 5.0
@@ -852,7 +854,7 @@ class Signature(object):
             pids += [str(block["pid"]) for block in self.results["procdump"]]
 
         log.info(list(set(pids)))
-        return ",".join(list(set(pids)))
+        return list(set(pids))
 
     def advanced_url_parse(self, url):
         if HAVE_TLDEXTRACT:
@@ -888,10 +890,12 @@ class Signature(object):
                     ips.append(rdata.address)
                 except dns.resolver.NXDOMAIN:
                     ips.append(rdata.address)
+        except dns.name.NeedAbsoluteNameOrOrigin:
+            print("An attempt was made to convert a non-absolute name to wire when there was also a non-absolute (or missing) origin.")
         except dns.resolver.NoAnswer:
             print("IPs: Impossible to get response")
         except Exception as e:
-            log.info(e)
+            log.info(str(e))
 
         return ips
 
