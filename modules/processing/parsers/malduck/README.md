@@ -1,29 +1,12 @@
-:duck: Malduck
-=========
+# Malware Configuration Extraction Modules
 
-Malduck is your ducky companion in malware analysis journeys. It is mostly based on [Roach](https://github.com/hatching/roach) project, which derives many concepts from [mlib](https://github.com/mak/mlib) 
-library created by [Maciej Kotowicz](https://lokalhost.pl). The purpose of fork was to make Roach independent from [Cuckoo Sandbox](https://cuckoosandbox.org/) project, but still supporting its internal `procmem` format.
+Extracts Malware Configurations using Malduck
 
-Malduck provides many improvements resulting from CERT.pl codebase, making scripts written for malware analysis purposes much shorter and more powerful. 
+To use these modules or contribute try my featureful CLI utility for MalDuck called [`mwcfg`](https://github.com/c3rb3ru5d3d53c/mwcfg).
 
-Improvements
-============
-
-* Support for (non)memory-mapped PE images without header fix-up.
-* Searching for wildcarded byte sequences
-* Support for x64 disassembly
-* Fixed-precision integer types
-* Many improvements in ProcessMemory
-
-Usage
-==========
-
-Installing may be performed by running
-
-```
-pip install malduck
-```
-
-Usage documentation can be found [on readthedocs](https://malduck.readthedocs.io/en/latest/).
-
-![Co-financed by the Connecting Europe Facility by of the European Union](https://www.cert.pl/wp-content/uploads/2019/02/en_horizontal_cef_logo-1.png)
+**[Supported Modules](https://github.com/c3rb3ru5d3d53c/mwcfg-modules)**
+- :heavy_check_mark: Azorult
+- :heavy_check_mark: Citadel
+- :heavy_check_mark: Hancitor
+- :heavy_check_mark: 44Caliber Stealer
+- :heavy_check_mark: ZLoader
