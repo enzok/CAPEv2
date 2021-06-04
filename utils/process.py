@@ -59,7 +59,7 @@ def memory_limit(percentage: float = 0.8):
         print('Only works on linux!')
         return
     _, hard = resource.getrlimit(resource.RLIMIT_AS)
-    resource.setrlimit(resource.RLIMIT_AS, (get_memory() * 1024 * percentage, hard))
+    resource.setrlimit(resource.RLIMIT_AS, (int(get_memory() * 1024 * percentage), hard))
 
 def get_memory():
     with open('/proc/meminfo', 'r') as mem:
@@ -106,13 +106,15 @@ def process(target=None, copy_path=None, task=None, report=False, auto=False, ca
             )
             mdata = conn[db]
             analyses = mdata.analysis.find({"info.id": int(task_id)})
-            if analyses.count() > 0:
+            if analyses:
                 log.debug("Deleting analysis data for Task %s" % task_id)
                 for analysis in analyses:
                     for process in analysis["behavior"].get("processes", []):
+                        calls = list()
                         for call in process["calls"]:
-                            mdata.calls.remove({"_id": ObjectId(call)})
-                    mdata.analysis.remove({"_id": ObjectId(analysis["_id"])})
+                            calls.append(ObjectId(call))
+                        mdata.calls.delete_many({"_id": {"$in": calls}})
+                    mdata.analysis.delete_one({"_id": ObjectId(analysis["_id"])})
             conn.close()
             log.debug("Deleted previous MongoDB data for Task %s" % task_id)
 

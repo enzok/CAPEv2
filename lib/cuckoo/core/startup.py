@@ -206,6 +206,7 @@ def init_tasks():
             db.reschedule(task.id)
             log.info("Rescheduled task with ID {0} and target {1}".format(task.id, task.target))
         else:
+            # ToDo here?
             db.set_status(task.id, TASK_FAILED_ANALYSIS)
             log.info("Updated running task ID {0} status to failed_analysis".format(task.id))
 
@@ -288,7 +289,7 @@ def init_yara():
                 else:
                     break
             except yara.Error as e:
-                print(e, sys.exc_info())
+                print("There was a syntax error in one or more Yara rules: %s" % e)
                 log.error("There was a syntax error in one or more Yara rules: %s" % e)
                 break
 

@@ -439,9 +439,7 @@ def load_files(request, task_id, category):
                 if os.path.exists(bingraph_path):
                     if ajax_mongo_schema.get(category, "") in ("dropped", "procdump"):
                         for block in data.get(category, []):
-                            print(block)
                             if not block.get("sha256"):
-                                print("missed sha256", block)
                                 continue
                             tmp_file = os.path.join(bingraph_path, block["sha256"] + "-ent.svg")
                             if os.path.exists(tmp_file):
@@ -540,7 +538,9 @@ def chunk(request, task_id, pid, pagenum):
                 chunk = results_db.calls.find_one({"_id": ObjectId(objectid)})
 
             if es_as_db:
-                chunk = es.search(index=fullidx, doc_type="calls", q='_id: "%s"' % objectid,)["hits"]["hits"][0]["_source"]
+                chunk = es.search(index=fullidx, doc_type="calls", q='_id: "%s"' % objectid,)["hits"]["hits"][
+                    0
+                ]["_source"]
         else:
             chunk = dict(calls=[])
 
@@ -1539,7 +1539,9 @@ def search(request, searched=False):
                 continue
             analyses.append(new)
         return render(
-            request, "analysis/search.html", {"analyses": analyses, "config": enabledconf, "term": searched, "error": None}
+            request,
+            "analysis/search.html",
+            {"analyses": analyses, "config": enabledconf, "term": searched, "error": None},
         )
     else:
         return render(request, "analysis/search.html", {"analyses": None, "term": None, "error": None})

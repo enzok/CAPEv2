@@ -76,14 +76,9 @@ class ReturnJsonRenderer(JsonRenderer):
             acc_map[node.path] = node_dict
             return (acc_map, final_tree)
 
-        error = grid.populate(visitor, final_output, fail_on_errors=False)
+        error = grid.populate(visitor, final_output, fail_on_errors=True)
         return final_output[1], error
 
-"""
-from modules.processing.memory import VolatilityAPI
-vapi = VolatilityAPI()
-bridge = vapi.init("windows.pony.Pony", "pony.dmp")
-"""
 
 class VolatilityAPI(object):
     def __init__(self, memdump):
