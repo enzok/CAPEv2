@@ -26,9 +26,12 @@ for item in confdata:
 if enabledconf["mongodb"]:
     import pymongo
 
-    # results_db = pymongo.MongoClient(settings.MONGO_HOST, settings.MONGO_PORT)[settings.MONGO_DB]
     results_db = pymongo.MongoClient(
-        settings.MONGO_HOST, port=settings.MONGO_PORT, username=settings.MONGO_USER, password=settings.MONGO_PASS, authSource=settings.MONGO_DB,
+        settings.MONGO_HOST,
+        port=settings.MONGO_PORT,
+        username=settings.MONGO_USER,
+        password=settings.MONGO_PASS,
+        authSource=settings.MONGO_AUTHSOURCE
     )[settings.MONGO_DB]
 
 es_as_db = False
@@ -72,12 +75,12 @@ def left(request, left_id):
     # Select all analyses with same file hash.
     if enabledconf["mongodb"]:
         records = results_db.analysis.find(
-            {"$and": [{"target.file.md5": left["target"]["file"]["md5"]}, {"info.id": {"$ne": int(left_id)}}]}, {"target": 1, "info": 1},
+            {"$and": [{"target.file.md5": left["target"]["file"]["md5"]}, {"info.id": {"$ne": int(left_id)}}]}, {"target": 1, "info": 1}
         )
     if es_as_db:
         records = list()
         results = es.search(
-            index=fullidx, doc_type="analysis", q='target.file.md5: "%s" NOT info.id: "%s"' % (left["target"]["file"]["md5"], left_id),
+            index=fullidx, doc_type="analysis", q='target.file.md5: "%s" NOT info.id: "%s"' % (left["target"]["file"]["md5"], left_id)
         )["hits"]["hits"]
         for item in results:
             records.append(item["_source"])
@@ -102,7 +105,7 @@ def hash(request, left_id, right_hash):
     # Select all analyses with same file hash.
     if enabledconf["mongodb"]:
         records = results_db.analysis.find(
-            {"$and": [{"target.file.md5": left["target"]["file"]["md5"]}, {"info.id": {"$ne": int(left_id)}}]}, {"target": 1, "info": 1},
+            {"$and": [{"target.file.md5": left["target"]["file"]["md5"]}, {"info.id": {"$ne": int(left_id)}}]}, {"target": 1, "info": 1}
         )
     if es_as_db:
         records = list()
@@ -134,5 +137,5 @@ def both(request, left_id, right_id):
     return render(
         request,
         "compare/both.html",
-        {"left": left, "right": right, "left_counts": counts[left_id], "right_counts": counts[right_id], "summary": summary_compare,},
+        {"left": left, "right": right, "left_counts": counts[left_id], "right_counts": counts[right_id], "summary": summary_compare},
     )
