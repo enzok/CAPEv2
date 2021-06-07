@@ -1,3 +1,10 @@
+### [06-06-2021] Ratelimit strikes again
+* Reintroduce ratelimit to control abuses
+
+### [04-06-2021]
+* Allow anon users list reports and view them
+    * `conf/web.conf ->  general -> anon_viewable`
+
 ### [31-05-2021]
 * Monitor updates:
     * Fixes for NtCreateProcessEx hook, regsvr32 arg parsing, branch tracing (debugger)

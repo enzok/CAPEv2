@@ -38,8 +38,19 @@ from lib.cuckoo.common.web_utils import (
     perform_search,
     perform_ttps_search,
     statistics,
+    rateblock,
+    my_rate_seconds,
+    my_rate_minutes,
 )
 import modules.processing.network as network
+
+try:
+    from django_ratelimit.decorators import ratelimit
+except ImportError:
+    try:
+        from ratelimit.decorators import ratelimit
+    except ImportError:
+        print("missed dependency: pip3 install django-ratelimit -U")
 
 from lib.cuckoo.common.admin_utils import disable_user
 try:
@@ -135,6 +146,16 @@ if enabledconf["elasticsearchdb"]:
 
 db = Database()
 
+anon_not_viewable_func_list = (
+    "file",
+    "remove",
+    # "search",
+    "pending",
+    "filtered_chunk",
+    "search_behavior",
+    "statistics_data",
+)
+
 # Conditional decorator for web authentication
 class conditional_login_required(object):
     def __init__(self, dec, condition):
@@ -142,6 +163,8 @@ class conditional_login_required(object):
         self.condition = condition
 
     def __call__(self, func):
+        if settings.ANON_VIEW and func.__name__ not in anon_not_viewable_func_list:
+            return func
         if not self.condition:
             return func
         return self.decorator(func)
@@ -970,6 +993,8 @@ def search_behavior(request, task_id):
 
 @require_safe
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
+@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
+@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
 def report(request, task_id):
     network_report = False
     if enabledconf["mongodb"]:
@@ -1461,6 +1486,8 @@ def full_memory_dump_strings(request, analysis_number):
 
 @csrf_exempt
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
+@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
+@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
 def search(request, searched=False):
     if "search" in request.POST or searched:
         term = ""
@@ -1780,6 +1807,8 @@ on_demand_config_mapper = {
 
 
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
+@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
+@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
 def on_demand(request, service: str, task_id: int, category: str, sha256):
     """
     This aux function allows to generate some details on demand, this is specially useful for long running libraries and we don't need them in many cases due to scripted submissions
