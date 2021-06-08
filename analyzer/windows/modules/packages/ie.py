@@ -13,12 +13,6 @@ class IE(Package):
         ("ProgramFiles", "Internet Explorer", "iexplore.exe"),
     ]
 
-    def __init__(self, options={}, config=None):
-        self.config = config
-        self.options = options
-        self.options["minhook"] = 1
-        self.options["exclude-apis"] = "memcpy"
-
     def start(self, url):
         iexplore = self.get_path("Internet Explorer")
         # pass the URL instead of a filename in this case
