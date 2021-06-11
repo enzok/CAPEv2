@@ -1900,9 +1900,11 @@ class HwpDocument(object):
 class Java(object):
     """Java Static Analysis"""
 
-    def __init__(self, file_path, decomp_jar):
+    def __init__(self, file_path, decomp_jar, deobfuscator_jar, deobfuscator_conf):
         self.file_path = file_path
         self.decomp_jar = decomp_jar
+        self.deobfuscator_jar = deobfuscator_jar
+        self.deobfuscator_conf = deobfuscator_conf
 
     def run(self):
         """Run analysis.
@@ -1914,12 +1916,46 @@ class Java(object):
         results = {}
 
         results["java"] = {}
+        ojar_file = ""
+        jar_file = ""
 
-        if self.decomp_jar:
+        if self.deobfuscator_jar:
             f = open(self.file_path, "rb")
             data = f.read()
             f.close()
-            jar_file = store_temp_file(data, "decompile.jar")
+            # TODO: run with detect: true, then apply discovered transformers
+            try:
+                ijar_file = store_temp_file(data, "obfuscated.jar")
+                tmpdir = os.path.dirname(ijar_file)
+                ojar_file = os.path.join(tmpdir, b"decompile.jar")
+                tmp_conf = os.path.join(tmpdir, b"config.yml")
+                with open (self.deobfuscator_conf, "r") as cf:
+                    confdata = cf.read()
+                with open (tmp_conf, "w") as tf:
+                    tf.write("input: " + ijar_file.decode('utf8') + "\n")
+                    tf.write("output: " + ojar_file.decode('utf8') + "\n")
+                    tf.write(confdata)
+
+                p = Popen(["java", "-jar", self.deobfuscator_jar, "--config", tmp_conf], stdout=PIPE)
+                log.info(convert_to_printable(p.stdout.read()))
+                jar_file = ojar_file
+
+                try:
+                    os.unlink(ijar_file)
+                except:
+                    pass
+
+            except Exception as e:
+                ojar_file = ""
+                log.error(e, exc_info=True)
+                pass
+
+        if self.decomp_jar:
+            if not jar_file:
+                f = open(self.file_path, "rb")
+                data = f.read()
+                f.close()
+                jar_file = store_temp_file(data, "decompile.jar")
 
             try:
                 if self.decomp_jar.endswith(".jar"):
@@ -2661,9 +2697,15 @@ class Static(Processing):
             #    static = HwpDocument(self.file_path, self.results).run()
             elif "Java Jar" in thetype or self.task["target"].endswith(".jar"):
                 decomp_jar = self.options.get("procyon_path", None)
+                deobfuscator_jar = self.options.get("deobfuscator_path", None)
+                deobfuscator_conf = self.options.get("deobfuscator_conf_path", None)
                 if decomp_jar and not os.path.exists(decomp_jar):
                     log.error("procyon_path specified in processing.conf but the file does not exist.")
-                static = Java(self.file_path, decomp_jar).run()
+                if deobfuscator_jar and not os.path.exists(deobfuscator_jar):
+                    log.error("deobfuscator_path specified in processing.conf but the file does not exist.")
+                if deobfuscator_conf and not os.path.exists(deobfuscator_conf):
+                    log.error("deobfuscator_conf_path specified in processing.conf but the file does not exist.")
+                static = Java(self.file_path, decomp_jar, deobfuscator_jar, deobfuscator_conf).run()
             # It's possible to fool libmagic into thinking our 2007+ file is a
             # zip. So until we have static analysis for zip files, we can use
             # oleid to fail us out silently, yeilding no static analysis
