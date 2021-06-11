@@ -1939,15 +1939,14 @@ class Java(object):
                 p = Popen(["java", "-jar", self.deobfuscator_jar, "--config", tmp_conf], stdout=PIPE)
                 log.info(convert_to_printable(p.stdout.read()))
                 jar_file = ojar_file
-
-                try:
-                    os.unlink(ijar_file)
-                except:
-                    pass
-
             except Exception as e:
                 ojar_file = ""
                 log.error(e, exc_info=True)
+                pass
+
+            try:
+                os.unlink(ijar_file)
+            except:
                 pass
 
         if self.decomp_jar:
