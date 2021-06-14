@@ -1923,7 +1923,7 @@ class Java(object):
             f = open(self.file_path, "rb")
             data = f.read()
             f.close()
-            # TODO: run with detect: true, then apply discovered transformers
+            # TODO: run with detect: true, then apply from list of approved, discovered transformers
             try:
                 ijar_file = store_temp_file(data, "obfuscated.jar")
                 tmpdir = os.path.dirname(ijar_file)
