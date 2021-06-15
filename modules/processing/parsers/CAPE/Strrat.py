@@ -62,7 +62,7 @@ def decode(data):
             decoded = aesdecrypt(data, passkey)
         except:
             return
-    return decoded
+    return decoded.decode('utf8')
 
 def config(data):
     raw_config = {}
