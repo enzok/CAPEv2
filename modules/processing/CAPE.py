@@ -128,6 +128,8 @@ qakbot_id_map = {
 class CAPE(Processing):
     """CAPE output file processing."""
 
+    order = 99999
+
     def detect2pid(self, pid, cape_name):
         self.results.setdefault("detections2pid", {})
         self.results["detections2pid"].setdefault(str(pid), list())
@@ -159,7 +161,7 @@ class CAPE(Processing):
                         else:
                             upx_extract["cape_type"] += "executable"
 
-    def process_file(self, file_path, append_file, metadata={}):
+    def process_file(self, file_path, append_file, metadata={}, submitted_file=False):
         """Process file.
         @return: file_info
         """
@@ -410,6 +412,15 @@ class CAPE(Processing):
             if file_info.get("pid"):
                 self.detect2pid(file_info["pid"], cape_name)
 
+        special_parsing_list = ["Strrat", ]
+
+        if "detections" in self.results and submitted_file:
+            if self.results["detections"] in special_parsing_list:
+                cape_name = self.results["detections"].replace("_", " ")
+                tmp_config = static_config_parsers(cape_name, file_data)
+                if tmp_config and tmp_config[cape_name]:
+                    config.update(tmp_config)
+
         # Remove duplicate payloads from web ui
         for cape_file in self.cape["payloads"] or []:
             if file_info["size"] == cape_file["size"]:
@@ -480,6 +491,6 @@ class CAPE(Processing):
             if not os.path.exists(self.file_path):
                 log.error('Sample file doesn\'t exist: "%s"' % self.file_path)
 
-        self.process_file(self.file_path, False, meta.get(self.file_path, {}))
+        self.process_file(self.file_path, False, meta.get(self.file_path, {}), submitted_file=True)
 
         return self.cape
