@@ -133,13 +133,26 @@
                         <a href="{% url "file" "procdump" id file.sha256 %}" class="btn btn-secondary btn-sm">Download</a>
                     {% endif %}
                     <a class="btn btn-secondary btn-sm" href="/submit/resubmit/{{file.sha256}}"><span class="fa fa-refresh" aria-hidden="true"></span> Submit file</a>
+                    {% if config.flare_capa %}
+                        {% if not file.flare_capa %}
+                            <a class="btn btn-secondary btn-sm" href="{% url "on_demand" "flare_capa" id "procdump" file.sha256 %}" role="button">Generate CAPA</a>
+                        {% else %}
+                            <a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#flare_capa_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="flare_capa_{{file.sha256}}">FLARE CAPA</a>
+                        {% endif %}
+                    {% endif %}
+                    {% if config.bingraph %}
+                        {% if not bingraph.content|getkey:file.sha256 %}
+                            <a class="btn btn-secondary btn-sm" href="{% url "on_demand" "bingraph" id "procdump" file.sha256 %}" role="button">Generate Bingraph</a>
+                        {% else %}
+                            <a href="{% url "file_nl" "bingraph" id file.sha256 %}" class="btn btn-secondary btn-sm">Download graph</a>
+                        {% endif %}
+                    {% endif %}
                     </td>
                 </tr>
                 {% endif %}
                 {% if file.flare_capa %}
                 <tr>
-                    <th><p><a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#flare_capa_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="flare_capa_{{file.sha256}}">FLARE CAPA</a></p></th>
-                    <td>
+                    <th></th><td>
                     <div class="collapse" id="flare_capa_{{file.sha256}}">
                         <div class="card card-body">
                         <!--Inspired by @snemes trick, code placed in web/views/templateatgs/analysis_tags.py-->
@@ -159,24 +172,12 @@
                 </td>
                 </tr>
                 </br>
-                {% else %}
-                <tr>
-                    <th><p><a class="btn btn-secondary btn-sm" href="{% url "on_demand" "flare_capa" id "procdump" file.sha256 %}" role="button">Generate CAPA</a></p></th>
-                    <td></td>
-                </tr>
                 {% endif %}
-            {% if bingraph.enabled and bingraph.content|getkey:file.sha256 %}
+                {% if bingraph.enabled and bingraph.content|getkey:file.sha256 %}
                 <tr>
-                    <th><p><a href="{% url "file_nl" "bingraph" id file.sha256 %}" class="btn btn-secondary btn-sm">Download graph</a></p></th>
+                    <th></th>
                     <td>{{ bingraph.content|getkey:file.sha256|safe }}</td>
                 </tr>
-            {% else %}
-                {% if config.bingraph %}
-                <tr>
-                    <th><p><a class="btn btn-secondary btn-sm" href="{% url "on_demand" "bingraph" id "procdump" file.sha256 %}" role="button">Generate Bingraph</a></p></th>
-                    <td></td>
-                </tr>
-                {% endif %}
             {% endif %}
             </table>
         </div>
