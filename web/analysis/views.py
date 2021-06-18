@@ -82,7 +82,10 @@ reporting_cfg = Config("reporting")
 # On demand features
 HAVE_FLARE_CAPA = False
 if processing_cfg.flare_capa.on_demand:
-    from lib.cuckoo.common.integrations.capa import flare_capa_details, HAVE_FLARE_CAPA
+    try:
+        from lib.cuckoo.common.integrations.capa import flare_capa_details, HAVE_FLARE_CAPA
+    except Exception as e:
+        print("CAPA - ", e)
 
 HAVE_VBA2GRAPH = False
 if processing_cfg.vba2graph.on_demand:
@@ -169,6 +172,9 @@ class conditional_login_required(object):
             return func
         return self.decorator(func)
 
+def get_tags_tasks(task_ids: list) -> str:
+    for analysis in db.list_tasks(task_ids=task_ids):
+        return analysis.tags_tasks
 
 def get_analysis_info(db, id=-1, task=None):
     if not task:
@@ -181,6 +187,8 @@ def get_analysis_info(db, id=-1, task=None):
         new["sample"] = db.view_sample(new["sample_id"]).to_dict()
         filename = os.path.basename(new["target"])
         new.update({"filename": filename})
+
+    new.update({"user_task_tags": get_tags_tasks([new["id"]])})
 
     if "machine" in new and new["machine"]:
         machine = new["machine"]
@@ -419,7 +427,6 @@ def pending(request):
 
 ajax_mongo_schema = {
     "CAPE": "CAPE",
-    "CAPE_old": "CAPE",
     "dropped": "dropped",
     "debugger": "debugger",
     "behavior": "behavior",
@@ -436,7 +443,7 @@ def load_files(request, task_id, category):
     @param task_id: cuckoo task id
     """
     # ToDo remove in CAPEv3
-    if request.is_ajax() and category in ("CAPE", "CAPE_old", "dropped", "behavior", "debugger", "network", "procdump", "memory"):
+    if request.is_ajax() and category in ("CAPE", "dropped", "behavior", "debugger", "network", "procdump", "memory"):
         data = dict()
         bingraph = False
         debugger_logs = dict()
@@ -495,12 +502,7 @@ def load_files(request, task_id, category):
                             debugger_logs[int(log.strip(".log"))] = f.read()
 
         # ES isn't supported
-        # ToDo remove in CAPEv3
-        if category == "CAPE_old":
-            page = "analysis/CAPE/index_old.html"
-            category = "CAPE"
-        else:
-            page = "analysis/{}/index.html".format(category)
+        page = "analysis/{}/index.html".format(category)
 
         ajax_response = {
             ajax_mongo_schema[category]: data.get(category, {}),
@@ -1008,8 +1010,7 @@ def report(request, task_id):
             {"network.domainlookups": 1, "network.iplookups": 1, "network.dns": 1, "network.hosts": 1},
             sort=[("_id", pymongo.DESCENDING)],
         )
-        # ToDo
-        # memory_exist = results_db.analysis.find({"info.id": int(task_id), "memory": {"$exists": True}})
+
     if es_as_db:
         query = es.search(index=fullidx, doc_type="analysis", q='info.id: "%s"' % task_id)["hits"]["hits"][0]
         report = query["_source"]
@@ -1043,9 +1044,10 @@ def report(request, task_id):
                 [{"$match": {"info.id": int(task_id)}}, {"$project": {"_id": 0, "dropped_size": {"$size": "$dropped.sha256"}}}]
             )
         )[0]["dropped_size"]
-    except:
+    except :
         report["dropped"] = 0
 
+    report["CAPE"] = 0
     try:
         tmp_data = list(
             results_db.analysis.aggregate(
@@ -1053,27 +1055,11 @@ def report(request, task_id):
             )
         )
         report["CAPE"] = tmp_data[0]["cape_size"] or 0
-        # ToDo remove in CAPEv3 *_old
-        if not report["CAPE"]:
-            tmp_data = list(
-                results_db.analysis.aggregate(
-                    [
-                        {"$match": {"info.id": int(task_id)}},
-                        {
-                            "$project": {
-                                "_id": 0,
-                                "cape_size_old": {"$size": "$CAPE.sha256"},
-                                "cape_conf_size_old": {"$size": "$CAPE.cape_config"},
-                            }
-                        },
-                    ]
-                )
-            )
-            report["CAPE_old"] = tmp_data[0]["cape_size_old"] or tmp_data[0]["cape_conf_size_old"] or 0
     except Exception as e:
         print(e)
-        report["CAPE"] = 0
 
+
+    report["procdump_size"] = 0
     try:
         tmp_data = list(
             results_db.analysis.aggregate(
@@ -1083,14 +1069,15 @@ def report(request, task_id):
         report["procdump"] = tmp_data[0]["procdump_size"] or 0
     except Exception as e:
         print(e)
-        report["procdump_size"] = 0
 
+    report["memory"] = 0
     try:
-        tmp_data = list(results_db.analysis.aggregate([{"$match": {"info.id": int(task_id)}}, {"$project": {"_id": 1}}]))
-        report["memory"] = tmp_data[0]["_id"] or 0
+        tmp_data = list(results_db.analysis.find({"info.id": int(task_id), "memory": {"$exists": True}}))
+        if tmp_data:
+            report["memory"] = tmp_data[0]["_id"] or 0
     except Exception as e:
         print(e)
-        report["memory"] = 0
+
 
     reports_exist = False
     reporting_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "reports")
@@ -1851,9 +1838,9 @@ def on_demand(request, service: str, task_id: int, category: str, sha256):
         return render(request, "error.html", {"error": "Not supported/enabled service on demand"})
 
     if category == "static":
-        path = os.path.join(ANALYSIS_BASE_PATH, str(task_id), "binary")
+        path = os.path.join(ANALYSIS_BASE_PATH, "analyses", str(task_id), "binary")
     else:
-        path = os.path.join(ANALYSIS_BASE_PATH, str(task_id), category, sha256)
+        path = os.path.join(ANALYSIS_BASE_PATH, "analyses", str(task_id), category, sha256)
 
     if path and (not os.path.normpath(path).startswith(ANALYSIS_BASE_PATH) or not os.path.exists(path)):
         return render(request, "error.html", {"error": "File not found: {}".format(path)})
@@ -1870,9 +1857,9 @@ def on_demand(request, service: str, task_id: int, category: str, sha256):
         and HAVE_BINGRAPH
         and reporting_cfg.bingraph.enabled
         and reporting_cfg.bingraph.on_demand
-        and not os.path.exists(os.path.join(ANALYSIS_BASE_PATH, str(task_id), "bingraph", sha256 + "-ent.svg"))
+        and not os.path.exists(os.path.join(ANALYSIS_BASE_PATH, "analyses", str(task_id), "bingraph", sha256 + "-ent.svg"))
     ):
-        bingraph_path = os.path.join(ANALYSIS_BASE_PATH, str(task_id), "bingraph")
+        bingraph_path = os.path.join(ANALYSIS_BASE_PATH, "analyses", str(task_id), "bingraph")
         if not os.path.exists(bingraph_path):
             os.makedirs(bingraph_path)
         try:

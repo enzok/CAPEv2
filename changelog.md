@@ -1,3 +1,16 @@
+### [17-06-2021]
+* Updates to processing module & monitor to allow type strings to replace old type codes
+* Updates to 'dump' Debugger action
+* Hit counts added to debugger breakpoints
+
+### [17-06-2021]
+* add `username` field to be used for custom auth
+* __ACTION REQUIRED__ if you using dist.py
+    * `cd utils/db_migration && alembic upgrade head`
+
+### [13-06-2021]
+* Introdiced checker of available space in process.py to prevent system run out of memory and generate a lot of troubles
+
 ### [10-06-2021] dist.py
 * Migrates from ht_user/ht_pass to apikey for proper apiv2 integration
 * __ACTION REQUIRED__ if you using dist.py

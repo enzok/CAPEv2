@@ -114,13 +114,13 @@ def node_status(url, name, apikey):
     return {}
 
 
-def node_fetch_tasks(status, url, action="fetch", since=0):
+def node_fetch_tasks(status, url, apikey, action="fetch", since=0):
     try:
         url = os.path.join(url, "tasks", "list/")
         params = dict(status=status, ids=True)
         if action == "fetch":
             params["completed_after"] = since
-        r = requests.get(url, params=params, verify=False)
+        r = requests.get(url, params=params, headers = {'Authorization': f'Token {apikey}'}, verify=False)
         if not r.ok:
             log.error(f"Error fetching task list. Status code: {r.status_code}")
             return []
@@ -149,10 +149,13 @@ def node_get_report(task_id, fmt, url, apikey, stream=False):
 
 
 def _delete_many(node, ids, nodes, db):
+
+    if nodes[node.id].name == "master":
+        return
     try:
-        url = os.path.join(nodes[node].url, "tasks", "delete_many/")
-        apikey = nodes[node].apikey
-        log.info("Removing task id(s): {0} - from node: {1}".format(ids, nodes[node].name))
+        url = os.path.join(nodes[node.id].url, "tasks", "delete_many/")
+        apikey = nodes[node.id].apikey
+        log.info("Removing task id(s): {0} - from node: {1}".format(ids, nodes[node.id].name))
         res = requests.post(
             url,
             headers = {'Authorization': f'Token {apikey}'},
@@ -163,7 +166,7 @@ def _delete_many(node, ids, nodes, db):
             log.info("{} - {}".format(res.status_code, res.content))
             db.rollback()
     except Exception as e:
-        log.critical("Error deleting task (tasks #%s, node %s): %s", ids, nodes[node].name, e)
+        log.critical("Error deleting task (tasks #%s, node %s): %s", ids, nodes[node.id].name, e)
         db.rollback()
 
 
@@ -594,7 +597,7 @@ class Retriever(threading.Thread):
 
             node = nodes[node_id]
             if node and details[node_id]:
-                ids = ",".join(details[node])
+                ids = ",".join(list(set(details[node_id])))
                 _delete_many(node, ids, nodes, db)
 
             db.commit()
@@ -804,7 +807,12 @@ class StatusThread(threading.Thread):
             # HACK: This exception handling here is a big hack as well as db should check if the
             # there is any issue with the current session (expired or database is down.).
             try:
-                # Request a status update on all Cuckoo nodes.
+                # Remove disabled nodes
+                for node in db.query(Node).filter_by(enabled=False).all() or []:
+                    if node.name in STATUSES:
+                        del STATUSES[node.name]
+
+                # Request a status update on all CAPE nodes.
                 for node in db.query(Node).filter_by(enabled=True).all():
                     status = node_status(node.url, node.name, node.apikey)
                     if not status:
@@ -815,7 +823,8 @@ class StatusThread(threading.Thread):
                             log.info("[-] {} dead".format(node.name))
                             #node.enabled = False
                             db.commit()
-                            #STATUSES[node.name]["enabled"] = False
+                            if node.name in STATUSES:
+                                del STATUSES[node.name]
                         continue
                     failed_count[node.name] = 0
                     log.info("Status.. %s -> %s", node.name, status["tasks"])
@@ -1080,7 +1089,7 @@ def cron_cleaner(clean_x_hours=False):
             if node and not details[node]:
                 continue
 
-            ids = ",".join(details[node])
+            ids = ",".join(details[node.id])
             _delete_many(node, ids, nodes, db)
 
     db.commit()

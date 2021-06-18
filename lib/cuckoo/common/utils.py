@@ -48,26 +48,46 @@ def arg_name_clscontext(arg_val):
 
 config = Config()
 
+HAVE_TMPFS = False
 if hasattr(config, "tmpfs"):
     tmpfs = config.tmpfs
     HAVE_TMPFS = True
-else:
-    HAVE_TMPFS = False
 
 log = logging.getLogger(__name__)
 
+# Django Validator BSD lic. https://github.com/django/django
+referrer_url_re = re.compile(
+    r"^(?:http|ftp)s?://"  # http:// or https://
+    r"(?:(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+(?:[A-Z]{2,6}\.?|[A-Z0-9-]{2,}\.?)|"  # domain...
+    r"localhost|"  # localhost...
+    r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})"  # ...or ip
+    r"(?::\d+)?"  # optional port
+    r"(?:/?|[/?]\S+)$",
+    re.IGNORECASE,
+)
 
-def free_space_monitor(path=False, RAM=False, return_value=False):
+def free_space_monitor(path=False, RAM=False, return_value=False, processing=False):
+    """
+    @param path: path to check
+    @param RAM: use TMPFS check
+    @param return_value: return available size
+    @param processing: size from cuckoo.conf -> freespace_processing.
+    """
     need_space, space_available = False, 0
     while True:
         try:
             # Calculate the free disk space in megabytes.
-            if RAM and HAVE_TMPFS and tmpfs.enabled:
-                space_available = shutil.disk_usage(tmpfs.path).free >> 20
-                need_space = space_available < tmpfs.freespace
+            # Check main FS if processing
+            if processing:
+                free_space = config.cuckoo.freespace_processing
+            elif RAM and HAVE_TMPFS and tmpfs.enabled:
+                path = tmpfs.path
+                free_space = tmpfs.freespace
             else:
-                space_available = shutil.disk_usage(path).free >> 20
-                need_space = space_available < config.cuckoo.freespace
+                free_space = config.cuckoo.freespace
+
+            space_available = shutil.disk_usage(path).free >> 20
+            need_space = space_available < free_space
         except FileNotFoundError:
             log.error("Folder doesn't exist, maybe due to clean")
             os.makedirs(path)
@@ -100,18 +120,7 @@ def validate_referrer(url):
     if not url:
         return None
 
-    # Django Validator BSD lic. https://github.com/django/django
-    url_re = re.compile(
-        r"^(?:http|ftp)s?://"  # http:// or https://
-        r"(?:(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+(?:[A-Z]{2,6}\.?|[A-Z0-9-]{2,}\.?)|"  # domain...
-        r"localhost|"  # localhost...
-        r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})"  # ...or ip
-        r"(?::\d+)?"  # optional port
-        r"(?:/?|[/?]\S+)$",
-        re.IGNORECASE,
-    )
-
-    if not url_re.match(url):
+    if not referrer_url_re.match(url):
         return None
 
     return url
