@@ -192,7 +192,9 @@
         <tr>
             <th></th>
             <td>
-                <a href="{% url "file" tab_name id file.sha256 %}" class="btn btn-secondary btn-sm"><span class="fas fa-download"></span></a>
+                <% if not config.zipped_download %>
+                    <a href="{% url "file" tab_name id file.sha256 %}" class="btn btn-secondary btn-sm"><span class="fas fa-download"></span></a>
+                <% endif %>
                 {% if tab_name == "CAPE" %}
                     <a href="{% url "file" tab_name|add:"ZIP" id file.sha256 %}" class="btn btn-secondary btn-sm"><span class="fas fa-file-archive"></span> <span class="fas fa-download"></span></a>
                 {% else %}
