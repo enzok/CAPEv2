@@ -43,6 +43,7 @@ from lib.cuckoo.common.web_utils import (
     my_rate_minutes,
 )
 import modules.processing.network as network
+from modules.processing.virustotal import vt_lookup
 
 try:
     from django_ratelimit.decorators import ratelimit
@@ -507,6 +508,7 @@ def load_files(request, task_id, category):
             "id": task_id,
             "bingraph": {"enabled": bingraph, "content": bingraph_dict_content},
             "config": enabledconf,
+            "tab_name": category,
 
         }
 
@@ -1285,6 +1287,8 @@ def file(request, category, task_id, dlfile):
         path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "logs", "files", file_name)
     elif category == "rtf":
         path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "rtf_objects", file_name)
+    elif category == "tlskeys":
+        path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "tlsdump", "tlsdump.log")
     else:
         return render(request, "error.html", {"error": "Category not defined"})
 
@@ -1339,7 +1343,7 @@ def procdump(request, task_id, process_id, start, end):
         if not os.path.exists(dumpfile):
             return render(request, "error.html", {"error": "File not found"})
         f = zipfile.ZipFile(dumpfile, "r")
-        tmpdir = tempfile.mkdtemp(prefix="capememdump_", dir=settings.TEMP_PATH)
+        tmpdir = tempfile.mkdtemp(prefix="capeprocdump_", dir=settings.TEMP_PATH)
         tmp_file_path = f.extract(origname, path=tmpdir)
         f.close()
         dumpfile = tmp_file_path
@@ -1736,18 +1740,26 @@ def comments(request, task_id):
 def vtupload(request, category, task_id, filename, dlfile):
     if enabledconf["vtupload"] and settings.VTDL_KEY:
         try:
+            folder_name = False
+            path = False
             if category == "sample":
                 path = os.path.join(CUCKOO_ROOT, "storage", "binaries", dlfile)
             elif category == "dropped":
-                path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "files", filename)
-            if not os.path.normpath(path).startswith(ANALYSIS_BASE_PATH):
+                folder_name = "files"
+            elif category in ("CAPE", "procdump"):
+                folder_name = category
+
+            if folder_name:
+                path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, folder_name, filename)
+
+            if not path or not os.path.normpath(path).startswith(ANALYSIS_BASE_PATH):
                 return render(request, "error.html", {"error": "File not found".format(os.path.basename(path))})
+
             headers = {"x-apikey": settings.VTDL_KEY}
             files = {"file": (filename, open(path, "rb"))}
             response = requests.post("https://www.virustotal.com/api/v3/files", files=files, headers=headers)
             if response.ok:
-                data = response.json().get("data", {})
-                id = data.get("id")
+                id = response.json().get("data", {}).get("id")
                 if id:
                     return render(
                         request, "success_vtup.html", {"permalink": "https://www.virustotal.com/api/v3/analyses/{id}".format(id=id)}
@@ -1829,7 +1841,7 @@ def on_demand(request, service: str, task_id: int, category: str, sha256):
     # 4. reload page
     """
 
-    if service not in ("bingraph", "flare_capa", "vba2graph") and not on_demand_config_mapper.get(service, {}).get(service, {}).get(
+    if service not in ("bingraph", "flare_capa", "vba2graph", "virustotal") and not on_demand_config_mapper.get(service, {}).get(service, {}).get(
         "on_demand"
     ):
         return render(request, "error.html", {"error": "Not supported/enabled service on demand"})
@@ -1848,6 +1860,9 @@ def on_demand(request, service: str, task_id: int, category: str, sha256):
 
     elif service == "vba2graph" and HAVE_VBA2GRAPH:
         vba2graph_func(path, str(task_id), on_demand=True)
+
+    elif service == "virustotal":
+        details = vt_lookup("file", sha256, on_demand=True)
 
     elif (
         service == "bingraph"
@@ -1878,13 +1893,19 @@ def on_demand(request, service: str, task_id: int, category: str, sha256):
 
         elif category == "static":
             if buf.get(category, {}):
-                buf["static"][service] = details
+                if service == "virustotal":
+                    buf[service] = details
+                else:
+                    buf["static"][service] = details
 
         elif category == "procdump":
             for block in buf[category] or []:
                 if block.get("sha256") == sha256:
                     block[service] = details
                     break
+
+        if service == "virustotal" and category == "static":
+            category = "virustotal"
 
         results_db.analysis.update({"_id": ObjectId(buf["_id"])}, {"$set": {category: buf[category]}})
         del details
