@@ -443,9 +443,11 @@ def load_files(request, task_id, category):
     # ToDo remove in CAPEv3
     if request.is_ajax() and category in ("CAPE", "dropped", "behavior", "debugger", "network", "procdump", "memory"):
         data = dict()
-        bingraph = False
         debugger_logs = dict()
         bingraph_dict_content = dict()
+        vba2graph_dict_content = dict()
+        bingraph_path = False
+        vba2graph_path = False
         # Search calls related to your PID.
         if enabledconf["mongodb"]:
             if category in ("behavior", "debugger"):
@@ -464,32 +466,42 @@ def load_files(request, task_id, category):
 
             if enabledconf["bingraph"]:
                 bingraph_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "bingraph")
+            if enabledconf["vba2graph"]:
+                vba2graph_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "vba2graph")
+
+            if bingraph_path or vba2graph_path:
                 if os.path.exists(bingraph_path):
                     if ajax_mongo_schema.get(category, "") in ("dropped", "procdump"):
                         for block in data.get(category, []):
                             if not block.get("sha256"):
                                 continue
-                            tmp_file = os.path.join(bingraph_path, block["sha256"] + "-ent.svg")
-                            if os.path.exists(tmp_file):
-                                with open(tmp_file, "r") as f:
-                                    bingraph_dict_content.setdefault(block["sha256"], f.read())
+                            # TODO clenaup later
+                            if bingraph_path:
+                                tmp_file = os.path.join(bingraph_path, block["sha256"] + "-ent.svg")
+                                if os.path.exists(tmp_file):
+                                    with open(tmp_file, "r") as f:
+                                        bingraph_dict_content.setdefault(block["sha256"], f.read())
+                            if vba2graph_path:
+                                tmp_file = os.path.join(vba2graph_path, block["sha256"] + ".svg")
+                                if os.path.exists(tmp_file):
+                                    with open(tmp_file, "r") as f:
+                                        vba2graph_dict_content.setdefault(block["sha256"], f.read())
 
-                    if ajax_mongo_schema.get(category, "").startswith("CAPE") and data:
-                        if isinstance(data.get("CAPE", {}), dict) and "payloads" in data.get("CAPE", {}):
-                            cape_files = data.get("CAPE", {}).get("payloads", []) or []
-                        # ToDo remove in CAPEv3
-                        else:
-                            cape_files = data.get("CAPE", []) or []
-                        for block in cape_files:
+                    if ajax_mongo_schema.get(category, "") == "CAPE" and data:
+                        for block in data.get("CAPE", {}).get("payloads", []) or []:
                             if not block.get("sha256"):
                                 continue
-                            tmp_file = os.path.join(bingraph_path, block["sha256"] + "-ent.svg")
-                            if os.path.exists(tmp_file):
-                                with open(tmp_file, "r") as f:
-                                    bingraph_dict_content.setdefault(block["sha256"], f.read())
+                            if bingraph_path:
+                                tmp_file = os.path.join(bingraph_path, block["sha256"] + "-ent.svg")
+                                if os.path.exists(tmp_file):
+                                    with open(tmp_file, "r") as f:
+                                        bingraph_dict_content.setdefault(block["sha256"], f.read())
+                            if vba2graph_path:
+                                tmp_file = os.path.join(vba2graph_path, block["sha256"] + ".svg")
+                                if os.path.exists(tmp_file):
+                                    with open(tmp_file, "r") as f:
+                                        vba2graph_dict_content.setdefault(block["sha256"], f.read())
 
-                    if bingraph_dict_content:
-                        bingraph = True
             if category == "debugger":
                 debugger_log_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "debugger")
                 if os.path.exists(debugger_log_path):
@@ -506,7 +518,10 @@ def load_files(request, task_id, category):
             ajax_mongo_schema[category]: data.get(category, {}),
             "tlp": data.get("info").get("tlp", ""),
             "id": task_id,
-            "bingraph": {"enabled": bingraph, "content": bingraph_dict_content},
+            "graphs": {
+                "bingraph": {"enabled": enabledconf["bingraph"], "content": bingraph_dict_content},
+                "vba2graph": {"enabled": enabledconf["vba2graph"], "content": vba2graph_dict_content},
+            },
             "config": enabledconf,
             "tab_name": category,
 
@@ -1104,11 +1119,12 @@ def report(request, task_id):
         report["virustotal"] = gen_moloch_from_antivirus(report["virustotal"])
 
     vba2graph = processing_cfg.vba2graph.enabled
-    vba2graph_svg_content = ""
-    vba2graph_svg_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "vba2graph", "svg", "vba2graph.svg")
+    vba2graph_dict_content = dict()
+    vba2graph_svg_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "vba2graph",  report["target"]["file"]["sha256"]+".svg")
 
     if os.path.exists(vba2graph_svg_path) and os.path.normpath(vba2graph_svg_path).startswith(ANALYSIS_BASE_PATH):
-        vba2graph_svg_content = open(vba2graph_svg_path, "rb").read().decode("utf8")
+        with open(vba2graph_svg_path, "rb") as f:
+            vba2graph_dict_content.setdefault(report["target"]["file"]["sha256"], f.read().decode("utf8"))
 
     bingraph = reporting_cfg.bingraph.enabled
     bingraph_dict_content = {}
@@ -1143,7 +1159,7 @@ def report(request, task_id):
             "config": enabledconf,
             "reports_exist": reports_exist,
             "graphs": {
-                "vba2graph": {"enabled": vba2graph, "content": vba2graph_svg_content},
+                "vba2graph": {"enabled": vba2graph, "content": vba2graph_dict_content},
                 "bingraph": {"enabled": bingraph, "content": bingraph_dict_content},
             },
         },
@@ -1166,6 +1182,12 @@ def file_nl(request, category, task_id, dlfile):
         path = os.path.join(base_path, str(task_id), "bingraph", file_name + "-ent.svg")
         file_name = file_name + "-ent.svg"
         cd = "image/svg+xml"
+
+    elif category == "vba2graph":
+        path = os.path.join(base_path, str(task_id), "vba2graph", f"{file_name}.svg")
+        file_name = f"{file_name}.svg"
+        cd = "image/svg+xml"
+
     else:
         return render(request, "error.html", {"error": "Category not defined"})
 
@@ -1203,7 +1225,7 @@ def file(request, category, task_id, dlfile):
         "dropped",
         "droppedzip",
         "CAPE",
-        "CAPEZIP",
+        "CAPEzip",
         "procdump",
         "procdumpzip",
         "memdumpzip",
@@ -1232,7 +1254,7 @@ def file(request, category, task_id, dlfile):
             file_name += ".dmp"
         if path and not os.path.exists(path):
             return render(request, "error.html", {"error": "File {} not found".format(os.path.basename(path))})
-        if category in ("samplezip", "droppedzip", "CAPEZIP", "procdumpzip", "memdumpzip", "networkzip"):
+        if category in ("samplezip", "droppedzip", "CAPEzip", "procdumpzip", "memdumpzip", "networkzip"):
             if HAVE_PYZIPPER:
                 mem_zip = BytesIO()
                 with pyzipper.AESZipFile(mem_zip, "w", compression=pyzipper.ZIP_LZMA, encryption=pyzipper.WZ_AES) as zf:
@@ -1295,7 +1317,7 @@ def file(request, category, task_id, dlfile):
     if not cd:
         cd = "application/octet-stream"
     try:
-        if category in ("samplezip", "droppedzip", "CAPEZIP", "procdumpzip", "memdumpzip", "networkzip"):
+        if category in ("samplezip", "droppedzip", "CAPEzip", "procdumpzip", "memdumpzip", "networkzip"):
             if mem_zip:
                 mem_zip.seek(0)
                 resp = StreamingHttpResponse(mem_zip, content_type=cd)
@@ -1859,7 +1881,7 @@ def on_demand(request, service: str, task_id: int, category: str, sha256):
         details = flare_capa_details(path, category.lower(), on_demand=True)
 
     elif service == "vba2graph" and HAVE_VBA2GRAPH:
-        vba2graph_func(path, str(task_id), on_demand=True)
+        vba2graph_func(path, str(task_id), sha256, on_demand=True)
 
     elif service == "virustotal":
         details = vt_lookup("file", sha256, on_demand=True)
