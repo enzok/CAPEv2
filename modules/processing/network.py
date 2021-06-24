@@ -948,8 +948,8 @@ class Pcap2(object):
                     "status": status,
 
                     # We'll keep these fields here for now.
-                    "request": request,#.decode("latin-1"),
-                    "response": response,#.decode("latin-1"),
+                    "request": request.decode("latin-1"),
+                    "response": response.decode("latin-1"),
                 }
 
                 if status and status not in (301, 302):
