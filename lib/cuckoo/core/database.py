@@ -1392,7 +1392,7 @@ class Database(object, metaclass=Singleton):
         if "file" in opts:
             runfile = opts["file"].lower()
             if isinstance(runfile, str):
-                runfile = runfile.encode("utf8")
+                runfile = runfile.encode("utf-8")
             for xfile in extracted_files:
                 if runfile in xfile.lower():
                     extracted_files = [xfile]
@@ -1406,7 +1406,7 @@ class Database(object, metaclass=Singleton):
                 if not config:
                     config = static_extraction(file)
                     if config:
-                        task_id = self.add_static(file_path=file, priority=priority, tlp=tlp, user_id=user_id, username=username)
+                        task_id = self.add_static(file_path=file, priority=priority, tlp=tlp, user_id=user_id, username=username, options=options)
                 else:
                     task_ids.append(config["id"])
             if not config and only_extraction is False:
@@ -1528,29 +1528,45 @@ class Database(object, metaclass=Singleton):
         user_id=0,
         username=False,
     ):
-        return self.add(
-            Static(file_path.decode()),
-            timeout,
-            package,
-            options,
-            priority,
-            custom,
-            machine,
-            platform,
-            tags,
-            memory,
-            enforce_timeout,
-            clock,
-            shrike_url,
-            shrike_msg,
-            shrike_sid,
-            shrike_refer,
-            parent_id,
-            tlp,
-            static,
-            user_id = user_id,
-            username = username,
-        )
+        extracted_files = demux_sample(file_path, package, options)
+        # check if len is 1 and the same file, if diff register file, and set parent
+        if not isinstance(file_path, bytes):
+            file_path = file_path.encode("utf-8")
+        if extracted_files and file_path not in extracted_files:
+            sample_parent_id = self.register_sample(File(file_path))
+            if conf.cuckoo.delete_archive:
+                os.remove(file_path)
+
+        task_ids = list()
+        # create tasks for each file in the archive
+        for file in extracted_files:
+            task_id = self.add(
+                Static(file.decode()),
+                timeout,
+                package,
+                options,
+                priority,
+                custom,
+                machine,
+                platform,
+                tags,
+                memory,
+                enforce_timeout,
+                clock,
+                shrike_url,
+                shrike_msg,
+                shrike_sid,
+                shrike_refer,
+                tlp=tlp,
+                static=static,
+                sample_parent_id=sample_parent_id,
+                user_id=user_id,
+                username=username,
+            )
+            if task_id:
+                task_ids.append(task_id)
+
+        return task_ids
 
     @classlock
     def add_url(

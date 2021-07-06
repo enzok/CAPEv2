@@ -219,13 +219,14 @@ def node_submit_task(task_id, node_id):
                     db.rollback()
                 return
             files = dict(file=open(task.path, "rb"))
-            r = requests.post(url, data=data, files=files, verify=False)
+            r = requests.post(url, data=data, files=files,  headers={"Authorization": f"Token {apikey}"}, verify=False)
         elif task.category == "url":
             url = os.path.join(node.url, "tasks", "create", "url/")
             r = requests.post(url, data={"url": task.path, "options": task.options}, headers = {'Authorization': f'Token {apikey}'}, verify=False)
         elif task.category == "static":
             url = os.path.join(node.url, "tasks", "create", "static/")
-            log.info("Static isn't finished")
+            files = dict(file=open(task.path, "rb"))
+            r = requests.post(url, data=data, files=files, headers={"Authorization": f"Token {apikey}"}, verify=False)
         else:
             log.debug("Target category is: {}".format(task.category))
             db.close()
@@ -590,7 +591,7 @@ class Retriever(threading.Thread):
 
         while True:
             node_id, task_id = self.cleaner_queue.get()
-            details.setdefault(node_id, list())
+            details[node_id] = list()
             details[node_id].append(str(task_id))
             if task_id in self.t_is_none.get(node_id, list()):
                 self.t_is_none[node_id].remove(task_id)
@@ -598,7 +599,7 @@ class Retriever(threading.Thread):
             node = nodes[node_id]
             if node and details[node_id]:
                 ids = ",".join(list(set(details[node_id])))
-                _delete_many(node, ids, nodes, db)
+                _delete_many(node_id, ids, nodes, db)
 
             db.commit()
             time.sleep(20)
@@ -1089,7 +1090,7 @@ def cron_cleaner(clean_x_hours=False):
             if node and not details[node]:
                 continue
 
-            ids = ",".join(details[node.id])
+            ids = ",".join(details[node])
             _delete_many(node, ids, nodes, db)
 
     db.commit()

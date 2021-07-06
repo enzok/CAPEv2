@@ -919,13 +919,16 @@ class PortableExecutable(object):
                     cert_data["subject_{}".format(attribute.oid._name)] = attribute.value
             except ValueError as e:
                 log.warning(e)
-            for attribute in cert.issuer:
-                cert_data["issuer_{}".format(attribute.oid._name)] = attribute.value
+            try:
+                for attribute in cert.issuer:
+                    cert_data["issuer_{}".format(attribute.oid._name)] = attribute.value
+            except ValueError as e:
+                log.warning(e)
             try:
                 for extension in cert.extensions:
-                    if extension.oid._name == "authorityKeyIdentifier":
+                    if extension.oid._name == "authorityKeyIdentifier" and extension.value.key_identifier:
                         cert_data["extensions_{}".format(extension.oid._name)] = base64.b64encode(extension.value.key_identifier).decode("utf-8")
-                    elif extension.oid._name == "subjectKeyIdentifier":
+                    elif extension.oid._name == "subjectKeyIdentifier" and extension.value.digest:
                         cert_data["extensions_{}".format(extension.oid._name)] = base64.b64encode(extension.value.digest).decode("utf-8")
                     elif extension.oid._name == "certificatePolicies":
                         for index, policy in enumerate(extension.value):
@@ -2604,11 +2607,10 @@ class EncodedScriptFile(object):
 
         o = source.index(start) + len(start) + 8
         end = source.index(end) - 8
-        c, m, r = 0, 0, []
+        c, m, r = bytes([]), 0, []
 
         while o < end:
             ch = source[o]
-            print(ch, "ch")
             if source[o] == 64: # b"@":
                 r.append(self.unescape.get(source[o + 1], b"?"))
                 c += r[-1]
@@ -2621,11 +2623,10 @@ class EncodedScriptFile(object):
                 r.append(ch)
             o = o + 1
 
-        #if (c % 2 ** 32) != base64.b64decode(struct.unpack("=I", source[o : o + 8]))[0]:
         if (c % 2 ** 32) != base64.b64decode(struct.unpack("=I", source[o : o + 4]))[0]:
             log.info("Invalid checksum for Encoded WSF file!")
 
-        return "".join(chr(ch) for ch in r)
+        return b"".join(ch for ch in r).decode("latin-1")
 
 
 class WindowsScriptFile(object):
