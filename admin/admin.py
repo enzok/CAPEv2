@@ -176,11 +176,14 @@ def execute_command_on_all(remote_command):
         try:
             ssh = _connect_via_jump_box(server)
             _, ssh_stdout, _ = ssh.exec_command(remote_command)
-            ssh_out = ssh_stdout.read().decode("utf-8")
-            if "Active: active (running)" in ssh_out:
+            ssh_out = ssh_stdout.read().decode("utf-8").strip()
+            if "Active: active (running)" in ssh_out and not "systemctl status" in remote_command:
                 log.info("[+] Service " + green("restarted successfully and is UP"))
             else:
-                log.info(green("[+] {} - {}".format(server, ssh_stdout.read().strip())))
+                if ssh_out:
+                    log.info(green(f"[+] {server} - {ssh_out}"))
+                else:
+                    log.info(green(f"[+] {server}"))
             ssh.close()
         except Exception as e:
             log.error(e, exc_info=True)
@@ -254,6 +257,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     parser.add_argument("--debug", action="store_true", help="Logger debug mode", required=False, default=False)
+    parser.add_argument("-u", "--username", action="store", help="SSH tunnel username", required=False, default=False)
     parser.add_argument(
         "-r",
         "--restart-service",
@@ -332,6 +336,9 @@ if __name__ == "__main__":
     ssh.load_system_host_keys()
     ssh.set_missing_host_key_policy(AutoAddPolicy())
 
+    if args.username:
+        JUMP_BOX_USERNAME = args.username
+
     if JUMP_BOX_USERNAME and args.jump_box:
         jumpbox_used = True
 
@@ -406,8 +413,14 @@ if __name__ == "__main__":
         for file in files[:]:
             if not file.startswith(("CAPE", "Custom", "Extractors")):
                 files.remove(file)
+                continue
 
             if file.endswith("admin.py"):
+                files.remove(file)
+                continue
+
+            if "/conf/" in file and file.endswith(".conf"):
+                files.remove(file)
                 continue
 
         if args.dry_run:
