@@ -54,6 +54,7 @@ except ImportError:
         print("missed dependency: pip3 install django-ratelimit -U")
 
 from lib.cuckoo.common.admin_utils import disable_user
+
 try:
     import re2 as re
 except ImportError:
@@ -468,7 +469,6 @@ def pending(request):
     return render(request, "analysis/pending.html", {"tasks": pending})
 
 
-
 def _load_file(task_id, sha256, existen_details, name):
     filepath = False
     if name == "bingraph":
@@ -498,6 +498,7 @@ def _load_file(task_id, sha256, existen_details, name):
 
     return existen_details
 
+
 @require_safe
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def load_files(request, task_id, category):
@@ -514,7 +515,7 @@ def load_files(request, task_id, category):
             if category in ("behavior", "debugger"):
                 data = results_db.analysis.find_one(
                     {"info.id": int(task_id)},
-                    {"behavior.processes": 1, "behavior.processtree": 1, "detections2pid":1, "info.tlp": 1, "_id": 0},
+                    {"behavior.processes": 1, "behavior.processtree": 1, "detections2pid": 1, "info.tlp": 1, "_id": 0},
                 )
                 if category == "debugger":
                     data["debugger"] = data["behavior"]
@@ -558,7 +559,6 @@ def load_files(request, task_id, category):
             },
             "config": enabledconf,
             "tab_name": category,
-
         }
 
         if category == "debugger":
@@ -566,6 +566,9 @@ def load_files(request, task_id, category):
         elif category == "network":
             ajax_response["suricata"] = data.get("suricata", {})
             ajax_response["cif"] = data.get("cif", [])
+            pcap_path = os.path.join(ANALYSIS_BASE_PATH, str(task_id), "tlsdump", "tlsdump.log")
+            if os.path.normpath(pcap_path).startswith(ANALYSIS_BASE_PATH):
+                ajax_response["tlskeys_exists"] = os.path.exists(pcap_path)
         elif category == "behavior":
             ajax_response["detections2pid"] = data.get("detections2pid", {})
         return render(request, page, ajax_response)
@@ -1089,29 +1092,37 @@ def report(request, task_id):
     try:
         report["dropped"] = list(
             results_db.analysis.aggregate(
-                [{"$match": {"info.id": int(task_id)}}, {"$project": {"_id": 0, "dropped_size": {"$size": { "$ifNull": ["$dropped.sha256", []]}}}}]
+                [
+                    {"$match": {"info.id": int(task_id)}},
+                    {"$project": {"_id": 0, "dropped_size": {"$size": {"$ifNull": ["$dropped.sha256", []]}}}},
+                ]
             )
         )[0]["dropped_size"]
-    except :
+    except:
         report["dropped"] = 0
 
     report["CAPE"] = 0
     try:
         tmp_data = list(
             results_db.analysis.aggregate(
-                [{"$match": {"info.id": int(task_id)}}, {"$project": {"_id": 0, "cape_size": {"$size":  {"$ifNull": ["$CAPE.payloads.sha256", []]}}}}]
+                [
+                    {"$match": {"info.id": int(task_id)}},
+                    {"$project": {"_id": 0, "cape_size": {"$size": {"$ifNull": ["$CAPE.payloads.sha256", []]}}}},
+                ]
             )
         )
         report["CAPE"] = tmp_data[0]["cape_size"] or 0
     except Exception as e:
         print(e)
 
-
     report["procdump_size"] = 0
     try:
         tmp_data = list(
             results_db.analysis.aggregate(
-                [{"$match": {"info.id": int(task_id)}}, {"$project": {"_id": 0, "procdump_size": {"$size": {"$ifNull": ["$procdump.sha256", []]}}}}]
+                [
+                    {"$match": {"info.id": int(task_id)}},
+                    {"$project": {"_id": 0, "procdump_size": {"$size": {"$ifNull": ["$procdump.sha256", []]}}}},
+                ]
             )
         )
         report["procdump"] = tmp_data[0]["procdump_size"] or 0
@@ -1125,7 +1136,6 @@ def report(request, task_id):
             report["memory"] = tmp_data[0]["_id"] or 0
     except Exception as e:
         print(e)
-
 
     reports_exist = False
     reporting_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "reports")
@@ -1152,13 +1162,18 @@ def report(request, task_id):
     if settings.MOLOCH_ENABLED and "virustotal" in report:
         report["virustotal"] = gen_moloch_from_antivirus(report["virustotal"])
 
-    vba2graph = processing_cfg.vba2graph.enabled
+    vba2graph = False
     vba2graph_dict_content = dict()
-    vba2graph_svg_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "vba2graph",  report["target"]["file"]["sha256"]+".svg")
+    # we don't want to do this for urls but we might as well check that the target exists
+    if report.get("target", {}).get("file", {}):
+        vba2graph = processing_cfg.vba2graph.enabled
+        vba2graph_svg_path = os.path.join(
+            CUCKOO_ROOT, "storage", "analyses", str(task_id), "vba2graph", report["target"]["file"]["sha256"] + ".svg"
+        )
 
-    if os.path.exists(vba2graph_svg_path) and os.path.normpath(vba2graph_svg_path).startswith(ANALYSIS_BASE_PATH):
-        with open(vba2graph_svg_path, "rb") as f:
-            vba2graph_dict_content.setdefault(report["target"]["file"]["sha256"], f.read().decode("utf8"))
+        if os.path.exists(vba2graph_svg_path) and os.path.normpath(vba2graph_svg_path).startswith(ANALYSIS_BASE_PATH):
+            with open(vba2graph_svg_path, "rb") as f:
+                vba2graph_dict_content.setdefault(report["target"]["file"]["sha256"], f.read().decode("utf8"))
 
     bingraph = reporting_cfg.bingraph.enabled
     bingraph_dict_content = {}
@@ -1350,7 +1365,6 @@ def file(request, category, task_id, dlfile):
         path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "logs", "files.zip")
         cd = "application/zip"
     elif category == "suricata":
-        file_name = "file." + dlfile
         path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "logs", "files", file_name)
     elif category == "rtf":
         path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "rtf_objects", file_name)
@@ -1648,9 +1662,9 @@ def search(request, searched=False):
 @require_safe
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def remove(request, task_id):
-    """ Remove an analysis. """
-    if not enabledconf["delete"]:
-        return render(request, "success_simple.html", {"message": "buy a lot of whyskey to admin ;)"})
+    """Remove an analysis."""
+    if enabledconf["delete"] is False:
+        return render(request, "success_simple.html", {"message": "buy a lot of whiskey to admin ;)"})
 
     if enabledconf["mongodb"]:
         analyses = results_db.analysis.find({"info.id": int(task_id)}, {"_id": 1, "behavior.processes": 1})
@@ -1909,9 +1923,9 @@ def on_demand(request, service: str, task_id: int, category: str, sha256):
     # 4. reload page
     """
 
-    if service not in ("bingraph", "flare_capa", "vba2graph", "virustotal") and not on_demand_config_mapper.get(service, {}).get(service, {}).get(
-        "on_demand"
-    ):
+    if service not in ("bingraph", "flare_capa", "vba2graph", "virustotal") and not on_demand_config_mapper.get(service, {}).get(
+        service, {}
+    ).get("on_demand"):
         return render(request, "error.html", {"error": "Not supported/enabled service on demand"})
 
     if category == "static":
@@ -1980,20 +1994,22 @@ def on_demand(request, service: str, task_id: int, category: str, sha256):
 
     return redirect("report", task_id=task_id)
 
+
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def ban_all_user_tasks(request, user_id: int):
     if request.user.is_staff or request.user.is_superuser:
         db.ban_user_tasks(user_id)
-        return HttpResponseRedirect(request.META.get('HTTP_REFERER', '/'))
+        return HttpResponseRedirect(request.META.get("HTTP_REFERER", "/"))
     else:
         return render(request, "error.html", {"error": "Nice try! You don't have permission to ban user tasks"})
+
 
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def ban_user(request, user_id: int):
     if request.user.is_staff or request.user.is_superuser:
         success = disable_user(user_id)
         if success:
-            return HttpResponseRedirect(request.META.get('HTTP_REFERER', '/'))
+            return HttpResponseRedirect(request.META.get("HTTP_REFERER", "/"))
         else:
             return render(request, "error.html", {"error": f"Can't ban user id {user_id}"})
     else:
