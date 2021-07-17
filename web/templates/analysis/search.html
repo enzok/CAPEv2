@@ -388,7 +388,7 @@
                             {% if analysis.suri_alert_cnt %}
                             <a href="{% url "surialert" analysis.id %}" target="_blank">{{analysis.suri_alert_cnt}}</a><!--
                             {% else %}
-                            0<!--
+                            -<!--
                             {% endif %}
                             {% if config.expanded_dashboard %}
                                 {% if analysis.suri_http_cnt %}
