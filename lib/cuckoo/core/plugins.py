@@ -176,8 +176,6 @@ et_categories = ("ET TROJAN",
                  "ETPRO TROJAN",
                  "ET MALWARE",
                  "ETPRO MALWARE",
-                 "ET JA3 HASH",
-                 "ETPRO JA3 HASH",
                  "ET CNC",
                  "ETPRO CNC")
 
