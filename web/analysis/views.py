@@ -90,6 +90,10 @@ HAVE_VBA2GRAPH = False
 if processing_cfg.vba2graph.on_demand:
     from lib.cuckoo.common.integrations.vba2graph import vba2graph_func, HAVE_VBA2GRAPH
 
+HAVE_XLM_DEOBF = False
+if processing_cfg.xlsdeobf.on_demand:
+    from lib.cuckoo.common.integrations.XLMMacroDeobfuscator import xlmdeobfuscate, HAVE_XLM_DEOBF
+
 
 if reporting_cfg.bingraph.on_demand:
     try:
@@ -1058,7 +1062,7 @@ def report(request, task_id):
         )
         network_report = results_db.analysis.find_one(
             {"info.id": int(task_id)},
-            {"network.domainlookups": 1, "network.iplookups": 1, "network.dns": 1, "network.hosts": 1},
+            {"network.domains":1, "network.dns": 1, "network.hosts": 1},
             sort=[("_id", pymongo.DESCENDING)],
         )
 
@@ -1196,6 +1200,21 @@ def report(request, task_id):
                 for a in i["answers"]:
                     iplookups[a["data"]] = i["request"]
 
+    stats_total = {
+        "total": 0,
+        "processing": 0,
+        "signatures": 0,
+        "reporting": 0,
+    }
+    for stats_category in ("processing", "signatures", "reporting"):
+        total = float()
+        for item in report.get("statistics", {}).get(stats_category, []) or []:
+            total += item["time"]
+
+        stats_total["total"] += total
+        stats_total[stats_category] = "{:.2f}".format(total)
+
+    stats_total["total"] = "{:.2f}".format(stats_total["total"])
     if HAVE_REQUEST and enabledconf["distributed"]:
         try:
             res = requests.get(f"http://127.0.0.1:9003/task/{task_id}", timeout=3, verify=False)
@@ -1218,6 +1237,7 @@ def report(request, task_id):
             "settings": settings,
             "config": enabledconf,
             "reports_exist": reports_exist,
+            "stats_total": stats_total,
             "graphs": {
                 "vba2graph": {"enabled": vba2graph, "content": vba2graph_dict_content},
                 "bingraph": {"enabled": bingraph, "content": bingraph_dict_content},
@@ -1901,6 +1921,7 @@ on_demand_config_mapper = {
     "bingraph": reporting_cfg,
     "flare_capa": processing_cfg,
     "vba2graph": processing_cfg,
+    "xlsdeobf": processing_cfg,
 }
 
 
@@ -1923,7 +1944,7 @@ def on_demand(request, service: str, task_id: int, category: str, sha256):
     # 4. reload page
     """
 
-    if service not in ("bingraph", "flare_capa", "vba2graph", "virustotal") and not on_demand_config_mapper.get(service, {}).get(
+    if service not in ("bingraph", "flare_capa", "vba2graph", "virustotal", "xlsdeobf") and not on_demand_config_mapper.get(service, {}).get(
         service, {}
     ).get("on_demand"):
         return render(request, "error.html", {"error": "Not supported/enabled service on demand"})
@@ -1945,6 +1966,9 @@ def on_demand(request, service: str, task_id: int, category: str, sha256):
 
     elif service == "virustotal":
         details = vt_lookup("file", sha256, on_demand=True)
+
+    elif service == "xlsdeobf" and HAVE_XLM_DEOBF:
+        details = xlmdeobfuscate(path, task_id, on_demain=True)
 
     elif (
         service == "bingraph"
@@ -1977,6 +2001,8 @@ def on_demand(request, service: str, task_id: int, category: str, sha256):
             if buf.get(category, {}):
                 if service == "virustotal":
                     buf[service] = details
+                if service == "xlsdeobf":
+                    buf["static"].setdefault("office", {}).setdefault("XLMMacroDeobfuscator", details)
                 else:
                     buf["static"][service] = details
 

@@ -40,7 +40,7 @@ from lib.cuckoo.common.web_utils import (
     _download_file,
     parse_request_arguments,
     all_vms_tags,
-    all_nodes_exits,
+    all_nodes_exits_list,
     download_from_vt,
     perform_search,
 )
@@ -300,7 +300,7 @@ def index(request, resubmit_hash=False):
                 elif sample.size > settings.MAX_UPLOAD_SIZE:
                     details["errors"].append(
                         {
-                            sample.name: "You uploaded a file that exceeds the maximum allowed upload size specified in web/web/local_settings.py."
+                            sample.name: "You uploaded a file that exceeds the maximum allowed upload size specified in conf/web.conf."
                         }
                     )
                     continue
@@ -353,7 +353,7 @@ def index(request, resubmit_hash=False):
                         request,
                         "error.html",
                         {
-                            "error": "You uploaded a quarantine file that exceeds the maximum allowed upload size specified in web/web/local_settings.py."
+                            "error": "You uploaded a quarantine file that exceeds the maximum allowed upload size specified in conf/web.conf."
                         },
                     )
 
@@ -391,7 +391,7 @@ def index(request, resubmit_hash=False):
                         request,
                         "error.html",
                         {
-                            "error": "You uploaded a file that exceeds the maximum allowed upload size specified in web/web/local_settings.py."
+                            "error": "You uploaded a file that exceeds the maximum allowed upload size specified in conf/web.conf."
                         },
                     )
 
@@ -417,7 +417,7 @@ def index(request, resubmit_hash=False):
                         request,
                         "error.html",
                         {
-                            "error": "You uploaded a PCAP file that exceeds the maximum allowed upload size specified in web/web/local_settings.py."
+                            "error": "You uploaded a PCAP file that exceeds the maximum allowed upload size specified in conf/web.conf."
                         },
                     )
 
@@ -632,7 +632,7 @@ def index(request, resubmit_hash=False):
                 "resubmit": resubmit_hash,
                 "tags": sorted(list(set(all_vms_tags))),
                 "existent_tasks": existent_tasks,
-                "all_exitnodes": all_nodes_exits,
+                "all_exitnodes": all_nodes_exits_list,
             },
         )
 
