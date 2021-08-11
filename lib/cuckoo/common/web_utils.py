@@ -852,6 +852,12 @@ normalized_lower_terms = (
     "imphash",
 )
 
+normalized_int_terms = (
+    "sport",
+    "dport",
+    "port",
+)
+
 # ToDo verify if still working
 def perform_ttps_search(value):
     if repconf.mongodb.enabled and len(value) == 5 and value.upper().startswith("T") and value[1:].isdigit():
@@ -871,6 +877,8 @@ def perform_search(term, value):
     query_val = False
     if term in normalized_lower_terms:
         query_val = value.lower()
+    elif term in normalized_int_terms:
+        query_val = int(value)
     elif term in ("surisid", "id"):
         try:
             query_val = int(value)
