@@ -2,12 +2,14 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
+
 from __future__ import absolute_import
+import os
 from lib.common.abstracts import Package
 
 
-class PPT(Package):
-    """PowerPoint analysis package."""
+class XLS2207(Package):
+    """Excel analysis package."""
 
     def __init__(self, options={}, config=None):
         self.config = config
@@ -15,11 +17,14 @@ class PPT(Package):
         self.options["exclude-apis"] = "memcpy"
 
     PATHS = [
-        ("ProgramFiles", "Microsoft Office", "POWERPNT.EXE"),
-        ("ProgramFiles", "Microsoft Office", "Office*", "POWERPNT.EXE"),
-        ("ProgramFiles", "Microsoft Office*", "root", "Office*", "POWERPNT.EXE"),
+        ("ProgramFiles", "Microsoft Office*", "root", "Office16", "EXCEL.EXE"),
     ]
 
     def start(self, path):
-        powerpoint = self.get_path_glob("Microsoft Office PowerPoint")
-        return self.execute(powerpoint, '/s "%s"' % path, path)
+        if "." not in os.path.basename(path):
+            new_path = path + ".xls"
+            os.rename(path, new_path)
+            path = new_path
+
+        excel = self.get_path_glob("Microsoft Office Excel")
+        return self.execute(excel, '"%s" /dde' % path, path)

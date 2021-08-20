@@ -6,7 +6,7 @@ from __future__ import absolute_import
 from lib.common.abstracts import Package
 
 
-class PPT(Package):
+class PPT2007(Package):
     """PowerPoint analysis package."""
 
     def __init__(self, options={}, config=None):
@@ -15,9 +15,7 @@ class PPT(Package):
         self.options["exclude-apis"] = "memcpy"
 
     PATHS = [
-        ("ProgramFiles", "Microsoft Office", "POWERPNT.EXE"),
-        ("ProgramFiles", "Microsoft Office", "Office*", "POWERPNT.EXE"),
-        ("ProgramFiles", "Microsoft Office*", "root", "Office*", "POWERPNT.EXE"),
+        ("ProgramFiles", "Microsoft Office*", "root", "Office16", "POWERPNT.EXE"),
     ]
 
     def start(self, path):

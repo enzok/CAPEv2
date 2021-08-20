@@ -3,11 +3,13 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
+import os
+
 from lib.common.abstracts import Package
 
 
-class PPT(Package):
-    """PowerPoint analysis package."""
+class DOC2016(Package):
+    """Word analysis package."""
 
     def __init__(self, options={}, config=None):
         self.config = config
@@ -15,11 +17,14 @@ class PPT(Package):
         self.options["exclude-apis"] = "memcpy"
 
     PATHS = [
-        ("ProgramFiles", "Microsoft Office", "POWERPNT.EXE"),
-        ("ProgramFiles", "Microsoft Office", "Office*", "POWERPNT.EXE"),
-        ("ProgramFiles", "Microsoft Office*", "root", "Office*", "POWERPNT.EXE"),
+        ("ProgramFiles", "Microsoft Office*", "root", "Office16", "WINWORD.EXE"),
     ]
 
     def start(self, path):
-        powerpoint = self.get_path_glob("Microsoft Office PowerPoint")
-        return self.execute(powerpoint, '/s "%s"' % path, path)
+        word = self.get_path_glob("Microsoft Office Word")
+        if "." not in os.path.basename(path):
+            new_path = path + ".doc"
+            os.rename(path, new_path)
+            path = new_path
+
+        return self.execute(word, '"%s" /q /dde /n' % path, path)

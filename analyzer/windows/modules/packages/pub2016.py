@@ -23,19 +23,15 @@ from winreg import (
 )
 
 
-class PUB(Package):
-    """Word analysis package."""
-
+class PUB2007(Package):
     def __init__(self, options={}, config=None):
         self.config = config
         self.options = options
         self.options["exclude-apis"] = "memcpy"
 
+    """Word analysis package."""
     PATHS = [
-        ("ProgramFiles", "Microsoft Office", "MSPUB.EXE"),
-        ("ProgramFiles", "Microsoft Office", "Office*", "MSPUB.EXE"),
-        ("ProgramFiles", "Microsoft Office*", "root", "Office*", "MSPUB.EXE"),
-        ("ProgramFiles", "Microsoft Office", "MSPUB.EXE"),
+        ("ProgramFiles", "Microsoft Office*", "root", "Office16", "MSPUB.EXE"),
     ]
 
     def set_keys(self):
