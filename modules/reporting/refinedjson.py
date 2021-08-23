@@ -18,6 +18,11 @@ class RefinedJson(Report):
 
     order = 99999
 
+    def default(self, obj):
+        if isinstance(obj, bytes):
+            return obj.decode('utf8')
+        raise TypeError
+
     def run(self, results):
         """Writes report.
         @param results: Cuckoo results dict.
@@ -105,11 +110,11 @@ class RefinedJson(Report):
                     cape["children"].append(child)
 
             path = os.path.join(self.reports_path, "refined-report.json")
-            with codecs.open(path, "w", "utf-8") as report:
-                if ram_boost:
-                    buf = json.dumps(miniresults, sort_keys=False, indent=int(indent), encoding=encoding)
-                    report.write(buf)
-                else:
-                    json.dump(miniresults, report, sort_keys=False, indent=int(indent), encoding=encoding)
+            if HAVE_ORJSON:
+                with open(path, "wb") as report:
+                    report.write(orjson.dumps(miniresults, option=orjson.OPT_INDENT_2, default=self.default)) # orjson.OPT_SORT_KEYS |
+            else:
+                with open(path, "w") as report:
+                    json.dump(miniresults, report, sort_keys=False, indent=int(indent), ensure_ascii=False)
         except (UnicodeError, TypeError, IOError, KeyError) as e:
             raise CuckooReportError("Failed to generate refined JSON report: %s" % e)
