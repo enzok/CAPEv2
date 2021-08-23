@@ -1,6 +1,6 @@
 from __future__ import absolute_import
 import os
-import codecs
+
 try:
     import orjson
     HAVE_ORJSON = True
