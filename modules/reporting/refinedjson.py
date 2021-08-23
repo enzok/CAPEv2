@@ -1,7 +1,12 @@
 from __future__ import absolute_import
 import os
-import simplejson as json
 import codecs
+try:
+    import orjson
+    HAVE_ORJSON = True
+except ImportError:
+    import json
+    HAVE_ORJSON = False
 
 from lib.cuckoo.common.abstracts import Report
 from lib.cuckoo.common.exceptions import CuckooReportError
