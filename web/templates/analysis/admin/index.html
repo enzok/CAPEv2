@@ -5,8 +5,8 @@
             <th>Task ID</th>
             <td>{{analysis.info.id}}
                 <a href="{% url "remove" analysis.info.id %}" class="btn btn-secondary btn-sm" data-bs-toggle="tooltip" title="Delete task"><i class="fas fa-trash-alt"></i></a>
-                <a href="{% url "reschedule" analysis.info.id %}" class="btn btn-secondary btn-sm" data-bs-toggle="tooltip" title="Reschedule"<i class="fas fa-sync"></i>File</a>
-                <a href="{% url "reprocess" analysis.info.id %}" class="btn btn-secondary btn-sm" data-bs-toggle="tooltip" title="Reprocess"<i class="fas fa-sync"</i>Process</a>
+                <a href="{% url "reschedule" analysis.info.id %}" class="btn btn-secondary btn-sm" data-bs-toggle="tooltip" title="Reschedule"<span class="fas fa-sync"></span>File</a>
+                <a href="{% url "reprocess" analysis.info.id %}" class="btn btn-secondary btn-sm" data-bs-toggle="tooltip" title="Reprocess"<span class="fas fa-sync"</span>Process</a>
             </td>
         </tr>
         {% if config.mongodb %}
