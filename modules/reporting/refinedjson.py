@@ -29,8 +29,6 @@ class RefinedJson(Report):
         @raise CuckooReportError: if fails to write report.
         """
         indent = self.options.get("indent", 4)
-        encoding = self.options.get("encoding", "utf-8")
-        ram_boost = self.options.get("ram_boost", True)
 
         host_filter = [
             "8.8.8.8",
@@ -50,7 +48,7 @@ class RefinedJson(Report):
             report = dict(results)
 
             miniresults = dict()
-            if "file" in report["target"]:
+            if report["target"].get("file", False):
                 miniresults["file"] = report["target"]["file"]
                 del miniresults["file"]["yara"]
                 del miniresults["file"]["path"]
@@ -58,16 +56,17 @@ class RefinedJson(Report):
                 miniresults["file"]["yara"] = []
                 for rule in report["target"]["file"]["yara"]:
                     miniresults["file"]["yara"].append({"name": rule["name"]})
-            if "malfamily" in report:
+            if report.get("malfamily", False):
                 miniresults["malfamily"] = report["malfamily"]
-            if "signatures" in report:
+            if report.get("signatures", False):
                 miniresults["signatures"] = []
                 for sig in report["signatures"]:
                     miniresults["signatures"].append({"description": sig["description"]})
-            if "network" in report:
+            if report.get("network", False):
                 net = report["network"]
                 mininet = dict()
                 mininet["hosts"] = []
+                print(net)
                 for host in net["hosts"]:
                     if host["ip"] in host_filter or host["hostname"] in host_filter:
                         continue
@@ -92,7 +91,7 @@ class RefinedJson(Report):
                 """
 
                 miniresults["network"] = mininet
-            if "executed_commands" in report["behavior"]["summary"]:
+            if report["behavior"]["summary"].get("executed_commands", False):
                 miniresults["executed_commands"] = report["behavior"]["summary"]["executed_commands"]
 
             session = db.Session()
