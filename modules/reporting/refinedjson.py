@@ -66,7 +66,6 @@ class RefinedJson(Report):
                 net = report["network"]
                 mininet = dict()
                 mininet["hosts"] = []
-                print(net)
                 for host in net["hosts"]:
                     if host["ip"] in host_filter or host["hostname"] in host_filter:
                         continue
