@@ -50,6 +50,7 @@ except ImportError:
 
 try:
     from tldextract import TLDExtract
+
     HAVE_TLDEXTRACT = True
     logging.getLogger("filelock").setLevel("WARNING")
 except ImportError:
@@ -60,12 +61,23 @@ HAVE_MITRE = False
 if repconf.mitre.enabled:
     try:
         from pyattck import Attck
+        from pyattck.utils.version import __version_info__ as pyattck_version
 
-        mitre = Attck(
-            data_path=os.path.join(CUCKOO_ROOT, "data", "mitre"),
-            config_file_path=os.path.join(CUCKOO_ROOT, "data", "mitre", "config.yml"),
-        )
-        HAVE_MITRE = True
+        if pyattck_version == (4, 1, 1):
+            mitre = Attck(
+                nested_subtechniques=True,
+                save_config=True,
+                use_config=True,
+                config_file_path=os.path.join(CUCKOO_ROOT, "data", "mitre", "config.yml"),
+                data_path=os.path.join(CUCKOO_ROOT, "data", "mitre"),
+                enterprise_attck_json=os.path.join(CUCKOO_ROOT, "data", "mitre", "enterprise_attck_json.json"),
+                pre_attck_json=os.path.join(CUCKOO_ROOT, "data", "mitre", "pre_attck_json.json"),
+                mobile_attck_json=os.path.join(CUCKOO_ROOT, "data", "mitre", "mobile_attck_json.json"),
+                nist_controls_json=os.path.join(CUCKOO_ROOT, "data", "mitre", "nist_controls_json.json"),
+                generated_attck_json=os.path.join(CUCKOO_ROOT, "data", "mitre", "generated_attck_json.json"),
+                generated_nist_json=os.path.join(CUCKOO_ROOT, "data", "mitre", "generated_nist_json.json"),
+            )
+            HAVE_MITRE = True
 
     except (ImportError, ModuleNotFoundError):
         print("Missed pyattck dependency: check requirements.txt for exact pyattck version")
@@ -238,7 +250,9 @@ class Machinery(object):
                 raise CuckooCriticalError(msg)
 
         if not cfg.timeouts.vm_state:
-            raise CuckooCriticalError("Virtual machine state change timeout " "setting not found, please add it to " "the config file.")
+            raise CuckooCriticalError(
+                "Virtual machine state change timeout " "setting not found, please add it to " "the config file."
+            )
 
     def machines(self):
         """List virtual machines.
@@ -756,7 +770,6 @@ class Signature(object):
         if extracted:
             self.results["custom_statistics"][self.name]["extracted"] = 1
 
-
     def set_path(self, analysis_path):
         """Set analysis folder path.
         @param analysis_path: analysis folder path.
@@ -896,7 +909,9 @@ class Signature(object):
                 except dns.resolver.NXDOMAIN:
                     ips.append(rdata.address)
         except dns.name.NeedAbsoluteNameOrOrigin:
-            print("An attempt was made to convert a non-absolute name to wire when there was also a non-absolute (or missing) origin.")
+            print(
+                "An attempt was made to convert a non-absolute name to wire when there was also a non-absolute (or missing) origin."
+            )
         except dns.resolver.NoAnswer:
             print("IPs: Impossible to get response")
         except Exception as e:
@@ -913,7 +928,7 @@ class Signature(object):
             return False
 
     def _check_valid_url(self, url, all_checks=False):
-        """ Checks if url is correct
+        """Checks if url is correct
         @param url: string
         @return: url or None
         """
@@ -1381,17 +1396,21 @@ class Signature(object):
         return None
 
     def get_initial_process(self):
-        """ Obtains the initial process information
+        """Obtains the initial process information
         @return: dict containing initial process information or None
         """
 
-        if not "behavior" in self.results or not "processes" in self.results["behavior"] or not len(self.results["behavior"]["processes"]):
+        if (
+            not "behavior" in self.results
+            or not "processes" in self.results["behavior"]
+            or not len(self.results["behavior"]["processes"])
+        ):
             return None
 
         return self.results["behavior"]["processes"][0]
 
     def get_environ_entry(self, proc, env_name):
-        """ Obtains environment entry from process
+        """Obtains environment entry from process
         @param proc: Process to inspect
         @param env_name: Name of environment entry
         @return: value of environment entry or None
@@ -1467,7 +1486,9 @@ class Signature(object):
         if isinstance(self.results.get("suricata", {}), dict):
             for alert in self.results.get("suricata", {}).get("alerts", []):
                 sid = alert.get("sid", 0)
-                if (sid not in self.banned_suricata_sids and sid not in blacklist) and re.findall(pattern, alert.get("signature", ""), re.I):
+                if (sid not in self.banned_suricata_sids and sid not in blacklist) and re.findall(
+                    pattern, alert.get("signature", ""), re.I
+                ):
                     res = True
                     break
         return res
