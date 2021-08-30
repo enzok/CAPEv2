@@ -793,6 +793,7 @@ class Database(object, metaclass=Singleton):
                         .filter(cond)
                         .first()
                     )
+            '''
             else:
                 row = (
                     session.query(Task)
@@ -803,6 +804,7 @@ class Database(object, metaclass=Singleton):
                     .filter(Task.tags == None)
                     .first()
                 )
+            '''
             if not row:
                 return None
 
