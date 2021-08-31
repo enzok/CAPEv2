@@ -770,8 +770,8 @@ class Scheduler:
                     task = self.db.fetch(machine=machine.name)
                     if task:
                         break
-                #else:
-                #    task = self.db.fetch()
+                else:
+                    task = self.db.fetch()
                 if task:
                     log.debug("Task #{0}: Processing task".format(task.id))
                     self.total_analysis_count += 1
