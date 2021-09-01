@@ -189,7 +189,7 @@ def get_crowdstrike_family(proctype, procres):
     """
     maldata = list()
     if proctype == "target":
-        yarahits = procres.get(proctype, "").get("file", {}).get("yara", [])
+        yarahits = procres.get("file", {}).get("yara", [])
         malmeta = dict()
         for yh in yarahits:
             mf = yh.get("meta",{}).get("malware_family", "")
@@ -200,7 +200,7 @@ def get_crowdstrike_family(proctype, procres):
                 malmeta["actor"] = ma
             maldata.append(malmeta)
     elif proctype == "CAPE":
-        payloads = procres.get(proctype, "").get("payload", {})
+        payloads = procres.get("payload", {})
         for payload in payloads:
             yarahits = payload.get("yara", [])
             malmeta = dict()
@@ -213,8 +213,7 @@ def get_crowdstrike_family(proctype, procres):
                     malmeta["actor"] = ma
                 maldata.append(malmeta)
     elif proctype in ("dropped", "procdump", "procmemory"):
-        procdata = procres.get(proctype, "")
-        for data in procdata:
+        for data in procres:
             yarahits = data.get("yara", [])
             malmeta = dict()
             for yh in yarahits:
