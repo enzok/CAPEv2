@@ -480,13 +480,13 @@ class RunProcessing(object):
                     if maldata:
                         self.results["malfamily_tag"] = "CS Yara"
                         if len(maldata) == 1:
-                            family = maldata[0]["malware_family"]
-                            actor = maldata[0]["actor"]
+                            family = maldata[0].get("malware_family", "")
+                            actor = maldata[0].get("actor", "")
                             break
                         else:
                             # more than 1 yara rule returned - need algorithm to decide on which to use
-                            family = maldata[0]["malware_family"]
-                            actor = maldata[0]["actor"]
+                            family = maldata[0].get("malware_family", "")
+                            actor = maldata[0].get("actor", "")
                             break
 
             elif self.cfg.detections.suricata and not family and self.results.get("suricata", {}).get("alerts", []):
