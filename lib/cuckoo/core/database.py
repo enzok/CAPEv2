@@ -764,7 +764,7 @@ class Database(object, metaclass=Singleton):
             session.close()
 
     @classlock
-    def fetch(self, lock=True, machine=""):
+    def fetch(self, machine):
         """Fetches a task waiting to be processed and locks it for running.
         @return: None or task
         """
