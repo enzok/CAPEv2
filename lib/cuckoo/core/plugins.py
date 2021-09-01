@@ -181,6 +181,53 @@ et_categories = ("ET TROJAN",
                  "ET CNC",
                  "ETPRO CNC")
 
+def get_crowdstrike_family(proctype, procres):
+    """
+    :param proctype: process results type
+    :param procres: process results
+    :return maldata: list of dicts of yara based family name and actor, or empty list
+    """
+    maldata = list()
+    if proctype == "target":
+        yarahits = procres.get(proctype, "").get("file", {}).get("yara", [])
+        malmeta = dict()
+        for yh in yarahits:
+            mf = yh.get("meta",{}).get("malware_family", "")
+            if mf:
+                malmeta["malware_family"] = mf
+            ma = yh.get("meta",{}).get("actor", "")
+            if ma:
+                malmeta["actor"] = ma
+            maldata.append(malmeta)
+    elif proctype == "CAPE":
+        payloads = procres.get(proctype, "").get("payload", {})
+        for payload in payloads:
+            yarahits = payload.get("yara", [])
+            malmeta = dict()
+            for yh in yarahits:
+                mf = yh.get("meta",{}).get("malware_family", "")
+                if mf:
+                    malmeta["malware_family"] = mf
+                ma = yh.get("meta",{}).get("actor", "")
+                if ma:
+                    malmeta["actor"] = ma
+                maldata.append(malmeta)
+    elif proctype in ("dropped", "procdump", "procmemory"):
+        procdata = procres.get(proctype, "")
+        for data in procdata:
+            yarahits = data.get("yara", [])
+            malmeta = dict()
+            for yh in yarahits:
+                mf = yh.get("meta",{}).get("malware_family", "")
+                if mf:
+                    malmeta["malware_family"] = mf
+                ma = yh.get("meta",{}).get("actor", "")
+                if ma:
+                    malmeta["actor"] = ma
+                maldata.append(malmeta)
+
+    return maldata
+
 def get_suricata_family(signature):
     """
     Args:
@@ -420,11 +467,29 @@ class RunProcessing(object):
             log.info("Logs folder doesn't exist, maybe something with with analyzer folder, any change?")
 
         family = ""
+        actor = ""
         self.results["malfamily_tag"] = ""
         if self.cfg.detections.enabled:
             if self.results.get("detections", False) and self.cfg.detections.yara:
                 family = self.results["detections"]
                 self.results["malfamily_tag"] = "Yara"
+
+            elif self.cfg.detections.crowdstrike_yara and not family:
+                processing_types = ("target", "dropped", "procdump", "procmemory", "CAPE")
+                for proctype in processing_types:
+                    maldata = get_crowdstrike_family(proctype, self.results.get(proctype, None))
+                    if maldata:
+                        self.results["malfamily_tag"] = "CS Yara"
+                        if len(maldata) == 1:
+                            family = maldata[0]["malware_family"]
+                            actor = maldata[0]["actor"]
+                            break
+                        else:
+                            # more than 1 yara rule returned - need algorithm to decide on which to use
+                            family = maldata[0]["malware_family"]
+                            actor = maldata[0]["actor"]
+                            break
+
             elif self.cfg.detections.suricata and not family and self.results.get("suricata", {}).get("alerts", []):
                 for alert in self.results["suricata"]["alerts"]:
                     if alert.get("signature", "") and alert["signature"].startswith(et_categories):
@@ -447,6 +512,9 @@ class RunProcessing(object):
 
             if family:
                 self.results["detections"] = family
+
+            if actor:
+                self.results["actor"] = actor
 
         return self.results
 
