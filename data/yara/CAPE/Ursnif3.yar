@@ -11,5 +11,5 @@ rule Ursnif3
         $crypto32_2 = {8B 45 EC 0F B6 38 FF 45 EC 33 C9 41 8B C7 23 C1 40 40 D1 EF 75 1B 89 4D 08 EB 45}
         $cape_string = "cape_options"
     condition:
-        uint16(0) == 0x5A4D and ($diy_decode or $golden_ration) and (any of them) and not $cape_string
+        uint16(0) == 0x5A4D and ($diy_decode or $golden_ratio) and (any of them) and not $cape_string
 }
