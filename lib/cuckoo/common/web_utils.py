@@ -749,7 +749,10 @@ def _download_file(route, url, options):
             headers[key.replace("dne_", "")] = value
 
     try:
-        response = requests.get(url, headers=headers, proxies=proxies)
+        url_defang = url.replace("[.]", ".").replace("[.", ".").repalce(".]", ".").replace("hxxp", "http").replace("hxtp", "http")
+        if not url_defang.startswith("http"):
+            url_defang = "http://" + url_defang
+        response = requests.get(url_defang, headers=headers, proxies=proxies)
         if response and response.status_code == 200:
             return response.content
     except Exception as e:
