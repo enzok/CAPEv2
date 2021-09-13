@@ -170,7 +170,7 @@ def init_logging():
 
     if cuckoo.log_rotation.enabled:
         days = cuckoo.log_rotation.backup_count or 7
-        interval = cuckoo.logging.interval
+        interval = cuckoo.log_rotation.interval
         fh = logging.handlers.TimedRotatingFileHandler(os.path.join(CUCKOO_ROOT, "log", "cuckoo.log"), when=interval, backupCount=days)
     else:
         fh = logging.handlers.WatchedFileHandler(os.path.join(CUCKOO_ROOT, "log", "cuckoo.log"))
