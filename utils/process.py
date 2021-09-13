@@ -160,9 +160,9 @@ def init_logging(auto=False, tid=0, debug=False):
         if not os.path.exists(os.path.join(CUCKOO_ROOT, "log")):
             os.makedirs(os.path.join(CUCKOO_ROOT, "log"))
         if auto:
-            if cfg.logging.enabled:
-                days = cfg.logging.backup_count or 7
-                interval = cfg.logging.interval
+            if cfg.log_rotation.enabled:
+                days = cfg.log_rotation.backup_count or 7
+                interval = cfg.log_rotation.interval
                 fh = logging.handlers.TimedRotatingFileHandler(os.path.join(CUCKOO_ROOT, "log", "process.log"), when=interval, backupCount=days)
             else:
                 fh = logging.handlers.WatchedFileHandler(os.path.join(CUCKOO_ROOT, "log", "process.log"))

@@ -323,7 +323,7 @@ class RunAuxiliary(object):
                 continue
             except:
                 log.exception(
-                    "Error performing callback %r on auxiliary module %r", name, module.__class__.__name__, extra={"task_id": self.task["id"]},
+                    "Error performing callback %r on auxiliary module %r", name, module.__class__.__name__, extra={"task_id": self.task["id"]}
                 )
 
             enabled.append(module)
@@ -439,6 +439,8 @@ class RunProcessing(object):
         else:
             log.info("No processing modules loaded")
 
+        self._detect_family()
+
         # Add temp_processing stats to global processing stats
         if self.results["temp_processing_stats"]:
             for plugin_name in self.results["temp_processing_stats"]:
@@ -465,57 +467,66 @@ class RunProcessing(object):
         else:
             log.info("Logs folder doesn't exist, maybe something with with analyzer folder, any change?")
 
+        return self.results
+
+    def _detect_family(self):
+        if not self.cfg.detections.enabled:
+            return
+
         family = ""
         actor = ""
-        self.results["malfamily_tag"] = ""
-        if self.cfg.detections.enabled:
-            if self.results.get("detections", False) and self.cfg.detections.yara:
-                family = self.results["detections"]
-                self.results["malfamily_tag"] = "Yara"
+        malfamily_tag = ""
 
-            elif self.cfg.detections.crowdstrike_yara and not family:
-                processing_types = ("target", "dropped", "procdump", "procmemory", "CAPE")
-                for proctype in processing_types:
-                    maldata = get_crowdstrike_family(proctype, self.results.get(proctype, None))
-                    if maldata:
-                        self.results["malfamily_tag"] = "CS Yara"
-                        if len(maldata) == 1:
-                            family = maldata[0].get("malware_family", "")
-                            actor = maldata[0].get("actor", "")
-                            break
-                        else:
-                            # more than 1 yara rule returned - need algorithm to decide on which to use
-                            family = maldata[0].get("malware_family", "")
-                            actor = maldata[0].get("actor", "")
-                            break
+        if self.cfg.detections.yara:
+            family = self.results.get("detections", "")
+            if family:
+                malfamily_tag = "Yara"
 
-            elif self.cfg.detections.suricata and not family and self.results.get("suricata", {}).get("alerts", []):
-                for alert in self.results["suricata"]["alerts"]:
-                    if alert.get("signature", "") and alert["signature"].startswith(et_categories):
-                        family = get_suricata_family(alert["signature"])
-                        if family:
-                            self.results["malfamily_tag"] = "Suricata"
-                            self.results["detections"] = family
+        if self.cfg.detections.crowdstrike_yara and not family:
+            processing_types = ("target", "dropped", "procdump", "procmemory", "CAPE")
+            for proctype in processing_types:
+                maldata = get_crowdstrike_family(proctype, self.results.get(proctype, None))
+                if maldata:
+                    malfamily_tag = "CS Yara"
+                    if len(maldata) == 1:
+                        family = maldata[0].get("malware_family", "")
+                        actor = maldata[0].get("actor", "")
+                        break
+                    else:
+                        # more than 1 yara rule returned - need algorithm to decide on which to use
+                        family = maldata[0].get("malware_family", "")
+                        actor = maldata[0].get("actor", "")
+                        break
 
-            elif self.cfg.detections.virustotal and not family and self.results["info"]["category"] == "file" and self.results.get("virustotal", {}).get("detection"):
-                family = self.results["virustotal"]["detection"]
-                self.results["malfamily_tag"] = "VirusTotal"
+        if self.cfg.detections.suricata and not family:
+            for alert in self.results.get("suricata", {}).get("alerts", []):
+                if alert.get("signature", "").startswith(et_categories):
+                    family = get_suricata_family(alert["signature"])
+                    if family:
+                        malfamily_tag = "Suricata"
+                        break
 
-            # fall back to ClamAV detection
-            elif self.cfg.detections.clamav and not family and self.results["info"]["category"] == "file" and self.results.get("target", {}).get("file", {}).get("clamav"):
-                for detection in self.results["target"]["file"]["clamav"]:
+        if self.results["info"]["category"] == "file":
+            if self.cfg.detections.virustotal and not family:
+                family = self.results.get("virustotal", {}).get("detection", "")
+                if family:
+                    malfamily_tag = "VirusTotal"
+
+            if self.cfg.detections.clamav and not family:
+                for detection in self.results.get("target", {}).get("file", {}).get("clamav", []):
                     if detection.startswith("Win.Trojan."):
                         words = re.findall(r"[A-Za-z0-9]+", detection)
                         family = words[2]
-                        self.results["malfamily_tag"] = "ClamAV"
+                        if family:
+                            malfamily_tag = "ClamAV"
+                            break
 
-            if family:
-                self.results["detections"] = family
+        if family:
+            self.results["detections"] = family
+            self.results["malfamily_tag"] = malfamily_tag
 
             if actor:
                 self.results["actor"] = actor
-
-        return self.results
 
 
 class RunSignatures(object):

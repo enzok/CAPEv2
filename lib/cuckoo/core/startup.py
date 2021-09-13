@@ -168,8 +168,8 @@ def init_logging():
     """Initializes logging."""
     formatter = logging.Formatter("%(asctime)s [%(name)s] %(levelname)s: %(message)s")
 
-    if cuckoo.logging.enabled:
-        days = cuckoo.logging.backup_count
+    if cuckoo.log_rotation.enabled:
+        days = cuckoo.log_rotation.backup_count or 7
         interval = cuckoo.logging.interval
         fh = logging.handlers.TimedRotatingFileHandler(os.path.join(CUCKOO_ROOT, "log", "cuckoo.log"), when=interval, backupCount=days)
     else:
@@ -301,13 +301,14 @@ def init_yara():
                 break
 
         if category == "memory":
-            mem_rules = yara.compile(filepaths=rules, externals=externals)
-            mem_rules.save(os.path.join(yara_root, "index_memory.yarc"))
-            """
-            with open(os.path.join(yara_root, "index_memory.yarc"), "w") as f:
-                for filename in sorted(indexed):
-                    f.write('include "%s"\n' % os.path.join(category_root, filename))
-            """
+            try:
+                mem_rules = yara.compile(filepaths=rules, externals=externals)
+                mem_rules.save(os.path.join(yara_root, "index_memory.yarc"))
+            except yara.Error as e:
+                if "could not open file" in str(e):
+                    log.inf("Can't write index_memory.yarc. Did you starting it with correct user?")
+                else:
+                    log.error(e)
 
         indexed = sorted(indexed)
         for entry in indexed:
