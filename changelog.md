@@ -1,3 +1,7 @@
+### [14-09-2021]
+* Update Lockbit yara sig
+* Update Bazar yara sig
+
 ### [11-09-2021]
 * Monitor improvements: 
     * Restrict debugger breakpoint protection to current process (NtSetContextThread)
