@@ -213,7 +213,7 @@ def get_crowdstrike_family(proctype, procres):
                     malmeta["actor"] = ma
                 maldata.append(malmeta)
     elif proctype in ("dropped", "procdump", "procmemory"):
-        for data in procres.get(proctype, {}):
+        for data in procres:
             yarahits = data.get("yara", [])
             malmeta = dict()
             for yh in yarahits:
