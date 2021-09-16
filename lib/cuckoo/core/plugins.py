@@ -485,7 +485,9 @@ class RunProcessing(object):
         if self.cfg.detections.crowdstrike_yara and not family:
             processing_types = ("target", "dropped", "procdump", "procmemory", "CAPE")
             for proctype in processing_types:
-                maldata = get_crowdstrike_family(proctype, self.results.get(proctype, None))
+                procres = self.results.get(proctype, None)
+                if procres:
+                    maldata = get_crowdstrike_family(proctype, procres)
                 if maldata:
                     malfamily_tag = "CS Yara"
                     if len(maldata) == 1:
