@@ -612,8 +612,9 @@ def index(request, resubmit_hash=False):
         if resubmit_hash:
             records = perform_search("sha256", resubmit_hash)
             for record in records:
-                existent_tasks.setdefault(record["target"]["file"]["sha256"], list())
-                existent_tasks[record["target"]["file"]["sha256"]].append(record)
+                if "file" in record["info"]["category"]:
+                    existent_tasks.setdefault(record["target"]["file"]["sha256"], list())
+                    existent_tasks[record["target"]["file"]["sha256"]].append(record)
 
         return render(
             request,
