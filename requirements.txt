@@ -309,9 +309,9 @@ django-recaptcha==2.0.6 \
 django-settings-export==1.2.1 \
     --hash=sha256:fceeae49fc597f654c1217415d8e049fc81c930b7154f5d8f28c432db738ff79
     # via -r requirements.in
-django==3.2.4 \
-    --hash=sha256:66c9d8db8cc6fe938a28b7887c1596e42d522e27618562517cc8929eb7e7f296 \
-    --hash=sha256:ea735cbbbb3b2fba6d4da4784a0043d84c67c92f1fdf15ad6db69900e792c10f
+django==3.2.5 \
+    --hash=sha256:3da05fea54fdec2315b54a563d5b59f3b4e2b1e69c3a5841dda35019c01855cd \
+    --hash=sha256:c58b5f19c5ae0afe6d75cbdd7df561e6eb929339985dbbda2565e1cabb19a62e
     # via
     #   -r requirements.in
     #   django-allauth
@@ -446,8 +446,8 @@ halo==0.0.31 \
     --hash=sha256:5350488fb7d2aa7c31a1344120cee67a872901ce8858f60da7946cef96c208ab \
     --hash=sha256:7b67a3521ee91d53b7152d4ee3452811e1d2a6321975137762eb3d70063cc9d6
     # via flare-capa
-https://github.com/CAPESandbox/httpreplay/archive/refs/tags/0.3.0.zip \
-    --hash=sha256:c0cb78fb8a09855579bc719d27e9d33793e10506e23edabfb39abe73888d2a63
+https://github.com/CAPESandbox/httpreplay/archive/0d5a5b3144ab15f93189b83ca8188afde43db134.zip \
+    --hash=sha256:9b2d86dbbb71a0cf941a3e1698dfcddad11adb7df43c63ea6728f691fa616438
     # via -r requirements.in
 ida-netnode==3.0 \
     --hash=sha256:b7e1f2fbf57e3e104ed779d58e5f3f050aa48cce581bab8bf14ccee7a315e32e \
@@ -1610,8 +1610,8 @@ werkzeug==1.0.1 \
 wrapt==1.12.1 \
     --hash=sha256:b62ffa81fb85f4332a4f609cab4ac40709470da05643a082ec1eb88e6d9b97d7
     # via deprecated
-https://github.com/DissectMalware/XLMMacroDeobfuscator/archive/e920b3f482f900debe8b639c0ebea96f4b9688ba.zip \
-    --hash=sha256:0bb6c48b72c034911d6eb5e0d125a7fa5d893b9337786e18c1de6911bbbdf3d3
+https://github.com/DissectMalware/XLMMacroDeobfuscator/archive/d2a070d4b6b484b670baa605c0994954952c5d71.zip \
+    --hash=sha256:d00fec4ecad5f7288722cb5f8967a7f1914c770fb04281c8adff16117c608f18
     # via -r requirements.in
 xlrd2==1.2.6 \
     --hash=sha256:b9e613a96357f9828f95f226b42b185aeb66b3d36556fed38535442cc1128090 \

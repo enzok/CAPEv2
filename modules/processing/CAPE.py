@@ -303,6 +303,9 @@ class CAPE(Processing):
                     if cape_name in conf:
                         conf[cape_name].update(config[cape_name])
             else:
+                # in case if malware name is missed it will break conf visualization
+                if cape_name not in config:
+                    config = {cape_name: config}
                 self.cape["configs"].append(config)
 
     def run(self):
