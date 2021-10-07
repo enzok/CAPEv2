@@ -795,7 +795,6 @@ class Database(object, metaclass=Singleton):
                      .filter(not_(cond))
                      .first()
                 )
-                return row
 
             if row:
                 if row.machine and machine != row.machine:
