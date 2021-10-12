@@ -128,6 +128,7 @@ if process_cfg.mwcp.enabled:
         mwcp.register_parser_directory(os.path.join(CUCKOO_ROOT, process_cfg.mwcp.modules_path))
         malware_parsers = {block.name.split(".")[-1]: block.name for block in mwcp.get_parser_descriptions(config_only=False)}
         HAS_MWCP = True
+        assert "MWCP_TEST" in malware_parsers
     except ImportError as e:
         logging.info(
             "Missed MWCP -> pip3 install git+https://github.com/Defense-Cyber-Crime-Center/DC3-MWCP\nDetails: {}".format(e)
@@ -143,9 +144,10 @@ if process_cfg.ratdecoders.enabled:
         if process_cfg.ratdecoders.modules_path:
             from lib.cuckoo.common.load_extra_modules import ratdecodedr_load_decoders
 
-            ratdecoders_local_modules = ratdecodedr_load_decoders([process_cfg.ratdecoders.modules_path])
+            ratdecoders_local_modules = ratdecodedr_load_decoders([os.path.join(CUCKOO_ROOT, process_cfg.ratdecoders.modules_path)])
             if ratdecoders_local_modules:
                 __decoders__.update(ratdecoders_local_modules)
+            assert "TestRats" in __decoders__
     except ImportError:
         logging.info("Missed RATDecoders -> pip3 install git+https://github.com/kevthehermit/RATDecoders")
     except Exception as e:
@@ -157,7 +159,7 @@ if process_cfg.malduck.enabled:
         from lib.cuckoo.common.load_extra_modules import malduck_load_decoders
         from malduck.extractor import ExtractorModules, ExtractManager
         from malduck.extractor.extractor import Extractor
-        from malduck.extractor.loaders import load_modules
+        # from malduck.extractor.loaders import load_modules
         from malduck.yara import Yara
 
         malduck_rules = Yara.__new__(Yara)
@@ -168,6 +170,7 @@ if process_cfg.malduck.enabled:
         malduck_modules.extractors = Extractor.__subclasses__()
         HAVE_MALDUCK = True
         # del tmp_modules
+        assert "test_malduck" in malduck_modules_names
     except ImportError:
         logging.info("Missed MalDuck -> pip3 install git+https://github.com/CERT-Polska/malduck/")
 
@@ -175,9 +178,10 @@ HAVE_CAPE_EXTRACTORS = False
 if process_cfg.CAPE_extractors.enabled:
     from lib.cuckoo.common.load_extra_modules import cape_load_decoders
 
-    cape_malware_parsers = cape_load_decoders(os.path.join(CUCKOO_ROOT, process_cfg.malduck.modules_path))
+    cape_malware_parsers = cape_load_decoders(CUCKOO_ROOT)
     if cape_malware_parsers:
         HAVE_CAPE_EXTRACTORS = True
+    assert "test_cape" in cape_malware_parsers
 
 try:
     from modules.processing.parsers.plugxconfig import plugx
@@ -320,23 +324,36 @@ def static_config_parsers(yara_hit, file_data):
     elif HAS_MALWARECONFIGS and not parser_loaded and cape_name in __decoders__:
         logging.debug("Running Malwareconfigs")
         try:
+            module = False
             file_info = fileparser.FileParser(rawdata=file_data)
-            module = __decoders__[file_info.malware_name]["obj"]()
-            module.set_file(file_info)
-            module.get_config()
-            malwareconfig_config = module.config
-            # ToDo remove
-            if isinstance(malwareconfig_config, list):
-                for (key, value) in malwareconfig_config[0].items():
-                    cape_config[cape_name].update({key: [value]})
-            elif isinstance(malwareconfig_config, dict):
-                for (key, value) in malwareconfig_config.items():
-                    cape_config[cape_name].update({key: [value]})
+            # Detects name by embed yara
+            if file_info.malware_name in __decoders__:
+                module = __decoders__[file_info.malware_name]["obj"]()
+            elif cape_name in __decoders__:
+                module = __decoders__[cape_name]["obj"]()
+            else:
+                logging.warning(f"{cape_name}: wasn't matched by plugin's yara")
+
+            if module:
+                module.set_file(file_info)
+                module.get_config()
+                malwareconfig_config = module.config
+                # ToDo remove
+                if isinstance(malwareconfig_config, list):
+                    for (key, value) in malwareconfig_config[0].items():
+                        cape_config[cape_name].update({key: [value]})
+                elif isinstance(malwareconfig_config, dict):
+                    for (key, value) in malwareconfig_config.items():
+                        cape_config[cape_name].update({key: [value]})
         except Exception as e:
-            logging.warning(
-                "malwareconfig parsing error with %s: %s, you should submit issue/fix to https://github.com/kevthehermit/RATDecoders/",
-                cape_name,
-                e,
+            if "rules" in str(e):
+                logging.warning("You probably need to compile yara-python with dotnet support")
+            else:
+                logging.error(e, exc_info=True)
+                logging.warning(
+                    "malwareconfig parsing error with %s: %s, you should submit issue/fix to https://github.com/kevthehermit/RATDecoders/",
+                    cape_name,
+                    e,
             )
 
         if cape_name in cape_config and cape_config[cape_name] == {}:
