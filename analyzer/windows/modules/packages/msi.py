@@ -14,8 +14,7 @@ class Msi(Package):
         self.options = options
         self.options["exclude-apis"] = "NetUserGetInfo, NetGetJoinInformation, NetUserGetLocalGroups, DsEnumerateDomainTrustsW," \
                                        " CDocument_write, RegOpenKeyExA, RegOpenKeyExW, OpenSCManagerA, OpenSCManagerW," \
-                                       " CreateServiceA," " CreateServiceW, OpenServiceA, OpenServiceW, StartServiceA," \
-                                       " StartServiceW, ControlService, DeleteService"
+                                       " CreateServiceA," " CreateServiceW, OpenServiceA, OpenServiceW, ControlService, DeleteService"
 
     PATHS = [
         ("SystemRoot", "system32", "msiexec.exe"),
