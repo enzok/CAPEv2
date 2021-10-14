@@ -12,9 +12,9 @@ class Msi(Package):
     def __init__(self, options={}, config=None):
         self.config = config
         self.options = options
-        self.options["exclude-apis"] = "NetUserGetInfo, NetGetJoinInformation, NetUserGetLocalGroups, DsEnumerateDomainTrustsW," \
-                                       " CDocument_write, RegOpenKeyExA, RegOpenKeyExW, OpenSCManagerA, OpenSCManagerW," \
-                                       " CreateServiceA," " CreateServiceW, OpenServiceA, OpenServiceW, ControlService, DeleteService"
+        self.options["exclude-apis"] = "NetUserGetInfo, NetGetJoinInformation, NetUserGetLocalGroups, DsEnumerateDomainTrustsW, " \
+                                       "CDocument_write, RegOpenKeyExA, RegOpenKeyExW, OpenSCManagerA, OpenSCManagerW, " \
+                                       "CreateServiceA, CreateServiceW, OpenServiceA, OpenServiceW, ControlService, DeleteService"
 
     PATHS = [
         ("SystemRoot", "system32", "msiexec.exe"),
