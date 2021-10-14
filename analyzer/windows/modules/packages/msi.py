@@ -9,6 +9,14 @@ from lib.common.abstracts import Package
 class Msi(Package):
     """MSI analysis package."""
 
+    def __init__(self, options={}, config=None):
+        self.config = config
+        self.options = options
+        self.options["exclude-apis"] = "NetUserGetInfo, NetGetJoinInformation, NetUserGetLocalGroups, DsEnumerateDomainTrustsW," \
+                                       " CDocument_write, RegOpenKeyExA, RegOpenKeyExW, OpenSCManagerA, OpenSCManagerW," \
+                                       " CreateServiceA," " CreateServiceW, OpenServiceA, OpenServiceW, StartServiceA," \
+                                       " StartServiceW, ControlService, DeleteService"
+
     PATHS = [
         ("SystemRoot", "system32", "msiexec.exe"),
     ]
