@@ -297,11 +297,11 @@ class CAPE(Processing):
                 self.add_statistic_tmp("flare_capa", "time", pretime=pretime)
             self.cape["payloads"].append(file_info)
 
-        if config and config not in self.cape["configs"]:
+        if config and config not in self.cape["configs"] and config.get(cape_name):
             if cape_name in multi_block_config and self.cape["configs"]:
                 for conf in self.cape["configs"]:
                     if cape_name in conf:
-                        conf.setdefault(cape_name, list()).update(config[cape_name])
+                        conf[cape_name].update(config[cape_name])
             else:
                 # in case if malware name is missed it will break conf visualization
                 if cape_name not in config:
