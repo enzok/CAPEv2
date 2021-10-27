@@ -47,9 +47,6 @@
                     <th width="7%">Task tags</th>
                     {% endif %}
 
-                    {% if config.expanded_dashboard %}
-                    <th width="2.5%">PKG</th>
-                    {% endif %}
                     {% if config.moloch %}
                     <th width="4%">Moloch</th>
                     {% endif %}
@@ -58,7 +55,7 @@
                     {% endif %}
                     {% if config.suricata %}
                     <th width="12%">SuriAlert
-                        {% if config.expanded_dashboard_2 %}
+                        {% if config.expanded_dashboard %}
                         /HTTP/TLS/Files
                         {% endif %}
                     </th>
@@ -69,8 +66,7 @@
                     {% if config.malscore %}
                         <th width="6%">MalScore</th>
                     {% endif %}
-                    {% if config.expanded_dashboard %}
-                    <th width="3%">PCAP</th>
+                    {% if config.display_clamav %}
                     <th width="5%">ClamAV</th>
                     {% endif %}
                     {% if config.display_shrike %}
@@ -121,15 +117,6 @@
                         </td>
                         {% endif %}
 
-                        {% if config.expanded_dashboard %}
-                        <td>
-                            {% if analysis.package %}
-                                  <span class="mono">{{analysis.package}}</span>
-                            {% else %}
-                                  <span class="mono">-</span>
-                            {% endif %}
-                        </td>
-                        {% endif %}
                         {% if config.moloch %}
                         <td>
                             {% if analysis.moloch_url %}
@@ -158,7 +145,7 @@
                             {% else %}
                             -<!--
                             {% endif %}
-                            {% if config.expanded_dashboard_2 %}
+                            {% if config.expanded_dashboard %}
                                 {% if analysis.suri_http_cnt %}
                                 -->/<a href="{% url "surihttp" analysis.id %}" target="_blank">{{analysis.suri_http_cnt}}</a><!--
                                 {% else %}
@@ -207,25 +194,7 @@
                             {% endif %}
                         </td>
                         {% endif %}
-                        {% if config.expanded_dashboard %}
-                        <td>
-                            <span class="mono">
-                                {% if analysis.detections %}
-                                {{analysis.detections}}
-                                {% else %}
-                                -
-                                {% endif %}
-                            </span>
-                        </td>
-                        <td>
-                            <span class="mono">
-                            {% if analysis.pcap_sha256 %}
-                            <a href="{% url "file" "pcap" analysis.id analysis.pcap_sha256 %}" target="_blank">PCAP</a>
-                            {% else %}
-                            -
-                            {% endif %}
-                            </span>
-                        </td>
+                        {% if config.display_clamav %}
                         <td>
                             <span class="mono">
                             {% if analysis.clamav %}
@@ -339,9 +308,6 @@
                     <th width="7%">Task tags</th>
                     {% endif %}
 
-                    {% if config.expanded_dashboard %}
-                    <th width="2.5%">PKG</th>
-                    {% endif %}
                     {% if config.moloch %}
                     <th width="4%">Moloch</th>
                     {% endif %}
@@ -354,8 +320,7 @@
                     {% if config.malscore %}
                         <th width="3%">MalScore</th>
                     {% endif %}
-                    {% if config.expanded_dashboard %}
-                    <th width="3%">PCAP</th>
+                    {% if config.display_clamav %}
                     <th width="5%">ClamAV</th>
                     {% endif %}
                     {% if config.display_shrike %}
@@ -404,15 +369,6 @@
                         </td>
                         {% endif %}
 
-                        {% if config.expanded_dashboard %}
-                        <td>
-                            {% if analysis.package %}
-                                  <span class="mono">{{analysis.package}}</span>
-                            {% else %}
-                                  <span class="mono">-</span>
-                            {% endif %}
-                        </td>
-                        {% endif %}
                         {% if config.moloch %}
                         <td>
                             {% if analysis.moloch_url %}
@@ -462,16 +418,7 @@
                             {% endif %}
                         </td>
                         {% endif %}
-                        {% if config.expanded_dashboard %}
-                        <td>
-                            <span class="mono">
-                            {% if analysis.pcap_sha256 %}
-                            <a href="{% url "file" "pcap" analysis.id analysis.pcap_sha256 %}" target="_blank">PCAP</a>
-                            {% else %}
-                            -
-                            {% endif %}
-                            </span>
-                        </td>
+                        {% if config.display_clamav %}
                         <td>
                             <span class="mono">
                             {% if analysis.clamav %}
@@ -586,11 +533,7 @@
                     <th width="5%">Martians</th>
                     {% endif %}
                     {% if config.suricata %}
-                    <th width="10%">SuriAlert
-                        {% if config.expanded_dashboard_2 %}
-                            /HTTP/TLS/Files
-                        {% endif %}
-                    </th>
+                    <th width="10%">SuriAlert/HTTP/TLS/Files</th>
                     {% endif %}
                     {% if config.virustotal %}
                     <th width="5%">VT</th>
@@ -598,8 +541,9 @@
                     {% if config.malscore %}
                         <th width="5%">MalScore</th>
                     {% endif %}
-                    <th width="5%">PCAP</th>
+                    {% if config.display_clamav %}
                     <th width="10%">ClamAV</th>
+                    {% endif %}
                     {% if config.display_shrike %}
                     <th width="5%">Shrike</th>
                     {% endif %}
@@ -615,11 +559,7 @@
                     <th width="5%">Martians</th>
                     {% endif %}
                     {% if config.suricata %}
-                    <th width="7%">SuriAlert
-                        {% if config.expanded_dashboard_2 %}
-                            /HTTP/TLS/Files
-                        {% endif %}
-                    </th>
+                    <th width="7%">SuriAlert</th>
                     {% endif %}
                     {% if config.virustotal %}
                     <th width="5%">VT</th>
@@ -684,7 +624,7 @@
                                 {% else %}
                                 -<!--
                                 {% endif %}
-                                {% if config.expanded_dashboard_2 %}
+                                {% if config.expanded_dashboard %}
                                     {% if analysis.suri_http_cnt %}
                                     -->/<a href="{% url "surihttp" analysis.id %}" target="_blank">{{analysis.suri_http_cnt}}</a><!--
                                     {% else %}
@@ -734,25 +674,7 @@
                             {% endif %}
                         </td>
                         {% endif %}
-                        {% if config.expanded_dashboard %}
-                        <td>
-                            <span class="mono">
-                                {% if analysis.detections %}
-                                {{analysis.detections}}
-                                {% else %}
-                                None
-                                {% endif %}
-                            </span>
-                        </td>
-                        <td>
-                            <span class="mono">
-                            {% if analysis.pcap_sha256 %}
-                            <a href="{% url "file" "pcap" analysis.id analysis.pcap_sha256 %}" target="_blank">PCAP</a>
-                            {% else %}
-                            -
-                            {% endif %}
-                            </span>
-                        </td>
+                        {% if config.display_clamav %}
                         <td>
                             <span class="mono">
                             {% if analysis.clamav %}
@@ -858,17 +780,11 @@
                     <th width="5%">Moloch</th>
                     {% endif %}
                     {% if config.suricata %}
-                    <th width="10%">SuriAlert
-                        {% if config.expanded_dashboard_2 %}
-                            /HTTP/TLS/Files
-                        {% endif %}
-                    </th>
+                    <th width="10%">SuriAlert/HTTP/TLS/Files</th>
                     {% endif %}
                     {% if config.malscore %}
                         <th width="5%">MalScore</th>
                     {% endif %}
-
-                    <th width="5%">PCAP</th>
                     {% if config.display_shrike %}
                     <th width="5%">Shrike</th>
                     {% endif %}
@@ -882,11 +798,7 @@
                     <th width="5%">Moloch</th>
                     {% endif %}
                     {% if config.suricata %}
-                    <th width="7%">SuriAlert
-                        {% if config.expanded_dashboard_2 %}
-                            /HTTP/TLS/Files
-                        {% endif %}
-                    </th>
+                    <th width="7%">SuriAlert</th>
                     {% endif %}
                     {% if config.malscore %}
                         <th width="5%">MalScore</th>
@@ -940,7 +852,7 @@
                         {% else %}
                         -<!--
                         {% endif %}
-                        {% if config.expanded_dashboard_2 %}
+                        {% if config.expanded_dashboard %}
                             {% if analysis.suri_http_cnt %}
                             -->/<a href="{% url "surihttp" analysis.id %}" target="_blank">{{analysis.suri_http_cnt}}</a><!--
                             {% else %}
@@ -975,26 +887,6 @@
                         {% else %}
                         <span class="mono">-</span>
                         {% endif %}
-                    </td>
-                    {% endif %}
-                    {% if config.expanded_dashboard %}
-                    <td>
-                        <span class="mono">
-                            {% if analysis.detections %}
-                                {{analysis.detections}}
-                            {% else %}
-                                -
-                            {% endif %}
-                        </span>
-                    </td>
-                    <td>
-                        <span class="mono">
-                            {% if analysis.pcap_sha256 %}
-                            <a href="{% url "file" "pcap" analysis.id analysis.pcap_sha256 %}" target="_blank">PCAP</a>
-                            {% else %}
-                            -
-                            {% endif %}
-                        </span>
                     </td>
                     {% endif %}
                     {% if config.display_shrike %}
