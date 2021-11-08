@@ -1,3 +1,10 @@
+### [08-11-2021]
+* Monitor: rdtscp emulation, optional exception & breakpoint logging
+
+### [04-11-2021]
+* Move Office hook options from packages to monitor
+* Monitor: Disable NtWaitForSingleObject hook for 32-bit Windows 8+ due to crashes
+
 ### [03-11-2021]
 * Add MongoDB multifield index for all SHA256 fields.
     * if you using any other fields for frequent lookup, add indexes for that on your side to speedup database
