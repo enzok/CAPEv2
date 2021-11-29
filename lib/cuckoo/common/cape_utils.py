@@ -29,6 +29,8 @@ process_cfg = Config("processing")
 
 log = logging.getLogger(__name__)
 
+logging.getLogger("Kixtart-Detokenizer").setLevel(logging.CRITICAL)
+
 if repconf.mongodb.enabled:
     import pymongo
 
@@ -462,12 +464,6 @@ def _extracted_files_metadata(folder, destination_folder, data_dictionary, conte
         if file_details:
             file_details = file_details[0]
 
-        if not content:
-            with open(full_path, "rb") as f:
-                content = f.read()
-
-        # is_text_file(content, data_dictionary, 8192)
-
         metadata.append(file_details)
         dest_path = os.path.join(destination_folder, file_details["sha256"])
         if not os.path.exists(dest_path):
@@ -515,6 +511,9 @@ def msi_extract(file, destination_folder, filetype, data_dictionary, msiextract=
             logging.error(e, exc_info=True)
 
     if metadata:
+        for meta in metadata:
+            is_text_file(meta, destination_folder, 8192)
+
         data_dictionary.setdefault("msitools", metadata)
 
 
@@ -540,4 +539,7 @@ def kixtart_extract(file, destination_folder, filetype, data_dictionary):
             metadata += _extracted_files_metadata(tempdir, destination_folder, data_dictionary, content=content)
 
     if metadata:
+        for meta in metadata:
+            is_text_file(meta, destination_folder, 8192)
+
         data_dictionary.setdefault("kixtart", metadata)
