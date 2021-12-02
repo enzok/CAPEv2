@@ -1,3 +1,10 @@
+### [02-12-2021] - API changes
+* We spot that pyzipper adds huge overhead specially to distributed cape.
+* Repors now are just zips, screens also now zips, anything that is not contains malicious code is just pure zip, the rest is keeps the same.
+
+### [01-12-2021]
+* Monitor: Bcrypt hooks, disable yara scans in IE, silent rdtscp emulation, other misc tweaks
+
 ### [23-11-2021]
 * Integrate [Kixtart-Detokenizer](https://github.com/jhumble/Kixtart-Detokenizer)
 * Simplify integration of another tools to unpack/extract files
