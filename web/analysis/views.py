@@ -1642,7 +1642,7 @@ def full_memory_dump_strings(request, analysis_number):
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 @ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
 @ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
-def search(request, searched=False):
+def search(request, searched=""):
     if "search" in request.POST or searched:
         term = ""
         if not searched and request.POST.get("search"):
