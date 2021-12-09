@@ -190,7 +190,7 @@ class Process:
 
     def is_critical(self):
         """Determines if process is 'critical' or not, so we can prevent
-           terminating it
+        terminating it
         """
         if not self.h_process:
             self.open()
@@ -225,8 +225,7 @@ class Process:
         return None
 
     def kernel_analyze(self):
-        """zer0m0n kernel analysis
-        """
+        """zer0m0n kernel analysis"""
         log.info("Starting kernel analysis")
         log.info("Installing driver")
         if is_os_64bit():
@@ -291,7 +290,9 @@ class Process:
             'Instance1.Name = "{service_name} Instance"\r\n'
             'Instance1.Altitude = "370050"\r\n'
             "Instance1.Flags = 0x0"
-        ).format(service_name=service_name, driver_name=driver_name, random_string8=random_string(8), random_string12=random_string(12),)
+        ).format(
+            service_name=service_name, driver_name=driver_name, random_string8=random_string(8), random_string12=random_string(12)
+        )
 
         new_inf = os.path.join(os.getcwd(), "dll", "{0}.inf".format(service_name))
         new_sys = os.path.join(os.getcwd(), "dll", "{0}.sys".format(driver_name))
@@ -379,7 +380,7 @@ class Process:
             KERNEL32.DeviceIoControl(hFile, IOCTL_PID, msg, len(msg), None, 0, byref(bytes_returned), None)
             msg = os.getcwd() + "\0"
             KERNEL32.DeviceIoControl(
-                hFile, IOCTL_CUCKOO_PATH, str(msg, "utf-8"), len(str(msg, "utf-8")), None, 0, byref(bytes_returned), None,
+                hFile, IOCTL_CUCKOO_PATH, str(msg, "utf-8"), len(str(msg, "utf-8")), None, 0, byref(bytes_returned), None
             )
         else:
             log.warning("Failed to access kernel driver")
@@ -415,7 +416,7 @@ class Process:
             creation_flags += CREATE_SUSPENDED
 
         created = KERNEL32.CreateProcessW(
-            path, arguments, None, None, None, creation_flags, None, os.getenv("TEMP"), byref(startup_info), byref(process_info),
+            path, arguments, None, None, None, creation_flags, None, os.getenv("TEMP"), byref(startup_info), byref(process_info)
         )
 
         if created:
@@ -423,9 +424,7 @@ class Process:
             self.h_process = process_info.hProcess
             self.thread_id = process_info.dwThreadId
             self.h_thread = process_info.hThread
-            log.info(
-                'Successfully executed process from path "%s" with ' 'arguments "%s" with pid %d', path, args or "", self.pid,
-            )
+            log.info('Successfully executed process from path "%s" with ' 'arguments "%s" with pid %d', path, args or "", self.pid)
             if kernel_analysis:
                 return self.kernel_analyze()
             return True
@@ -460,8 +459,7 @@ class Process:
             return False
 
     def set_terminate_event(self):
-        """Sets the termination event for the process.
-        """
+        """Sets the termination event for the process."""
         if self.h_process == 0:
             self.open()
 
@@ -513,7 +511,7 @@ class Process:
             ret = KERNEL32.IsWow64Process(self.h_process, byref(val))
             if ret and not val.value and is_os_64bit():
                 return True
-        except:
+        except Exception:
             pass
 
         return False
@@ -623,16 +621,16 @@ class Process:
 
         if not os.path.exists(bin_name):
             log.warning(
-                "Invalid loader path %s for injecting DLL in process " "with pid %d, injection aborted.", bin_name, self.pid,
+                "Invalid loader path %s for injecting DLL in process " "with pid %d, injection aborted.", bin_name, self.pid
             )
             log.error(
-                "Please ensure the %s loader is in analyzer/windows/bin " "in order to analyze %s binaries.", bit_str, bit_str,
+                "Please ensure the %s loader is in analyzer/windows/bin " "in order to analyze %s binaries.", bit_str, bit_str
             )
             return False
 
         if not os.path.exists(dll):
             log.warning(
-                "Invalid path %s for monitor DLL to be injected in process " "with pid %d, injection aborted.", dll, self.pid,
+                "Invalid path %s for monitor DLL to be injected in process " "with pid %d, injection aborted.", dll, self.pid
             )
             return False
 

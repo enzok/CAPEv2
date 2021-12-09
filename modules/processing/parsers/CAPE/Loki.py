@@ -20,7 +20,6 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-from mwcp.parser import Parser
 import pefile
 import sys
 import re
@@ -129,7 +128,7 @@ def decoder(data):
             if ".x" in sect.Name:
                 x_sect = sect
         img = pe.get_memory_mapped_image()
-    except:
+    except Exception:
         img = data
     if x_sect != None:
         x = img[x_sect.VirtualAddress : x_sect.VirtualAddress + x_sect.SizeOfRawData]
@@ -164,12 +163,13 @@ def decoder(data):
     return urls
 
 
-class Loki(Parser):
-
+def config(filebuf):
     DESCRIPTION = "Loki configuration parser."
     AUTHOR = "sysopfb"
 
-    def run(self):
-        urls = decoder(self.file_object.file_data)
-        for url in urls:
-            self.reporter.add_metadata("address", url)
+    cfg = dict()
+    urls = decoder(filebuf)
+    if urls:
+        cfg.setdefault("address", list())
+
+    cfg["address"] = urls

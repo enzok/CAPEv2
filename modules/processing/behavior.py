@@ -22,6 +22,7 @@ from lib.cuckoo.common.utils import (
     get_options,
 )
 
+
 log = logging.getLogger(__name__)
 cfg = Config()
 cfg_process = Config("processing")
@@ -80,8 +81,7 @@ class ParseProcessLog(list):
             self.api_call_cache.append(None)
 
     def parse_first_and_reset(self):
-        """ Open file and init Bson Parser. Read till first process
-        """
+        """Open file and init Bson Parser. Read till first process"""
         self.fd = open(self._log_path, "rb")
 
         if self._log_path.endswith(".bson"):
@@ -104,7 +104,7 @@ class ParseProcessLog(list):
         self.fd.seek(0)
 
     def read(self, length):
-        """ Read data from log file
+        """Read data from log file
 
         @param length: Length in byte to read
         """
@@ -128,8 +128,7 @@ class ParseProcessLog(list):
         return self.wait_for_lastcall()
 
     def reset(self):
-        """ Reset fd
-        """
+        """Reset fd"""
         self.fd.seek(0)
         self.api_count = 0
         self.lastcall = None
@@ -147,7 +146,7 @@ class ParseProcessLog(list):
         return False
 
     def wait_for_lastcall(self):
-        """ If there is no lastcall, iterate through messages till a call is found or EOF.
+        """If there is no lastcall, iterate through messages till a call is found or EOF.
         To get the next call, set self.lastcall to None before calling this function
 
         @return: True if there is a call, False on EOF
@@ -188,8 +187,7 @@ class ParseProcessLog(list):
         return nextcall
 
     def __next__(self):
-        """ Just accessing the cache
-        """
+        """Just accessing the cache"""
 
         if cfg.processing.ram_boost:
             res = self.api_call_cache[self.api_pointer]
@@ -202,7 +200,7 @@ class ParseProcessLog(list):
             return self.cacheless_next()
 
     def log_process(self, context, timestring, pid, ppid, modulepath, procname):
-        """ log process information parsed from data file
+        """log process information parsed from data file
 
         @param context: ignored
         @param timestring: Process first seen time
@@ -219,7 +217,7 @@ class ParseProcessLog(list):
         pass
 
     def log_environ(self, context, environdict):
-        """ log user/process environment information for later use in behavioral signatures
+        """log user/process environment information for later use in behavioral signatures
 
         @param context: ignored
         @param environdict: dict of the various collected information, which will expand over time
@@ -227,7 +225,7 @@ class ParseProcessLog(list):
         self.environdict.update(bytes2str(environdict))
 
     def log_anomaly(self, subcategory, tid, funcname, msg):
-        """ log an anomaly parsed from data file
+        """log an anomaly parsed from data file
 
         @param subcategory:
         @param tid: Thread ID
@@ -237,7 +235,7 @@ class ParseProcessLog(list):
         self.lastcall = dict(thread_id=tid, category="anomaly", api="", subcategory=subcategory, funcname=funcname, msg=msg)
 
     def log_call(self, context, apiname, category, arguments):
-        """ log an api call from data file
+        """log an api call from data file
         @param context: containing additional api info
         @param apiname: name of the api
         @param category: win32 function category
@@ -248,11 +246,12 @@ class ParseProcessLog(list):
         current_time = self.first_seen + datetime.timedelta(0, 0, timediff * 1000)
         timestring = logtime(current_time)
 
-        self.lastcall = self._parse([timestring, tid, caller, parentcaller, category, apiname, repeated, status, returnval] + arguments)
+        self.lastcall = self._parse(
+            [timestring, tid, caller, parentcaller, category, apiname, repeated, status, returnval] + arguments
+        )
 
     def log_error(self, emsg):
-        """ Log an error
-        """
+        """Log an error"""
         log.warning("ParseProcessLog error condition on log %s: %s", str(self._log_path), emsg)
 
     def begin_reporting(self):
@@ -498,7 +497,9 @@ class Summary:
             # if disposition == 1 then we created a new key
             if name and disposition == 1 and name not in self.write_keys:
                 self.write_keys.append(name)
-        elif call["api"].startswith("RegQueryValue") or call["api"] == "NtQueryValueKey" or call["api"] == "NtQueryMultipleValueKey":
+        elif (
+            call["api"].startswith("RegQueryValue") or call["api"] == "NtQueryValueKey" or call["api"] == "NtQueryMultipleValueKey"
+        ):
             name = self.get_argument(call, "FullName")
             if name and name not in self.keys:
                 self.keys.append(name)
@@ -697,7 +698,7 @@ class Enhanced(object):
         return self.modules.get(base, "")
 
     def _process_call(self, call):
-        """ Gets files calls
+        """Gets files calls
         @return: information list
         """
 
@@ -756,7 +757,10 @@ class Enhanced(object):
             {
                 "event": "move",
                 "object": "file",
-                "apis": ["MoveFileWithProgressW", "MoveFileWithProgressTransactedW",],
+                "apis": [
+                    "MoveFileWithProgressW",
+                    "MoveFileWithProgressTransactedW",
+                ],
                 "args": [("from", "ExistingFileName"), ("to", "NewFileName")],
             },
             {
@@ -765,12 +769,46 @@ class Enhanced(object):
                 "apis": ["CopyFileA", "CopyFileW", "CopyFileExW", "CopyFileExA"],
                 "args": [("from", "ExistingFileName"), ("to", "NewFileName")],
             },
-            {"event": "delete", "object": "file", "apis": ["DeleteFileA", "DeleteFileW", "NtDeleteFile"], "args": [("file", "FileName")],},
-            {"event": "delete", "object": "dir", "apis": ["RemoveDirectoryA", "RemoveDirectoryW"], "args": [("file", "DirectoryName")],},
-            {"event": "create", "object": "dir", "apis": ["CreateDirectoryW", "CreateDirectoryExW"], "args": [("file", "DirectoryName")],},
-            {"event": "write", "object": "file", "apis": ["URLDownloadToFileW", "URLDownloadToFileA"], "args": [("file", "FileName")],},
-            {"event": "read", "object": "file", "apis": ["NtReadFile",], "args": [("file", "HandleName")]},
-            {"event": "write", "object": "file", "apis": ["NtWriteFile",], "args": [("file", "HandleName")]},
+            {
+                "event": "delete",
+                "object": "file",
+                "apis": ["DeleteFileA", "DeleteFileW", "NtDeleteFile"],
+                "args": [("file", "FileName")],
+            },
+            {
+                "event": "delete",
+                "object": "dir",
+                "apis": ["RemoveDirectoryA", "RemoveDirectoryW"],
+                "args": [("file", "DirectoryName")],
+            },
+            {
+                "event": "create",
+                "object": "dir",
+                "apis": ["CreateDirectoryW", "CreateDirectoryExW"],
+                "args": [("file", "DirectoryName")],
+            },
+            {
+                "event": "write",
+                "object": "file",
+                "apis": ["URLDownloadToFileW", "URLDownloadToFileA"],
+                "args": [("file", "FileName")],
+            },
+            {
+                "event": "read",
+                "object": "file",
+                "apis": [
+                    "NtReadFile",
+                ],
+                "args": [("file", "HandleName")],
+            },
+            {
+                "event": "write",
+                "object": "file",
+                "apis": [
+                    "NtWriteFile",
+                ],
+                "args": [("file", "HandleName")],
+            },
             {
                 "event": "execute",
                 "object": "file",
@@ -787,14 +825,26 @@ class Enhanced(object):
             {
                 "event": "execute",
                 "object": "file",
-                "apis": ["CreateProcessInternalW", "CreateProcessWithLogonW", "CreateProcessWithTokenW",],
+                "apis": [
+                    "CreateProcessInternalW",
+                    "CreateProcessWithLogonW",
+                    "CreateProcessWithTokenW",
+                ],
                 "args": [("file", "CommandLine")],
             },
-            {"event": "execute", "object": "file", "apis": ["ShellExecuteExA", "ShellExecuteExW",], "args": [("file", "FilePath")],},
+            {
+                "event": "execute",
+                "object": "file",
+                "apis": [
+                    "ShellExecuteExA",
+                    "ShellExecuteExW",
+                ],
+                "args": [("file", "FilePath")],
+            },
             {
                 "event": "load",
                 "object": "library",
-                "apis": ["LoadLibraryA", "LoadLibraryW", "LoadLibraryExA", "LoadLibraryExW", "LdrLoadDll", "LdrGetDllHandle",],
+                "apis": ["LoadLibraryA", "LoadLibraryW", "LoadLibraryExA", "LoadLibraryExW", "LdrLoadDll", "LdrGetDllHandle"],
                 "args": [("file", "FileName"), ("pathtofile", "PathToFile"), ("moduleaddress", "BaseAddress")],
             },
             {
@@ -809,14 +859,27 @@ class Enhanced(object):
                 "apis": ["RegSetValueExA", "RegSetValueExW"],
                 "args": [("regkey", "FullName"), ("content", "Buffer")],
             },
-            {"event": "write", "object": "registry", "apis": ["RegCreateKeyExA", "RegCreateKeyExW"], "args": [("regkey", "FullName")],},
+            {
+                "event": "write",
+                "object": "registry",
+                "apis": ["RegCreateKeyExA", "RegCreateKeyExW"],
+                "args": [("regkey", "FullName")],
+            },
             {
                 "event": "read",
                 "object": "registry",
-                "apis": ["RegQueryValueExA", "RegQueryValueExW",],
+                "apis": [
+                    "RegQueryValueExA",
+                    "RegQueryValueExW",
+                ],
                 "args": [("regkey", "FullName"), ("content", "Data")],
             },
-            {"event": "read", "object": "registry", "apis": ["NtQueryValueKey"], "args": [("regkey", "FullName"), ("content", "Information")],},
+            {
+                "event": "read",
+                "object": "registry",
+                "apis": ["NtQueryValueKey"],
+                "args": [("regkey", "FullName"), ("content", "Information")],
+            },
             {
                 "event": "delete",
                 "object": "registry",
@@ -827,9 +890,14 @@ class Enhanced(object):
                 "event": "create",
                 "object": "windowshook",
                 "apis": ["SetWindowsHookExA"],
-                "args": [("id", "HookIdentifier"), ("moduleaddress", "ModuleAddress"), ("procedureaddress", "ProcedureAddress"),],
+                "args": [("id", "HookIdentifier"), ("moduleaddress", "ModuleAddress"), ("procedureaddress", "ProcedureAddress")],
             },
-            {"event": "start", "object": "service", "apis": ["StartServiceA", "StartServiceW"], "args": [("service", "ServiceName")],},
+            {
+                "event": "start",
+                "object": "service",
+                "apis": ["StartServiceA", "StartServiceW"],
+                "args": [("service", "ServiceName")],
+            },
             {
                 "event": "modify",
                 "object": "service",
@@ -852,7 +920,10 @@ class Enhanced(object):
         args = _load_args(call)
 
         if event:
-            if call["api"] in ["LoadLibraryA", "LoadLibraryW", "LoadLibraryExA", "LoadLibraryExW", "LdrGetDllHandle"] and call["status"]:
+            if (
+                call["api"] in ["LoadLibraryA", "LoadLibraryW", "LoadLibraryExA", "LoadLibraryExW", "LdrGetDllHandle"]
+                and call["status"]
+            ):
                 self._add_loaded_module(args.get("FileName", ""), args.get("ModuleHandle", ""))
 
             elif call["api"] in ["LdrLoadDll"] and call["status"]:
@@ -916,7 +987,13 @@ class Anomaly(object):
                 message = row["value"]
 
         self.anomalies.append(
-            dict(name=process["process_name"], pid=process["process_id"], category=category, funcname=funcname, message=message,)
+            dict(
+                name=process["process_name"],
+                pid=process["process_id"],
+                category=category,
+                funcname=funcname,
+                message=message,
+            )
         )
 
     def run(self):
@@ -1050,14 +1127,25 @@ class EncryptedBuffers:
             buf = self.get_argument(call, "Buffer", strip=True)
             if buf and buf not in self.bufs:
                 self.bufs.append(
-                    dict(process_name=process["process_name"], pid=process["process_id"], api_call="CryptEncrypt", buffer=buf, crypt_key=key,)
+                    dict(
+                        process_name=process["process_name"],
+                        pid=process["process_id"],
+                        api_call="CryptEncrypt",
+                        buffer=buf,
+                        crypt_key=key,
+                    )
                 )
 
         if call["api"].startswith("CryptEncryptMessage"):
             buf = self.get_argument(call, "Buffer", strip=True)
             if buf and buf not in self.bufs:
                 self.bufs.append(
-                    dict(process_name=process["process_name"], pid=process["process_id"], api_call="CryptEncryptMessage", buffer=buf,)
+                    dict(
+                        process_name=process["process_name"],
+                        pid=process["process_id"],
+                        api_call="CryptEncryptMessage",
+                        buffer=buf,
+                    )
                 )
 
     def run(self):
@@ -1092,13 +1180,13 @@ class BehaviorAnalysis(Processing):
                 for instance in instances:
                     try:
                         instance.event_apicall(call, process)
-                    except:
+                    except Exception:
                         log.exception('Failure in partial behavior "%s"', instance.key)
 
         for instance in instances:
             try:
                 behavior[instance.key] = instance.run()
-            except:
+            except Exception:
                 log.exception('Failed to run partial behavior class "%s"', instance.key)
 
         return behavior

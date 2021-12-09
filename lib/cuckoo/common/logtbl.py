@@ -115,8 +115,16 @@ table = [
     ("WriteConsoleW", "system", ("pU", "ConsoleHandle", "Buffer")),
     ("InternetOpenA", "network", ("spssp", "Agent", "AccessType", "ProxyName", "ProxyBypass", "Flags")),
     ("InternetOpenW", "network", ("upuup", "Agent", "AccessType", "ProxyName", "ProxyBypass", "Flags")),
-    ("InternetConnectA", "network", ("pslsslp", "InternetHandle", "ServerName", "ServerPort", "Username", "Password", "Service", "Flags"),),
-    ("InternetConnectW", "network", ("puluulp", "InternetHandle", "ServerName", "ServerPort", "Username", "Password", "Service", "Flags"),),
+    (
+        "InternetConnectA",
+        "network",
+        ("pslsslp", "InternetHandle", "ServerName", "ServerPort", "Username", "Password", "Service", "Flags"),
+    ),
+    (
+        "InternetConnectW",
+        "network",
+        ("puluulp", "InternetHandle", "ServerName", "ServerPort", "Username", "Password", "Service", "Flags"),
+    ),
     ("InternetOpenUrlA", "network", ("psSp", "ConnectionHandle", "URL", "Headers", "Flags")),
     ("InternetOpenUrlW", "network", ("puUp", "ConnectionHandle", "URL", "Headers", "Flags")),
     ("HttpOpenRequestA", "network", ("psl", "InternetHandle", "Path", "Flags")),
@@ -348,6 +356,15 @@ table = [
     (
         "ZwCreateUserProcess",
         "process",
-        ("sssssss", "ProcessHandle", "ThreadHandle", "PID", "ProcessDesiredAccess", "ThreadDesiredAccess", "ImagePathName", "CommandLine",),
+        (
+            "sssssss",
+            "ProcessHandle",
+            "ThreadHandle",
+            "PID",
+            "ProcessDesiredAccess",
+            "ThreadDesiredAccess",
+            "ImagePathName",
+            "CommandLine",
+        ),
     ),
 ]

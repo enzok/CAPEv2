@@ -73,7 +73,7 @@ class Sniffer(Auxiliary):
         # Trying to save pcap with the same user which cuckoo is running.
         try:
             user = getpass.getuser()
-        except:
+        except Exception:
             pass
         else:
             if not remote:
@@ -141,7 +141,7 @@ class Sniffer(Auxiliary):
         )
 
         # TODO fix this, temp fix to not get all that noise
-        #pargs.extend(["and", "not", "(", "dst", "host", resultserver_ip, "and", "src", "host", host, ")"])
+        # pargs.extend(["and", "not", "(", "dst", "host", resultserver_ip, "and", "src", "host", host, ")"])
 
         if remote and bpf:
             pargs.extend(["and", "("] + bpf.split(" ") + [")"])
@@ -171,7 +171,7 @@ class Sniffer(Auxiliary):
                 ["scp", "-q", "/tmp/%d.sh" % self.task.id, remote_host + ":/tmp/%d.sh" % self.task.id], stderr=DEVNULL
             )
             remote_output = subprocess.check_output(
-                ["ssh", remote_host, "nohup", "/bin/bash", "/tmp/%d.sh" % self.task.id, ">", "/tmp/log", "2>", "/tmp/err",],
+                ["ssh", remote_host, "nohup", "/bin/bash", "/tmp/%d.sh" % self.task.id, ">", "/tmp/log", "2>", "/tmp/err"],
                 stderr=subprocess.STDOUT,
             )
 
@@ -185,7 +185,7 @@ class Sniffer(Auxiliary):
                 self.pid,
             )
             remote_output = subprocess.check_output(
-                ["ssh", remote_host, "rm", "-f", "/tmp/%d.pid" % self.task.id, "/tmp/%d.sh" % self.task.id], stderr=DEVNULL,
+                ["ssh", remote_host, "rm", "-f", "/tmp/%d.pid" % self.task.id, "/tmp/%d.sh" % self.task.id], stderr=DEVNULL
             )
 
         else:
@@ -196,7 +196,7 @@ class Sniffer(Auxiliary):
                 return
 
             log.info(
-                "Started sniffer with PID %d (interface=%s, host=%s, " "dump path=%s)", self.proc.pid, interface, host, file_path,
+                "Started sniffer with PID %d (interface=%s, host=%s, " "dump path=%s)", self.proc.pid, interface, host, file_path
             )
 
     def stop(self):
@@ -225,7 +225,7 @@ class Sniffer(Auxiliary):
         if self.proc and not self.proc.poll():
             try:
                 self.proc.terminate()
-            except:
+            except Exception:
                 try:
                     if not self.proc.poll():
                         log.debug("Killing sniffer")

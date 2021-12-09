@@ -67,7 +67,6 @@ code_mapping = {
     UPX: "Unpacked PE Image",
 }
 
-name_mapping = { }
 inject_map = {
     INJECTION_PE: "Injected PE Image",
     INJECTION_SHELLCODE: "Injected Shellcode/Data",
@@ -333,6 +332,7 @@ class CAPE(Processing):
                 filepath = os.path.join(self.analysis_path, entry["path"])
                 meta[filepath] = {
                     "pids": entry["pids"],
+                    "ppids": entry["ppids"],
                     "filepath": entry["filepath"],
                     "metadata": entry["metadata"],
                 }
