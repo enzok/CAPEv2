@@ -17,7 +17,6 @@ CUCKOO_ROOT = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..")
 sys.path.append(CUCKOO_ROOT)
 
 from bson.objectid import ObjectId
-from sqlalchemy import desc
 from lib.cuckoo.common.dist_db import create_session
 from lib.cuckoo.common.dist_db import Task as DTask
 from lib.cuckoo.common.config import Config
@@ -119,8 +118,8 @@ def delete_bulk_tasks_n_folders(tids: list, delete_mongo: bool):
             except Exception as e:
                 log.info(e)
 
-            if db.delete_tasks(ids_tmp):
-                for id in ids_tmp:
+            for id in ids_tmp:
+                if db.delete_task(id):
                     try:
                         path = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % str(id))
                         if os.path.isdir(path):
@@ -633,22 +632,35 @@ if __name__ == "__main__":
     parser.add_argument(
         "--bson-suri-logs-clean", help="clean bson and suri logs from analysis dirs", required=False, action="store_true",
     )
-    parser.add_argument("--pending-clean", help="Remove all tasks marked as failed", required=False, action="store_true")
+    parser.add_argument("--pending-clean", help="Remove all tasks marked as pending", required=False, action="store_true")
     parser.add_argument("--malscore", help="Remove all tasks with malscore <= X", required=False, action="store", type=int)
     parser.add_argument("--tlp", help="Remove all tasks with TLP", required=False, default=False, action="store_true")
     parser.add_argument(
         "--delete-tmp-items-older-than-days", help="Remove all items in tmp folder older than X number of days", type=int, required=False
     )
-    parser.add_argument("-dm", "--delete-mongo", help="Delete data in mongo", required=False, default=False, action="store_true")
-    parser.add_argument("-drs", "--delete-range-start", help="First job in range to delete, should be used with --delete-range-end",
-                        action="store", type=int, required=False,
+    parser.add_argument("-dm", "--delete-mongo", help="Delete data in mongo. By default keep", required=False, default=False, action="store_true")
+    parser.add_argument(
+        "-drs",
+        "--delete-range-start",
+        help="First job in range to delete, should be used with --delete-range-end",
+        action="store",
+        type=int,
+        required=False,
     )
-    parser.add_argument("-dre", "--delete-range-end", help="Last job in range to delete, should be used with --delete-range-start",
-                        action="store", type=int, required=False,
+    parser.add_argument(
+        "-dre",
+        "--delete-range-end",
+        help="Last job in range to delete, should be used with --delete-range-start",
+        action="store",
+        type=int,
+        required=False,
     )
-    parser.add_argument("-ddc", "--deduplicated-cluster-queue",
-                        help="Remove all pending duplicated jobs for our cluster, leave only 1 copy of task", action="store_true",
-                        required=False,
+    parser.add_argument(
+        "-ddc",
+        "--deduplicated-cluster-queue",
+        help="Remove all pending duplicated jobs for our cluster, leave only 1 copy of task",
+        action="store_true",
+        required=False,
     )
     args = parser.parse_args()
 
