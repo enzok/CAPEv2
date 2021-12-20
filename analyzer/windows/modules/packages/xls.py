@@ -2,11 +2,10 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-
 from __future__ import absolute_import
 import os
+
 from lib.common.abstracts import Package
-from lib.api.utils import Utils
 
 
 class XLS(Package):
@@ -23,15 +22,10 @@ class XLS(Package):
     ]
 
     def start(self, path):
-        util = Utils()
-        excel = self.get_path_glob("Microsoft Office Excel")
         if "." not in os.path.basename(path):
-            new_path = path + ".xls"
+            new_path = f"{path}.xls"
             os.rename(path, new_path)
             path = new_path
 
-        ret, stderr, stdout = util.cmd_wrapper(
-            r'powershell -exec bypass -command "Set-Content -Path {0} -Stream Zone.Identifier -Value \'[ZoneTransfer]\',\'ZoneId=0\'"'.format(
-                path))
-
-        return self.execute(excel, '"%s" /dde' % path, path)
+        excel = self.get_path_glob("Microsoft Office Excel")
+        return self.execute(excel, f'"{path}" /dde', path)

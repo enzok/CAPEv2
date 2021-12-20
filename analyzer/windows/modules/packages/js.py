@@ -17,7 +17,7 @@ class JS(Package):
 
     def start(self, path):
         wscript = self.get_path("wscript.exe")
-        args = '"%s"' % path
+        args = f'"{path}"'
         ext = os.path.splitext(path)[-1].lower()
         if ext != ".js" and ext != ".jse":
             with open(path, "rb") as jsfile:
@@ -27,12 +27,12 @@ class JS(Package):
                     head = ""
             if ext == ".jse" or head == "#@~^":
                 if ext != ".jse":
-                    os.rename(path, path + ".jse")
-                    path = path + ".jse"
+                    os.rename(path, f"{path}.jse")
+                    path = f"{path}.jse"
                     ext = ".jse"
             else:
-                os.rename(path, path + ".js")
-                path = path + ".js"
+                os.rename(path, f"{path}.js")
+                path = f"{path}.js"
 
         if ext == ".jse":
             # antivm fix
@@ -42,11 +42,11 @@ class JS(Package):
             # fuck antivm
             for i in range(20):
                 # calc
-                calc = os.path.join("c:\\windows", "system32", "calc.exe")
+                calc = os.path.join("C:\\windows", "system32", "calc.exe")
                 # cl = Process()
                 self.execute(calc, "", path)
             if free is False:
                 self.options["free"] = 0
 
-        args = '"%s"' % path
+        args = f'"{path}"'
         return self.execute(wscript, args, path)
