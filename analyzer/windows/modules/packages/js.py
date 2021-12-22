@@ -19,13 +19,8 @@ class JS(Package):
         wscript = self.get_path("wscript.exe")
         args = f'"{path}"'
         ext = os.path.splitext(path)[-1].lower()
-        if ext != ".js" and ext != ".jse":
-            with open(path, "rb") as jsfile:
-                try:
-                    head = jsfile.read(4).decode("utf8")
-                except UnicodeDecodeError:
-                    head = ""
-            if ext == ".jse" or head == "#@~^":
+        if ext not in (".js", ".jse"):
+            if ext == ".jse" or (os.path.isfile(path) and "#@~^" == open(path, "rt").read(4)):
                 if ext != ".jse":
                     os.rename(path, f"{path}.jse")
                     path = f"{path}.jse"
@@ -45,7 +40,7 @@ class JS(Package):
                 calc = os.path.join("C:\\windows", "system32", "calc.exe")
                 # cl = Process()
                 self.execute(calc, "", path)
-            if free is False:
+            if not free:
                 self.options["free"] = 0
 
         args = f'"{path}"'

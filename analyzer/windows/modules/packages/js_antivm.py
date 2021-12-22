@@ -25,12 +25,12 @@ class JS_ANTIVM(Package):
             calc = os.path.join("C:\\windows", "system32", "calc.exe")
             # cl = Process()
             self.execute(calc, "", path)
-        if free is False:
+        if not free:
             self.options["free"] = 0
         wscript = self.get_path("wscript.exe")
         args = f'"{path}"'
         ext = os.path.splitext(path)[-1].lower()
-        if ext != ".js" and ext != ".jse":
+        if ext not in (".js", ".jse"):
             if os.path.isfile(path) and "#@~^" == open(path, "rt").read(4):
                 os.rename(path, f"{path}.jse")
                 path = f"{path}.jse"
