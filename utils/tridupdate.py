@@ -14,15 +14,18 @@
 
 
 from __future__ import print_function
-
-from __future__ import absolute_import
+import argparse
+import hashlib
 import os
 import sys
-import hashlib
-import argparse
-from urllib.request import urlopen
-import zipfile
+
+if sys.version_info.major >= 3:
+    from urllib.request import urlopen
+else:
+    from urllib import urlopen
+
 import tempfile
+import zipfile
 
 PROGRAM_VER = "1.10"
 
@@ -70,7 +73,7 @@ def trdget(url_defs):
 def get_cmdline():
     """Evaluate command line parameters, usage & help."""
     parser = argparse.ArgumentParser(
-        description="TrID's definitions updater", formatter_class=argparse.ArgumentDefaultsHelpFormatter, prefix_chars="-/+",
+        description="TrID's definitions updater", formatter_class=argparse.ArgumentDefaultsHelpFormatter, prefix_chars="-/+"
     )
     parser.add_argument("filename", action="store", nargs="?", help="TRD package filename.", default="triddefs.trd")
     parser.add_argument("--version", action="version", version="TrIDUpdate v%s - (C) 2012 M.Pontello" % PROGRAM_VER)

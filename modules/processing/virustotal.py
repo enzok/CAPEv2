@@ -2,10 +2,11 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-import os
-import logging
-import requests
 import hashlib
+import logging
+import os
+
+import requests
 from time import strftime, localtime
 
 try:
@@ -13,11 +14,11 @@ try:
 except ImportError:
     import re
 
-from lib.cuckoo.common.utils import get_vt_consensus
 from lib.cuckoo.common.abstracts import Processing
+from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.exceptions import CuckooProcessingError
 from lib.cuckoo.common.objects import File
-from lib.cuckoo.common.config import Config
+from lib.cuckoo.common.utils import get_vt_consensus
 
 log = logging.getLogger(__name__)
 
@@ -92,7 +93,7 @@ def vt_lookup(category: str, target: str, on_demand: bool = False):
                 vt_response = r.json()
                 engines = vt_response.get("data", {}).get("attributes", {}).get("last_analysis_results", {})
                 if engines:
-                    virustotal = dict()
+                    virustotal = {}
                     virustotal["names"] = vt_response.get("data", {}).get("attributes", {}).get("names")
                     first_seen = vt_response.get("data", {}).get("attributes", {}).get("first_submission_date", False)
                     timeformat = "%a, %d %b %Y %H:%M:%S %Z"
