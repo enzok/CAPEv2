@@ -3,21 +3,20 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
-import binascii
+import os
+import sys
+import mmap
+import time
 import copy
+import struct
 import hashlib
 import logging
-import mmap
-import os
-import struct
+import binascii
 import subprocess
-import sys
-import time
 
 from lib.cuckoo.common.constants import CUCKOO_ROOT
-from lib.cuckoo.common.defines import (PAGE_EXECUTE, PAGE_EXECUTE_READ, PAGE_EXECUTE_READWRITE, PAGE_EXECUTE_WRITECOPY, PAGE_GUARD,
-                                       PAGE_NOACCESS, PAGE_NOCACHE, PAGE_READONLY, PAGE_READWRITE, PAGE_WRITECOMBINE,
-                                       PAGE_WRITECOPY)
+from lib.cuckoo.common.defines import PAGE_NOACCESS, PAGE_READONLY, PAGE_READWRITE, PAGE_WRITECOPY, PAGE_EXECUTE, PAGE_EXECUTE_READ
+from lib.cuckoo.common.defines import PAGE_EXECUTE_READWRITE, PAGE_EXECUTE_WRITECOPY, PAGE_GUARD, PAGE_NOCACHE, PAGE_WRITECOMBINE
 
 try:
     import magic
@@ -765,7 +764,7 @@ class ProcDump(object):
             data = f.read(24)
             if data == b"":
                 break
-            alloc = dict()
+            alloc = {}
             addr, size, mem_state, mem_type, mem_prot = struct.unpack("QIIII", data)
             offset = f.tell()
             if addr != lastend and len(curchunk):
@@ -809,7 +808,7 @@ class ProcDump(object):
 
     def search(self, regex, flags=0, all=False):
         if all:
-            result = dict()
+            result = {}
             result["detail"] = []
             matches = []
             for map in self.address_space:
@@ -834,7 +833,7 @@ class ProcDump(object):
                     self.dumpfile.seek(chunk["offset"])
                     match = re.search(regex, self.dumpfile.read(chunk["end"] - chunk["start"]), flags)
                     if match:
-                        result = dict()
+                        result = {}
                         result["match"] = match
                         result["chunk"] = chunk
                         return result

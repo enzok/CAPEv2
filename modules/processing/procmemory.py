@@ -1,10 +1,11 @@
 from __future__ import absolute_import
-import os
 
 # Copyright (C) 2010-2015 Cuckoo Foundation.
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
+
+import os
 
 try:
     import re2 as re
@@ -15,10 +16,9 @@ except ImportError:
     import re
 
 import logging
-
 from lib.cuckoo.common.abstracts import Processing
-from lib.cuckoo.common.cape_utils import cape_name_from_yara
 from lib.cuckoo.common.objects import File, ProcDump
+from lib.cuckoo.common.cape_utils import cape_name_from_yara
 
 log = logging.getLogger(__name__)
 
@@ -29,7 +29,7 @@ class ProcessMemory(Processing):
     order = 10
 
     def get_procmemory_pe(self, mem_pe):
-        res = list()
+        res = []
         file_item = open(mem_pe.get("file"), "rb")
 
         for memmap in mem_pe.get("address_space") or []:
@@ -111,7 +111,7 @@ class ProcessMemory(Processing):
                 )
 
                 for hit in proc["cape_yara"]:
-                    hit["memblocks"] = dict()
+                    hit["memblocks"] = {}
                     for item in hit["addresses"]:
                         memblock = self.get_yara_memblock(proc["address_space"], hit["addresses"][item])
                         if memblock:

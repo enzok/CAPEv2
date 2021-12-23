@@ -19,20 +19,20 @@ log = logging.getLogger(__name__)
 unixpath = tempfile.NamedTemporaryFile(mode="w+", delete=True)  # tempfile.mktemp()
 lock = threading.Lock()
 
-vpns = dict()
-socks5s = dict()
+vpns = {}
+socks5s = {}
 
 
 def _load_socks5_operational():
 
-    socks5s = dict()
+    socks5s = {}
 
     if not router_cfg.socks5.enabled:
         return socks5s
 
     try:
-        from socks5man.exceptions import Socks5manDatabaseError
         from socks5man.manager import Manager
+        from socks5man.exceptions import Socks5manDatabaseError
     except (ImportError, OSError) as e:
         return socks5s
     except Exception as e:

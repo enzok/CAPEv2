@@ -4,7 +4,6 @@ from django.contrib.auth.models import User
 
 from .models import UserProfile
 
-
 # Django 3.2
 # @admin.action(description='Mark selected stories as published')
 def make_active(modeladmin, news, queryset):
@@ -42,7 +41,7 @@ class CustomUserAdmin(UserAdmin):
 
     def get_inline_instances(self, request, obj=None):
         if not obj:
-            return list()
+            return []
         return super(CustomUserAdmin, self).get_inline_instances(request, obj)
 
 

@@ -2,24 +2,25 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-from __future__ import absolute_import, print_function
-import logging
+from __future__ import absolute_import
+from __future__ import print_function
 import os
 import sys
 import tempfile
+import logging
 
 from lib.cuckoo.common.config import Config
-from lib.cuckoo.common.exceptions import CuckooDemuxError
 from lib.cuckoo.common.objects import File
+from lib.cuckoo.common.exceptions import CuckooDemuxError
 from lib.cuckoo.common.utils import get_options
+
 
 sf_version = ""
 try:
-    from sflock import __version__ as sf_version
-    from sflock import unpack
+    from sflock import unpack, __version__ as sf_version
+    from sflock.unpack.office import OfficeFile
     from sflock.abstracts import File as sfFile
     from sflock.exception import UnpackException
-    from sflock.unpack.office import OfficeFile
 
     HAS_SFLOCK = True
 except ImportError:
@@ -261,7 +262,7 @@ def demux_sample(filename, package, options, use_sflock=True):
     if any(x in magic for x in VALID_LINUX_TYPES):
         return [filename]
 
-    retlist = list()
+    retlist = []
     if HAS_SFLOCK:
         # all in one unarchiver
         retlist = demux_sflock(filename, options)

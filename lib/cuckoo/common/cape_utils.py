@@ -1,15 +1,15 @@
 from __future__ import absolute_import
-import hashlib
-import logging
 import os
 import shutil
-import subprocess
+import logging
 import tempfile
-from collections.abc import Iterable, Mapping
+import hashlib
+import subprocess
+from collections.abc import Mapping, Iterable
 
+from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
-from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.utils import is_text_file
 
 try:
@@ -19,8 +19,8 @@ try:
 except ImportError:
     HAVE_YARA = False
 
-malware_parsers = dict()
-cape_malware_parsers = dict()
+malware_parsers = {}
+cape_malware_parsers = {}
 
 # Config variables
 cfg = Config()
@@ -183,12 +183,12 @@ if process_cfg.ratdecoders.enabled:
 HAVE_MALDUCK = False
 if process_cfg.malduck.enabled:
     try:
-        # from malduck.extractor.loaders import load_modules
-        from malduck.extractor import ExtractManager, ExtractorModules
-        from malduck.extractor.extractor import Extractor
-        from malduck.yara import Yara
-
         from lib.cuckoo.common.load_extra_modules import malduck_load_decoders
+        from malduck.extractor import ExtractorModules, ExtractManager
+        from malduck.extractor.extractor import Extractor
+
+        # from malduck.extractor.loaders import load_modules
+        from malduck.yara import Yara
 
         malduck_rules = Yara.__new__(Yara)
         malduck_modules = ExtractorModules.__new__(ExtractorModules)
@@ -290,8 +290,8 @@ def convert(data):
 def static_config_parsers(yara_hit, file_data):
     """Process CAPE Yara hits"""
     cape_name = yara_hit.replace("_", " ")
-    cape_config = dict()
-    cape_config[cape_name] = dict()
+    cape_config = {}
+    cape_config[cape_name] = {}
     parser_loaded = False
     # CAPE - pure python parsers
     # MWCP
@@ -328,7 +328,7 @@ def static_config_parsers(yara_hit, file_data):
             reporter.run_parser(malware_parsers[cape_name], data=file_data)
             if not reporter.errors:
                 parser_loaded = True
-                tmp_dict = dict()
+                tmp_dict = {}
                 if reporter.metadata.get("debug"):
                     del reporter.metadata["debug"]
                 if reporter.metadata.get("other"):
@@ -413,7 +413,7 @@ def static_config_parsers(yara_hit, file_data):
                 cape_config[cape_name].update({key: [value]})
 
     if not cape_config[cape_name]:
-        return dict()
+        return {}
 
     return cape_config
 
@@ -461,7 +461,7 @@ def cape_name_from_yara(details, pid, results):
         ):
             if "detections2pid" not in results:
                 results.setdefault("detections2pid", {})
-            results["detections2pid"].setdefault(str(pid), list())
+            results["detections2pid"].setdefault(str(pid), [])
             name = hit["name"].replace("_", " ")
             if name not in results["detections2pid"][str(pid)]:
                 results["detections2pid"][str(pid)].append(name)
@@ -475,7 +475,7 @@ def _extracted_files_metadata(folder, destination_folder, data_dictionary, conte
         destination_folder - where to move extracted files
         files - file names
     """
-    metadata = list()
+    metadata = []
     if not files:
         files = os.listdir(folder)
     for file in files:
@@ -517,7 +517,7 @@ def _generic_post_extraction_process(file, decoded, destination_folder, data_dic
         with open(decoded_file_path, "wb") as f:
             f.write(decoded)
 
-    metadata = list()
+    metadata = []
     metadata += _extracted_files_metadata(tempdir, destination_folder, data_dictionary, files=[decoded_file_path])
     if metadata:
         for meta in metadata:
@@ -587,7 +587,7 @@ def msi_extract(file, destination_folder, filetype, data_dictionary, msiextract=
         logging.error("Missed dependency: sudo apt install msitools")
         return
 
-    metadata = list()
+    metadata = []
 
     with tempfile.TemporaryDirectory(prefix="msidump_") as tempdir:
         try:
@@ -618,7 +618,7 @@ def kixtart_extract(file, destination_folder, filetype, data_dictionary):
     with open(file, "rb") as f:
         content = f.read()
 
-    metadata = list()
+    metadata = []
 
     if content.startswith(b"\x1a\xaf\x06\x00\x00\x10"):
         with tempfile.TemporaryDirectory(prefix="kixtart_") as tempdir:

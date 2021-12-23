@@ -3,13 +3,12 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
-import json
 import os
-
+import json
 from lib.cuckoo.common.abstracts import Processing
-from lib.cuckoo.common.cape_utils import generic_file_extractors
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.utils import convert_to_printable, wide2str
+from lib.cuckoo.common.cape_utils import generic_file_extractors
 
 
 class Dropped(Processing):
@@ -53,8 +52,8 @@ class Dropped(Processing):
                     guest_paths = list(set([path.get("filepath") for path in meta[file_path]]))
                     guest_names = list(set([path.get("filepath", "").split("\\")[-1] for path in meta[file_path]]))
                 else:
-                    guest_paths = list()
-                    guest_names = list()
+                    guest_paths = []
+                    guest_names = []
 
                 file_info["guest_paths"] = guest_paths if isinstance(guest_paths, list) else [guest_paths]
                 file_info["name"] = guest_names

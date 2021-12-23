@@ -20,14 +20,12 @@
 DESCRIPTION = "IcedID Stage 2 configuration parser."
 AUTHOR = "kevoreilly,threathive,sysopfb"
 
-import logging
 import os
 import struct
-
 import pefile
 import yara
+import logging
 from Crypto.Cipher import ARC4
-
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 
 yara_path = os.path.join(CUCKOO_ROOT, "data", "yara", "CAPE", "IcedID.yar")
@@ -50,7 +48,7 @@ def config(filebuf):
     for hit in yara_hit:
         if hit.rule == "IcedID":  # can be either a dll or a exe
             enc_data = None
-            cfg = dict()
+            cfg = {}
             try:
                 pe = pefile.PE(data=filebuf, fast_load=True)
                 for section in pe.sections:

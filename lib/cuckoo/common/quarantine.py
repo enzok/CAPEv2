@@ -2,13 +2,13 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-from __future__ import absolute_import, print_function
-import hashlib
-import logging
+from __future__ import absolute_import
+from __future__ import print_function
 import os
 import struct
+import hashlib
+import logging
 from binascii import crc32
-
 import six
 
 try:
@@ -693,7 +693,7 @@ def mcafee_unquarantine(f):
 
     oledata = olefile.OleFileIO(qdata)
     olefiles = oledata.listdir()
-    quarfiles = list()
+    quarfiles = []
     for item in olefiles:
         if "Details" in item:
             details = bytearray_xor(bytearray(oledata.openstream("Details").read()), 0x6A)
@@ -702,7 +702,7 @@ def mcafee_unquarantine(f):
             for fileobj in item:
                 if "File_" in fileobj:
                     quarfiles.append(fileobj)
-            decoded = dict()
+            decoded = {}
             # Try and decode quarantine files (sometimes there are none)
             for item in quarfiles:
                 try:

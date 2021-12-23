@@ -6,14 +6,13 @@
 # Updated by doomedraven 30.11.2019 for NaxoneZ
 # Updated by NaxoneZ 20.12.2019 for the rest of the world :)
 
+import os
 import json
 import logging
-import os
-from collections import deque
 from io import BytesIO
-
-from lib.cuckoo.common.abstracts import Report
+from collections import deque
 from lib.cuckoo.common.config import Config
+from lib.cuckoo.common.abstracts import Report
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 
 """
@@ -25,7 +24,7 @@ from lib.cuckoo.common.constants import CUCKOO_ROOT
 
 
 try:
-    from pymisp import MISPEvent, MISPObject, PyMISP
+    from pymisp import MISPEvent, PyMISP, MISPObject
     from pymisp import logger as pymisp_logger
 
     HAVE_PYMISP = True
@@ -47,7 +46,7 @@ else:
     malpedia_json = False
 
 # load whitelist if exists
-whitelist = list()
+whitelist = []
 if os.path.exists(os.path.join(CUCKOO_ROOT, "conf", "misp.conf")):
     whitelist = Config("misp").whitelist.whitelist
     if whitelist:
@@ -232,7 +231,7 @@ class MISP(Report):
             self.threads = 5
 
         self.iocs = deque()
-        self.misper = dict()
+        self.misper = {}
 
         try:
             if self.options.get("upload_iocs", False) and results.get("malscore", 0) >= self.options.get("min_malscore", 0):

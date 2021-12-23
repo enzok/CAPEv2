@@ -3,22 +3,26 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
-import inspect
-import json
-import logging
 import os
-import pkgutil
 import sys
-from collections import defaultdict
+import json
+import pkgutil
+import inspect
+import logging
 from datetime import datetime, timedelta
+from collections import defaultdict
 from distutils.version import StrictVersion
 
-from lib.cuckoo.common.abstracts import Auxiliary, Feed, LibVirtMachinery, Machinery, Processing, Report, Signature
+from lib.cuckoo.common.abstracts import Auxiliary, Machinery, LibVirtMachinery, Processing
+from lib.cuckoo.common.abstracts import Report, Signature, Feed
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT, CUCKOO_VERSION
-from lib.cuckoo.common.exceptions import (CuckooDependencyError, CuckooDisableModule, CuckooOperationalError, CuckooProcessingError,
-                                          CuckooReportError)
-from lib.cuckoo.common.suricata_detection import et_categories, get_suricata_family
+from lib.cuckoo.common.exceptions import CuckooDisableModule
+from lib.cuckoo.common.exceptions import CuckooOperationalError
+from lib.cuckoo.common.exceptions import CuckooProcessingError
+from lib.cuckoo.common.exceptions import CuckooReportError
+from lib.cuckoo.common.exceptions import CuckooDependencyError
+from lib.cuckoo.common.suricata_detection import get_suricata_family, et_categories
 from lib.cuckoo.core.database import Database
 
 try:
@@ -307,7 +311,7 @@ class RunProcessing(object):
                 # Skipping the current log file if it's too big.
                 if os.stat(file_path).st_size > self.cuckoo_cfg.processing.analysis_size_limit:
                     if not hasattr(self.results, "debug"):
-                        self.results.setdefault("debug", dict()).setdefault("errors", list())
+                        self.results.setdefault("debug", {}).setdefault("errors", [])
                     self.results["debug"]["errors"].append(
                         "Behavioral log {0} too big to be processed, skipped. Increase analysis_size_limit in cuckoo.conf".format(
                             file_name
@@ -387,7 +391,7 @@ class RunSignatures(object):
     def __init__(self, task, results):
         self.task = task
         self.results = results
-        self.ttps = list()
+        self.ttps = []
         self.cfg_processing = Config("processing")
         self.analysis_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task["id"]))
 
@@ -527,7 +531,7 @@ class RunSignatures(object):
         complete_list = list_plugins(group="signatures") or []
         if test_signature:
             complete_list = [sig for sig in complete_list if sig.name == test_signature]
-        evented_list = list()
+        evented_list = []
         try:
             evented_list = [
                 sig(self.results)
@@ -794,7 +798,7 @@ class GetFeeds(object):
 
     def __init__(self, results):
         self.results = results
-        self.results["feeds"] = dict()
+        self.results["feeds"] = {}
 
     def process(self, feed):
         """Process modules with either downloaded data directly, or by

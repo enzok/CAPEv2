@@ -15,9 +15,8 @@
 from __future__ import absolute_import
 import json
 import logging
-
-from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.config import Config
+from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 
 log = logging.getLogger()
@@ -120,9 +119,9 @@ class AntiRansomware(Processing):
     def run(self):
         """Run analysis."""
 
-        extensions = dict()
-        tmp_ext_list = dict()
-        self.report["ransom_exclude_files"] = list()
+        extensions = {}
+        tmp_ext_list = {}
+        self.report["ransom_exclude_files"] = []
         with open(self.files_metadata, "rb") as f:
             for line in f.readlines():
                 filename = json.loads(line).get("filepath", "")
@@ -134,7 +133,7 @@ class AntiRansomware(Processing):
                 if ext and ext[-1] not in do_not_skip:
                     extensions.setdefault(ext[-1], 0)
                     extensions[ext[-1]] += 1
-                    tmp_ext_list.setdefault(ext[-1], list())
+                    tmp_ext_list.setdefault(ext[-1], [])
                     tmp_ext_list[ext[-1]].append(filename)
 
         for ext, count in extensions.iteritems():

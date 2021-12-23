@@ -2,9 +2,9 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 from __future__ import absolute_import
+import os
 import collections
 import logging
-import os
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
@@ -27,15 +27,16 @@ if processing_conf.flare_capa.enabled:
         if capa_version[0] != "3":
             print("FLARE-CAPA missed, pip3 install -U flare-capa")
         else:
+            import capa.main
+            import capa.rules
             import capa.engine
             import capa.features
-            import capa.main
-            import capa.render.utils as rutils
-            import capa.rules
-            from capa.engine import *
-            from capa.main import UnsupportedRuntimeError
             from capa.render.result_document import (
-                convert_capabilities_to_result_document as capa_convert_capabilities_to_result_document)
+                convert_capabilities_to_result_document as capa_convert_capabilities_to_result_document,
+            )
+            from capa.engine import *
+            import capa.render.utils as rutils
+            from capa.main import UnsupportedRuntimeError
             from capa.rules import InvalidRuleWithPath
 
             rules_path = os.path.join(CUCKOO_ROOT, "data", "capa-rules")
@@ -117,7 +118,7 @@ def render_capabilities(doc, ostream):
     """
     subrule_matches = find_subrule_matches(doc)
 
-    ostream["CAPABILITY"] = dict()
+    ostream["CAPABILITY"] = {}
     for rule in rutils.capability_rules(doc):
         if rule["meta"]["name"] in subrule_matches:
             # rules that are also matched by other rules should not get rendered by default.
@@ -131,7 +132,7 @@ def render_capabilities(doc, ostream):
         else:
             capability = "%s (%d matches)" % (rule["meta"]["name"], count)
 
-        ostream["CAPABILITY"].setdefault(rule["meta"]["namespace"], list())
+        ostream["CAPABILITY"].setdefault(rule["meta"]["namespace"], [])
         ostream["CAPABILITY"][rule["meta"]["namespace"]].append(capability)
 
 
@@ -148,7 +149,7 @@ def render_attack(doc, ostream):
             'EXECUTION': ['Shared Modules [T1129]']}
         }
     """
-    ostream["ATTCK"] = dict()
+    ostream["ATTCK"] = {}
     tactics = collections.defaultdict(set)
     for rule in rutils.capability_rules(doc):
         if not rule["meta"].get("att&ck"):
@@ -181,7 +182,7 @@ def render_mbc(doc, ostream):
                           '[C0021.004]']}
         }
     """
-    ostream["MBC"] = dict()
+    ostream["MBC"] = {}
     objectives = collections.defaultdict(set)
     for rule in rutils.capability_rules(doc):
         if not rule["meta"].get("mbc"):
@@ -201,7 +202,7 @@ def render_mbc(doc, ostream):
 
 
 def render_dictionary(doc):
-    ostream = dict()
+    ostream = {}
     render_meta(doc, ostream)
     render_attack(doc, ostream)
     render_mbc(doc, ostream)

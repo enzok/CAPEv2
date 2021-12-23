@@ -2,24 +2,24 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-from __future__ import absolute_import, print_function
-import array
-import base64
-import binascii
-import ctypes
-import hashlib
+from __future__ import absolute_import
+from __future__ import print_function
 import json
 import logging
-import math
 import os
 import re
+import math
+import array
+import ctypes
 import struct
-from datetime import datetime
-from io import BytesIO
-from subprocess import PIPE, Popen
-
+import base64
+import hashlib
 import requests
+import binascii
 from PIL import Image
+from io import BytesIO
+from subprocess import Popen, PIPE
+from datetime import datetime
 
 try:
     import re2 as re
@@ -56,8 +56,8 @@ except ImportError:
 
 try:
     import cryptography
-    from cryptography.hazmat.backends.openssl import x509
     from cryptography.hazmat.backends.openssl.backend import backend
+    from cryptography.hazmat.backends.openssl import x509
     from cryptography.hazmat.primitives import hashes
 
     HAVE_CRYPTO = True
@@ -72,15 +72,15 @@ try:
 except Exception:
     HAVE_WHOIS = False
 
-import lib.cuckoo.common.office.vbadeobf as vbadeobf
-from lib.cuckoo.common.abstracts import Processing
-from lib.cuckoo.common.cape_utils import generic_file_extractors
-from lib.cuckoo.common.config import Config
-from lib.cuckoo.common.constants import CUCKOO_ROOT
+from lib.cuckoo.common.structures import LnkHeader, LnkEntry
+from lib.cuckoo.common.utils import store_temp_file, bytes2str, get_options
 from lib.cuckoo.common.icon import PEGroupIconDir
+from lib.cuckoo.common.abstracts import Processing
+from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.objects import File, IsPEImage
-from lib.cuckoo.common.structures import LnkEntry, LnkHeader
-from lib.cuckoo.common.utils import bytes2str, get_options, store_temp_file
+from lib.cuckoo.common.config import Config
+import lib.cuckoo.common.office.vbadeobf as vbadeobf
+from lib.cuckoo.common.cape_utils import generic_file_extractors
 
 try:
     import olefile
@@ -92,23 +92,30 @@ except ImportError:
 
 try:
     from oletools import oleobj
-    from oletools.msodde import process_file as extract_dde
     from oletools.oleid import OleID
-    from oletools.olevba import (UnexpectedDataError, VBA_Parser, detect_autoexec, detect_hex_strings, detect_patterns,
-                                 detect_suspicious, filter_vba)
-    from oletools.rtfobj import RtfObjParser, is_rtf
+    from oletools.olevba import (
+        detect_autoexec,
+        detect_hex_strings,
+        detect_patterns,
+        detect_suspicious,
+        filter_vba,
+        VBA_Parser,
+        UnexpectedDataError,
+    )
+    from oletools.rtfobj import is_rtf, RtfObjParser
+    from oletools.msodde import process_file as extract_dde
 
     HAVE_OLETOOLS = True
 except ImportError:
     print("Missed oletools dependency: pip3 install oletools")
     HAVE_OLETOOLS = False
 
-from lib.cuckoo.common.pdftools.pdfid import PDFiD, PDFiD2JSON
 from lib.cuckoo.common.utils import convert_to_printable
+from lib.cuckoo.common.pdftools.pdfid import PDFiD, PDFiD2JSON
 
 try:
-    from peepdf.JSAnalysis import analyseJS
     from peepdf.PDFCore import PDFParser
+    from peepdf.JSAnalysis import analyseJS
 
     HAVE_PEEPDF = True
 except ImportError as e:
@@ -117,10 +124,23 @@ except ImportError as e:
 try:
     from elftools.common.exceptions import ELFError
     from elftools.elf.constants import E_FLAGS
-    from elftools.elf.descriptions import (describe_dyn_tag, describe_e_machine, describe_e_type, describe_e_version_numeric,
-                                           describe_ei_class, describe_ei_data, describe_ei_osabi, describe_ei_version,
-                                           describe_note, describe_p_flags, describe_p_type, describe_reloc_type, describe_sh_type,
-                                           describe_symbol_bind, describe_symbol_type)
+    from elftools.elf.descriptions import (
+        describe_ei_class,
+        describe_ei_data,
+        describe_ei_version,
+        describe_ei_osabi,
+        describe_e_type,
+        describe_e_machine,
+        describe_e_version_numeric,
+        describe_p_type,
+        describe_p_flags,
+        describe_sh_type,
+        describe_dyn_tag,
+        describe_symbol_type,
+        describe_symbol_bind,
+        describe_note,
+        describe_reloc_type,
+    )
     from elftools.elf.dynamic import DynamicSection
     from elftools.elf.elffile import ELFFile
     from elftools.elf.enums import ENUM_D_TAG
@@ -135,15 +155,15 @@ processing_conf = Config("processing")
 HAVE_FLARE_CAPA = False
 # required to not load not enabled dependencies
 if processing_conf.flare_capa.enabled and processing_conf.flare_capa.on_demand is False:
-    from lib.cuckoo.common.integrations.capa import HAVE_FLARE_CAPA, flare_capa_details
+    from lib.cuckoo.common.integrations.capa import flare_capa_details, HAVE_FLARE_CAPA
 
 HAVE_VBA2GRAPH = False
 if processing_conf.vba2graph.on_demand is False:
-    from lib.cuckoo.common.integrations.vba2graph import HAVE_VBA2GRAPH, vba2graph_func
+    from lib.cuckoo.common.integrations.vba2graph import vba2graph_func, HAVE_VBA2GRAPH
 
 HAVE_XLM_DEOBF = False
 if processing_conf.xlsdeobf.on_demand is False:
-    from lib.cuckoo.common.integrations.XLMMacroDeobfuscator import HAVE_XLM_DEOBF, xlmdeobfuscate
+    from lib.cuckoo.common.integrations.XLMMacroDeobfuscator import xlmdeobfuscate, HAVE_XLM_DEOBF
 
 log = logging.getLogger(__name__)
 
@@ -256,7 +276,7 @@ class DotNETExecutable(object):
                 if endidx <= 2:
                     continue
                 valueval = rem[startidx + 2 : endidx - 2]
-                item = dict()
+                item = {}
                 item["type"] = convert_to_printable(typeval)
                 item["name"] = convert_to_printable(nameval)
                 item["value"] = convert_to_printable(valueval)
@@ -283,7 +303,7 @@ class DotNETExecutable(object):
                 if len(splitline) < 2:
                     continue
                 nameval = splitline[1]
-                item = dict()
+                item = {}
                 item["name"] = convert_to_printable(nameval)
                 item["version"] = convert_to_printable(verval)
                 ret.append(item)
@@ -295,7 +315,7 @@ class DotNETExecutable(object):
 
     def _get_assembly_info(self):
         try:
-            ret = dict()
+            ret = {}
             output = (
                 Popen(["/usr/bin/monodis", "--assembly", self.file_path], stdout=PIPE, universal_newlines=True)
                 .stdout.read()
@@ -325,7 +345,7 @@ class DotNETExecutable(object):
                 asmname = restsplit[0][2:]
                 typename = "".join(restsplit[1:])
                 if asmname and typename:
-                    item = dict()
+                    item = {}
                     item["assembly"] = convert_to_printable(asmname)
                     item["typename"] = convert_to_printable(typename)
                     ret.append(item)
@@ -903,8 +923,8 @@ class PortableExecutable(object):
         return datetime.fromtimestamp(pe_timestamp).strftime("%Y-%m-%d %H:%M:%S")
 
     def _get_guest_digital_signers(self):
-        retdata = dict()
-        cert_data = dict()
+        retdata = {}
+        cert_data = {}
         cert_info = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(self.results["info"]["id"]), "aux", "DigiSig.json")
 
         if os.path.exists(cert_info):
@@ -1199,7 +1219,7 @@ class PDF(object):
         annoturiset = set()
         objects = []
         retobjects = []
-        metadata = dict()
+        metadata = {}
 
         self._set_base_uri()
 
@@ -1327,14 +1347,14 @@ class Office(object):
         self.options = get_options(options)
 
     def _get_meta(self, meta):
-        ret = dict()
-        ret["SummaryInformation"] = dict()
+        ret = {}
+        ret["SummaryInformation"] = {}
         for prop in meta.SUMMARY_ATTRIBS:
             value = getattr(meta, prop)
             if not value:
                 continue
             ret["SummaryInformation"][prop] = convert_to_printable(str(value))
-        ret["DocumentSummaryInformation"] = dict()
+        ret["DocumentSummaryInformation"] = {}
         for prop in meta.DOCSUM_ATTRIBS:
             value = getattr(meta, prop)
             if not value:
@@ -1343,15 +1363,15 @@ class Office(object):
         return ret
 
     def _parse_rtf(self, data):
-        results = dict()
+        results = {}
         rtfp = RtfObjParser(data)
         rtfp.parse()
         save_dir = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(self.results["info"]["id"]), "rtf_objects")
         if rtfp.objects and not os.path.exists(save_dir):
             os.makedirs(save_dir)
         for rtfobj in rtfp.objects:
-            results.setdefault(str(rtfobj.format_id), list())
-            temp_dict = dict()
+            results.setdefault(str(rtfobj.format_id), [])
+            temp_dict = {}
             temp_dict["class_name"] = ""
             temp_dict["size"] = ""
             temp_dict["filename"] = ""
@@ -1438,7 +1458,7 @@ class Office(object):
         @return: results dict or None
         """
 
-        results = dict()
+        results = {}
         vba = False
         if HAVE_OLETOOLS:
             if is_rtf(filepath):
@@ -1468,7 +1488,7 @@ class Office(object):
         except Exception as e:
             log.error(e, exc_info=True)
 
-        metares = officeresults["Metadata"] = dict()
+        metares = officeresults["Metadata"] = {}
         macro_folder = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(self.results["info"]["id"]), "macros")
         # The bulk of the metadata checks are in the OLE Structures
         # So don't check if we're dealing with XML.
@@ -1485,18 +1505,18 @@ class Office(object):
             ole.close()
         if vba and vba.detect_vba_macros():
             metares["HasMacros"] = "Yes"
-            macrores = officeresults["Macro"] = dict()
-            macrores["Code"] = dict()
-            macrores["info"] = dict()
+            macrores = officeresults["Macro"] = {}
+            macrores["Code"] = {}
+            macrores["info"] = {}
             ctr = 0
             # Create IOC and category vars. We do this before processing the
             # macro(s) to avoid overwriting data when there are multiple
             # macros in a single file.
-            macrores["Analysis"] = dict()
-            macrores["Analysis"]["AutoExec"] = list()
-            macrores["Analysis"]["Suspicious"] = list()
-            macrores["Analysis"]["IOCs"] = list()
-            macrores["Analysis"]["HexStrings"] = list()
+            macrores["Analysis"] = {}
+            macrores["Analysis"]["AutoExec"] = []
+            macrores["Analysis"]["Suspicious"] = []
+            macrores["Analysis"]["IOCs"] = []
+            macrores["Analysis"]["HexStrings"] = []
             try:
                 for (_, _, vba_filename, vba_code) in vba.extract_macros():
                     vba_code = filter_vba(vba_code)
@@ -1504,7 +1524,7 @@ class Office(object):
                         # Handle all macros
                         ctr += 1
                         outputname = "Macro" + str(ctr)
-                        macrores["Code"][outputname] = list()
+                        macrores["Code"][outputname] = []
                         macrores["Code"][outputname].append((convert_to_printable(vba_filename), convert_to_printable(vba_code)))
                         autoexec = detect_autoexec(vba_code)
                         if not os.path.exists(macro_folder):
@@ -1512,7 +1532,7 @@ class Office(object):
                         macro_file = os.path.join(macro_folder, outputname)
                         with open(macro_file, "w") as f:
                             f.write(convert_to_printable(vba_code))
-                        macrores["info"][outputname] = dict()
+                        macrores["info"][outputname] = {}
                         macrores["info"][outputname]["yara_macro"] = File(macro_file).get_yara(category="macro")
                         macrores["info"][outputname]["yara_macro"].extend(File(macro_file).get_yara(category="CAPE"))
 
@@ -2047,8 +2067,8 @@ class URL(object):
     def parse_json_in_javascript(self, data=str(), ignore_nest_level=0):
         nest_count = 0 - ignore_nest_level
         string_buf = str()
-        json_buf = list()
-        json_data = list()
+        json_buf = []
+        json_data = []
         for character in data:
             if character == "{":
                 nest_count += 1
@@ -2105,7 +2125,7 @@ class URL(object):
 
             # These can be a list or string, just make them all lists
             for key in w.keys():
-                buf = list()
+                buf = []
                 # Handle and format dates
                 if "_date" in key:
                     if isinstance(w[key], list):
@@ -2149,7 +2169,7 @@ class URL(object):
         if self.domain == "bit.ly":
             resp = requests.get(self.url + "+")
             soup = bs4.BeautifulSoup(resp.text, "html.parser")
-            output = list()
+            output = []
             for script in [x.extract() for x in soup.find_all("script")]:
                 if script.contents:
                     content = script.contents[0]

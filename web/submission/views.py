@@ -3,12 +3,13 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-from __future__ import absolute_import, print_function
-import logging
+from __future__ import absolute_import
+from __future__ import print_function
 import os
-import random
 import sys
+import logging
 import tempfile
+import random
 
 try:
     import re2 as re
@@ -16,19 +17,28 @@ except ImportError:
     import re
 
 from django.conf import settings
-from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect, render
+from django.contrib.auth.decorators import login_required
 
 sys.path.append(settings.CUCKOO_PATH)
-from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.objects import File
+from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.quarantine import unquarantine
 from lib.cuckoo.common.saztopcap import saz_to_pcap
-from lib.cuckoo.common.utils import generate_fake_name, get_options, get_user_filename, sanitize_filename, store_temp_file
-from lib.cuckoo.common.web_utils import (_download_file, all_nodes_exits_list, all_vms_tags, download_file, download_from_vt,
-                                         get_file_content, parse_request_arguments, perform_search)
 from lib.cuckoo.core.database import Database
-from lib.cuckoo.core.rooter import _load_socks5_operational, vpns
+from lib.cuckoo.core.rooter import vpns, _load_socks5_operational
+from lib.cuckoo.common.utils import store_temp_file, sanitize_filename, get_user_filename, generate_fake_name, get_options
+from lib.cuckoo.common.web_utils import (
+    download_file,
+    get_file_content,
+    _download_file,
+    parse_request_arguments,
+    all_vms_tags,
+    all_nodes_exits_list,
+    download_from_vt,
+    perform_search,
+)
+
 
 # this required for hash searches
 FULL_DB = False
@@ -222,8 +232,8 @@ def index(request, resubmit_hash=False):
             opt_apikey = opts.get("apikey", False)
 
         status = "ok"
-        task_ids_tmp = list()
-        existent_tasks = dict()
+        task_ids_tmp = []
+        existent_tasks = {}
         details = {
             "errors": [],
             "content": False,
@@ -268,7 +278,7 @@ def index(request, resubmit_hash=False):
                     if web_conf.general.get("existent_tasks", False):
                         records = perform_search("target_sha256", resubmission_hash)
                         for record in records:
-                            existent_tasks.setdefault(record["target"]["file"]["sha256"], list())
+                            existent_tasks.setdefault(record["target"]["file"]["sha256"], [])
                             existent_tasks[record["target"]["file"]["sha256"]].append(record)
             else:
                 return render(request, "error.html", {"error": "File not found on hdd for resubmission"})
@@ -320,7 +330,7 @@ def index(request, resubmit_hash=False):
                         records = perform_search("target_sha256", sha256)
                         for record in records:
                             if record.get("target").get("file", {}).get("sha256"):
-                                existent_tasks.setdefault(record["target"]["file"]["sha256"], list())
+                                existent_tasks.setdefault(record["target"]["file"]["sha256"], [])
                                 existent_tasks[record["target"]["file"]["sha256"]].append(record)
                     details["task_ids"] = task_ids_tmp
 
@@ -534,7 +544,7 @@ def index(request, resubmit_hash=False):
         else:
             return render(request, "error.html", {"error": "Error adding task(s) to CAPE's database.", "errors": details["errors"]})
     else:
-        enabledconf = dict()
+        enabledconf = {}
         enabledconf["vt"] = settings.VTDL_ENABLED
         enabledconf["kernel"] = settings.OPT_ZER0M0N
         enabledconf["memory"] = processing.memory.get("enabled")
@@ -592,7 +602,7 @@ def index(request, resubmit_hash=False):
         elif socks5s_random:
             random_route = socks5s_random
 
-        existent_tasks = dict()
+        existent_tasks = {}
         if resubmit_hash:
             records = perform_search("sha256", resubmit_hash)
             for record in records:

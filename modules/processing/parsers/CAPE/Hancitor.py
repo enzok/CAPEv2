@@ -1,11 +1,10 @@
 """
     Hancitor config extractor
 """
-import hashlib
-import logging
-
 import pefile
+import hashlib
 from Crypto.Cipher import ARC4
+import logging
 
 log = logging.getLogger(__name__)
 
@@ -13,7 +12,7 @@ log = logging.getLogger(__name__)
 def config(filebuf):
     DESCRIPTION = "Hancitor config extractor."
     AUTHOR = "threathive"
-    cfg = dict()
+    cfg = {}
     try:
         pe = pefile.PE(data=filebuf, fast_load=False)
         for i in pe.sections:

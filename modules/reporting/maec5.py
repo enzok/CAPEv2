@@ -6,19 +6,17 @@
 # https://maecproject.github.io/releases/5.0/MAEC_Vocabularies_Specification.pdf
 from __future__ import absolute_import
 import io
+import sys
 import json
-import logging
 import os
 import re
-import sys
 import uuid
-from collections import OrderedDict
-
+import logging
 import dateutil.parser
-import six
-
+from collections import OrderedDict
 from lib.cuckoo.common.abstracts import Report
 from lib.cuckoo.common.constants import CUCKOO_ROOT
+import six
 
 log = logging.getLogger(__name__)
 
@@ -508,7 +506,7 @@ class MaecReport(Report):
         if not isinstance(arguments, list):
             arguments = [arguments]
         found = False
-        v2_arguments = dict()
+        v2_arguments = {}
         for args in arguments:
             if "name" in args and "value" in args:
                 v2_arguments[args["name"]] = args["value"]
@@ -734,13 +732,13 @@ class MaecReport(Report):
         if not results.get("ttps") or not hasattr(self, "mitre"):
             return
 
-        maec_attcks = list()
+        maec_attcks = []
         for tactic in self.mitre.tactics:
             for technique in tactic.techniques:
                 if technique.id in list(results["ttps"].keys()):
                     maec_attck = OrderedDict()
 
-                    maec_attck.setdefault(tactic.name, list())
+                    maec_attck.setdefault(tactic.name, [])
                     maec_attck[tactic.name].append(
                         {
                             "technique_id": technique.id,

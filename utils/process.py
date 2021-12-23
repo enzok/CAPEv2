@@ -3,17 +3,17 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 from __future__ import absolute_import
-import argparse
-import gc
-import json
-import logging
-import multiprocessing
 import os
-import platform
-import resource
-import signal
+import gc
 import sys
 import time
+import json
+import logging
+import argparse
+import signal
+import multiprocessing
+import platform
+import resource
 
 if sys.version_info[:2] < (3, 6):
     sys.exit("You are running an incompatible version of Python, please use >= 3.6")
@@ -26,21 +26,22 @@ except ImportError:
 log = logging.getLogger()
 
 sys.path.append(os.path.join(os.path.abspath(os.path.dirname(__file__)), ".."))
-from concurrent.futures import TimeoutError
-
 from lib.cuckoo.common.colors import red
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
+from lib.cuckoo.core.database import Database, Task, TASK_REPORTED, TASK_COMPLETED
+from lib.cuckoo.core.database import TASK_FAILED_PROCESSING
+from lib.cuckoo.core.plugins import RunProcessing, RunSignatures
+from lib.cuckoo.core.plugins import RunReporting
 from lib.cuckoo.common.utils import free_space_monitor
-from lib.cuckoo.core.database import TASK_COMPLETED, TASK_FAILED_PROCESSING, TASK_REPORTED, Database, Task
-from lib.cuckoo.core.plugins import RunProcessing, RunReporting, RunSignatures
-from lib.cuckoo.core.startup import ConsoleHandler, check_linux_dist, init_modules, init_yara
+from lib.cuckoo.core.startup import init_modules, init_yara, ConsoleHandler, check_linux_dist
+from concurrent.futures import TimeoutError
 
 cfg = Config()
 repconf = Config("reporting")
 if repconf.mongodb.enabled:
     from bson.objectid import ObjectId
-    from pymongo import ASCENDING, DESCENDING, MongoClient
+    from pymongo import MongoClient, DESCENDING, ASCENDING
     from pymongo.errors import ConnectionFailure
 
 if repconf.elasticsearchdb.enabled and not repconf.elasticsearchdb.searchonly:
@@ -115,7 +116,7 @@ def process(target=None, copy_path=None, task=None, report=False, auto=False, ca
                 log.debug("Deleting analysis data for Task %s" % task_id)
                 for analysis in analyses:
                     for process in analysis.get("behavior", {}).get("processes", []):
-                        calls = list()
+                        calls = []
                         for call in process["calls"]:
                             calls.append(ObjectId(call))
                         mdata.calls.delete_many({"_id": {"$in": calls}})
@@ -324,10 +325,10 @@ def _load_mongo_report(task_id: int, return_one: bool = False):
     if return_one:
         analysis = mdata.analysis.find_one({"info.id": int(task_id)}, sort=[("_id", DESCENDING)])
         for process in analysis.get("behavior", {}).get("processes", []):
-            calls = list()
+            calls = []
             for call in process["calls"]:
                 calls.append(ObjectId(call))
-            process["calls"] = list()
+            process["calls"] = []
             for call in mdata.calls.find({"_id": {"$in": calls}}, sort=[("_id", ASCENDING)]) or []:
                 process["calls"] += call["calls"]
         return conn, mdata, analysis

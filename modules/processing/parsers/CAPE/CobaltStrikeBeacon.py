@@ -9,19 +9,19 @@ TODO:
  2. Dynamic size parsing
 """
 
-from __future__ import absolute_import, print_function
+from __future__ import absolute_import
+from __future__ import print_function
+from struct import unpack
+from socket import inet_ntoa
+from collections import OrderedDict
+from netstruct import unpack as netunpack
+import json
+from base64 import b64encode
 import argparse
 import io
-import json
-import logging
 import re
-from base64 import b64encode
-from collections import OrderedDict
-from socket import inet_ntoa
-from struct import unpack
-
 import pefile
-from netstruct import unpack as netunpack
+import logging
 
 log = logging.getLogger(__name__)
 
@@ -324,7 +324,7 @@ class cobaltstrikeConfig:
         return bytes([cfg_offset ^ confConsts.XORBYTES[version] for cfg_offset in cfg_blob])
 
     def _parse_config(self, version, quiet=False, as_json=False):
-        parsed_config = dict()
+        parsed_config = {}
         re_start_match = re.search(confConsts.START_PATTERNS[version], self.data)
         re_start_decoded_match = re.search(confConsts.START_PATTERN_DECODED, self.data)
 

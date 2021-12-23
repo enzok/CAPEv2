@@ -4,9 +4,9 @@
 
 from __future__ import absolute_import
 import datetime
-import json
 import logging
 import os
+import json
 import shutil
 import subprocess
 import sys
@@ -84,7 +84,7 @@ class Suricata(Processing):
         # Command Line
         SURICATA_BIN = self.options.get("bin")
 
-        suricata = dict()
+        suricata = {}
         suricata["alerts"] = []
         suricata["tls"] = []
         suricata["perf"] = []
@@ -168,7 +168,7 @@ class Suricata(Processing):
             maxloops = 24
             loopsleep = 5
 
-            args = dict()
+            args = {}
             args["filename"] = self.pcap_path
             args["output-dir"] = self.logs_path
 
@@ -243,7 +243,7 @@ class Suricata(Processing):
                         if parsed["alert"]["signature_id"] not in sid_blacklist and not parsed["alert"]["signature"].startswith(
                             "SURICATA STREAM"
                         ):
-                            alog = dict()
+                            alog = {}
                             if parsed["alert"]["gid"] == "":
                                 alog["gid"] = "None"
                             else:
@@ -277,7 +277,7 @@ class Suricata(Processing):
                             suricata["alerts"].append(alog)
 
                     elif parsed["event_type"] == "http":
-                        hlog = dict()
+                        hlog = {}
                         hlog["srcport"] = parsed["src_port"]
                         hlog["srcip"] = parsed["src_ip"]
                         hlog["dstport"] = parsed["dest_port"]
@@ -311,7 +311,7 @@ class Suricata(Processing):
                         suricata["http"].append(hlog)
 
                     elif parsed["event_type"] == "tls":
-                        tlog = dict()
+                        tlog = {}
                         tlog["srcport"] = parsed["src_port"]
                         tlog["srcip"] = parsed["src_ip"]
                         tlog["dstport"] = parsed["dest_port"]
@@ -327,7 +327,7 @@ class Suricata(Processing):
                     elif parsed["event_type"] == "dns":
                         suricata["dns"].append(parsed)
                     elif parsed["event_type"] == "fileinfo":
-                        flog = dict()
+                        flog = {}
                         flog["http_host"] = parsed.get("http", {}).get("hostname", "")
                         flog["http_uri"] = parsed.get("http", {}).get("url", "")
                         flog["http_referer"] = parsed.get("http", {}).get("referer", "")
@@ -339,7 +339,7 @@ class Suricata(Processing):
                         flog["sha256"] = parsed.get("fileinfo", {}).get("sha256", "")
                         flog["md5"] = parsed.get("fileinfo", {}).get("md5", "")
                         flog["filename"] = parsed.get("fileinfo", {}).get("filename", "")
-                        flog["file_info"] = dict()
+                        flog["file_info"] = {}
                         if "/" in flog["filename"]:
                             flog["filename"] = flog["filename"].split("/")[-1]
                         parsed_files.append(flog)

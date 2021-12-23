@@ -12,23 +12,23 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 from __future__ import absolute_import
-import datetime
-import logging
-import ntpath
 import os
-
+import logging
 import requests
+import ntpath
+import datetime
 
 try:
     import re2 as re
 except ImportError:
     import re
 
-from lib.cuckoo.common.abstracts import Report
 from lib.cuckoo.common.constants import CUCKOO_ROOT
-from lib.cuckoo.common.exceptions import CuckooDependencyError, CuckooReportError
+from lib.cuckoo.common.abstracts import Report
+from lib.cuckoo.common.exceptions import CuckooDependencyError
+from lib.cuckoo.common.exceptions import CuckooReportError
 from lib.cuckoo.common.objects import File
-from lib.cuckoo.common.utils import sanitize_filename, to_unicode
+from lib.cuckoo.common.utils import to_unicode, sanitize_filename
 from lib.cuckoo.core.database import Database
 
 log = logging.getLogger(__name__)
@@ -336,7 +336,7 @@ class ReSubmitExtractedEXE(Report):
                                     tid, e, filesdict[e]
                                 )
                             )
-                            self.results.setdefault("resubs", list()).append(tid)
+                            self.results.setdefault("resubs", []).append(tid)
                             added_previous = True
                             continue
                         else:
@@ -389,7 +389,7 @@ class ReSubmitExtractedEXE(Report):
                                                 filesdict[e], task_id, self.resubcnt
                                             )
                                         )
-                                        self.results.setdefault("resubs", list()).append(task_id)
+                                        self.results.setdefault("resubs", []).append(task_id)
                                         self.resubcnt += 1
                                         subbed_hash = True
 
@@ -441,7 +441,7 @@ class ReSubmitExtractedEXE(Report):
                                 filesdict[e], task_id, self.resubcnt
                             )
                         )
-                        self.results.setdefault("resubs", list()).append(task_id)
+                        self.results.setdefault("resubs", []).append(task_id)
                         self.resubcnt += 1
                 else:
                     log.warn("Error adding resubmitexe task to database")

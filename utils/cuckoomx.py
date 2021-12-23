@@ -1,23 +1,24 @@
 #!/bin/python
-from __future__ import absolute_import, print_function
-import email
-import hashlib
-import imaplib
-import mimetypes
+from __future__ import absolute_import
+from __future__ import print_function
 import os
-import smtplib
 import sys
+import email
+import imaplib
+import hashlib
 import tempfile
+import smtplib
+from time import sleep
+import mimetypes
 from email import Encoders
 from email.mime.text import MIMEText
-from email.MIMEBase import MIMEBase
 from email.MIMEMultipart import MIMEMultipart
-from time import sleep
+from email.MIMEBase import MIMEBase
 
 try:
-    from sflock.abstracts import File
     from sflock.main import unpack
     from sflock.unpack import ZipFile
+    from sflock.abstracts import File
 except ImportError:
     print(
         "Missed deps"
@@ -28,14 +29,18 @@ except ImportError:
 # Cuckoo root
 CUCKOO_ROOT = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..")
 sys.path.append(CUCKOO_ROOT)
-from sqlalchemy import Boolean, Column, DateTime, Integer, String, create_engine
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import relationship, sessionmaker
-from sqlalchemy.sql import func
-
 from lib.cuckoo.common.config import Config
-from lib.cuckoo.common.utils import store_temp_file
+
+
 from lib.cuckoo.core.database import Database
+from lib.cuckoo.common.utils import store_temp_file
+
+from sqlalchemy.sql import func
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import relationship
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy import Column, Integer, String, Boolean, DateTime
 
 main_db = Database()
 Base = declarative_base()
@@ -57,7 +62,7 @@ Base.metadata.create_all(engine)
 
 
 def send_notification(db, db_entry=False):
-    tasks = list()
+    tasks = []
     if db_entry:
         tasks = [db_entry]
     else:
@@ -106,8 +111,8 @@ def get_new_emails(db):
                 typ, data = conn.fetch(num, "(RFC822)")
                 msg = email.message_from_string(data[0][1])
                 if msg:
-                    email_dict = dict()
-                    email_dict["Attachments"] = list()
+                    email_dict = {}
+                    email_dict["Attachments"] = []
                     for k, v in msg.items():
                         email_dict[k] = v
 

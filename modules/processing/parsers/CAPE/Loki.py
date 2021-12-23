@@ -20,11 +20,10 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+import pefile
+import sys
 import re
 import struct
-import sys
-
-import pefile
 from Crypto.Cipher import DES3
 
 DESCRIPTION = "Loki configuration parser."
@@ -169,10 +168,10 @@ def decoder(data):
 
 def config(filebuf):
 
-    cfg = dict()
+    cfg = {}
     urls = decoder(filebuf)
     if urls:
-        cfg.setdefault("address", list())
+        cfg.setdefault("address", [])
 
     cfg["address"] = [url.decode() for url in urls]
     return cfg

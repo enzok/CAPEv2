@@ -13,9 +13,8 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from __future__ import absolute_import
-import logging
 import os
-
+import logging
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.objects import File
@@ -37,7 +36,7 @@ class MMBot(Processing):
 
     def run(self):
         self.key = "mmbot"
-        results = dict()
+        results = {}
         ftype = File(self.file_path).get_type()
 
         if self.task["category"] == "file":
@@ -56,7 +55,7 @@ class MMBot(Processing):
             ):
                 return results
 
-            opts = dict()
+            opts = {}
             opts["benign_path"] = self.options.get("benign_path", os.path.join(CUCKOO_ROOT, "data", "mmbot", "benign"))
             opts["malicious_path"] = self.options.get("malicious_path", os.path.join(CUCKOO_ROOT, "data", "mmbot", "malicious"))
             opts["model_path"] = self.options.get("model_path", os.path.join(CUCKOO_ROOT, "data", "mmbot", "model"))

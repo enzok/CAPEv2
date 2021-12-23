@@ -1,14 +1,15 @@
-from __future__ import absolute_import, print_function
-import hashlib
-import json
-import logging
+from __future__ import absolute_import
+from __future__ import print_function
 import os
 import sys
-import tempfile
+import json
 import time
-from collections import OrderedDict
-from datetime import datetime, timedelta
+import logging
+import hashlib
+import tempfile
 from random import choice
+from datetime import datetime, timedelta
+from collections import OrderedDict
 
 _current_dir = os.path.abspath(os.path.dirname(__file__))
 CUCKOO_ROOT = os.path.normpath(os.path.join(_current_dir, "..", "..", ".."))
@@ -17,12 +18,11 @@ sys.path.append(CUCKOO_ROOT)
 import magic
 import requests
 from django.http import HttpResponse
-
 from lib.cuckoo.common.config import Config
-from lib.cuckoo.common.objects import HAVE_PEFILE, IsPEImage, pefile
-from lib.cuckoo.common.utils import bytes2str, get_ip_address, get_options, sanitize_filename, validate_referrer
-from lib.cuckoo.core.database import ALL_DB_STATUSES, TASK_REPORTED, Database, Sample, Task
-from lib.cuckoo.core.rooter import _load_socks5_operational, vpns
+from lib.cuckoo.common.objects import HAVE_PEFILE, pefile, IsPEImage
+from lib.cuckoo.core.rooter import vpns, _load_socks5_operational
+from lib.cuckoo.core.database import Database, Task, Sample, TASK_REPORTED, ALL_DB_STATUSES
+from lib.cuckoo.common.utils import get_ip_address, bytes2str, validate_referrer, sanitize_filename, get_options
 
 cfg = Config("cuckoo")
 web_cfg = Config("web")
@@ -45,9 +45,7 @@ HAVE_DIST = False
 if repconf.distributed.enabled:
     try:
         # Tags
-        from lib.cuckoo.common.dist_db import Machine, Node
-        from lib.cuckoo.common.dist_db import Task as DTask
-        from lib.cuckoo.common.dist_db import create_session
+        from lib.cuckoo.common.dist_db import Machine, create_session, Task as DTask, Node
 
         HAVE_DIST = True
         dist_session = create_session(repconf.distributed.db)
@@ -165,14 +163,14 @@ def my_rate_minutes(group, request):
 
 
 def load_vms_exits():
-    all_exits = dict()
+    all_exits = {}
     if HAVE_DIST and repconf.distributed.enabled:
         try:
             db = dist_session()
             for node in db.query(Node).all():
                 if hasattr(node, "exitnodes"):
                     for exit in node.exitnodes:
-                        all_exits.setdefault(exit.name, list())
+                        all_exits.setdefault(exit.name, [])
                         all_exits[exit.name].append(node.name)
             db.close()
         except Exception as e:
@@ -182,7 +180,7 @@ def load_vms_exits():
 
 
 def load_vms_tags():
-    all_tags = list()
+    all_tags = []
     if HAVE_DIST and repconf.distributed.enabled:
         try:
             db = dist_session()
@@ -285,19 +283,19 @@ def statistics(s_days: int) -> dict:
         "detections": {},
     }
 
-    tmp_custom = dict()
-    tmp_data = dict()
+    tmp_custom = {}
+    tmp_data = {}
     data = results_db.analysis.find(
         {"statistics": {"$exists": True}, "info.started": {"$gte": date_since.isoformat()}}, {"statistics": 1, "_id": 0}
     )
     for analysis in data or []:
         for type_entry in analysis.get("statistics", []) or []:
             if type_entry not in tmp_data:
-                tmp_data.setdefault(type_entry, dict())
+                tmp_data.setdefault(type_entry, {})
             for entry in analysis["statistics"][type_entry]:
                 if entry["name"] in analysis.get("custom_statistics", {}):
                     if entry["name"] not in tmp_custom:
-                        tmp_custom.setdefault(entry["name"], dict())
+                        tmp_custom.setdefault(entry["name"], {})
                         if isinstance(analysis["custom_statistics"][entry["name"]], float):
                             tmp_custom[entry["name"]]["time"] = analysis["custom_statistics"][entry["name"]]
                             tmp_custom[entry["name"]]["successful"] = 0
@@ -309,7 +307,7 @@ def statistics(s_days: int) -> dict:
                         tmp_custom[entry["name"]]["runs"] = 1
 
                     else:
-                        tmp_custom.setdefault(entry["name"], dict())
+                        tmp_custom.setdefault(entry["name"], {})
                         if isinstance(analysis["custom_statistics"][entry["name"]], float):
                             tmp_custom[entry["name"]]["time"] = analysis["custom_statistics"][entry["name"]]
                             tmp_custom[entry["name"]]["successful"] += 0
@@ -320,7 +318,7 @@ def statistics(s_days: int) -> dict:
                             )
                         tmp_custom[entry["name"]]["runs"] += 1
                 if entry["name"] not in tmp_data[type_entry]:
-                    tmp_data[type_entry].setdefault(entry["name"], dict())
+                    tmp_data[type_entry].setdefault(entry["name"], {})
                     tmp_data[type_entry][entry["name"]]["time"] = entry["time"]
                     tmp_data[type_entry][entry["name"]]["runs"] = 1
                 else:
@@ -341,7 +339,7 @@ def statistics(s_days: int) -> dict:
             times_in_mins = tmp_data[module_name][entry]["time"] / 60
             if not times_in_mins:
                 continue
-            details[module_name].setdefault(entry, dict())
+            details[module_name].setdefault(entry, {})
             details[module_name][entry]["total"] = float("{:.2f}".format(round(times_in_mins, 2)))
             details[module_name][entry]["runs"] = tmp_data[module_name][entry]["runs"]
             details[module_name][entry]["average"] = float(
@@ -359,7 +357,7 @@ def statistics(s_days: int) -> dict:
 
     details["custom_signatures"] = OrderedDict(sorted(tmp_custom.items(), key=lambda x: x[1].get("total", "average"), reverse=True))
 
-    top_samples = dict()
+    top_samples = {}
     session = db.Session()
     added_tasks = (
         session.query(Task).join(Sample, Task.sample_id == Sample.id).filter(Task.added_on.between(date_since, date_till)).all()
@@ -369,7 +367,7 @@ def statistics(s_days: int) -> dict:
     )
     details["total"] = len(tasks)
     details["average"] = "{:.2f}".format(round(details["total"] / s_days, 2))
-    details["tasks"] = dict()
+    details["tasks"] = {}
     for task in tasks or []:
         day = task.completed_on.strftime("%Y-%m-%d")
         if day not in details["tasks"]:
@@ -378,7 +376,7 @@ def statistics(s_days: int) -> dict:
             details["tasks"][day].setdefault("reported", 0)
             details["tasks"][day].setdefault("added", 0)
         if day not in top_samples:
-            top_samples.setdefault(day, dict())
+            top_samples.setdefault(day, {})
         if task.sample.sha256 not in top_samples[day]:
             top_samples[day].setdefault(task.sample.sha256, 0)
         top_samples[day][task.sample.sha256] += 1
@@ -399,10 +397,10 @@ def statistics(s_days: int) -> dict:
     )
 
     if HAVE_DIST and repconf.distributed.enabled:
-        details["distributed_tasks"] = dict()
+        details["distributed_tasks"] = {}
         dist_db = dist_session()
         dist_tasks = dist_db.query(DTask).filter(DTask.clock.between(date_since, date_till)).all()
-        id2name = dict()
+        id2name = {}
         # load node names
         for node in dist_db.query(Node).all() or []:
             id2name.setdefault(node.id, node.name)
@@ -656,7 +654,7 @@ def download_file(**kwargs):
 
         if not node:
             # get nodes that supports this exit
-            tmp_workers = list()
+            tmp_workers = []
             for node, exitnodes in all_nodes_exits.items():
                 if route in exitnodes:
                     tmp_workers.append(node)
@@ -735,7 +733,7 @@ def download_file(**kwargs):
         if isinstance(kwargs.get("task_ids", False), list):
             kwargs["task_ids"].extend(task_ids_new)
         else:
-            kwargs["task_ids"] = list()
+            kwargs["task_ids"] = []
             kwargs["task_ids"].extend(task_ids_new)
 
     if not onesuccess:
@@ -753,7 +751,7 @@ def url_defang(url):
 
 def _download_file(route, url, options):
     socks5s = _load_socks5_operational()
-    proxies = dict()
+    proxies = {}
     response = False
     headers = {"User-Agent": choice(user_agents)}
 
