@@ -31,8 +31,8 @@ def _load_socks5_operational():
         return socks5s
 
     try:
-        from socks5man.manager import Manager
         from socks5man.exceptions import Socks5manDatabaseError
+        from socks5man.manager import Manager
     except (ImportError, OSError) as e:
         return socks5s
     except Exception as e:
@@ -57,7 +57,7 @@ def _load_socks5_operational():
 
 def rooter(command, *args, **kwargs):
     if not os.path.exists(cfg.cuckoo.rooter):
-        log.critical("Unable to passthrough root command (%s) as the rooter " "unix socket doesn't exist.", command)
+        log.critical("Unable to passthrough root command (%s) as the rooter unix socket doesn't exist", command)
         return
 
     ret = None
@@ -72,7 +72,7 @@ def rooter(command, *args, **kwargs):
         try:
             s.connect(cfg.cuckoo.rooter)
         except socket.error as e:
-            log.critical("Unable to passthrough root command as we're unable to connect to the rooter unix socket: %s.", e)
+            log.critical("Unable to passthrough root command as we're unable to connect to the rooter unix socket: %s", e)
             return
 
         s.send(

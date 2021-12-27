@@ -7,8 +7,8 @@
 
 # Vol3 docs - https://volatility3.readthedocs.io/en/latest/index.html
 from __future__ import absolute_import
-import os
 import logging
+import os
 
 try:
     import re2 as re
@@ -21,14 +21,14 @@ from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.exceptions import CuckooProcessingError
 
 try:
+    from typing import Any, Dict, List, Optional, Tuple, Type, Union
+
     import volatility3.plugins
     import volatility3.symbols
     from volatility3 import framework
     from volatility3.cli.text_renderer import JsonRenderer
-    from volatility3.framework import automagic, constants, contexts, exceptions, interfaces, plugins, configuration
+    from volatility3.framework import automagic, configuration, constants, contexts, exceptions, interfaces, plugins
     from volatility3.framework.configuration import requirements
-    from typing import Any, Dict, List, Optional, Tuple, Union, Type
-    from volatility3.framework import interfaces, constants
 
     # from volatility3.plugins.windows import pslist
     HAVE_VOLATILITY = True
@@ -95,7 +95,7 @@ class VolatilityAPI(object):
         self.plugin_list = []
         self.ctx = False
         if not memdump.startswith("file:///") and os.path.exists(memdump):
-            self.memdump = "file:///" + memdump
+            self.memdump = f"file:///{memdump}"
         else:
             self.memdump = memdump
 
@@ -126,7 +126,7 @@ class VolatilityAPI(object):
             single_location = self.memdump
             self.ctx.config["automagic.LayerStacker.single_location"] = single_location
             if os.path.exists(yara_rules_path):
-                self.ctx.config["plugins.YaraScan.yara_compiled_file"] = "file:///" + yara_rules_path
+                self.ctx.config["plugins.YaraScan.yara_compiled_file"] = f"file:///{yara_rules_path}"
 
         if pids:
             self.ctx.config["sandbox_pids"] = pids
@@ -280,7 +280,7 @@ class VolatilityManager(object):
         if not self.voptions.basic.delete_memdump:
             results["memory_path"] = self.memfile
         if self.voptions.basic.dostrings:
-            results["memory_strings_path"] = self.memfile + ".strings"
+            results["memory_strings_path"] = f"{self.memfile}.strings"
 
         return results
 
@@ -295,7 +295,7 @@ class VolatilityManager(object):
             try:
                 data = open(self.memfile, "rb").read()
             except (IOError, OSError, MemoryError) as e:
-                raise CuckooProcessingError("Error opening file %s" % e)
+                raise CuckooProcessingError(f"Error opening file {e}")
 
             nulltermonly = self.voptions.basic.get("strings_nullterminated_only", True)
             minchars = str(self.voptions.basic.get("strings_minchars", 5)).encode()
@@ -310,21 +310,21 @@ class VolatilityManager(object):
             strings = re.findall(apat, data)
             for ws in re.findall(upat, data):
                 strings.append(ws.decode("utf-16le").encode())
-            f = open(self.memfile + ".strings", "wb")
+            f = open(f"{self.memfile}.strings", "wb")
             f.write(b"\n".join(strings))
             f.close()
-            return self.memfile + ".strings"
+            return f"{self.memfile}.strings"
         return None
 
     def cleanup(self):
         """Delete the memory dump (if configured to do so)."""
 
         if self.voptions.basic.delete_memdump:
-            for memfile in (self.memfile, self.memfile + ".zip"):
+            for memfile in (self.memfile, f"{self.memfile}.zip"):
                 try:
                     os.remove(memfile)
                 except OSError:
-                    log.error('Unable to delete memory dump file at path "%s" ', memfile)
+                    log.error('Unable to delete memory dump file at path "%s"', memfile)
 
 
 class Memory(Processing):
@@ -338,30 +338,22 @@ class Memory(Processing):
         self.voptions = mem_cfg
 
         results = {}
-        if HAVE_VOLATILITY:
-            dumpexists = False
-            mempath = self.memory_path
-            zipmempath = mempath + ".zip"
-            if mempath and os.path.exists(mempath):
-                dumpexists = True
-            elif zipmempath and os.path.exists(zipmempath):
-                dumpexists = True
-                mempath = zipmempath
-            if dumpexists:
-                try:
-                    vol = VolatilityManager(mempath)
-                    results = vol.run()
-                except Exception:
-                    log.exception("Generic error executing volatility")
-                    if self.voptions.basic.delete_memdump_on_exception:
-                        try:
-                            os.remove(mempath)
-                            log.debug('Deleted memory dump file at path "%s" ', mempath)
-                        except OSError:
-                            log.error('Unable to delete memory dump file at path "%s" ', mempath)
-            else:
-                log.error("Memory dump not found: to run volatility you have to enable memory_dump")
-        else:
+        if not HAVE_VOLATILITY:
             log.error("Cannot run volatility module: volatility library not available")
+            return results
+
+        if self.memory_path and os.path.exists(self.memory_path):
+            try:
+                vol = VolatilityManager(self.memory_path)
+                results = vol.run()
+            except Exception:
+                log.exception("Generic error executing volatility")
+                if self.voptions.basic.delete_memdump_on_exception:
+                    try:
+                        os.remove(self.memory_path)
+                    except OSError:
+                        log.error('Unable to delete memory dump file at path "%s"', self.memory_path)
+        else:
+            log.error("Memory dump not found: to run volatility you have to enable memory_dump")
 
         return results

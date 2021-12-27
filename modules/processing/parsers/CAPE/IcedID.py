@@ -20,12 +20,14 @@
 DESCRIPTION = "IcedID Stage 2 configuration parser."
 AUTHOR = "kevoreilly,threathive,sysopfb"
 
+import logging
 import os
 import struct
+
 import pefile
 import yara
-import logging
 from Crypto.Cipher import ARC4
+
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 
 yara_path = os.path.join(CUCKOO_ROOT, "data", "yara", "CAPE", "IcedID.yar")
@@ -66,6 +68,6 @@ def config(filebuf):
                         cfg["address"] = [controller[1:] for controller in config[2:]]
 
             except Exception as e:
-                log.error("error:{}".format(e))
+                log.error("Error: %s", e)
 
             return cfg

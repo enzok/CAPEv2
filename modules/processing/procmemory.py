@@ -1,11 +1,10 @@
 from __future__ import absolute_import
+import os
 
 # Copyright (C) 2010-2015 Cuckoo Foundation.
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-
-import os
 
 try:
     import re2 as re
@@ -16,9 +15,10 @@ except ImportError:
     import re
 
 import logging
+
 from lib.cuckoo.common.abstracts import Processing
-from lib.cuckoo.common.objects import File, ProcDump
 from lib.cuckoo.common.cape_utils import cape_name_from_yara
+from lib.cuckoo.common.objects import File, ProcDump
 
 log = logging.getLogger(__name__)
 
@@ -42,7 +42,7 @@ class ProcessMemory(Processing):
                     data += file_item.read(int(chunk["size"], 16))
 
             # save pe to disk
-            path = os.path.join(self.pmemory_path, "{}_{}".format(mem_pe["pid"], memmap["start"]))
+            path = os.path.join(self.pmemory_path, f"{mem_pe['pid']}_{memmap['start']}")
             with open(path, "wb") as f:
                 f.write(data)
 
@@ -139,7 +139,7 @@ class ProcessMemory(Processing):
                     for ws in ustrings:
                         strings.append(ws.decode("utf-16le").encode())
 
-                    proc["strings_path"] = dmp_path + ".strings"
+                    proc["strings_path"] = f"{dmp_path}.strings"
                     proc["extracted_pe"] = extracted_pes
                     f = open(proc["strings_path"], "wb")
                     f.write(b"\n".join(strings))

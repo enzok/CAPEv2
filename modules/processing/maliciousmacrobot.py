@@ -13,8 +13,9 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from __future__ import absolute_import
-import os
 import logging
+import os
+
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.objects import File
@@ -41,7 +42,7 @@ class MMBot(Processing):
 
         if self.task["category"] == "file":
             if not HAVE_MMBOT:
-                log.error("MaliciousMacroBot not installed, 'pip3 install mmbot', aborting mmbot analysis.")
+                log.error("MaliciousMacroBot not installed, 'pip3 install mmbot', aborting mmbot analysis")
                 return results
 
             package = ""

@@ -14,9 +14,10 @@
 
 #!/usr/bin/python
 from __future__ import absolute_import
-import pefile
-import struct
 import json
+import struct
+
+import pefile
 from six.moves import map
 
 
@@ -45,7 +46,7 @@ def decodeREvilConfig(config_key, config_data):
     encoded_config = config_data[8 : config_len + 7]
     decoded_config = []
 
-    # print "Key:\t%s" % key
+    # print(f"Key:\t{key}")
 
     ECX = EAX = ESI = EDI = EDX = 0
 

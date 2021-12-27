@@ -1,18 +1,16 @@
 #!/usr/bin/python
-from __future__ import absolute_import
-from __future__ import print_function
-import zipfile, sys, os
-import base64, urllib.request, urllib.parse, urllib.error
+from __future__ import absolute_import, print_function
 import argparse
+import base64
+import os
+import sys
+import urllib.error
+import urllib.parse
+import urllib.request
+import zipfile
 from sys import argv
-from androguard.core.bytecodes import apk
-from androguard.core.bytecodes import dvm
 
-# ---------------------------------------------------
-# _log : Prints out logs for debug purposes
-# ---------------------------------------------------
-def _log(s):
-    print(s)
+from androguard.core.bytecodes import apk, dvm
 
 
 # ------------------------------------------------------------------
@@ -40,11 +38,11 @@ def extract_config(apkfile):
                             break
             server = ""
             if port:
-                server = "{0}:{1}".format(c2, str(port))
+                server = f"{c2}:{port}"
             else:
                 server = c2
-            _log("Extracting from %s" % apkfile)
-            _log("C&C: [ %s ]\n" % server)
+            print(f"Extracting from {apkfile}")
+            print(f"C&C: [ {server} ]\n")
 
 
 # -------------------------------------------------------------
@@ -109,7 +107,7 @@ if __name__ == "__main__":
         if check_apk_file(Filename[0]) == True:
             extract_config(Filename[0])
         else:
-            print(("This is not a valid apk file : %s" % Filename[0]))
+            print(f"This is not a valid apk file : {Filename[0]}")
     if Directory is not None and is_dir:
         for root, directories, filenames in os.walk(Directory[0]):
             for filename in filenames:
@@ -117,4 +115,4 @@ if __name__ == "__main__":
                 if check_apk_file(szFile) == True:
                     extract_config(szFile)
                 else:
-                    print(("This is not a valid apk file : %s" % szFile))
+                    print(f"This is not a valid apk file : {szFile}")

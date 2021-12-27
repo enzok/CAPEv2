@@ -12,8 +12,9 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import struct
 import socket
+import struct
+
 import pefile
 import yara
 from Crypto.Cipher import ARC4
@@ -122,7 +123,7 @@ def config(filebuf):
 
         if c2_address and port:
             cfg.setdefault("address", [])
-            cfg["address"].append(c2_address + ":" + port)
+            cfg["address"].append(f"{c2_address}:{port}")
 
         c2_offset += 6 + delta
 

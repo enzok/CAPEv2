@@ -3,21 +3,22 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from __future__ import absolute_import
-import os
 import gc
 import logging
-from lib.cuckoo.common.abstracts import Report
-from lib.cuckoo.common.exceptions import CuckooDependencyError
-from lib.cuckoo.common.exceptions import CuckooReportError
-from lib.cuckoo.common.objects import File
+import os
+
 from six.moves import zip
+
+from lib.cuckoo.common.abstracts import Report
+from lib.cuckoo.common.exceptions import CuckooDependencyError, CuckooReportError
+from lib.cuckoo.common.objects import File
 
 MONGOSIZELIMIT = 0x1000000
 MEGABYTE = 0x100000
 
 try:
-    from pymongo import MongoClient, TEXT
     from bson.objectid import ObjectId
+    from pymongo import TEXT, MongoClient
     from pymongo.errors import ConnectionFailure, InvalidDocument
 
     HAVE_MONGO = True
@@ -107,7 +108,7 @@ class MongoDB(Report):
     def fix_int2str(self, dictionary, current_key_tree=""):
         for k, v in dictionary.iteritems():
             if not isinstance(k, str):
-                log.error("BAD KEY: {}".format(".".join([current_key_tree, str(k)])))
+                log.error("BAD KEY: %s", ".".join([current_key_tree, str(k)]))
                 dictionary[str(k)] = dictionary.pop(k)
             elif isinstance(v, dict):
                 self.fix_int2str(v, ".".join([current_key_tree, k]))
@@ -119,7 +120,7 @@ class MongoDB(Report):
     def loop_saver(self, report):
         keys = list(report.keys())
         if "info" not in keys:
-            log.error("Missing 'info' key: %r", keys)
+            log.error("Missing 'info' key: %s", keys)
             return
         if "_id" in keys:
             keys.remove("_id")
@@ -133,7 +134,7 @@ class MongoDB(Report):
                     {"_id": obj_id.inserted_id}, {"$set": {key: report[key]}}, bypass_document_validation=True
                 )
             except InvalidDocument as e:
-                log.warning("Investigate your key: %r", key)
+                log.warning("Investigate your key: %s", key)
 
     def run(self, results):
         """Writes report.
@@ -143,7 +144,7 @@ class MongoDB(Report):
         # We put the raise here and not at the import because it would
         # otherwise trigger even if the module is not enabled in the config.
         if not HAVE_MONGO:
-            raise CuckooDependencyError("Unable to import pymongo " "(install with `pip3 install pymongo`)")
+            raise CuckooDependencyError("Unable to import pymongo (install with `pip3 install pymongo`)")
 
         self.connect()
 
@@ -219,18 +220,11 @@ class MongoDB(Report):
 
         # Other info we want quick access to from the web UI
         if results.get("virustotal", {}).get("positives") and results.get("virustotal", {}).get("total"):
-            report["virustotal_summary"] = "%s/%s" % (results["virustotal"]["positives"], results["virustotal"]["total"])
+            report["virustotal_summary"] = f"{results['virustotal']['positives']}/{results['virustotal']['total']}"
         if results.get("suricata", False):
 
             keywords = ("tls", "alerts", "files", "http", "ssh", "dns")
-            keywords_dict = (
-                "suri_tls_cnt",
-                "suri_alert_cnt",
-                "suri_file_cnt",
-                "suri_http_cnt",
-                "suri_ssh_cnt",
-                "suri_dns_cnt",
-            )
+            keywords_dict = ("suri_tls_cnt", "suri_alert_cnt", "suri_file_cnt", "suri_http_cnt", "suri_ssh_cnt", "suri_dns_cnt")
             for keyword, keyword_value in zip(keywords, keywords_dict):
                 if results["suricata"].get(keyword, 0):
                     report[keyword_value] = len(results["suricata"][keyword])
@@ -253,13 +247,13 @@ class MongoDB(Report):
 
         analyses = self.db.analysis.find({"info.id": int(report["info"]["id"])})
         if analyses:
-            log.debug("Deleting analysis data for Task %s" % report["info"]["id"])
+            log.debug("Deleting analysis data for Task %s", report["info"]["id"])
             for analysis in analyses:
                 for process in analysis["behavior"].get("processes", []) or []:
                     for call in process["calls"]:
                         self.db.calls.remove({"_id": ObjectId(call)})
                 self.db.analysis.remove({"_id": ObjectId(analysis["_id"])})
-            log.debug("Deleted previous MongoDB data for Task %s" % report["info"]["id"])
+            log.debug("Deleted previous MongoDB data for Task %s", report["info"]["id"])
 
         self.ensure_valid_utf8(report)
         gc.collect()
@@ -275,7 +269,7 @@ class MongoDB(Report):
             if not self.options.get("fix_large_docs", False):
                 # Just log the error and problem keys
                 # log.error(str(e))
-                log.warning("Largest parent key: %s (%d MB)" % (parent_key, int(psize) / MEGABYTE))
+                log.warning("Largest parent key: %s (%d MB)", parent_key, int(psize) // MEGABYTE)
             else:
                 # Delete the problem keys and check for more
                 error_saved = True
@@ -288,12 +282,12 @@ class MongoDB(Report):
                             for j, parent_dict in enumerate(report[parent_key]):
                                 child_key, csize = self.debug_dict_size(parent_dict)[0]
                                 if csize > size_filter:
-                                    log.warn("results['%s']['%s'] deleted due to size: %s" % (parent_key, child_key, csize))
+                                    log.warn("results['%s']['%s'] deleted due to size: %s", parent_key, child_key, csize)
                                     del report[parent_key][j][child_key]
                         else:
                             child_key, csize = self.debug_dict_size(report[parent_key])[0]
                             if csize > size_filter:
-                                log.warn("results['%s']['%s'] deleted due to size: %s" % (parent_key, child_key, csize))
+                                log.warn("results['%s']['%s'] deleted due to size: %s", parent_key, child_key, csize)
                                 del report[parent_key][child_key]
                         try:
                             self.db.analysis.insert_one(report)
@@ -306,10 +300,10 @@ class MongoDB(Report):
                             else:
                                 parent_key, psize = self.debug_dict_size(report)[0]
                                 log.error(str(e))
-                                log.warning("Largest parent key: %s (%d MB)" % (parent_key, int(psize) / MEGABYTE))
+                                log.warning("Largest parent key: %s (%d MB)", parent_key, int(psize) // MEGABYTE)
                                 size_filter -= MEGABYTE
                     except Exception as e:
-                        log.error("Failed to delete child key: %s" % str(e))
+                        log.error("Failed to delete child key: %s", e)
                         error_saved = False
 
         self.conn.close()
