@@ -44,6 +44,9 @@
             {% endif %}
             <li class="nav-item"><a class="nav-link" href="https://capev2.readthedocs.io/en/latest/"><span class="fas fa-info"></span> Docs</a></li>
             <li class="nav-item"><a class="nav-link" href="https://github.com/kevoreilly/CAPEv2/blob/master/changelog.md"><span class="far fa-newspaper"></span> Changelog</a></li>
+            {% if settings.MONGO_ARCHIVE %}
+            <li class="nav-item"><a class="nav-link" href="{% url "archive_index" %}"><span class="fas fa-archive"></span> Archive</a></li>
+            {% endif %}
           </ul>
           <form class="form-inline" style="margin:0px;" action="{% url "search" %}" enctype="multipart/form-data" method="post">{% csrf_token %}
             <input class="form-control" type="text" id="form_search" name="search" placeholder="Search term as regex">
@@ -53,4 +56,4 @@
       </div>
       </nav>
   </header>
-</header>
+</body>

@@ -54,4 +54,5 @@ urlpatterns = [
     ),
     url(r"^dashboard/", include(dashboard)),
     url(r"statistics/(?P<days>\d+)/$", analysis_views.statistics_data, name="statistics_data"),
+    url(r"^archivereport/(?P<task_id>\d+)/$", analysis_views.archive_report, name="archive_report"),
 ]

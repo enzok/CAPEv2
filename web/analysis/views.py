@@ -35,6 +35,7 @@ from lib.cuckoo.common.web_utils import (my_rate_minutes, my_rate_seconds, perfo
                                          perform_ttps_search, rateblock, statistics)
 from lib.cuckoo.core.database import TASK_PENDING, Database, Task
 from modules.processing.virustotal import vt_lookup
+from analysis.templatetags.analysis_tags import malware_config
 
 try:
     from django_ratelimit.decorators import ratelimit
@@ -66,6 +67,15 @@ try:
 except ImportError:
     print("Missed dependency: pip3 install pyzipper -U")
     HAVE_PYZIPPER = False
+
+try:
+    from jinja2 import TemplateAssertionError, TemplateNotFound, TemplateSyntaxError, UndefinedError
+    from jinja2.environment import Environment
+    from jinja2.loaders import FileSystemLoader
+
+    HAVE_JINJA2 = True
+except ImportError:
+    HAVE_JINJA2 = False
 
 TASK_LIMIT = 25
 
@@ -133,6 +143,16 @@ if enabledconf["mongodb"]:
         password=settings.MONGO_PASS,
         authSource=settings.MONGO_AUTHSOURCE,
     )[settings.MONGO_DB]
+
+    if settings.MONGO_ARCHIVE:
+        archive_db = pymongo.MongoClient(
+            settings.MONGO_HOST,
+            port=settings.MONGO_PORT,
+            username=settings.MONGO_USER,
+            password=settings.MONGO_PASS,
+            authSource=settings.MONGO_AUTHSOURCE,
+        )[settings.MONGO_ARCHIVE_DB]
+
 es_as_db = False
 essearch = False
 if enabledconf["elasticsearchdb"]:
@@ -280,6 +300,75 @@ def get_analysis_info(db, id=-1, task=None):
             )
 
     return new
+
+
+@require_safe
+@conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
+def archive_index(request, page=1):
+    page = int(page)
+    if page == 0:
+        page = 1
+    off = (page - 1) * TASK_LIMIT
+
+    analyses_files = []
+
+    tasks_files = archive_db.analysis.find(
+        {"target.category": "file"},
+        {"_id": 0,
+         "info.id":1,
+         "info.started":1,
+         "info.package":1,
+         "target.file.name":1,
+         "target.file.md5":1,
+         "detections":1,
+         "virustotal_summary":1},
+        sort=[("_id", pymongo.DESCENDING)],
+        limit=TASK_LIMIT,
+        skip=off,
+    )
+
+    # Vars to define when to show Next/Previous buttons
+    paging = {}
+    paging["show_file_next"] = "show"
+    paging["next_page"] = str(page + 1)
+    paging["prev_page"] = str(page - 1)
+
+    pages_files_num = 0
+    tasks_files_number = archive_db.analysis.find({"target.category": "file"}).count()
+    if tasks_files_number:
+        pages_files_num = int(tasks_files_number / TASK_LIMIT + 1)
+
+    files_pages = []
+    if pages_files_num < 11 or page < 6:
+        files_pages = list(range(1, min(10, pages_files_num) + 1))
+    elif page > 5:
+        files_pages = list(range(min(page - 5, pages_files_num - 10) + 1, min(page + 5, pages_files_num) + 1))
+
+    first_file = 0
+
+    if tasks_files:
+        for task in tasks_files:
+            if task["info"]["id"] == first_file:
+                paging["show_file_next"] = "hide"
+            if page <= 1:
+                paging["show_file_prev"] = "hide"
+
+            analyses_files.append(task)
+    else:
+        paging["show_file_next"] = "hide"
+
+    paging["files_page_range"] = files_pages
+    paging["current_page"] = page
+    analyses_files.sort(key=lambda x: x["info"]["id"], reverse=True)
+    return render(
+        request,
+        "analysis/archive_index.html",
+        {
+            "files": analyses_files,
+            "paging": paging,
+            "config": enabledconf,
+        },
+    )
 
 
 @require_safe
@@ -2163,3 +2252,36 @@ def ban_user(request, user_id: int):
             return render(request, "error.html", {"error": f"Can't ban user id {user_id}"})
     else:
         return render(request, "error.html", {"error": "Nice try! You don't have permission to ban users"})
+
+
+@conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
+def archive_report(request, task_id):
+    if not HAVE_JINJA2:
+        return render(request, "error.html", {"error", "Failed to generate HTML report: Jinja2 Python library is not installed"})
+
+    results = archive_db.analysis.find_one({"info.id": int(task_id)}, sort=[("_id", pymongo.ASCENDING)])
+    for process in results.get("behavior", {}).get("processes", []):
+        calls = []
+        for call in process["calls"]:
+            calls.append(ObjectId(call))
+        process["calls"] = []
+        for call in archive_db.calls.find({"_id": {"$in": calls}}, sort=[("_id", pymongo.ASCENDING)]) or []:
+            process["calls"] += call["calls"]
+
+    env = Environment(autoescape=True)
+    env.globals["malware_config"] = malware_config
+    env.loader = FileSystemLoader(os.path.join(CUCKOO_ROOT, "data", "html"))
+
+    try:
+        tpl = env.get_template("archive-report.html")
+        html_content = tpl.render({"results": results, "summary_report": False})
+    except UndefinedError as e:
+        return render(request, "error.html", {"error": f"Failed to generate summary HTML report: {e}"})
+    except TemplateNotFound as e:
+        return render(request, "error.html", {"error": f"Failed to generate summary HTML report: {e} on {e.name}"})
+    except (TemplateSyntaxError, TemplateAssertionError) as e:
+        return render(request, "error.html", {"error": f"Failed to generate summary HTML report: {e} on {e.name}, line {e.lineno}"})
+    try:
+        return render(request, "archive_report.html", {"html_content": f"{html_content}"})
+    except Exception as e:
+        return render(request, "error.html", {"error": f"Failed to write HTML report: {e}"})
