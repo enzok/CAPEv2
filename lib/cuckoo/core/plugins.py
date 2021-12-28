@@ -18,7 +18,7 @@ from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT, CUCKOO_VERSION
 from lib.cuckoo.common.exceptions import (CuckooDependencyError, CuckooDisableModule, CuckooOperationalError, CuckooProcessingError,
                                           CuckooReportError)
-from lib.cuckoo.common.suricata_detection import et_categories, get_suricata_family
+from lib.cuckoo.common.suricata_detection import et_categories, get_suricata_family, get_crowdstrike_family
 from lib.cuckoo.core.database import Database
 
 try:
