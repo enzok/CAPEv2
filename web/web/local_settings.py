@@ -40,6 +40,10 @@ ALLOWED_HOSTS = ["*"]
 # STATIC_ROOT = ""
 # STATIC_ROOT = os.path.join(os.getcwd(), "static")
 
+MONGO_ARCHIVE = cfg.mongodb.get("archive", False)
+MONGO_ARCHIVE_DB = cfg.mongodb.get("archive_db", "cuckoo_archive")
+SETTINGS_EXPORT.append("MONGO_ARCHIVE")
+
 SOCIALACCOUNT_PROVIDERS = {
     "google": {
         "SCOPE": [
