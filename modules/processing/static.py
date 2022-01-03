@@ -20,7 +20,7 @@ from subprocess import PIPE, Popen
 import requests
 from PIL import Image
 
-import lib.cuckoo.common.office.vbadeobf as vbadeobf
+import lib.cuckoo.common.integrations.vbadeobf as vbadeobf
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.cape_utils import generic_file_extractors
 from lib.cuckoo.common.config import Config
@@ -1233,7 +1233,7 @@ class PDF(object):
                         ret_data = ""
                         for char in jsdata:
                             if ord(char) > 127:
-                                tmp = f"\\x{char.encode('hex')}"
+                                tmp = f"\\x{char.encode().hex()}"
                             else:
                                 tmp = char
                             ret_data += tmp
