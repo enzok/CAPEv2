@@ -45,7 +45,7 @@ class MongoDB(Report):
                 password=self.options.get("password"),
                 authSource=self.options.get("authsource", "cuckoo"),
             )
-            self.db = self.conn[self.options.get("db", "cape")]
+            self.db = self.conn[self.options.get("db", "cuckoo")]
         except TypeError:
             raise CuckooReportError("Mongo connection port must be integer")
         except ConnectionFailure:
@@ -138,17 +138,6 @@ class MongoDB(Report):
         # Store the results in the report.
         report["behavior"] = dict(report["behavior"])
         report["behavior"]["processes"] = new_processes
-
-        # Other info we want quick access to from the web UI
-        if results.get("virustotal", {}).get("positives") and results.get("virustotal", {}).get("total"):
-            report["virustotal_summary"] = f"{results['virustotal']['positives']}/{results['virustotal']['total']}"
-        if results.get("suricata", False):
-
-            keywords = ("tls", "alerts", "files", "http", "ssh", "dns")
-            keywords_dict = ("suri_tls_cnt", "suri_alert_cnt", "suri_file_cnt", "suri_http_cnt", "suri_ssh_cnt", "suri_dns_cnt")
-            for keyword, keyword_value in zip(keywords, keywords_dict):
-                if results["suricata"].get(keyword, 0):
-                    report[keyword_value] = len(results["suricata"][keyword])
 
         # Create an index based on the info.id dict key. Increases overall scalability
         # with large amounts of data.

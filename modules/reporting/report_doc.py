@@ -66,9 +66,9 @@ def get_json_document(results, analysis_path):
                 report["f_mlist_cnt"] = len(entry["data"])
 
     # Other info we want quick access to from the web UI
-    if results.get("virustotal", {}).get("positive") and results.get("virustotal", {}).get("total"):
+    if results.get("virustotal", {}).get("positives") and results.get("virustotal", {}).get("total"):
         report["virustotal_summary"] = "%s/%s" % (
-            results["virustotal"]["positive"],
+            results["virustotal"]["positives"],
             results["virustotal"]["total"]
         )
     if results.get("suricata", False):
