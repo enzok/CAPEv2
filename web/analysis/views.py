@@ -202,7 +202,7 @@ def get_analysis_info(db, id=-1, task=None):
         return None
 
     new = task.to_dict()
-    if new["category"] in ("file", "pcap", "static") and new["sample_id"] != None:
+    if new["category"] in ("file", "pcap", "static") and new["sample_id"] is not None:
         new["sample"] = db.view_sample(new["sample_id"]).to_dict()
         filename = os.path.basename(new["target"])
         new.update({"filename": filename})
@@ -240,7 +240,7 @@ def get_analysis_info(db, id=-1, task=None):
     if es_as_db:
         rtmp = es.search(
             index=get_analysis_index(),
-            body=get_query_by_info_id(str(new["id"])),
+            query=get_query_by_info_id(str(new["id"])),
             _source=[
                 "info", "virustotal_summary", "malscore", "detections",
                 "network.pcap_sha256", "mlist_cnt", "f_mlist_cnt",
@@ -640,7 +640,7 @@ def load_files(request, task_id, category):
             if category in ("behavior", "debugger"):
                 data = elastic_handler.search(
                     index=get_analysis_index(),
-                    body=get_query_by_info_id(task_id),
+                    query=get_query_by_info_id(task_id),
                     _source=["behavior.processes", "behavior.processtree",
                              "info.tlp"]
                 )['hits']['hits'][0]['_source']
@@ -650,13 +650,13 @@ def load_files(request, task_id, category):
             elif category == "network":
                 data = elastic_handler.search(
                     index=get_analysis_index(),
-                    body=get_query_by_info_id(task_id),
+                    query=get_query_by_info_id(task_id),
                     _source=[category, "suricata", "cif", "info.tlp"]
                 )['hits']['hits'][0]['_source']
             else:
                 data = elastic_handler.search(
                     index=get_analysis_index(),
-                    body=get_query_by_info_id(task_id),
+                    query=get_query_by_info_id(task_id),
                     _source=[category, "info.tlp"]
                 )['hits']['hits'][0]['_source']
 
@@ -835,12 +835,12 @@ def filtered_chunk(request, task_id, pid, category, apilist, caller, tid):
                         add_call = -1
                         for api in apis:
                             if call["api"].lower() == api:
-                                if exclude is True:
+                                if exclude:
                                     add_call = 0
                                 else:
                                     add_call = 1
                                 break
-                        if (exclude == True and add_call != 0) or (exclude == False and add_call == 1):
+                        if (exclude and add_call != 0) or (not exclude and add_call == 1):
                             filtered_process["calls"].append(call)
                     else:
                         filtered_process["calls"].append(call)
@@ -1044,7 +1044,7 @@ def surialert(request, task_id):
     elif es_as_db:
         report = es.search(
             index=get_analysis_index(),
-            body=get_query_by_info_id(task_id),
+            query=get_query_by_info_id(task_id),
             _source=["suricata.alerts"]
         )['hits']['hits']
         if len(report) == 0:
@@ -1079,7 +1079,7 @@ def shrike(request, task_id):
     elif es_as_db:
         shrike = es.search(
             index=get_analysis_index(),
-            body=get_query_by_info_id(task_id),
+            query=get_query_by_info_id(task_id),
             _source=["info.shrike_url", "info.shrike_msg", "info.shrike_sid", "info.shrike_refer"]
         )['hits']['hits']
         if len(shrike) == 0:
@@ -1105,7 +1105,7 @@ def surihttp(request, task_id):
     elif es_as_db:
         report = es.search(
             index=get_analysis_index(),
-            body=get_query_by_info_id(task_id),
+            query=get_query_by_info_id(task_id),
             _source=["suricata.http"]
         )['hits']['hits']
         if len(report) == 0:
@@ -1139,7 +1139,7 @@ def suritls(request, task_id):
     elif es_as_db:
         report = es.search(
             index=get_analysis_index(),
-            body=get_query_by_info_id(task_id),
+            query=get_query_by_info_id(task_id),
             _source=["suricata.tls"]
         )['hits']['hits']
         if len(report) == 0:
@@ -1173,7 +1173,7 @@ def surifiles(request, task_id):
     elif es_as_db:
         report = es.search(
             index=get_analysis_index(),
-            body=get_query_by_info_id(task_id),
+            query=get_query_by_info_id(task_id),
             _source=["suricata.files"]
         )['hits']['hits']
         if len(report) == 0:
@@ -1208,7 +1208,7 @@ def antivirus(request, task_id):
     elif es_as_db:
         rtmp = es.search(
             index=get_analysis_index(),
-            body=get_query_by_info_id(task_id),
+            query=get_query_by_info_id(task_id),
             _source=["virustotal", "info.category"]
         )['hits']['hits']
         if len(rtmp) == 0:
@@ -1258,7 +1258,7 @@ def search_behavior(request, task_id):
         if es_as_db:
             esquery = es.search(
                 index=get_analysis_index(),
-                body=get_query_by_info_id(task_id)
+                query=get_query_by_info_id(task_id)
             )["hits"]["hits"][0]
             esidx = esquery["_index"]
             record = esquery["_source"]
@@ -1323,13 +1323,13 @@ def report(request, task_id):
     if es_as_db:
         query = es.search(
             index=get_analysis_index(),
-            body=get_query_by_info_id(task_id)
+            query=get_query_by_info_id(task_id)
         )["hits"]["hits"][0]
         report = query["_source"]
         # Extract out data for Admin tab in the analysis page
         network_report = es.search(
             index=get_analysis_index(),
-            body=get_query_by_info_id(task_id),
+            query=get_query_by_info_id(task_id),
             _source=["network.domains", "network.dns", "network.hosts"]
         )["hits"]["hits"][0]['_source']
 
@@ -1730,7 +1730,7 @@ def procdump(request, task_id, process_id, start, end):
     if es_as_db:
         analysis = es.search(
             index=get_analysis_index(),
-            body=get_query_by_info_id(task_id)
+            query=get_query_by_info_id(task_id)
         )["hits"]["hits"][0]["_source"]
 
     dumpfile = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "memory", origname)
@@ -1987,7 +1987,7 @@ def search(request, searched=""):
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def remove(request, task_id):
     """Remove an analysis."""
-    if enabledconf["delete"] is False:
+    if enabledconf["delete"]:
         return render(request, "success_simple.html", {"message": "buy a lot of whiskey to admin ;)"})
 
     if enabledconf["mongodb"]:
@@ -2015,7 +2015,7 @@ def remove(request, task_id):
     if es_as_db:
         analyses = es.search(
             index=get_analysis_index(),
-            body=get_query_by_info_id(task_id)
+            query=get_query_by_info_id(task_id)
         )["hits"]["hits"]
         if len(analyses) > 1:
             message = "Multiple tasks with this ID deleted."
@@ -2044,7 +2044,7 @@ def remove(request, task_id):
         # remove es search data
         analyses = es.search(
             index=get_analysis_index(),
-            body=get_query_by_info_id(task_id)
+            query=get_query_by_info_id(task_id)
         )["hits"]["hits"]
         if len(analyses) > 1:
             message = "Multiple tasks with this ID deleted."
@@ -2082,7 +2082,7 @@ def pcapstream(request, task_id, conntuple):
     if es_as_db:
         conndata = es.search(
             index=get_analysis_index(),
-            body=get_query_by_info_id(task_id)
+            query=get_query_by_info_id(task_id)
         )["hits"]["hits"][0]["_source"]
 
     if not conndata:
@@ -2133,7 +2133,7 @@ def comments(request, task_id):
         if es_as_db:
             query = es.search(
                 index=get_analysis_index(),
-                body=get_query_by_info_id(task_id)
+                query=get_query_by_info_id(task_id)
             )["hits"]["hits"][0]
             report = query["_source"]
             esid = query["_id"]

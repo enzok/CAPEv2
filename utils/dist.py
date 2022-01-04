@@ -48,7 +48,7 @@ from lib.cuckoo.core.database import Task as MD_Task
 reporting_conf = Config("reporting")
 
 zip_pwd = Config("web").zipped_download.zip_pwd
-if type(zip_pwd) is not bytes:
+if not isinstance(zip_pwd, bytes):
     zip_pwd = zip_pwd.encode()
 
 # init
@@ -829,7 +829,7 @@ class StatusThread(threading.Thread):
         limit = 0
 
         # check if we have tasks with no node_id and task_id, but with main_task_id
-        bad_tasks = db.query(Task).filter(Task.node_id == None, Task.task_id == None, Task.main_task_id != None).all()
+        bad_tasks = db.query(Task).filter(Task.node_id.is_(None), Task.task_id.is_(None), Task.main_task_id.is_not(None)).all()
         if bad_tasks:
             for task in bad_tasks:
                 db.delete(task)
@@ -946,7 +946,7 @@ class StatusThread(threading.Thread):
                             return True
 
                 # Only get tasks that have not been pushed yet.
-                q = db.query(Task).filter(or_(Task.node_id == None, Task.task_id == None), Task.finished == False)
+                q = db.query(Task).filter(or_(Task.node_id.is_(None), Task.task_id.is_(None)), Task.finished.is_(False))
                 if q is None:
                     db.commit()
                     return True
@@ -1017,7 +1017,7 @@ class StatusThread(threading.Thread):
 
         db = session()
         master_storage_only = False
-        if reporting_conf.distributed.master_storage_only is False:
+        if not reporting_conf.distributed.master_storage_only:
             master = db.query(Node).with_entities(Node.id, Node.name, Node.url, Node.apikey).filter_by(name="master").first()
             if master is None:
                 master_storage_only = True
@@ -1386,7 +1386,7 @@ def cron_cleaner(clean_x_hours=False):
     if clean_x_hours:
         tasks = (
             db.query(Task)
-            .filter(Task.notificated == True, Task.clock >= datetime.now() - timedelta(hours=clean_x_hours))
+            .filter(Task.notificated.is_(True), Task.clock >= datetime.now() - timedelta(hours=clean_x_hours))
             .order_by(Task.id.desc())
             .all()
         )
