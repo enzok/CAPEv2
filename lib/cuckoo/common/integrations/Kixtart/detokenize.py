@@ -1,8 +1,7 @@
 import logging
 import os
-import sys
 from argparse import ArgumentParser
-from binascii import hexlify, unhexlify
+from binascii import hexlify
 from hashlib import md5
 
 from Crypto.Cipher import ARC4
@@ -111,7 +110,7 @@ class Kixtart:
                         i += 1
                     i += 1
                     parameters = []
-                    for j in range(0, len(parameter_types)):
+                    for char in parameter_types:
                         param = ""
                         while buf[i] != 0:
                             param += chr(buf[i])
@@ -153,8 +152,8 @@ class Kixtart:
         # trim beginning and ending lines from script
         last = 0
         first = 0
-        for i in range(0, len(self.script)):
-            if self.script[i]:
+        for i, char in enumerate(self.script):
+            if char:
                 if first == 0:
                     first = i
                 last = i
@@ -185,8 +184,8 @@ class Kixtart:
         vars_length = int.from_bytes(self.tokenized[vars_offset : vars_offset + 4], byteorder="little")
         self.variables = self.tokenized[vars_offset + 4 : vars_offset + 4 + vars_length].split(b"\x00")
         self.logger.info(f"Variables: ")
-        for i in range(0, len(self.variables)):
-            self.logger.info(f"\t{i:02X}: {self.variables[i]}")
+        for i, variable in enumerate(self.variables):
+            self.logger.info(f"\t{i:02X}: {variable}")
 
         functions_offset = vars_offset + vars_length
         functions_length = int.from_bytes(self.tokenized[functions_offset : functions_offset + 4], byteorder="little")

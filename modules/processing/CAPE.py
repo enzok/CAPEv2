@@ -39,7 +39,7 @@ processing_conf = Config("processing")
 
 HAVE_FLARE_CAPA = False
 # required to not load not enabled dependencies
-if processing_conf.flare_capa.enabled and processing_conf.flare_capa.on_demand is False:
+if processing_conf.flare_capa.enabled and not processing_conf.flare_capa.on_demand:
     from lib.cuckoo.common.integrations.capa import HAVE_FLARE_CAPA, flare_capa_details
 
 ssdeep_threshold = 90
@@ -151,7 +151,7 @@ class CAPE(Processing):
         metastrings = metadata.get("metadata", "").split(";?")
         if len(metastrings) > 2:
             file_info["process_path"] = metastrings[1]
-            file_info["process_name"] = metastrings[1].split("\\")[-1]
+            file_info["process_name"] = metastrings[1].rsplit("\\", 1)[-1]
         if len(metastrings) > 3:
             file_info["module_path"] = metastrings[2]
 
@@ -171,7 +171,7 @@ class CAPE(Processing):
                 file_info["cape_type"] = inject_map[file_info["cape_type_code"]]
                 if len(metastrings) > 4:
                     file_info["target_path"] = metastrings[3]
-                    file_info["target_process"] = metastrings[3].split("\\")[-1]
+                    file_info["target_process"] = metastrings[3].rsplit("\\", 1)[-1]
                     file_info["target_pid"] = metastrings[4]
 
             if file_info["cape_type_code"] in unpack_map:
@@ -257,9 +257,9 @@ class CAPE(Processing):
 
         if type_string:
             log.info("CAPE: type_string: %s", type_string)
-            tmp_config = static_config_parsers(type_string.split(" ")[0], file_data)
+            tmp_config = static_config_parsers(type_string.split(" ", 1)[0], file_data)
             if tmp_config:
-                cape_name = type_string.split(" ")[0]
+                cape_name = type_string.split(" ", 1)[0]
                 log.info("CAPE: config returned for: %s", cape_name)
                 config.update(tmp_config)
 
@@ -288,7 +288,7 @@ class CAPE(Processing):
                         log.debug("CAPE duplicate output file skipped")
                         append_file = False
 
-        if append_file is True:
+        if append_file:
             if HAVE_FLARE_CAPA:
                 pretime = datetime.now()
                 capa_details = flare_capa_details(file_path, "cape")

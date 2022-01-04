@@ -20,7 +20,7 @@ from subprocess import PIPE, Popen
 import requests
 from PIL import Image
 
-import lib.cuckoo.common.office.vbadeobf as vbadeobf
+import lib.cuckoo.common.integrations.vbadeobf as vbadeobf
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.cape_utils import generic_file_extractors
 from lib.cuckoo.common.config import Config
@@ -130,15 +130,15 @@ processing_conf = Config("processing")
 
 HAVE_FLARE_CAPA = False
 # required to not load not enabled dependencies
-if processing_conf.flare_capa.enabled and processing_conf.flare_capa.on_demand is False:
+if processing_conf.flare_capa.enabled and not processing_conf.flare_capa.on_demand:
     from lib.cuckoo.common.integrations.capa import HAVE_FLARE_CAPA, flare_capa_details
 
 HAVE_VBA2GRAPH = False
-if processing_conf.vba2graph.on_demand is False:
+if not processing_conf.vba2graph.on_demand:
     from lib.cuckoo.common.integrations.vba2graph import HAVE_VBA2GRAPH, vba2graph_func
 
 HAVE_XLM_DEOBF = False
-if processing_conf.xlsdeobf.on_demand is False:
+if not processing_conf.xlsdeobf.on_demand:
     from lib.cuckoo.common.integrations.XLMMacroDeobfuscator import HAVE_XLM_DEOBF, xlmdeobfuscate
 
 log = logging.getLogger(__name__)
@@ -240,7 +240,7 @@ class DotNETExecutable(object):
                 if not splitline or len(splitline) < 7:
                     continue
                 typeval = splitline[1].rstrip(":")
-                nameval = splitline[6].split("::")[0]
+                nameval = splitline[6].split("::", 1)[0]
                 if "(string)" not in splitline[6]:
                     continue
                 rem = " ".join(splitline[7:])
@@ -270,8 +270,8 @@ class DotNETExecutable(object):
                 .stdout.read()
                 .split("\n")
             )
-            for idx in range(len(output)):
-                splitline = output[idx].split("Version=")
+            for idx, line in enumerate(output):
+                splitline = line.split("Version=")
                 if len(splitline) < 2:
                     continue
                 verval = splitline[1]
@@ -464,7 +464,7 @@ class PortableExecutable(object):
             # In recent versions of pefile, get_string_at_rva returns a Python3-style bytes object.
             # Convert it to a Python2-style string to ensure expected behavior when iterating
             # through it character by character.
-            if type(dllname) is not str:
+            if not isinstance(dllname, str):
                 dllname = "".join([chr(c) for c in dllname])
 
             return convert_to_printable(dllname)
@@ -951,7 +951,7 @@ class PortableExecutable(object):
 
         signatures = self.pe.write()[address + 8 :]
 
-        if type(signatures) is bytearray:
+        if isinstance(signatures, bytearray):
             signatures = bytes(signatures)
 
         try:
@@ -1119,7 +1119,7 @@ class PDF(object):
         try:
             for version in range(self.pdf.updates + 1):
                 trailer, _ = self.pdf.trailer[version]
-                if trailer != None:
+                if trailer is not None:
                     elem = trailer.dict.getElementByName("/Root")
                     if elem:
                         elem = self._get_obj_val(version, elem)
@@ -1189,8 +1189,7 @@ class PDF(object):
 
         self._set_base_uri()
 
-        for i in range(len(self.pdf.body)):
-            body = self.pdf.body[i]
+        for i, body in enumerate(self.pdf.body):
             metatmp = self.pdf.getBasicMetadata(i)
             if metatmp:
                 metadata = metatmp
@@ -1220,7 +1219,7 @@ class PDF(object):
                             continue
                         if len(errors):
                             continue
-                        if jsdata == None:
+                        if jsdata is None:
                             continue
 
                         for url in urlsfound:
@@ -1232,11 +1231,11 @@ class PDF(object):
                         # as this would mess up the new line representation which is used for
                         # beautifying the javascript code for Django's web interface.
                         ret_data = ""
-                        for x in range(len(jsdata)):
-                            if ord(jsdata[x]) > 127:
-                                tmp = f"\\x{jsdata[x].encode('hex')}"
+                        for char in jsdata:
+                            if ord(char) > 127:
+                                tmp = f"\\x{char.encode().hex()}"
                             else:
-                                tmp = jsdata[x]
+                                tmp = char
                             ret_data += tmp
                     else:
                         continue
@@ -1543,11 +1542,11 @@ class Office(object):
         oleid = OleID(filepath)
         indicators = oleid.check()
         for indicator in indicators:
-            if indicator.name == "Word Document" and indicator.value == True:
+            if indicator.name == "Word Document" and indicator.value:
                 metares["DocumentType"] = indicator.name
-            if indicator.name == "Excel Workbook" and indicator.value == True:
+            if indicator.name == "Excel Workbook" and indicator.value:
                 metares["DocumentType"] = indicator.name
-            if indicator.name == "PowerPoint Presentation" and indicator.value == True:
+            if indicator.name == "PowerPoint Presentation" and indicator.value:
                 metares["DocumentType"] = indicator.name
 
         if HAVE_XLM_DEOBF:
@@ -2095,9 +2094,9 @@ class URL(object):
                 # Handle and format dates
                 if "_date" in key:
                     if isinstance(w[key], list):
-                        buf = [str(dt).replace("T", " ").split(".")[0] for dt in w[key]]
+                        buf = [str(dt).replace("T", " ").split(".", 1)[0] for dt in w[key]]
                     else:
-                        buf = [str(w[key]).replace("T", " ").split(".")[0]]
+                        buf = [str(w[key]).replace("T", " ").split(".", 1)[0]]
                 else:
                     if isinstance(w[key], list):
                         continue

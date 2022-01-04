@@ -35,7 +35,7 @@ MAX_STRING_SIZE = 32
 
 
 def string_from_offset(data, offset):
-    string = data[offset : offset + MAX_STRING_SIZE].split(b"\0")[0]
+    string = data[offset : offset + MAX_STRING_SIZE].split(b"\0", 1)[0]
     return string
 
 
@@ -60,15 +60,15 @@ def config(data):
     except Exception as e:
         return config
 
-    if pe != None:
+    if pe is not None:
         rdata = extract_rdata(pe)
         if len(rdata) == 0:
             return config
         chunks = [x for x in rdata.split(b"\x00") if x != b""]
-        for i in range(len(chunks)):
-            if len(chunks[i]) > 100:
+        for i, line in enumerate(chunks):
+            if len(line) > 100:
                 try:
-                    decrypted = xor_data(chunks[i], chunks[i + 1]).decode()
+                    decrypted = xor_data(line, chunks[i + 1]).decode()
                     if "\r\n" in decrypted and "|" not in decrypted:
                         config["IP Blocklist"] = list(filter(None, decrypted.split("\r\n")))
                     elif "|" in decrypted and "." in decrypted and "\r\n" not in decrypted:

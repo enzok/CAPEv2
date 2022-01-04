@@ -25,8 +25,8 @@ def extract_config(raw_data):
 
 def decode(line):
     result = ""
-    for i in range(0, len(line)):
-        a = ord(line[i])
+    for char in line:
+        a = ord(char)
         result += chr(a - 1)
     return result
 
@@ -36,7 +36,7 @@ def domain_parse(config):
     raw_domains = config["Domains"]
 
     for domain in raw_domains.split(";"):
-        domain_list.append(domain.split(":")[0])
+        domain_list.append(domain.split(":", 1)[0])
     return domain_list
 
 

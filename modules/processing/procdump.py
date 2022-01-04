@@ -17,7 +17,7 @@ processing_conf = Config("processing")
 
 HAVE_FLARE_CAPA = False
 # required to not load not enabled dependencies
-if processing_conf.flare_capa.enabled and processing_conf.flare_capa.on_demand is False:
+if processing_conf.flare_capa.enabled and not processing_conf.flare_capa.on_demand:
     from lib.cuckoo.common.integrations.capa import HAVE_FLARE_CAPA, flare_capa_details
 
 processing_conf = Config("processing")
@@ -63,7 +63,7 @@ class ProcDump(Processing):
                 continue
             file_info["process_path"] = metastrings[1]
             file_info["module_path"] = metastrings[2]
-            file_info["process_name"] = file_info["process_path"].split("\\")[-1]
+            file_info["process_name"] = file_info["process_path"].rsplit("\\", 1)[-1]
             file_info["pid"] = meta[file_path]["pids"][0]
             type_strings = file_info["type"].split()
             if len(type_strings) < 3:

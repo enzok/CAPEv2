@@ -130,8 +130,7 @@ def render_capabilities(doc, ostream):
         else:
             capability = "%s (%d matches)" % (rule["meta"]["name"], count)
 
-        ostream["CAPABILITY"].setdefault(rule["meta"]["namespace"], [])
-        ostream["CAPABILITY"][rule["meta"]["namespace"]].append(capability)
+        ostream["CAPABILITY"].setdefault(rule["meta"]["namespace"], []).append(capability)
 
 
 def render_attack(doc, ostream):
@@ -216,7 +215,7 @@ def flare_capa_details(file_path, category=False, on_demand=False, disable_progr
         HAVE_FLARE_CAPA
         and processing_conf.flare_capa.enabled
         and processing_conf.flare_capa.get(category, False)
-        and (processing_conf.flare_capa.on_demand is False or on_demand is True)
+        and (not processing_conf.flare_capa.on_demand or on_demand)
     ):
         try:
             extractor = capa.main.get_extractor(

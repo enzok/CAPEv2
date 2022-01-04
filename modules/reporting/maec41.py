@@ -2756,13 +2756,13 @@ def intToHex(value):
 def regStringToHive(reg_string):
     """Maps a string representing a Registry Key from a NT* API call input to its normalized hive"""
     normalized_key = fix_key(reg_string)
-    return normalized_key.split("\\")[0]
+    return normalized_key.split("\\", 1)[0]
 
 
 def regStringToKey(reg_string):
     """Maps a string representing a Registry Key from a NT* API call input to its normalized key portion"""
     normalized_key = fix_key(reg_string)
-    return "\\".join(normalized_key.split("\\")[1:])
+    return normalized_key.split("\\", 1)[1]
 
 
 class MAEC41Report(Report):
@@ -3503,9 +3503,9 @@ class MAEC41Report(Report):
 
     # Map the Cuckoo status to that used in the MAEC/CybOX action_status field.
     def mapActionStatus(self, status):
-        if status is True or status == 1:
+        if status or status == 1:
             return "Success"
-        elif status is False or status == 0:
+        elif not status:
             return "Fail"
         else:
             return None

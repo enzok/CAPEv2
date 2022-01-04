@@ -92,9 +92,9 @@ class Syslog(Report):
         # Parse custom, check for a new value.
         # for option in custom.split(';'):
         #    if "user:" in option:
-        #        uname = f'User="{option.split(":")[-1]}" '
+        #        uname = f'User="{option.rsplit(":", 1)[-1]}" '
         #    if "ticket:" in option:
-        #        ticket = f'ticket="{option.split(":")[-1]}" '
+        #        ticket = f'ticket="{option.rsplit(":", 1)[-1]}" '
         # syslog += uname
         # syslog += ticket
 
@@ -156,12 +156,12 @@ class Syslog(Report):
                 syslog += 'Virustotal="Not Found" '
             # Vendor specific detections here. Included two examples.
             # if submittype == "file":
-            #    if results["virustotal"]["scans"]["Symantec"]["detected"] == True:
+            #    if results["virustotal"]["scans"]["Symantec"]["detected"]:
             #        svirus = results["virustotal"]["scans"]["Symantec"]["result"]
             #        syslog += f'Symantec="{svirus}" '
             #    else:
             #        syslog += 'Symantec="No Detection" '
-            #    if results["virustotal"]["scans"]["McAfee"]["detected"] == True:
+            #    if results["virustotal"]["scans"]["McAfee"]["detected"]:
             #        mvirus = results["virustotal"]["scans"]["McAfee"]["result"]
             #        syslog += f'McAfee="{mvirus}" '
             #    else:

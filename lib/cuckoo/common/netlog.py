@@ -72,11 +72,11 @@ def default_converter_64bit(v):
 
 
 def check_names_for_typeinfo(arginfo):
-    argnames = [i[0] if type(i) in (list, tuple) else i for i in arginfo]
+    argnames = [i[0] if isinstance(i, (list, tuple)) else i for i in arginfo]
 
     converters = []
     for i in arginfo:
-        if type(i) in (list, tuple):
+        if isinstance(i, (list, tuple)):
             r = TYPECONVERTERS.get(i[1])
             if not r:
                 log.debug("Analyzer sent unknown format " "specifier '{0}'".format(i[1]))
@@ -271,7 +271,7 @@ class BsonParser(object):
                     log.warning("Inconsistent arg count (compared to arg names) " "on %s: %s names %s", dec, argnames, apiname)
                     continue
 
-                argdict = dict((argnames[i], converters[i](args[i])) for i in range(len(args)))
+                argdict = dict((argnames[i], converters[i](arg)) for i, arg in enumerate(args))
 
                 if apiname == "__process__":
                     # Special new process message from cuckoomon.

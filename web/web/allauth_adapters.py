@@ -13,7 +13,7 @@ if hasattr(settings, "DISPOSABLE_DOMAIN_LIST"):
 class DisposableEmails(DefaultAccountAdapter):
     # https://fluffycloudsandlines.blog/using-django-allauth-for-google-login-to-any-django-app/
     def clean_email(self, email):
-        if email.split("@")[-1] in disposable_domain_list:
+        if email.rsplit("@", 1)[-1] in disposable_domain_list:
             raise forms.ValidationError("Admin banned disposable email services")
         else:
             return email
@@ -23,7 +23,7 @@ class DisposableEmails(DefaultAccountAdapter):
         return settings.REGISTRATION_ENABLED
 
 
-if settings.EMAIL_CONFIRMATION is False:
+if not settings.EMAIL_CONFIRMATION:
 
     @receiver(user_signed_up)
     def user_signed_up_(request, user, **kwargs):

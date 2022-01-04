@@ -9,8 +9,6 @@ import os
 import struct
 from binascii import crc32
 
-import six
-
 from lib.cuckoo.common.utils import store_temp_file
 
 try:
@@ -476,14 +474,14 @@ def rc4_decrypt(sbox, data):
     out = bytearray(len(data))
     i = 0
     j = 0
-    for k in range(len(data)):
+    for k, char in enumerate(data):
         i = (i + 1) % 256
         j = (j + sbox[i]) % 256
         tmp = sbox[i]
         sbox[i] = sbox[j]
         sbox[j] = tmp
         val = sbox[(sbox[i] + sbox[j]) % 256]
-        out[k] = val ^ data[k]
+        out[k] = val ^ char
 
     return out
 
@@ -588,13 +586,7 @@ def kav_unquarantine(file):
         idlen = struct.unpack("<I", data[curoffset + 4 : curoffset + 8])[0]
         idname = str(data[curoffset + 8 : curoffset + 8 + idlen]).rstrip("\0")
         if idname == "cNP_QB_FULLNAME":
-            vallen = length - idlen
-            origname = (
-                six.text_type(data[curoffset + 8 + idlen : curoffset + 4 + length])
-                .decode("utf-16")
-                .encode("utf8", "ignore")
-                .rstrip("\0")
-            )
+            origname = str(data[curoffset + 8 + idlen : curoffset + 4 + length]).encode("utf-16").decode(errors="ignore").rstrip("\0")
         curoffset += 4 + length
         if curoffset >= metaoffset + metalen:
             break
@@ -636,9 +628,9 @@ def trend_unquarantine(f):
     for i in range(numtags):
         code, tagdata = read_trend_tag(data, offset)
         if code == 1:  # original pathname
-            origpath = six.text_type(tagdata, encoding="utf16").encode("utf8", "ignore").rstrip("\0")
+            origpath = str(tagdata).encode("utf16").decode(error="ignore").rstrip("\0")
         elif code == 2:  # original filename
-            origname = six.text_type(tagdata, encoding="utf16").encode("utf8", "ignore").rstrip("\0")
+            origname = str(tagdata).encode("utf16").decode(error="ignore").rstrip("\0")
         elif code == 3:  # platform
             platform = str(tagdata)
         elif code == 4:  # file attributes
@@ -722,7 +714,7 @@ def mcafee_unquarantine(f):
                         if check == "":
                             parseit = False
                         if parseit and check.startswith("OriginalName="):
-                            malname = str(check.split("\\")[-1])
+                            malname = str(check.rsplit("\\", 1)[-1])
                     if not malname:
                         malname = "McAfeeDequarantineFile"
                     # currently we're only returning the first found file in the quarantine file
@@ -750,7 +742,7 @@ func_map = {
 
 
 def unquarantine(f):
-    f = f.decode() if type(f) is bytes else f
+    f = f.decode() if isinstance(f, bytes) else f
     base = os.path.basename(f)
     realbase, ext = os.path.splitext(base)
 

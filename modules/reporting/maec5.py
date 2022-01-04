@@ -16,7 +16,6 @@ import uuid
 from collections import OrderedDict
 
 import dateutil.parser
-import six
 
 from lib.cuckoo.common.abstracts import Report
 from lib.cuckoo.common.constants import CUCKOO_ROOT
@@ -140,18 +139,18 @@ def convert_to_unicode(input):
             od[convert_to_unicode(key)] = convert_to_unicode(value)
         return od
     elif isinstance(input, dict):
-        return {convert_to_unicode(key): convert_to_unicode(value) for key, value in six.iteritems(input)}
+        return {convert_to_unicode(key): convert_to_unicode(value) for key, value in input.items()}
     elif isinstance(input, list):
         return [convert_to_unicode(element) for element in input]
     elif isinstance(input, str) or isinstance(input, int) or isinstance(input, float):
-        return six.text_type(input).decode()
+        return str(input)
     else:
         return input
 
 
 def sort_dict(d):
     """Sort and return an observed dict for an input dictionary"""
-    od = OrderedDict(sorted(six.iteritems(d), key=lambda k_v: sort_order.index(k_v[0])))
+    od = OrderedDict(sorted(d.items(), key=lambda k_v: sort_order.index(k_v[0])))
     return od
 
 
@@ -739,8 +738,7 @@ class MaecReport(Report):
                 if technique.id in list(results["ttps"].keys()):
                     maec_attck = OrderedDict()
 
-                    maec_attck.setdefault(tactic.name, [])
-                    maec_attck[tactic.name].append(
+                    maec_attck.setdefault(tactic.name, []).append(
                         {
                             "technique_id": technique.id,
                             "ttp_name": technique.name,

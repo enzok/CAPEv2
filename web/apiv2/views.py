@@ -73,20 +73,10 @@ if repconf.mongodb.enabled:
 
 es_as_db = False
 if repconf.elasticsearchdb.enabled and not repconf.elasticsearchdb.searchonly:
-    from elasticsearch import Elasticsearch
+    from dev_utils.elasticsearchdb import elastic_handler, get_analysis_index, get_query_by_info_id
 
     es_as_db = True
-    baseidx = repconf.elasticsearchdb.index
-    fullidx = baseidx + "-*"
-    es = Elasticsearch(
-        hosts=[
-            {
-                "host": repconf.elasticsearchdb.host,
-                "port": repconf.elasticsearchdb.port,
-            }
-        ],
-        timeout=60,
-    )
+    es = elastic_handler
 
 db = Database()
 
@@ -329,11 +319,18 @@ def tasks_create_file(request):
                     tmp_path = path
                 except Exception as e:
                     print(e, "removing quarantine")
-                try:
-                    File(path).get_type()
-                except TypeError:
-                    details["errors"].append({os.path.basename(tmp_path).decode(): "Error submitting file - bad file type"})
-                    continue
+
+                if not path:
+                    resp = {"error": True, "error_value": "You uploaded an unsupported quarantine file."}
+                    return Response(resp)
+
+                details["path"] = path
+                details["content"] = get_file_content(path)
+                status, task_ids_tmp = download_file(**details)
+                if status == "error":
+                    details["errors"].append({sample.name: task_ids_tmp})
+                else:
+                    details["task_ids"] = task_ids_tmp
             else:
                 details["content"] = get_file_content(tmp_path)
                 status, task_ids_tmp = download_file(**details)
@@ -585,106 +582,6 @@ def tasks_create_dlnexec(request):
     return Response(resp)
 
 
-# Download a file from VT for analysis
-@csrf_exempt
-@api_view(["POST"])
-def tasks_vtdl(request):
-    resp = {}
-    if request.method == "POST":
-        # Check if this API function is enabled
-        if not apiconf.vtdl.get("enabled"):
-            resp = {"error": True, "error_value": "VTDL Create API is Disabled"}
-            return Response(resp)
-
-        hashes = request.data.get("vtdl".strip())
-        if not hashes:
-            hashes = request.data.get("hashes".strip())
-
-        if not hashes:
-            resp = {"error": True, "error_value": "vtdl (hash list) value is empty"}
-            return Response(resp)
-
-        resp["error"] = False
-        options = request.data.get("options", "")
-        custom = request.data.get("custom", "")
-        machine = request.data.get("machine", "")
-
-        opt_filename = get_user_filename(options, custom)
-
-        task_machines = []
-        vm_list = []
-        opt_apikey = False
-        opts = get_options(options)
-        if opts:
-            opt_apikey = opts.get("apikey", False)
-
-        if not (settings.VTDL_KEY or opt_apikey) or not settings.VTDL_PATH:
-            resp = {
-                "error": True,
-                "error_value": "You specified VirusTotal but must edit the file and specify your VTDL_KEY variable and VTDL_PATH base directory",
-            }
-            return Response(resp)
-
-        for vm in db.list_machines():
-            vm_list.append(vm.label)
-
-        if machine.lower() == "all":
-            if not apiconf.filecreate.get("allmachines"):
-                resp = {"error": True, "error_value": "Machine=all is disabled using the API"}
-                return Response(resp)
-            for entry in vm_list:
-                task_machines.append(entry)
-        else:
-            # Check if VM is in our machines table
-            if machine == "" or machine in vm_list:
-                task_machines.append(machine)
-            # Error if its not
-            else:
-                resp = {
-                    "error": True,
-                    "error_value": ("Machine '{0}' does not exist. Available: {1}".format(machine, ", ".join(vm_list))),
-                }
-                return Response(resp)
-
-        details = {
-            "apikey": settings.VTDL_KEY or opt_apikey,
-            "errors": [],
-            "content": False,
-            "request": request,
-            "task_ids": [],
-            "url": False,
-            "params": {},
-            "headers": {},
-            "service": "VirusTotal",
-            "path": "",
-            "fhash": False,
-            "options": options,
-            "only_extraction": False,
-            "user_id": request.user.id or 0,
-        }
-
-        details = download_from_vt(hashes, details, opt_filename, settings)
-
-        if details["task_ids"]:
-            tasks_count = len(details["task_ids"])
-        else:
-            tasks_count = 0
-        if tasks_count > 0:
-            resp["data"] = {}
-            resp["errors"] = details["errors"]
-            resp["data"]["task_ids"] = details["task_ids"]
-            if len(details["task_ids"]) == 1:
-                resp["data"]["message"] = "Task ID {0} has been submitted".format(str(details["task_ids"][0]))
-            else:
-                resp["data"]["message"] = "Task IDs {0} have been submitted".format(", ".join(str(x) for x in details["task_ids"]))
-        else:
-            resp = {"error": True, "error_value": "Error adding task to database", "errors": details["errors"]}
-    else:
-        resp = {"error": True, "error_value": "Method not allowed"}
-
-    return Response(resp)
-
-
 # Return Sample information.
 @csrf_exempt
 @api_view(["GET"])
@@ -771,7 +668,7 @@ def tasks_search(request, md5=None, sha1=None, sha256=None):
                 for task in tasks:
                     buf = task.to_dict()
                     # Remove path information, just grab the file name
-                    buf["target"] = buf["target"].split("/")[-1]
+                    buf["target"] = buf["target"].rsplit("/", 1)[-1]
                     resp["data"].append(buf)
         else:
             resp = {"data": [], "error": False}
@@ -938,7 +835,7 @@ def tasks_view(request, task_id):
     if task:
         entry = task.to_dict()
         if entry["category"] != "url":
-            entry["target"] = entry["target"].split("/")[-1]
+            entry["target"] = entry["target"].rsplit("/", 1)[-1]
         entry["guest"] = {}
         if task.guest:
             entry["guest"] = task.guest.to_dict()
@@ -1105,7 +1002,7 @@ def tasks_report(request, task_id, report_format="json", make_zip=False):
 
             if make_zip:
                 mem_zip = create_zip(files=report_path)
-                if type(mem_zip) is bool and mem_zip is False:
+                if mem_zip is False:
                     esp = {"error": True, "error_value": "Can't create zip archive for report file"}
                     return Response(resp)
 
@@ -1131,7 +1028,7 @@ def tasks_report(request, task_id, report_format="json", make_zip=False):
             return Response(resp)
 
         mem_zip = create_zip(folder=srcdir)
-        if type(mem_zip) is bool and mem_zip is False:
+        if mem_zip is False:
             resp = {"error": True, "error_value": "Can't create zip archive for report file"}
             return Response(resp)
 
@@ -1210,7 +1107,7 @@ def tasks_iocs(request, task_id, detail=None):
     if repconf.mongodb.get("enabled") and not buf:
         buf = results_db.analysis.find_one({"info.id": int(task_id)})
     if es_as_db and not buf:
-        tmp = es.search(index=fullidx, doc_type="analysis", q='info.id: "%s"' % task_id)["hits"]["hits"]
+        tmp = es.search(index=get_analysis_index(), query=get_query_by_info_id(task_id))["hits"]["hits"]
         if tmp:
             buf = tmp[-1]["_source"]
         else:
@@ -1396,7 +1293,7 @@ def tasks_iocs(request, task_id, detail=None):
             else:
                 data["network"]["http"]["host"] = ""
             if "data" in req and "\r\n" in req["data"]:
-                data["network"]["http"]["data"] = req["data"].split("\r\n")[0]
+                data["network"]["http"]["data"] = req["data"].split("\r\n", 1)[0]
             else:
                 data["network"]["http"]["data"] = ""
             if "method" in req:
@@ -1444,7 +1341,7 @@ def tasks_screenshot(request, task_id, screenshot="all"):
 
     if screenshot == "all":
         mem_zip = create_zip(folder=srcdir)
-        if type(mem_zip) is bool and mem_zip is False:
+        if mem_zip is False:
             resp = {"error": True, "error_value": "Can't create zip archive for report file"}
             return Response(resp)
 
@@ -1515,7 +1412,7 @@ def tasks_dropped(request, task_id):
 
     else:
         mem_zip = create_zip(folder=srcdir, encrypted=True)
-        if type(mem_zip) is bool and mem_zip is False:
+        if mem_zip is False:
             resp = {"error": True, "error_value": "Can't create zip archive for report file"}
             return Response(resp)
 
@@ -1663,7 +1560,7 @@ def tasks_procmemory(request, task_id, pid="all"):
             return Response(resp)
 
         mem_zip = create_zip(folder=srcdir, encrypted=True)
-        if type(mem_zip) is bool and mem_zip is False:
+        if mem_zip is False:
             resp = {"error": True, "error_value": "Can't create zip archive for report file"}
             return Response(resp)
 
@@ -1677,7 +1574,7 @@ def tasks_procmemory(request, task_id, pid="all"):
         if os.path.exists(filepath):
 
             mem_zip = create_zip(files=filepath, encrypted=True)
-            if type(mem_zip) is bool and mem_zip is False:
+            if mem_zip is False:
                 resp = {"error": True, "error_value": "Can't create zip archive for report file"}
                 return Response(resp)
 
@@ -1736,7 +1633,7 @@ def tasks_fullmemory(request, task_id):
 @csrf_exempt
 @api_view(["GET"])
 def file(request, stype, value):
-    if apiconf.sampledl.get("enabled", False) is False:
+    if not apiconf.sampledl.get("enabled", False):
         resp = {"error": True, "error_value": "Sample download API is disabled"}
         return Response(resp)
 
@@ -1924,7 +1821,7 @@ def tasks_payloadfiles(request, task_id):
     if os.path.exists(srcdir):
 
         mem_zip = create_zip(folder=srcdir, encrypted=True)
-        if type(mem_zip) is bool and mem_zip is False:
+        if mem_zip is False:
             resp = {"error": True, "error_value": "Can't create zip archive for report file"}
             return Response(resp)
 
@@ -1954,7 +1851,7 @@ def tasks_procdumpfiles(request, task_id):
     if os.path.exists(srcdir):
 
         mem_zip = create_zip(folder=srcdir, encrypted=True)
-        if type(mem_zip) is bool and mem_zip is False:
+        if mem_zip is False:
             resp = {"error": True, "error_value": "Can't create zip archive for report file"}
             return Response(resp)
 
@@ -1988,7 +1885,7 @@ def tasks_config(request, task_id, cape_name=False):
             with open(jfile, "r") as jdata:
                 buf = json.load(jdata)
     if es_as_db and not buf:
-        tmp = es.search(index=fullidx, doc_type="analysis", q='info.id: "%s"' % str(task_id))["hits"]["hits"]
+        tmp = es.search(index=get_analysis_index(), query=get_query_by_info_id(task_id))["hits"]["hits"]
         if len(tmp) > 1:
             buf = tmp[-1]["_source"]
         elif len(tmp) == 1:
@@ -2085,3 +1982,106 @@ def tasks_delete_many(request):
 def limit_exceeded(request, exception):
     resp = {"error": True, "error_value": "Rate limit exceeded for this API"}
     return Response(resp)
+
+
+dl_service_map = {
+    "VirusTotal": "vtdl",
+}
+
+def common_download_func(service, request):
+    resp = {}
+    hashes = request.data.get(dl_service_map[service].strip())
+    if not hashes:
+        hashes = request.POST.get("hashes".strip(), None)
+    if not hashes:
+        return Response({"error": True, "error_value": f"hashes (hash list) or {dl_service_map[service]} value is empty"})
+    resp["error"] = False
+    # Parse potential POST options (see submission/views.py)
+    options = request.POST.get("options", "")
+    custom = request.POST.get("custom", "")
+    machine = request.POST.get("machine", "")
+    opt_filename = get_user_filename(options, custom)
+
+    details = {}
+    task_machines = []
+    vm_list = []
+    opt_apikey = False
+
+    if service == "VirusTotal":
+        opts = get_options(options)
+        if opts:
+            opt_apikey = opts.get("apikey", False)
+
+        if not (settings.VTDL_KEY or opt_apikey) or not settings.VTDL_PATH:
+            resp = {
+                "error": True,
+                "error_value": "You specified VirusTotal but must edit the file and specify your VTDL_KEY variable and VTDL_PATH base directory",
+            }
+            return Response(resp)
+
+    for vm in db.list_machines():
+        vm_list.append(vm.label)
+    if machine.lower() == "all":
+        if not apiconf.filecreate.get("allmachines"):
+            resp = {"error": True, "error_value": "Machine=all is disabled using the API"}
+            return Response(resp)
+        for entry in vm_list:
+            task_machines.append(entry)
+    else:
+        # Check if VM is in our machines table
+        if machine == "" or machine in vm_list:
+            task_machines.append(machine)
+        # Error if its not
+        else:
+            resp = {
+                "error": True,
+                "error_value": ("Machine '{0}' does not exist. Available: {1}".format(machine, ", ".join(vm_list))),
+            }
+            return Response(resp)
+
+    details = {
+        "errors": [],
+        "content": False,
+        "request": request,
+        "task_id": [],
+        "url": False,
+        "params": {},
+        "headers": {},
+        "path": "",
+        "fhash": False,
+        "options": options,
+        "only_extraction": False,
+        "service": service,
+        "user_id": request.user.id or 0,
+    }
+
+    if service == "VirusTotal":
+        details["apikey"] = settings.VTDL_KEY or opt_apikey
+        details = download_from_vt(hashes, details, opt_filename, settings)
+    if isinstance(details.get("task_ids"), list):
+        tasks_count = len(details["task_ids"])
+    else:
+        tasks_count = 0
+    if tasks_count > 0:
+        resp["data"] = {}
+        resp["errors"] = details["errors"]
+        resp["data"]["task_ids"] = details.get("task_ids", [])
+        if len(details.get("task_ids", [])) == 1:
+            resp["data"]["message"] = "Task ID {0} has been submitted".format(str(details.get("task_ids", [])[0]))
+        else:
+            resp["data"]["message"] = "Task IDs {0} have been submitted".format(
+                ", ".join(str(x) for x in details.get("task_ids", []))
+            )
+    else:
+        resp = {"error": True, "error_value": "Error adding task to database", "errors": details["errors"]}
+
+    return Response(resp)
+
+
+@csrf_exempt
+@api_view(["POST"])
+def tasks_vtdl(request):
+    # Check if this API function is enabled
+    if not apiconf.vtdl.get("enabled"):
+        return Response({"error": True, "error_value": "VTDL Create API is Disabled"})
+    return common_download_func("VirusTotal", request)

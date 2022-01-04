@@ -9,8 +9,6 @@ import os
 import sys
 import time
 
-from six.moves import range
-
 iface = ""
 for idx, arg in enumerate(sys.argv):
     if arg == "-i" and idx < len(sys.argv) - 1:
@@ -19,7 +17,7 @@ for idx, arg in enumerate(sys.argv):
 for i in range(30):
     f = open("/proc/net/dev", "rb")
     for line in f:
-        dev = line.split(":")[0]
+        dev = line.split(":", 1)[0]
         if dev == iface:
             break
     f.close()

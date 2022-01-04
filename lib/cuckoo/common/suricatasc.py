@@ -155,7 +155,7 @@ class SuricataSC:
 
     def connect(self):
         try:
-            if self.socket == None:
+            if self.socket is None:
                 self.socket = socket(AF_UNIX)
             self.socket.connect(self.sck_path)
         except error as err:
@@ -222,7 +222,7 @@ class SuricataSC:
 
     def parse_command(self, command):
         arguments = None
-        cmd = command.split()[0] if command else None
+        cmd = command.split(maxsplit=1)[0] if command else None
         if cmd in self.cmd_list:
             if cmd in self.fn_commands:
                 cmd, arguments = getattr(self, "execute")(command=command)

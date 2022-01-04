@@ -26,8 +26,6 @@ from datetime import datetime
 from io import BytesIO
 from typing import Tuple
 
-import six
-
 from lib.cuckoo.common import utils_dicts
 from lib.cuckoo.common import utils_pretty_print_funcs as pp_funcs
 from lib.cuckoo.common.config import Config
@@ -157,7 +155,7 @@ def create_zip(files=False, folder=False, encrypted=False):
                 log.error(f"File does't exist: {file}")
                 continue
 
-            parent_folder = os.path.dirname(file).split(os.sep)[-1]
+            parent_folder = os.path.dirname(file).rsplit(os.sep, 1)[-1]
             path = os.path.join(parent_folder, os.path.basename(file))
             zf.write(file, path)
 
@@ -179,7 +177,7 @@ def free_space_monitor(path=False, return_value=False, processing=False, analysi
             # Check main FS if processing
             if processing:
                 free_space = config.cuckoo.freespace_processing
-            elif analysis is False and HAVE_TMPFS and tmpfs.enabled:
+            elif not analysis and HAVE_TMPFS and tmpfs.enabled:
                 path = tmpfs.path
                 free_space = tmpfs.freespace
             else:
@@ -208,7 +206,7 @@ def get_memdump_path(id, analysis_folder=False):
     analysis_folder: force to return default analysis folder
     """
     id = str(id)
-    if HAVE_TMPFS and tmpfs.enabled and analysis_folder is False:
+    if HAVE_TMPFS and tmpfs.enabled and not analysis_folder:
         memdump_path = os.path.join(tmpfs.path, id + ".dmp")
     else:
         memdump_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", id, "memory.dmp")
@@ -341,7 +339,7 @@ def bytes2str(convert):
         tmp_dict = {}
         items = convert.items()
         for k, v in items:
-            if type(v) is bytes:
+            if isinstance(v, bytes):
                 try:
                     tmp_dict[k] = v.decode()
                 except UnicodeDecodeError:
@@ -351,7 +349,7 @@ def bytes2str(convert):
         converted_list = []
         items = enumerate(convert)
         for k, v in items:
-            if type(v) is bytes:
+            if isinstance(v, bytes):
                 try:
                     converted_list.append(v.decode())
                 except UnicodeDecodeError:
@@ -371,7 +369,7 @@ def wide2str(string: Tuple[str, bytes]):
     Do you have better solution?
     """
     null_byte = "\x00"
-    if type(string) is bytes:
+    if isinstance(string, bytes):
         null_byte = 0
 
     if (
@@ -379,7 +377,7 @@ def wide2str(string: Tuple[str, bytes]):
         and all([string[char] == null_byte for char in (1, 3, 5, 7, 9, 11)])
         and all([string[char] != null_byte for char in (0, 2, 4, 6, 8, 10)])
     ):
-        if type(string) is bytes:
+        if isinstance(string, bytes):
             return string.decode("utf-16")
         else:
             return string.encode().decode("utf-16")
@@ -851,8 +849,7 @@ def to_unicode(s):
         encodings = ("ascii", "utf8", "latin1")
         for enc in encodings:
             try:
-                # ToDo text_type is unicode py2 str py3
-                return six.text_type(s2, enc)
+                return s2.decode(enc)
             except UnicodeDecodeError:
                 pass
         return None
@@ -862,13 +859,13 @@ def to_unicode(s):
         enc = chardet.detect(s2)["encoding"]
 
         try:
-            return six.text_type(s2, enc)
+            return s2.decode(enc)
         except UnicodeDecodeError:
             pass
         return None
 
     # If already in unicode, skip.
-    if isinstance(s, six.text_type):
+    if isinstance(s, str):
         return s
 
     # First try to decode against a little set of common encodings.
@@ -878,10 +875,9 @@ def to_unicode(s):
     if not result and HAVE_CHARDET:
         result = chardet_enc(s)
 
-    # If not possible to convert the input string, try again with
-    # a replace strategy.
+    # If not possible to convert the input string, try again with a replace strategy.
     if not result:
-        result = six.text_type(s, errors="replace")
+        result = s.decode(errors="replace")
 
     return result
 
@@ -893,7 +889,7 @@ def get_user_filename(options, customs):
             if pattern in block:
                 for option in block.split(","):
                     if option.startswith(pattern):
-                        opt_filename = option.split(pattern)[1]
+                        opt_filename = option.split(pattern, 2)[1]
                         break
                 if opt_filename:
                     break
@@ -949,7 +945,7 @@ def sanitize_filename(x):
 
 def default_converter(v):
     # Fix signed ints (bson is kind of limited there).
-    if type(v) is int:
+    if isinstance(v, int):
         return v & 0xFFFFFFFF
     # Need to account for subclasses since pymongo's bson module
     # uses 'bson.int64.Int64' class for 64-bit values.

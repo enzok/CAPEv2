@@ -69,22 +69,13 @@ if repconf.mongodb.enabled:
 es_as_db = False
 essearch = False
 if repconf.elasticsearchdb.enabled:
-    from elasticsearch import Elasticsearch
+    from dev_utils.elasticsearchdb import elastic_handler, get_analysis_index
 
     essearch = repconf.elasticsearchdb.searchonly
     if not essearch:
         es_as_db = True
-    baseidx = repconf.elasticsearchdb.index
-    fullidx = baseidx + "-*"
-    es = Elasticsearch(
-        hosts=[
-            {
-                "host": repconf.elasticsearchdb.host,
-                "port": repconf.elasticsearchdb.port,
-            }
-        ],
-        timeout=60,
-    )
+
+    es = elastic_handler
 
 VALID_LINUX_TYPES = ["Bourne-Again", "POSIX shell script", "ELF", "Python"]
 
@@ -136,13 +127,13 @@ def my_rate_seconds(group, request):
     x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
 
     if x_forwarded_for:
-        ip = x_forwarded_for.split(',')[0]
+        ip = x_forwarded_for.split(',', 1)[0]
     else:
         ip = request.META.get('REMOTE_ADDR')
     print(request.user.username, ip)
     """
 
-    if rateblock is False or request.user.is_authenticated:
+    if not rateblock or request.user.is_authenticated:
         return "99999999999999/s"
     else:
         return rps
@@ -154,12 +145,12 @@ def my_rate_minutes(group, request):
     x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
 
     if x_forwarded_for:
-        ip = x_forwarded_for.split(',')[0]
+        ip = x_forwarded_for.split(',', 1)[0]
     else:
         ip = request.META.get('REMOTE_ADDR')
     print(request.user.username, ip)
     """
-    if rateblock is False or request.user.is_authenticated:
+    if not rateblock or request.user.is_authenticated:
         return "99999999999999/m"
     else:
         return rpm
@@ -173,8 +164,7 @@ def load_vms_exits():
             for node in db.query(Node).all():
                 if hasattr(node, "exitnodes"):
                     for exit in node.exitnodes:
-                        all_exits.setdefault(exit.name, [])
-                        all_exits[exit.name].append(node.name)
+                        all_exits.setdefault(exit.name, []).append(node.name)
             db.close()
         except Exception as e:
             print(e)
@@ -220,7 +210,6 @@ def top_detections(date_since: datetime = False, results_limit: int = 20) -> dic
     """function that gets detection: count
     based on: https://gist.github.com/clarkenheim/fa0f9e5400412b6a0f9d
     """
-    data = False
 
     aggregation_command = [
         {"$match": {"detections": {"$exists": True}}},
@@ -234,7 +223,48 @@ def top_detections(date_since: datetime = False, results_limit: int = 20) -> dic
     if date_since:
         aggregation_command[0]["$match"].setdefault("info.started", {"$gte": date_since.isoformat()})
 
-    data = results_db.analysis.aggregate(aggregation_command)
+    if repconf.mongodb.enabled:
+        data = results_db.analysis.aggregate(aggregation_command)
+    elif repconf.elasticsearchdb.enabled:
+        q = {
+            "query": {
+                "bool": {
+                    "must": [
+                        {
+                            "exists": {
+                                "field": "detections"
+                            }
+                        }
+                    ]
+                }
+            },
+            "size": 0,
+            "aggs": {
+                "family": {
+                    "terms": {
+                        "field": "detections.keyword",
+                        "size": results_limit
+                    }
+                }
+            }
+        }
+
+        if date_since:
+            q["query"]["bool"]["must"].append({
+                "range": {
+                    "info.started": {
+                        "gte": date_since.isoformat()
+                    }
+                }
+            })
+
+            print(q)
+        res = es.search(index=get_analysis_index(), body=q)
+        data = [{'total': r['doc_count'], 'family': r['key']} for r in
+                res['aggregations']['family']['buckets']]
+    else:
+        data = False
+
     if data:
         data = list(data)
 
@@ -288,9 +318,37 @@ def statistics(s_days: int) -> dict:
 
     tmp_custom = {}
     tmp_data = {}
-    data = results_db.analysis.find(
-        {"statistics": {"$exists": True}, "info.started": {"$gte": date_since.isoformat()}}, {"statistics": 1, "_id": 0}
-    )
+    if repconf.mongodb.enabled:
+        data = results_db.analysis.find(
+            {"statistics": {"$exists": True}, "info.started": {"$gte": date_since.isoformat()}}, {"statistics": 1, "_id": 0}
+        )
+    elif repconf.elasticsearchdb.enabled:
+        q = {
+            "query": {
+                "bool": {
+                    "must": [
+                        {
+                            "exists": {
+                                "field": "statistics"
+                            }
+                        },
+                        {
+                            "range": {
+                                "info.started": {
+                                    "gte": date_since.isoformat()
+                                }
+                            }
+                        }
+                    ]
+                }
+            }
+        }
+        data = [d['_source'] for d in
+                es.search(index=get_analysis_index(), body=q,
+                          _source=['statistics'])['hits']['hits']]
+    else:
+        data = None
+
     for analysis in data or []:
         for type_entry in analysis.get("statistics", []) or []:
             if type_entry not in tmp_data:
@@ -474,9 +532,9 @@ def fix_section_permission(path):
         pe = pefile.PE(path)
         if not pe:
             return
-        for id in range(len(pe.sections)):
-            if pe.sections[id].Name.rstrip("\0") == ".rdata" and hex(pe.sections[id].Characteristics)[:3] == "0x4":
-                pe.sections[id].Characteristics += pefile.SECTION_CHARACTERISTICS["IMAGE_SCN_MEM_WRITE"]
+        for pe_section in pe.sections:
+            if pe_section.Name.rstrip("\0") == ".rdata" and hex(pe_section.Characteristics)[:3] == "0x4":
+                pe_section.Characteristics += pefile.SECTION_CHARACTERISTICS["IMAGE_SCN_MEM_WRITE"]
                 pe.write(filename=path)
         pe.close()
     except Exception as e:
@@ -673,7 +731,7 @@ def download_file(**kwargs):
 
     onesuccess = True
     magic_type = get_magic_type(kwargs["path"])
-    if disable_x64 is True and kwargs["path"] and magic_type and ("x86-64" in magic_type or "PE32+" in magic_type):
+    if disable_x64 and kwargs["path"] and magic_type and ("x86-64" in magic_type or "PE32+" in magic_type):
         if len(kwargs["request"].FILES) == 1:
             return "error", {"error": "Sorry no x64 support yet"}
 
@@ -914,19 +972,61 @@ normalized_int_terms = (
 
 # ToDo verify if still working
 def perform_ttps_search(value):
-    if repconf.mongodb.enabled and len(value) == 5 and value.upper().startswith("T") and value[1:].isdigit():
-        return results_db.analysis.find({"ttps." + value.uppwer(): {"$exist": 1}}, {"info.id": 1, "_id": 0}).sort([["_id", -1]])
+    if len(value) == 5 and value.upper().startswith("T") and value[1:].isdigit():
+        if repconf.mongodb.enabled:
+            return results_db.analysis.find(
+                {"ttps." + value.upper(): {"$exist": 1}},
+                {"info.id": 1, "_id": 0}).sort([["_id", -1]])
+        elif repconf.elasticsearchdb.enabled:
+            q = {
+                "query": {
+                    "match": {
+                        "ttps.ttp": value.upper()
+                    }
+                }
+            }
+            return es.search(index=get_analysis_index(), body=q)['hits']['hits']
 
 
 def perform_malscore_search(value):
     if repconf.mongodb.enabled:
         return results_db.analysis.find({"malscore": {"$gte": float(value)}}, perform_search_filters).sort([["_id", -1]])
+    elif repconf.elasticsearchdb.enabled:
+        q = {
+            "query": {
+                "range": {
+                    "malscore": {
+                        "gte": float(value)
+                    }
+                }
+            }
+        }
+        _source_fields = list(perform_search_filters.keys())[:-1]
+        return es.search(
+            index=get_analysis_index(),
+            body=q, _source=_source_fields
+        )['hits']['hits']
 
 
 def perform_search(term, value, search_limit=False):
     if repconf.mongodb.enabled and repconf.elasticsearchdb.enabled and essearch and not term:
-        numhits = es.search(index=fullidx, doc_type="analysis", q="%s" % value, size=0)["hits"]["total"]
-        return es.search(index=fullidx, doc_type="analysis", q="%s" % value, sort="task_id:desc", size=numhits)["hits"]["hits"]
+        multi_match_search = {
+            "query": {
+                "multi_match": {
+                    "query": value,
+                    "fields": ["*"]
+                }
+            }
+        }
+        numhits = es.search(
+            index=get_analysis_index(),
+            body=multi_match_search, size=0
+        )["hits"]["total"]
+        return [
+            d['_source'] for d in es.search(
+                index=get_analysis_index(), body=multi_match_search,
+                sort="task_id:desc", size=numhits
+            )["hits"]["hits"]]
 
     query_val = False
     if term in normalized_lower_terms:
@@ -975,7 +1075,7 @@ def perform_search(term, value, search_limit=False):
         query_val = {"$exists": True}
 
     if repconf.mongodb.enabled and query_val:
-        if type(search_term_map[term]) is str:
+        if isinstance(search_term_map[term], str):
             mongo_search_query = {search_term_map[term]: query_val}
         else:
             mongo_search_query = {"$or": [{search_term: query_val} for search_term in search_term_map[term]]}
@@ -985,7 +1085,26 @@ def perform_search(term, value, search_limit=False):
             .limit(web_cfg.general.get("search_limit", 50))
         )
     if es_as_db:
-        return es.search(index=fullidx, doc_type="analysis", q=search_term_map[term] + ": %s" % value)["hits"]["hits"]
+        _source_fields = list(perform_search_filters.keys())[:-1]
+        if isinstance(search_term_map[term], str):
+            q = {'query': {'match': {search_term_map[term]: value}}}
+            return [d['_source'] for d in es.search(
+                index=get_analysis_index(), body=q,_source=_source_fields
+            )["hits"]["hits"]]
+        else:
+            queries = [{'match': {search_term: value}} for search_term in
+                       search_term_map[term]]
+            q = {
+                'query': {
+                    'bool': {
+                        'should': queries, "minimum_should_match": 1
+                    }
+                }
+            }
+            return [d['_source'] for d in es.search(
+                index=get_analysis_index(), body=q,
+                _source=_source_fields
+            )["hits"]["hits"]]
 
 
 def force_int(value):

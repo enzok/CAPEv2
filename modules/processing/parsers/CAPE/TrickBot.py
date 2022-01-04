@@ -69,7 +69,7 @@ def xor_data(data, key, key_len):
 
 def derive_key(n_rounds, input_bf):
     intermediate = input_bf
-    for i in range(0, n_rounds):
+    for i in range(n_rounds):
         sha = hashlib.sha256()
         sha.update(intermediate)
         current = sha.digest()
@@ -96,7 +96,7 @@ def get_rsrc(pe):
                 name = str(resource_type.name)
             else:
                 name = str(pefile.RESOURCE_TYPE.get(resource_type.struct.Id))
-            if name == None:
+            if name is None:
                 name = str(resource_type.struct.name)
             if hasattr(resource_type, "directory"):
                 for resource_id in resource_type.directory.entries:
@@ -133,7 +133,7 @@ def convert_to_real_ip(ip_str):
 
 def get_ip(ip_str, tag):
     if tag == "srva":
-        return convert_to_real_ip(ip_str.split(":")[0])
+        return convert_to_real_ip(ip_str.split(":", 1)[0])
     return ip_str
 
 

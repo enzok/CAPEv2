@@ -23,7 +23,7 @@ def extract_config(apkfile):
                 if method.name == "<init>":
                     for inst in method.get_instructions():
                         if inst.get_name() == "const-string":
-                            string = inst.get_output().split(",")[-1].strip(" '")
+                            string = inst.get_output().rsplit(",", 1)[-1].strip(" '")
                         if inst.get_name() == "iput-object":
                             if "SERVER_IP" in inst.get_output():
                                 c2 = string
@@ -99,7 +99,7 @@ if __name__ == "__main__":
         pass
     logo()
     if Filename is not None and is_file:
-        if check_apk_file(Filename[0]) == True:
+        if check_apk_file(Filename[0]):
             extract_config(Filename[0])
         else:
             print(f"This is not a valid apk file : {Filename[0]}")
@@ -107,7 +107,7 @@ if __name__ == "__main__":
         for root, directories, filenames in os.walk(Directory[0]):
             for filename in filenames:
                 szFile = os.path.join(root, filename)
-                if check_apk_file(szFile) == True:
+                if check_apk_file(szFile):
                     extract_config(szFile)
                 else:
                     print(f"This is not a valid apk file : {szFile}")

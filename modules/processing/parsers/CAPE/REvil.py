@@ -19,7 +19,6 @@ import json
 import struct
 
 import pefile
-from six.moves import map
 
 
 def getSectionNames(sections):
@@ -40,7 +39,7 @@ def getREvilKeyAndConfig(pesections, section_name):
 
 
 def decodeREvilConfig(config_key, config_data):
-    init255 = list(range(0, 256))
+    init255 = list(range(256))
 
     key = config_key
     config_len = struct.unpack("<H", config_data[4:6])[0]
