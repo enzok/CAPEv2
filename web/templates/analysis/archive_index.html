@@ -1,6 +1,5 @@
 {% extends "base.html" %}
 {% block content %}
-
 <div class="archive-files">
     <div class="card">
     {% if paging.show_file_next == "show" or paging.show_file_prev == "show" %}
@@ -25,7 +24,14 @@
         </nav>
     {% endif %}
         <div class="card ">
-            <div class="card-header">Archive Files</div>
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center"><h6>Archive Files</h6>
+                    <form class="form-inline" style="margin:0px;" action="{% url "archive_search" %}" enctype="multipart/form-data" method="post">{% csrf_token %}
+                        <input class="form-control mr-1" type="text" id="form_archive_search" name="archive_search" placeholder="Search term as regex">
+                        <button class="btn btn-dark" type="submit">Search Archive</button>
+                    </form>
+                </div>
+            </div>
             {% if files %}
             <table class="table table-striped table-sm" style="table-layout: fixed;">
                 <thead>

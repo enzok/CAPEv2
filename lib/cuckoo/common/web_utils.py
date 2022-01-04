@@ -66,6 +66,15 @@ if repconf.mongodb.enabled:
         authSource=repconf.mongodb.get("authsource", "cuckoo"),
     )[repconf.mongodb.get("db", "cuckoo")]
 
+    if repconf.mongodb.archive:
+        archive_db = pymongo.MongoClient(
+            repconf.mongodb.host,
+            port=repconf.mongodb.port,
+            username=repconf.mongodb.get("username"),
+            password=repconf.mongodb.get("password"),
+            authSource=repconf.mongodb.get("authsource", "cuckoo"),
+        )[repconf.mongodb.get("archive_db", "cuckoo_archive")]
+
 es_as_db = False
 essearch = False
 if repconf.elasticsearchdb.enabled:
@@ -887,6 +896,7 @@ search_term_map = {
     "id": "info.id",
     "ids": "info.id",
     "tags_tasks": "info.id",
+    "package": "info.package",
     "name": "target.file.name",
     "type": "target.file.type",
     "string": "strings",
@@ -1224,3 +1234,54 @@ def download_from_vt(vtdl, details, opt_filename, settings):
             details["task_ids"] = task_ids_tmp
 
     return details
+
+
+def perform_archive_search(term, value, search_limit=False):
+    query_val = False
+    if term in normalized_lower_terms:
+        query_val = value.lower()
+    elif term in normalized_int_terms:
+        query_val = int(value)
+    elif term == "surisid":
+        try:
+            query_val = int(value)
+        except Exception:
+            pass
+    elif term == "options":
+        try:
+            ids = []
+            ids = [int(v.id) for v in db.list_tasks(options_like=value)]
+            if ids:
+                if len(ids) > 1:
+                    query_val = {"$in": ids}
+                else:
+                    term = "id"
+                    if isinstance(value, list):
+                        value = value[0]
+                    query_val = int(value)
+        except Exception as e:
+            print(term, value, e)
+    else:
+        query_val = {"$regex": value, "$options": "-i"}
+
+    if term not in search_term_map:
+        return None
+
+    if term == "payloads" and len(value) in (32, 40, 64, 128):
+        search_term_map[term] = "CAPE.payloads." + hash_len.get(len(value))
+
+    elif term == "configs":
+        # check if family name is string only maybe?
+        search_term_map[term] = f"CAPE.configs.{value}"
+        query_val = {"$exists": True}
+
+    if query_val:
+        if isinstance(search_term_map[term], str):
+            mongo_search_query = {search_term_map[term]: query_val}
+        else:
+            mongo_search_query = {"$or": [{search_term: query_val} for search_term in search_term_map[term]]}
+        return (
+            archive_db.analysis.find(mongo_search_query, perform_search_filters)
+            .sort([["_id", -1]])
+            .limit(web_cfg.general.get("search_limit", 50))
+        )

@@ -32,7 +32,7 @@ import modules.processing.network as network
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import ANALYSIS_BASE_PATH, CUCKOO_ROOT
 from lib.cuckoo.common.web_utils import (my_rate_minutes, my_rate_seconds, perform_malscore_search, perform_search,
-                                         perform_ttps_search, rateblock, statistics)
+                                         perform_ttps_search, rateblock, statistics, perform_archive_search)
 from lib.cuckoo.core.database import TASK_PENDING, Database, Task
 from modules.processing.virustotal import vt_lookup
 from analysis.templatetags.analysis_tags import malware_config
@@ -300,75 +300,6 @@ def get_analysis_info(db, id=-1, task=None):
             )
 
     return new
-
-
-@require_safe
-@conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
-def archive_index(request, page=1):
-    page = int(page)
-    if page == 0:
-        page = 1
-    off = (page - 1) * TASK_LIMIT
-
-    analyses_files = []
-
-    tasks_files = archive_db.analysis.find(
-        {"target.category": "file"},
-        {"_id": 0,
-         "info.id":1,
-         "info.started":1,
-         "info.package":1,
-         "target.file.name":1,
-         "target.file.md5":1,
-         "detections":1,
-         "virustotal_summary":1},
-        sort=[("_id", pymongo.DESCENDING)],
-        limit=TASK_LIMIT,
-        skip=off,
-    )
-
-    # Vars to define when to show Next/Previous buttons
-    paging = {}
-    paging["show_file_next"] = "show"
-    paging["next_page"] = str(page + 1)
-    paging["prev_page"] = str(page - 1)
-
-    pages_files_num = 0
-    tasks_files_number = archive_db.analysis.find({"target.category": "file"}).count()
-    if tasks_files_number:
-        pages_files_num = int(tasks_files_number / TASK_LIMIT + 1)
-
-    files_pages = []
-    if pages_files_num < 11 or page < 6:
-        files_pages = list(range(1, min(10, pages_files_num) + 1))
-    elif page > 5:
-        files_pages = list(range(min(page - 5, pages_files_num - 10) + 1, min(page + 5, pages_files_num) + 1))
-
-    first_file = 0
-
-    if tasks_files:
-        for task in tasks_files:
-            if task["info"]["id"] == first_file:
-                paging["show_file_next"] = "hide"
-            if page <= 1:
-                paging["show_file_prev"] = "hide"
-
-            analyses_files.append(task)
-    else:
-        paging["show_file_next"] = "hide"
-
-    paging["files_page_range"] = files_pages
-    paging["current_page"] = page
-    analyses_files.sort(key=lambda x: x["info"]["id"], reverse=True)
-    return render(
-        request,
-        "analysis/archive_index.html",
-        {
-            "files": analyses_files,
-            "paging": paging,
-            "config": enabledconf,
-        },
-    )
 
 
 @require_safe
@@ -2399,6 +2330,77 @@ def ban_user(request, user_id: int):
         return render(request, "error.html", {"error": "Nice try! You don't have permission to ban users"})
 
 
+@require_safe
+@conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
+def archive_index(request, page=1):
+    page = int(page)
+    if page == 0:
+        page = 1
+    off = (page - 1) * TASK_LIMIT
+
+    analyses_files = []
+
+    tasks_files = archive_db.analysis.find(
+        {"target.category": "file"},
+        {
+            "_id": 0,
+             "info.id":1,
+             "info.started":1,
+             "info.package":1,
+             "target.file.name":1,
+             "target.file.md5":1,
+             "detections":1,
+             "virustotal_summary":1
+        },
+        sort=[("_id", pymongo.DESCENDING)],
+        limit=TASK_LIMIT,
+        skip=off,
+    )
+
+    # Vars to define when to show Next/Previous buttons
+    paging = {}
+    paging["show_file_next"] = "show"
+    paging["next_page"] = str(page + 1)
+    paging["prev_page"] = str(page - 1)
+
+    pages_files_num = 0
+    tasks_files_number = archive_db.analysis.find({"target.category": "file"}).count()
+    if tasks_files_number:
+        pages_files_num = int(tasks_files_number / TASK_LIMIT + 1)
+
+    files_pages = []
+    if pages_files_num < 11 or page < 6:
+        files_pages = list(range(1, min(10, pages_files_num) + 1))
+    elif page > 5:
+        files_pages = list(range(min(page - 5, pages_files_num - 10) + 1, min(page + 5, pages_files_num) + 1))
+
+    first_file = 0
+
+    if tasks_files:
+        for task in tasks_files:
+            if task["info"]["id"] == first_file:
+                paging["show_file_next"] = "hide"
+            if page <= 1:
+                paging["show_file_prev"] = "hide"
+
+            analyses_files.append(task)
+    else:
+        paging["show_file_next"] = "hide"
+
+    paging["files_page_range"] = files_pages
+    paging["current_page"] = page
+    analyses_files.sort(key=lambda x: x["info"]["id"], reverse=True)
+    return render(
+        request,
+        "analysis/archive_index.html",
+        {
+            "files": analyses_files,
+            "paging": paging,
+            "config": enabledconf,
+        },
+    )
+
+
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def archive_report(request, task_id):
     if not HAVE_JINJA2:
@@ -2430,3 +2432,85 @@ def archive_report(request, task_id):
         return render(request, "archive_report.html", {"html_content": f"{html_content}"})
     except Exception as e:
         return render(request, "error.html", {"error": f"Failed to write HTML report: {e}"})
+
+@csrf_exempt
+@conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
+def archive_search(request, searched=""):
+    if "archive_search" in request.POST or searched:
+        term = ""
+        if not searched and request.POST.get("archive_search"):
+            searched = request.POST["archive_search"]
+
+        if ":" in searched:
+            term, value = searched.strip().split(":", 1)
+        else:
+            value = searched.strip()
+
+        # Check on search size. But malscore can be a single digit number.
+        if len(value) < 3:
+            return render(
+                request,
+                "analysis/archive_search.html",
+                {"analyses": None, "term": searched, "error": "Search term too short, minimum 3 characters required"},
+            )
+
+        # name:foo or name: foo
+        value = value.lstrip()
+        term = term.lower()
+
+        if not term:
+            value = value.lower()
+            if re.match(r"^([a-fA-F\d]{32})$", value):
+                term = "md5"
+            elif re.match(r"^([a-fA-F\d]{40})$", value):
+                term = "sha1"
+            elif re.match(r"^([a-fA-F\d]{64})$", value):
+                term = "sha256"
+            elif re.match(r"^([a-fA-F\d]{96})$", value):
+                term = "sha3"
+            elif re.match(r"^([a-fA-F\d]{128})$", value):
+                term = "sha512"
+
+        try:
+            records = perform_archive_search(term, value)
+        except ValueError:
+            if term:
+                return render(
+                    request,
+                    "analysis/archive_search.html",
+                    {"analyses": None, "term": searched, "error": "Invalid search term: %s" % term},
+                )
+            else:
+                return render(
+                    request,
+                    "analysis/archive_search.html",
+                    {"analyses": None, "term": None, "error": "Unable to recognize the search syntax"},
+                )
+
+        analyses = []
+        for result in records or []:
+            new = None
+            if term and "info" in result:
+                new = archive_db.analysis.find_one(
+                    {"info.id": int(result["info"]["id"])},
+                    {
+                        "_id": 0,
+                         "info.id":1,
+                         "info.started":1,
+                         "info.package":1,
+                         "target.file.name":1,
+                         "target.file.md5":1,
+                         "detections":1,
+                         "virustotal_summary":1
+                    },
+                )
+            if not new:
+                continue
+            analyses.append(new)
+        return render(
+            request,
+            "analysis/archive_search.html",
+            {"analyses": analyses, "config": enabledconf, "term": searched, "error": None},
+        )
+    else:
+        return render(request, "analysis/archive_search.html", {"analyses": None, "term": None, "error": None})
