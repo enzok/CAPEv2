@@ -447,7 +447,7 @@ def index(request, resubmit_hash=False):
                 else:
                     machines = [machine]
             else:
-                machines = [machine]
+                machines = []
 
             for entry in machines:
                 task_id = db.add_url(
