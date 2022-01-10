@@ -85,6 +85,7 @@ LINUX_ENABLED = web_conf.linux.enabled
 
 if repconf.mongodb.enabled:
     import pymongo
+
     results_db = pymongo.MongoClient(
         repconf.mongodb.host,
         port=repconf.mongodb.port,
@@ -95,6 +96,7 @@ if repconf.mongodb.enabled:
 
 if repconf.elasticsearchdb.enabled:
     from dev_utils.elasticsearchdb import elastic_handler, get_analysis_index
+
     es = elastic_handler
 
 SCHEMA_VERSION = "8537286ff4d5"
@@ -1320,6 +1322,7 @@ class Database(object, metaclass=Singleton):
             else:
                 tags = tag
             task = Task(obj.url)
+            tags = "x64,x86"
 
         task.category = obj.__class__.__name__.lower()
         task.timeout = timeout
@@ -2037,10 +2040,10 @@ class Database(object, metaclass=Singleton):
             return tasks
         except RuntimeError as e:
             # RuntimeError: number of values in row (1) differ from number of column processors (62)
-            log.debug(f"Database RuntimeError error: {e}")
+            log.debug("Database RuntimeError error: %s", e)
         except AttributeError as e:
             # '_NoResultMetaData' object has no attribute '_indexes_for_keys'
-            log.debug(f"Database AttributeError error: {e}")
+            log.debug("Database AttributeError error: %s", e)
         except SQLAlchemyError as e:
             log.debug("Database error listing tasks: %s", e)
         except Exception as e:
@@ -2293,16 +2296,14 @@ class Database(object, metaclass=Singleton):
                             {"CAPE.payloads": 1, "_id": 0, "info.id": 1},
                         )
                     elif repconf.elasticsearchdb.enabled:
-                        tasks = [d['_source'] for d in es.search(
-                            index=get_analysis_index(), body={
-                                "query": {
-                                    "match": {
-                                        "CAPE.payloads." + sizes_mongo.get(len(sample_hash), ""): sample_hash
-                                    }
-                                }
-                            },
-                            _source=["CAPE.payloads", "info.id"]
-                        )['hits']['hits']]
+                        tasks = [
+                            d["_source"]
+                            for d in es.search(
+                                index=get_analysis_index(),
+                                body={"query": {"match": {f"CAPE.payloads.{sizes_mongo.get(len(sample_hash), '')}": sample_hash}}},
+                                _source=["CAPE.payloads", "info.id"],
+                            )["hits"]["hits"]
+                        ]
                     else:
                         tasks = []
 
@@ -2332,16 +2333,14 @@ class Database(object, metaclass=Singleton):
                                 {category: 1, "_id": 0, "info.id": 1},
                             )
                         elif repconf.elasticsearchdb.enabled:
-                            tasks = [d['_source'] for d in es.search(
-                                index=get_analysis_index(), body={
-                                    "query": {
-                                        "match": {
-                                            category + "." + sizes_mongo.get(len(sample_hash), ""): sample_hash
-                                        }
-                                    }
-                                },
-                                _source=["info.id", category]
-                            )['hits']['hits']]
+                            tasks = [
+                                d["_source"]
+                                for d in es.search(
+                                    index=get_analysis_index(),
+                                    body={"query": {"match": {f"{category}.{sizes_mongo.get(len(sample_hash), '')}": sample_hash}}},
+                                    _source=["info.id", category],
+                                )["hits"]["hits"]
+                            ]
                         else:
                             tasks = []
 
@@ -2383,16 +2382,14 @@ class Database(object, metaclass=Singleton):
                             {"suricata.files.sha256": sample_hash}, {"suricata.files.file_info.path": 1, "_id": 0}
                         )
                     elif repconf.elasticsearchdb.enabled:
-                        tasks = [d['_source'] for d in es.search(
-                            index=get_analysis_index(), body={
-                                "query": {
-                                    "match": {
-                                        "suricata.files.sha256": sample_hash
-                                    }
-                                }
-                            },
-                            _source="suricata.files.file_info.path"
-                        )['hits']['hits']]
+                        tasks = [
+                            d["_source"]
+                            for d in es.search(
+                                index=get_analysis_index(),
+                                body={"query": {"match": {"suricata.files.sha256": sample_hash}}},
+                                _source="suricata.files.file_info.path",
+                            )["hits"]["hits"]
+                        ]
                     else:
                         tasks = []
 

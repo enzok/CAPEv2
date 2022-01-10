@@ -210,12 +210,17 @@ def index(request, resubmit_hash=False):
         if request.POST.get("unpack"):
             options += "unpack=yes,"
 
+        # amsidump is enabled by default in the monitor for Win10+
+        if web_conf.amsidump.enabled and not request.POST.get("amsidump"):
+            options += "amsidump=0,"
+
         if request.POST.get("posproc"):
             options += "posproc=1,"
 
         if submitter:
             options += "submitter={},".format(submitter)
 
+        options = options[:-1]
         opt_apikey = False
         opts = get_options(options)
         if opts:
@@ -429,9 +434,6 @@ def index(request, resubmit_hash=False):
 
             url = url.replace("hxxps://", "https://").replace("hxxp://", "http://").replace("[.]", ".")
 
-            #use only windows machines for URL submissions
-            platform = "windows"
-
             if machine.lower() == "all":
                 machines = [vm.name for vm in db.list_machines(platform=platform)]
             elif machine:
@@ -445,9 +447,7 @@ def index(request, resubmit_hash=False):
                 else:
                     machines = [machine]
             else:
-                # Use first machine in list
-                all_machines = [vm.name for vm in db.list_machines(platform=platform)]
-                machines = [all_machines[0]]
+                machines = [machine]
 
             for entry in machines:
                 task_id = db.add_url(
@@ -545,6 +545,7 @@ def index(request, resubmit_hash=False):
         enabledconf["posproc"] = aux_conf.posproc.get("enabled")
         enabledconf["tlp"] = web_conf.tlp.enabled
         enabledconf["timeout"] = cfg.timeouts.default
+        enabledconf["amsidump"] = web_conf.amsidump.enabled
 
         if all_vms_tags:
             enabledconf["tags"] = True

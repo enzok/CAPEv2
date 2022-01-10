@@ -57,15 +57,22 @@ PLUGX_PAYLOAD = 0x10
 PLUGX_CONFIG = 0x11
 DATADUMP = 0x66
 REGDUMP = 0x67
+AMSIBUFFER = 0x6a
+AMSISTREAM = 0x6b
 TYPE_STRING = 0x100
 UPX = 0x1000
+
 
 log = logging.getLogger(__name__)
 
 code_mapping = {
     PLUGX_PAYLOAD: "PlugX Payload",
     UPX: "Unpacked PE Image",
+    AMSIBUFFER: "AMSI Buffer",
+    AMSISTREAM: "AMSI Stream",
 }
+
+name_mapping = {}
 
 inject_map = {
     INJECTION_PE: "Injected PE Image",
@@ -206,7 +213,6 @@ class CAPE(Processing):
                 if ConfigData:
                     config[cape_name].update({ConfigItem: [ConfigData]})
                 """
-                append_file = False
 
             # PlugX
             if file_info["cape_type_code"] == PLUGX_CONFIG:
