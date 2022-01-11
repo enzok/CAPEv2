@@ -1309,18 +1309,6 @@ class Database(object, metaclass=Singleton):
                 task.started_on = datetime.now()
 
         elif isinstance(obj, URL):
-            tag = "x64"
-            if machine:
-                machobj = self.view_machine_by_label(machine)
-                tag = machobj.arch
-            else:
-                machines = self.get_available_machines()
-                if machines:
-                    tag = machines[0].arch
-            if tags:
-                tags += tag
-            else:
-                tags = tag
             task = Task(obj.url)
             tags = "x64,x86"
 
