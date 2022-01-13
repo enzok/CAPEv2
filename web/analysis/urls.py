@@ -41,5 +41,6 @@ urlpatterns = [
         r"^on_demand/(?P<service>[\w\-_]+)/(?P<task_id>\d+)/(?P<category>\w+)/(?P<sha256>\w{64})", views.on_demand, name="on_demand"
     ),
     url(r"^archive/$", views.archive_index, name="archive_index"),
+    url(r"^archive/page/(?P<page>\d+)/$", views.archive_index, name="archive_index"),
     url(r"^archive_search/$", views.archive_search, name="archive_search"),
 ]
