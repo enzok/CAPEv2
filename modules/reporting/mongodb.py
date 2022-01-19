@@ -120,7 +120,14 @@ class MongoDB(Report):
 
         # Set mongo schema version.
         # TODO: This is not optimal because it run each analysis. Need to run only one time at startup.
-        if "cuckoo_schema" in self.db.collection_names():
+        collection_names = []
+
+        if hasattr(self.db, "list_collection_names"):
+            collection_names = self.db.list_collection_names()
+        else:
+            collection_names = self.db.collection_names()
+
+        if "cuckoo_schema" in collection_names:
             if self.db.cuckoo_schema.find_one()["version"] != self.SCHEMA_VERSION:
                 CuckooReportError("Mongo schema version not expected, check data migration tool")
         else:
@@ -160,9 +167,8 @@ class MongoDB(Report):
             log.debug("Deleting analysis data for Task %s", report["info"]["id"])
             for analysis in analyses:
                 for process in analysis["behavior"].get("processes", []) or []:
-                    for call in process["calls"]:
-                        self.db.calls.remove({"_id": ObjectId(call)})
-                self.db.analysis.remove({"_id": ObjectId(analysis["_id"])})
+                    self.db.calls.delete_many({"_id": {"$in": process["calls"]}})
+                self.db.analysis.delete_one({"_id": analysis["_id"]}).deleted_count
             log.debug("Deleted previous MongoDB data for Task %s", report["info"]["id"])
 
         ensure_valid_utf8(report)

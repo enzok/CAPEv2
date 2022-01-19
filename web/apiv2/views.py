@@ -23,6 +23,7 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 
 sys.path.append(settings.CUCKOO_PATH)
+from dev_utils.mongodb import delete_mongo_data
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import ANALYSIS_BASE_PATH, CUCKOO_ROOT, CUCKOO_VERSION
 from lib.cuckoo.common.exceptions import CuckooDemuxError
@@ -36,7 +37,6 @@ from lib.cuckoo.common.web_utils import (_download_file, apiconf, download_file,
                                          search_term_map, statistics, validate_task)
 from lib.cuckoo.core.database import TASK_RUNNING, Database, Task
 from lib.cuckoo.core.rooter import _load_socks5_operational, vpns
-from utils.cleaners import delete_mongo_data
 
 try:
     import psutil
@@ -904,7 +904,6 @@ def tasks_delete(request, task_id, status=False):
             f_deleted.append(task)
             continue
 
-        # ToDo missed mongo?
         if db.delete_task(task):
             delete_folder(os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task))
             delete_mongo_data(task)
@@ -1959,6 +1958,7 @@ def statistics_data(requests, days):
 @api_view(["POST"])
 def tasks_delete_many(request):
     response = {}
+    delete_mongo = request.POST.get("delete_mongo", True)
     for task_id in request.POST.get("ids", "").split(",") or []:
         task_id = int(task_id)
         task = db.view_task(task_id)
@@ -1968,11 +1968,8 @@ def tasks_delete_many(request):
                 continue
             if db.delete_task(task_id):
                 delete_folder(os.path.join(CUCKOO_ROOT, "storage", "analyses", "%d" % task_id))
-            task = results_db.analysis.find_one({"info.id": task_id})
-            if task is not None:
-                for processes in task.get("behavior", {}).get("processes", []):
-                    [results_db.calls.remove(call) for call in processes.get("calls", [])]
-                results_db.analysis.remove({"info.id": task_id})
+            if delete_mongo:
+                delete_mongo_data(task_id)
         else:
             response.setdefault(task_id, "not exists")
     response["status"] = "OK"
@@ -1987,6 +1984,7 @@ def limit_exceeded(request, exception):
 dl_service_map = {
     "VirusTotal": "vtdl",
 }
+
 
 def common_download_func(service, request):
     resp = {}

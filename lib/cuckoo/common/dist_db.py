@@ -1,8 +1,10 @@
 from __future__ import absolute_import
+import sys
 from datetime import datetime
 
 # http://pythoncentral.io/introductory-tutorial-python-sqlalchemy/
 from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Index, Integer, String, Table, Text, create_engine
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship, sessionmaker
 from sqlalchemy.types import TypeDecorator
@@ -148,7 +150,10 @@ class Task(Base):
 
 def create_session(db_connectionn, echo=False):
     # ToDo add chema version check
-    engine = create_engine(db_connectionn, echo=echo)  # pool_size=40, max_overflow=0,
-    Base.metadata.create_all(engine)
-    session = sessionmaker(autocommit=False, autoflush=True, bind=engine)
-    return session
+    try:
+        engine = create_engine(db_connectionn, echo=echo)  # pool_size=40, max_overflow=0,
+        Base.metadata.create_all(engine)
+        session = sessionmaker(autocommit=False, autoflush=True, bind=engine)
+        return session
+    except OperationalError as e:
+        sys.exit(e)
