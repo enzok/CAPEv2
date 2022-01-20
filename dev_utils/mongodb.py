@@ -7,11 +7,9 @@ repconf = Config("reporting")
 
 mdb = repconf.mongodb.get("db", "cuckoo")
 
-
 if repconf.mongodb.enabled:
     from pymongo import TEXT, MongoClient
     from pymongo.errors import ConnectionFailure, InvalidDocument, ServerSelectionTimeoutError
-
 
 def connect_to_mongo():
     conn = False
@@ -37,6 +35,10 @@ def connect_to_mongo():
 
 results_db = connect_to_mongo()[mdb]
 
+if repconf.mongodb.archive:
+    mdb = repconf.mongodb.get("archive_db", "cuckoo_archive")
+    archive_db = connect_to_mongo()[mdb]
+
 
 def mongo_create_index(collection, index, background=True, name=False):
     if name:
@@ -49,18 +51,24 @@ def mongo_insert_one(collection, query):
     return getattr(results_db, collection).insert_one(query)
 
 
-def mongo_find(collection, query, projection=False, sort=[("_id", -1)]):
+def mongo_find(collection, query, projection=False, sort=[("_id", -1)], archive=False):
+    db = results_db
+    if archive:
+        db = archive_db
     if projection:
-        return getattr(results_db, collection).find(query, sort=sort)
+        return getattr(db, collection).find(query, sort=sort)
     else:
-        return getattr(results_db, collection).find(query, projection, sort=sort)
+        return getattr(db, collection).find(query, projection, sort=sort)
 
 
-def mongo_find_one(collection, query, projection=False, sort=[("_id", -1)]):
+def mongo_find_one(collection, query, projection=False, sort=[("_id", -1)], archive=False):
+    db = results_db
+    if archive:
+        db = archive_db
     if projection:
-        return getattr(results_db, collection).find_one(query, projection, sort=sort)
+        return getattr(db, collection).find_one(query, projection, sort=sort)
     else:
-        return getattr(results_db, collection).find_one(query, sort=sort)
+        return getattr(db, collection).find_one(query, sort=sort)
 
 
 def mongo_delete_one(collection, query):
@@ -79,8 +87,11 @@ def mongo_update_one(collection, query, projection, bypass_document_validation=F
     return getattr(results_db, collection).update_one(query, projection, bypass_document_validation=bypass_document_validation)
 
 
-def mongo_aggregate(collection, query):
-    return getattr(results_db, collection).aggregate(query)
+def mongo_aggregate(collection, query, archive=False):
+    db = results_db
+    if archive:
+        db = archive_db
+    return getattr(db, collection).aggregate(query)
 
 
 def mongo_collection_names():

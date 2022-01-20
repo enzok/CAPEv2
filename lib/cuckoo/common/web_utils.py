@@ -54,18 +54,11 @@ if repconf.distributed.enabled:
     except Exception as e:
         print(e)
 
-
 if repconf.mongodb.enabled:
     from dev_utils.mongodb import mongo_aggregate, mongo_find
 
     if repconf.mongodb.archive:
-        archive_db = pymongo.MongoClient(
-            repconf.mongodb.host,
-            port=repconf.mongodb.port,
-            username=repconf.mongodb.get("username"),
-            password=repconf.mongodb.get("password"),
-            authSource=repconf.mongodb.get("authsource", "cuckoo"),
-        )[repconf.mongodb.get("archive_db", "cuckoo_archive")]
+        from dev_utils.mongodb import mongo_find
 
 es_as_db = False
 essearch = False
@@ -1192,7 +1185,7 @@ def perform_archive_search(term, value, search_limit=False):
         else:
             mongo_search_query = {"$or": [{search_term: query_val} for search_term in search_term_map[term]]}
         return (
-            archive_db.analysis.find(mongo_search_query, perform_search_filters)
+            mongo_find("analysis", mongo_search_query, perform_search_filters, archive=True)
             .sort([["_id", -1]])
             .limit(web_cfg.general.get("search_limit", 50))
         )

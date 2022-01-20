@@ -35,6 +35,7 @@ from lib.cuckoo.common.web_utils import (my_rate_minutes, my_rate_seconds, perfo
                                          perform_ttps_search, rateblock, statistics, perform_archive_search)
 from lib.cuckoo.core.database import TASK_PENDING, Database, Task
 from modules.processing.virustotal import vt_lookup
+from analysis.templatetags.analysis_tags import malware_config
 
 try:
     from django_ratelimit.decorators import ratelimit
@@ -2277,22 +2278,27 @@ def archive_index(request, page=1):
 
     analyses_files = []
 
-    tasks_files = archive_db.analysis.find(
-        {"target.category": "file"},
+    aggregation_command = [
+        {"$match": {"target": {"category": "file"}}},
+        {"$sort": {"_id": -1}},
         {
-            "_id": 0,
-             "info.id":1,
-             "info.started":1,
-             "info.package":1,
-             "target.file.name":1,
-             "target.file.md5":1,
-             "detections":1,
-             "virustotal_summary":1
+            "$project":
+            {
+                "_id": 0,
+                 "info.id":1,
+                 "info.started":1,
+                 "info.package":1,
+                 "target.file.name":1,
+                 "target.file.md5":1,
+                 "detections":1,
+                 "virustotal_summary":1
+            },
         },
-        sort=[("_id", pymongo.DESCENDING)],
-        limit=TASK_LIMIT,
-        skip=off,
-    )
+        {"$limit": TASK_LIMIT},
+        {"$skip": off}
+    ]
+
+    tasks_files = mongo_aggregate("analysis", aggregation_command, archive=True)
 
     # Vars to define when to show Next/Previous buttons
     paging = {}
@@ -2301,7 +2307,7 @@ def archive_index(request, page=1):
     paging["prev_page"] = str(page - 1)
 
     pages_files_num = 0
-    tasks_files_number = archive_db.analysis.find({"target.category": "file"}).count()
+    tasks_files_number = mongo_find("analysis", {"target.category": "file"}, archive=True).count()
     if tasks_files_number:
         pages_files_num = int(tasks_files_number / TASK_LIMIT + 1)
 
@@ -2343,13 +2349,13 @@ def archive_report(request, task_id):
     if not HAVE_JINJA2:
         return render(request, "error.html", {"error", "Failed to generate HTML report: Jinja2 Python library is not installed"})
 
-    results = archive_db.analysis.find_one({"info.id": int(task_id)}, sort=[("_id", pymongo.ASCENDING)])
+    results = mongo_find_one("analysis", {"info.id": int(task_id)}, sort=[("_id", 1)], archive=True)
     for process in results.get("behavior", {}).get("processes", []):
         calls = []
         for call in process["calls"]:
             calls.append(ObjectId(call))
         process["calls"] = []
-        for call in archive_db.calls.find({"_id": {"$in": calls}}, sort=[("_id", pymongo.ASCENDING)]) or []:
+        for call in mongo_find("calls", {"_id": {"$in": calls}}, sort=[("_id", 1)], archive=True) or []:
             process["calls"] += call["calls"]
 
     env = Environment(autoescape=True)
@@ -2369,6 +2375,7 @@ def archive_report(request, task_id):
         return render(request, "archive_report.html", {"html_content": f"{html_content}"})
     except Exception as e:
         return render(request, "error.html", {"error": f"Failed to write HTML report: {e}"})
+
 
 @csrf_exempt
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
@@ -2428,7 +2435,8 @@ def archive_search(request, searched=""):
         for result in records or []:
             new = None
             if term and "info" in result:
-                new = archive_db.analysis.find_one(
+                new = mongo_find_one(
+                    "analysis",
                     {"info.id": int(result["info"]["id"])},
                     {
                         "_id": 0,
@@ -2440,6 +2448,7 @@ def archive_search(request, searched=""):
                          "detections":1,
                          "virustotal_summary":1
                     },
+                    archive=True
                 )
             if not new:
                 continue
