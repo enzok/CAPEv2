@@ -2280,7 +2280,7 @@ def archive_index(request, page=1):
 
     aggregation_command = [
         {"$match": {"target.category": "file"}},
-        {"$sort": {"_id": -1}},
+        {"$sort": {"info.id": -1}},
         {
             "$project":
             {
@@ -2294,8 +2294,8 @@ def archive_index(request, page=1):
                  "virustotal_summary":1
             },
         },
-        {"$limit": TASK_LIMIT},
-        {"$skip": off}
+        {"$skip": off},
+        {"$limit": TASK_LIMIT}
     ]
 
     tasks_files = list(mongo_aggregate("analysis", aggregation_command, archive=True))
