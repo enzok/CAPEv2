@@ -1896,6 +1896,7 @@ def remove(request, task_id):
         analyses_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id)
         if os.path.exists(analyses_path):
             delete_folder(analyses_path)
+        message = "Task(s) deleted."
     if es_as_db:
         analyses = es.search(index=get_analysis_index(), query=get_query_by_info_id(task_id))["hits"]["hits"]
         if len(analyses) > 1:
