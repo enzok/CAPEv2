@@ -2349,13 +2349,13 @@ def archive_report(request, task_id):
     if not HAVE_JINJA2:
         return render(request, "error.html", {"error", "Failed to generate HTML report: Jinja2 Python library is not installed"})
 
-    results = mongo_find_one("analysis", {"info.id": int(task_id)}, sort=[("_id", 1)], archive=True)
+    results = mongo_find_one("analysis", {"info.id": int(task_id)}, archive=True)
     for process in results.get("behavior", {}).get("processes", []):
         calls = []
         for call in process["calls"]:
             calls.append(ObjectId(call))
         process["calls"] = []
-        for call in mongo_find("calls", {"_id": {"$in": calls}}, sort=[("_id", 1)], archive=True) or []:
+        for call in mongo_find("calls", {"_id": {"$in": calls}}, {"_id": 0}, sort=[("_id", 1)], archive=True) or []:
             process["calls"] += call["calls"]
 
     env = Environment(autoescape=True)
