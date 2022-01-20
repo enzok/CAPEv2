@@ -2279,7 +2279,7 @@ def archive_index(request, page=1):
     analyses_files = []
 
     aggregation_command = [
-        {"$match": {"target": {"category": "file"}}},
+        {"$match": {"target.category": "file"}},
         {"$sort": {"_id": -1}},
         {
             "$project":
@@ -2298,7 +2298,7 @@ def archive_index(request, page=1):
         {"$skip": off}
     ]
 
-    tasks_files = mongo_aggregate("analysis", aggregation_command, archive=True)
+    tasks_files = list(mongo_aggregate("analysis", aggregation_command, archive=True))
 
     # Vars to define when to show Next/Previous buttons
     paging = {}
