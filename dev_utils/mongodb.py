@@ -1,4 +1,6 @@
+import functools
 import logging
+import time
 
 from lib.cuckoo.common.config import Config
 
@@ -9,7 +11,27 @@ mdb = repconf.mongodb.get("db", "cuckoo")
 
 if repconf.mongodb.enabled:
     from pymongo import TEXT, MongoClient
-    from pymongo.errors import ConnectionFailure, InvalidDocument, ServerSelectionTimeoutError
+    from pymongo.errors import AutoReconnect, ConnectionFailure, InvalidDocument, ServerSelectionTimeoutError
+
+
+MAX_AUTO_RECONNECT_ATTEMPTS = 5
+
+
+def graceful_auto_reconnect(mongo_op_func):
+    """Gracefully handle a reconnection event."""
+
+    @functools.wraps(mongo_op_func)
+    def wrapper(*args, **kwargs):
+        for attempt in range(MAX_AUTO_RECONNECT_ATTEMPTS):
+            try:
+                return mongo_op_func(*args, **kwargs)
+            except AutoReconnect as e:
+                wait_t = 0.5 * pow(2, attempt)  # exponential back off
+                logging.warning("PyMongo auto-reconnecting... %s. Waiting %.1f seconds.", str(e), wait_t)
+                time.sleep(wait_t)
+
+    return wrapper
+
 
 def connect_to_mongo():
     conn = False
@@ -33,13 +55,15 @@ def connect_to_mongo():
 # q = results_db.analysis.find({"info.id": 26}, {"memory": 1})
 # https://pymongo.readthedocs.io/en/stable/changelog.html
 
-results_db = connect_to_mongo()[mdb]
+conn = connect_to_mongo()
+results_db = conn[mdb]
 
 if repconf.mongodb.archive:
     mdb = repconf.mongodb.get("archive_db", "cuckoo_archive")
     archive_db = connect_to_mongo()[mdb]
 
 
+@graceful_auto_reconnect
 def mongo_create_index(collection, index, background=True, name=False):
     if name:
         getattr(results_db, collection).create_index(index, background=background, name=name)
@@ -47,10 +71,12 @@ def mongo_create_index(collection, index, background=True, name=False):
         getattr(results_db, collection).create_index(index, background=background)
 
 
+@graceful_auto_reconnect
 def mongo_insert_one(collection, query):
     return getattr(results_db, collection).insert_one(query)
 
 
+@graceful_auto_reconnect
 def mongo_find(collection, query, projection=False, sort=[("_id", -1)], archive=False):
     db = results_db
     if archive:
@@ -61,6 +87,7 @@ def mongo_find(collection, query, projection=False, sort=[("_id", -1)], archive=
         return getattr(db, collection).find(query, projection, sort=sort)
 
 
+@graceful_auto_reconnect
 def mongo_find_one(collection, query, projection=False, sort=[("_id", -1)], archive=False):
     db = results_db
     if archive:
@@ -71,22 +98,27 @@ def mongo_find_one(collection, query, projection=False, sort=[("_id", -1)], arch
         return getattr(db, collection).find_one(query, sort=sort)
 
 
+@graceful_auto_reconnect
 def mongo_delete_one(collection, query):
     return getattr(results_db, collection).delete_one(query)
 
 
+@graceful_auto_reconnect
 def mongo_delete_many(collection, query):
     return getattr(results_db, collection).delete_many(query)
 
 
+@graceful_auto_reconnect
 def mongo_update(collection, query, projection):
     return getattr(results_db, collection).update(query, projection)
 
 
+@graceful_auto_reconnect
 def mongo_update_one(collection, query, projection, bypass_document_validation=False):
     return getattr(results_db, collection).update_one(query, projection, bypass_document_validation=bypass_document_validation)
 
 
+@graceful_auto_reconnect
 def mongo_aggregate(collection, query, archive=False):
     db = results_db
     if archive:
@@ -94,16 +126,19 @@ def mongo_aggregate(collection, query, archive=False):
     return getattr(db, collection).aggregate(query)
 
 
+@graceful_auto_reconnect
 def mongo_collection_names():
     return results_db.list_collection_names()
 
 
+@graceful_auto_reconnect
 def mongo_find_one_and_update(collection, query, update, projection={"_id": 1}):
     return getattr(results_db, collection).find_one_and_update(query, update, projection)
 
 
+@graceful_auto_reconnect
 def mongo_drop_database(database):
-    results_db.drop_database(database)
+    conn.drop_database(database)
 
 
 def mongo_delete_data(task_ids):
