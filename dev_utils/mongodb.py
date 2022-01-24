@@ -59,8 +59,9 @@ conn = connect_to_mongo()
 results_db = conn[mdb]
 
 if repconf.mongodb.archive:
+    aconn = connect_to_mongo()
     mdb = repconf.mongodb.get("archive_db", "cuckoo_archive")
-    archive_db = connect_to_mongo()[mdb]
+    archive_db = aconn[mdb]
 
 
 @graceful_auto_reconnect
