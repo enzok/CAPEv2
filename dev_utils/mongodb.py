@@ -83,9 +83,9 @@ def mongo_find(collection, query, projection=False, sort=[("_id", -1)], archive=
     if archive:
         db = archive_db
     if projection:
-        return getattr(db, collection).find(query, sort=sort)
-    else:
         return getattr(db, collection).find(query, projection, sort=sort)
+    else:
+        return getattr(db, collection).find(query, sort=sort)
 
 
 @graceful_auto_reconnect
