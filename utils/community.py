@@ -17,6 +17,7 @@ import tarfile
 from io import BytesIO
 
 import urllib3
+import certifi
 
 sys.path.append(os.path.join(os.path.abspath(os.path.dirname(__file__)), ".."))
 
