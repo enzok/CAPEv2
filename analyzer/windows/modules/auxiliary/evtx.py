@@ -169,8 +169,7 @@ class Evtx(Thread, Auxiliary):
             for subcategory, settings in policy.items():
                 try:
                     cmd = (
-                        f'auditpol /set /subcategory:"{subcategory}"'
-                        f'/success:{settings["success"]} /failure:{settings["failure"]}'
+                        f'auditpol /set /subcategory:"{subcategory}" /success:{settings["success"]} /failure:{settings["failure"]}'
                     )
                     log.debug("Enabling advanced logging -> %s", cmd)
                     os.system(cmd)
