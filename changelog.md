@@ -1,3 +1,8 @@
+### [7-2-2022]
+* Monitor updates:
+    * Add hooks for NtAllocateVirtualMemoryEx, NtMapViewOfSectionEx, NtUnmapViewOfSectionEx (Win10+)
+    * Extend ntdll protection to cover VirtualProtectEx, make more stealthy
+
 ### [5-02-2022] Config extractors
 *  MWCP, malwareconfigs, and malduck are not part of requirements.txt anymore! They bring their own dependencies that not everyone needs. If you enable that framework in processing.conf you need to install that dependencies.
     * TIP: You need to figurate the proper version(is another reason why we abondone them)
@@ -21,7 +26,7 @@
     * Debugger push & pop actions
     * WriteMemoryHandler: tiny code clean
     * CreateProcessHandler: improve logging
-    * Fix evasion techniques reported by (& many thanks to) Alexey Bukhteyev of Checkpoint
+    * Fix evasion techniques reported by (& many thanks to) Alexey Bukhteyev of Checkpoint, [writeup](https://research.checkpoint.com/2022/invisible-cuckoo-cape-sandbox-evasion/)
 * Update 'GetTickCount' anti-vm bypass with latest IcedID packers
 
 ### [26-1-2022]
