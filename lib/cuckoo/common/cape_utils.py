@@ -317,7 +317,7 @@ def static_config_parsers(yara_hit, file_data):
         logging.debug("Running MWCP")
         try:
             reporter = mwcp.Reporter()
-            reporter.run_parser(malware_parsers[cape_name], data=file_data)
+            reporter.run(malware_parsers[cape_name], data=file_data)
             if not reporter.errors:
                 parser_loaded = True
                 tmp_dict = {}
@@ -338,7 +338,7 @@ def static_config_parsers(yara_hit, file_data):
                 for line in error_lines:
                     if line.startswith("ImportError: "):
                         logging.debug("CAPE: DC3-MWCP parser: %s", line.split(": ", 2)[1])
-            reporter._Reporter__cleanup()
+            reporter._Runner__cleanup()
             del reporter
         except pefile.PEFormatError:
             logging.error("pefile PEFormatError")
