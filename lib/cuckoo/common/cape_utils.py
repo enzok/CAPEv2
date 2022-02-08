@@ -317,24 +317,25 @@ def static_config_parsers(yara_hit, file_data):
         logging.debug("Running MWCP")
         try:
             reporter = mwcp.Reporter()
-            reporter.run(malware_parsers[cape_name], data=file_data)
-            if not reporter.errors:
+            report = reporter.run(malware_parsers[cape_name], data=file_data)
+            reportmeta = report.metadata
+            if not report.errors:
                 parser_loaded = True
                 tmp_dict = {}
-                if reporter.metadata.get("debug"):
-                    del reporter.metadata["debug"]
-                if reporter.metadata.get("other"):
-                    for key, value in reporter.metadata["other"].items():
+                if reportmeta.get("debug"):
+                    del reportmeta["debug"]
+                if reportmeta.get("other"):
+                    for key, value in reportmeta["other"].items():
                         tmp_dict.setdefault(key, [])
                         if value not in tmp_dict[key]:
                             tmp_dict[key].append(value)
-                    del reporter.metadata["other"]
+                    del reportmeta["other"]
 
-                tmp_dict.update(reporter.metadata)
+                tmp_dict.update(reportmeta)
                 cape_config[cape_name] = convert(tmp_dict)
                 logging.debug("CAPE: DC3-MWCP parser for %s completed", cape_name)
             else:
-                error_lines = reporter.errors[0].split("\n")
+                error_lines = report.errors[0].split("\n")
                 for line in error_lines:
                     if line.startswith("ImportError: "):
                         logging.debug("CAPE: DC3-MWCP parser: %s", line.split(": ", 2)[1])
