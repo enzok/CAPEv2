@@ -22,7 +22,7 @@ exe_url = re.compile(b".*\\.exe$")
 dll_url = re.compile(b".*\\.dll$")
 
 
-def config(memdump_path, read=False):
+def extract_config(memdump_path, read=False):
     if read:
         with open(memdump_path, "rb") as f:
             F = f.read()
@@ -65,5 +65,5 @@ def config(memdump_path, read=False):
 
 
 if __name__ == "__main__":
-    res = config(sys.argv[1], read=True)
+    res = extract_config(sys.argv[1], read=True)
     print(res)

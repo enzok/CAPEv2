@@ -13,7 +13,7 @@ AUTHOR = "threathive"
 log = logging.getLogger(__name__)
 
 
-def config(filebuf):
+def extract_config(filebuf):
     cfg = {}
     try:
         pe = pefile.PE(data=filebuf, fast_load=False)
@@ -39,4 +39,4 @@ if __name__ == "__main__":
 
     with open(sys.argv[1], "rb") as f:
         file_data = f.read()
-    print(config(file_data))
+    print(extract_config(file_data))

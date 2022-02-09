@@ -164,7 +164,7 @@ def extract_emotet_rsakey(pe):
             return RSA.construct((seq[0], seq[1]))
 
 
-def config(filebuf):
+def extract_config(filebuf):
     conf_dict = {}
     pe = pefile.PE(data=filebuf, fast_load=False)
     image_base = pe.OPTIONAL_HEADER.ImageBase
@@ -549,7 +549,7 @@ def test_them_all(path):
                 with open(file, "rb") as f:
                     file_data = f.read()
 
-                result = config(file_data)
+                result = extract_config(file_data)
                 if result:
                     log.info("[+] %s", file)
                 else:
@@ -568,4 +568,4 @@ if __name__ == "__main__":
     else:
         with open(sys.argv[1], "rb") as f:
             file_data = f.read()
-        print(config(file_data))
+        print(extract_config(file_data))

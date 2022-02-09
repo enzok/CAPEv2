@@ -147,7 +147,7 @@ def decoder(data):
     return urls
 
 
-def config(filebuf):
+def extract_config(filebuf):
     urls = decoder(filebuf)
     return {"address": [url.decode() for url in urls]}
 
@@ -156,4 +156,4 @@ if __name__ == "__main__":
     with open(sys.argv[1], "rb") as f:
         data = f.read()
 
-    print(config(data))
+    print(extract_config(data))

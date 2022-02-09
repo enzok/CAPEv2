@@ -44,7 +44,7 @@ def yara_scan(raw_data):
         print(e)
 
 
-def config(filebuf):
+def extract_config(filebuf):
     yara_hit = yara_scan(filebuf)
 
     for hit in yara_hit:
@@ -75,4 +75,4 @@ if __name__ == "__main__":
     import sys
 
     with open(sys.argv[1], "rb") as f:
-        print(config(f.read()))
+        print(extract_config(f.read()))
