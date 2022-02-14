@@ -87,7 +87,12 @@ def peepdf_parse(filepath, pdfresult):
 
     log.debug("About to parse with PDFParser")
     parser = PDFParser()
-    _, pdf = parser.parse(filepath, forceMode=True, looseMode=True, manualAnalysis=False)
+    pdfresult = {}
+    try:
+        _, pdf = parser.parse(filepath, forceMode=True, looseMode=True, manualAnalysis=False)
+    except Exception as e:
+        log.debug("Error parsing pdf: {}".format(e))
+        return pdfresult
     urlset = set()
     annoturiset = set()
     objects = []
@@ -143,6 +148,40 @@ def peepdf_parse(filepath, pdfresult):
                     continue
                 obj_data["Data"] = ret_data
                 retobjects.append(obj_data)
+            elif details.type == "dictionary" and details.hasElement("/OpenAction"):
+                open_action = details.getElementByName("/OpenAction")
+                if open_action.hasElement("/JS"):
+                    js_elem = open_action.getElementByName("/JS")
+                    jsdata = None
+                    if js_elem:
+                        try:
+                            jslist, unescapedbytes, urlsfound, errors, ctxdummy = analyseJS(js_elem.value)
+                            jsdata = jslist[0]
+                        except Exception as e:
+                            log.error(e, exc_info=True)
+                            continue
+                        if len(errors):
+                            continue
+                        if not jsdata:
+                            continue
+
+                        for url in urlsfound:
+                            urlset.add(url)
+
+                            # The following loop is required to "JSONify" the strings returned from PyV8.
+                            # As PyV8 returns byte strings, we must parse out bytecode and
+                            # replace it with an escape '\'. We can't use encode("string_escape")
+                            # as this would mess up the new line representation which is used for
+                            # beautifying the javascript code for Django's web interface.
+                        ret_data = ""
+                        for char in jsdata:
+                            if ord(char) > 127:
+                                tmp = f"\\x{char.encode().hex()}"
+                            else:
+                                tmp = char
+                            ret_data += tmp
+                        obj_data["Data"] = ret_data
+                        retobjects.append(obj_data)
             elif details.type == "dictionary" and details.hasElement("/A"):
                 # verify it to be a link type annotation
                 subtype_elem = details.getElementByName("/Subtype")
