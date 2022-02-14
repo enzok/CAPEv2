@@ -3,14 +3,6 @@ import logging
 from lib.cuckoo.common.utils import convert_to_printable
 
 try:
-    import v8py
-
-    HAVE_V8PY = True
-except ImportError:
-    HAVE_V8PY = False
-
-
-try:
     from peepdf.JSAnalysis import analyseJS
     from peepdf.PDFCore import PDFParser
 
@@ -81,10 +73,6 @@ def _set_base_uri(pdf):
 
 def peepdf_parse(filepath, pdfresult):
     """Uses V8Py from peepdf to extract JavaScript from PDF objects."""
-
-    if not HAVE_PEEPDF:
-        return pdfresult
-
     log.debug("About to parse with PDFParser")
     parser = PDFParser()
     pdfresult = {}
@@ -118,34 +106,31 @@ def peepdf_parse(filepath, pdfresult):
             if details.type == "stream":
                 encoded_stream = details.encodedStream
                 decoded_stream = details.decodedStream
-                if HAVE_V8PY:
-                    jsdata = None
-                    try:
-                        jslist, unescapedbytes, urlsfound, errors, ctxdummy = analyseJS(decoded_stream.strip())
-                        jsdata = jslist[0]
-                    except Exception as e:
-                        log.error(e, exc_info=True)
-                        continue
-                    if len(errors):
-                        continue
-                    if jsdata is None:
-                        continue
-                    for url in urlsfound:
-                        urlset.add(url)
-                    # The following loop is required to "JSONify" the strings returned from PyV8.
-                    # As PyV8 returns byte strings, we must parse out bytecode and
-                    # replace it with an escape '\'. We can't use encode("string_escape")
-                    # as this would mess up the new line representation which is used for
-                    # beautifying the javascript code for Django's web interface.
-                    ret_data = ""
-                    for char in jsdata:
-                        if ord(char) > 127:
-                            tmp = f"\\x{char.encode().hex()}"
-                        else:
-                            tmp = char
-                        ret_data += tmp
-                else:
+                jsdata = None
+                try:
+                    jslist, unescapedbytes, urlsfound, errors, ctxdummy = analyseJS(decoded_stream.strip())
+                    jsdata = jslist[0]
+                except Exception as e:
+                    log.error(e, exc_info=True)
                     continue
+                if len(errors):
+                    continue
+                if jsdata is None:
+                    continue
+                for url in urlsfound:
+                    urlset.add(url)
+                # The following loop is required to "JSONify" the strings returned from PyV8.
+                # As PyV8 returns byte strings, we must parse out bytecode and
+                # replace it with an escape '\'. We can't use encode("string_escape")
+                # as this would mess up the new line representation which is used for
+                # beautifying the javascript code for Django's web interface.
+                ret_data = ""
+                for char in jsdata:
+                    if ord(char) > 127:
+                        tmp = f"\\x{char.encode().hex()}"
+                    else:
+                        tmp = char
+                    ret_data += tmp
                 obj_data["Data"] = ret_data
                 retobjects.append(obj_data)
             elif details.type == "dictionary" and details.hasElement("/OpenAction"):
