@@ -23,7 +23,8 @@ from lib.cuckoo.common.exceptions import (
     CuckooProcessingError,
     CuckooReportError,
 )
-from lib.cuckoo.common.suricata_detection import et_categories, get_suricata_family, get_crowdstrike_family
+from lib.cuckoo.common.suricata_detection import et_categories, get_suricata_family
+from lib.cuckoo.common.thirdparty_detections import get_crowdstrike_family, get_mandiant_family
 from lib.cuckoo.core.database import Database
 
 try:
@@ -350,6 +351,22 @@ class RunProcessing(object):
                         # more than 1 yara rule returned - need algorithm to decide on which to use
                         family = maldata[0].get("malware_family", "")
                         actor = maldata[0].get("actor", "")
+                        break
+
+        if self.cfg.detections.mandiant_yara and not family:
+            processing_types = ("target", "dropped", "procdump", "procmemory", "CAPE")
+            for proctype in processing_types:
+                procres = self.results.get(proctype, None)
+                if procres:
+                    maldata = get_mandiant_family(proctype, procres)
+                if maldata:
+                    malfamily_tag = "Mandiant Yara"
+                    if len(maldata) == 1:
+                        family = maldata[0].get("malware_family", "")
+                        break
+                    else:
+                        # more than 1 yara rule returned - need algorithm to decide on which to use
+                        family = maldata[0].get("malware_family", "")
                         break
 
         if self.cfg.detections.suricata and not family:
