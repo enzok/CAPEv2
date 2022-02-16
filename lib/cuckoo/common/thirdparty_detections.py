@@ -15,40 +15,34 @@ def get_crowdstrike_family(proctype, procres):
     maldata = []
     if proctype == "target":
         yarahits = procres.get("file", {}).get("yara", [])
-        malmeta = {}
         for yh in yarahits:
             mf = yh.get("meta",{}).get("malware_family", "")
             if mf:
-                malmeta["malware_family"] = mf
+                maldata.append({"malware_family": mf})
             ma = yh.get("meta",{}).get("actor", "")
             if ma:
-                malmeta["actor"] = ma
-            maldata.append(malmeta)
+                maldata.append({"actor": ma})
     elif proctype == "CAPE":
         payloads = procres.get("payload", {})
         for payload in payloads:
             yarahits = payload.get("yara", [])
-            malmeta = dict()
             for yh in yarahits:
                 mf = yh.get("meta",{}).get("malware_family", "")
                 if mf:
-                    malmeta["malware_family"] = mf
+                    maldata.append({"malware_family": mf})
                 ma = yh.get("meta",{}).get("actor", "")
                 if ma:
-                    malmeta["actor"] = ma
-                maldata.append(malmeta)
+                    maldata.append({"actor": ma})
     elif proctype in ("dropped", "procdump", "procmemory"):
         for data in procres:
             yarahits = data.get("yara", [])
-            malmeta = dict()
             for yh in yarahits:
                 mf = yh.get("meta",{}).get("malware_family", "")
                 if mf:
-                    malmeta["malware_family"] = mf
+                    maldata.append({"malware_family": mf})
                 ma = yh.get("meta",{}).get("actor", "")
                 if ma:
-                    malmeta["actor"] = ma
-                maldata.append(malmeta)
+                    maldata.append({"actor": ma})
 
     return maldata
 
@@ -62,8 +56,11 @@ def get_mandiant_name(identifier):
     ids = {}
 
     try:
-        name = re.findall(name_re1, identifier)[0]
-        ids[name] = 1
+        if identifier.startswith("FE_"):
+            name = re.findall(name_re1, identifier)[0]
+            ids[name] = 1
+        else:
+            return
     except IndexError as e:
         return
 
@@ -179,6 +176,7 @@ def get_mandiant_name(identifier):
             name = "_".join(finparts)
         else:
             name = finparts[0]
+
     return name
 
 
@@ -191,33 +189,30 @@ def get_mandiant_family(proctype, procres):
     maldata = []
     if proctype == "target":
         yarahits = procres.get("file", {}).get("yara", [])
-        malmeta = {}
         for yh in yarahits:
             identifier = yh.get("name", "")
             if identifier:
                 mf = get_mandiant_name(identifier)
-                malmeta["malware_family"] = mf
-            maldata.append(malmeta)
+                if mf:
+                    maldata.append({"malware_family": mf})
     elif proctype == "CAPE":
         payloads = procres.get("payload", {})
         for payload in payloads:
             yarahits = payload.get("yara", [])
-            malmeta = dict()
             for yh in yarahits:
                 identifier = yh.get("name", "")
                 if identifier:
                     mf = get_mandiant_name(identifier)
-                    malmeta["malware_family"] = mf
-                maldata.append(malmeta)
+                    if mf:
+                        maldata.append({"malware_family": mf})
     elif proctype in ("dropped", "procdump", "procmemory"):
         for data in procres:
             yarahits = data.get("yara", [])
-            malmeta = dict()
             for yh in yarahits:
                 identifier = yh.get("name", "")
                 if identifier:
                     mf = get_mandiant_name(identifier)
-                    malmeta["malware_family"] = mf
-                maldata.append(malmeta)
+                    if mf:
+                        maldata.append({"malware_family": mf})
 
     return maldata
