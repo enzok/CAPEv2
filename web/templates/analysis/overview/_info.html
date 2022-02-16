@@ -1,10 +1,9 @@
-<section id="information">
-    <div class="row">
+<section id="detections">
     {% if analysis.malfamily_tag and analysis.detections %}
-    <div class="col-lg-1" style="padding-right: 0px;">
+    <div class="col-lg-2" style="padding-left: 0px;">
         <div class="panel panel-primary" style="height: 114px;">
             <div class="panel-heading">
-                <h4 class="panel-title" style="text-align: center;">Detections</h4>
+                <h4 class="panel-title">Detections</h4>
             </div>
             <div class="card">
                 {% if not analysis.actor %}
@@ -39,13 +38,9 @@
         </div>
     </div>
     {% endif %}
-    {% if analysis.detections and children|length > 0 %}
-        <div class="col-lg-10">
-    {% elif analysis.detections or children|length > 0 %}
-        <div class="col-lg-11">
-    {% else %}
-        <div class="col-lg-12">
-    {% endif %}
+</section>
+<hr>
+<section id="information">
     <div class="panel panel-primary">
         <div class="panel-heading">
             <h4 class="panel-title">Analysis</h4>
@@ -120,7 +115,6 @@
     {% endif %}
     <div id="info-log" class="collapse">
         <pre>{{analysis.debug.log}}</pre>
-    </div>
     </div>
 </section>
 
