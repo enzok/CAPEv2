@@ -2025,7 +2025,7 @@ def comments(request, task_id):
         buf["Status"] = "posted"
         curcomments.insert(0, buf)
         if enabledconf["mongodb"]:
-            mongo_update("analysis", {"info.id": int(task_id)}, {"$set": {"info.comments": curcomments}}, upsert=False, multi=True)
+            mongo_update("analysis", {"info.id": int(task_id)}, {"$set": {"info.comments": curcomments}})
         if es_as_db:
             es.update(index=esidx, id=esid, body={"doc": {"info": {"comments": curcomments}}})
         return redirect("report", task_id=task_id)
