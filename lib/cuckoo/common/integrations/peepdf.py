@@ -7,7 +7,7 @@ import logging
 from lib.cuckoo.common.utils import convert_to_printable
 
 try:
-    from peepdf.JSAnalysis import analyseJS
+    from peepdf.JSAnalysis import analyseJS, isJavascript
     from peepdf.PDFCore import PDFParser
 
     HAVE_PEEPDF = True
@@ -79,7 +79,6 @@ def peepdf_parse(filepath, pdfresult):
     """Uses V8Py from peepdf to extract JavaScript from PDF objects."""
     log.debug("About to parse with PDFParser")
     parser = PDFParser()
-    pdfresult = {}
     try:
         _, pdf = parser.parse(filepath, forceMode=True, looseMode=True, manualAnalysis=False)
     except Exception as e:
@@ -91,7 +90,7 @@ def peepdf_parse(filepath, pdfresult):
     retobjects = []
     metadata = {}
 
-    base_uri = _set_base_uri()
+    base_uri = _set_base_uri(pdf)
 
     for i, body in enumerate(pdf.body):
         metatmp = pdf.getBasicMetadata(i)
@@ -108,35 +107,35 @@ def peepdf_parse(filepath, pdfresult):
             obj_data["Offset"] = offset
             obj_data["Size"] = size
             if details.type == "stream":
-                encoded_stream = details.encodedStream
-                decoded_stream = details.decodedStream
-                jsdata = None
-                try:
-                    jslist, unescapedbytes, urlsfound, errors, ctxdummy = analyseJS(decoded_stream.strip())
-                    jsdata = jslist[0]
-                except Exception as e:
-                    log.error(e, exc_info=True)
-                    continue
-                if len(errors):
-                    continue
-                if jsdata is None:
-                    continue
-                for url in urlsfound:
-                    urlset.add(url)
-                # The following loop is required to "JSONify" the strings returned from PyV8.
-                # As PyV8 returns byte strings, we must parse out bytecode and
-                # replace it with an escape '\'. We can't use encode("string_escape")
-                # as this would mess up the new line representation which is used for
-                # beautifying the javascript code for Django's web interface.
-                ret_data = ""
-                for char in jsdata:
-                    if ord(char) > 127:
-                        tmp = f"\\x{char.encode().hex()}"
-                    else:
-                        tmp = char
-                    ret_data += tmp
-                obj_data["Data"] = ret_data
-                retobjects.append(obj_data)
+                if isJavascript(decoded_stream.strip()):
+                    decoded_stream = details.decodedStream
+                    jsdata = None
+                    try:
+                        jslist, unescapedbytes, urlsfound, errors, ctxdummy = analyseJS(decoded_stream.strip())
+                        jsdata = jslist[0]
+                    except Exception as e:
+                        log.error(e, exc_info=True)
+                        continue
+                    if len(errors):
+                        continue
+                    if jsdata is None:
+                        continue
+                    for url in urlsfound:
+                        urlset.add(url)
+                    # The following loop is required to "JSONify" the strings returned from PyV8.
+                    # As PyV8 returns byte strings, we must parse out bytecode and
+                    # replace it with an escape '\'. We can't use encode("string_escape")
+                    # as this would mess up the new line representation which is used for
+                    # beautifying the javascript code for Django's web interface.
+                    ret_data = ""
+                    for char in jsdata:
+                        if ord(char) > 127:
+                            tmp = f"\\x{char.encode().hex()}"
+                        else:
+                            tmp = char
+                        ret_data += tmp
+                    obj_data["Data"] = ret_data
+                    retobjects.append(obj_data)
             elif details.type == "dictionary" and details.hasElement("/OpenAction"):
                 open_action = details.getElementByName("/OpenAction")
                 if open_action.hasElement("/JS"):
