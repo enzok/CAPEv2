@@ -49,6 +49,8 @@ except ImportError:
 
 processing_conf = Config("processing")
 decomp_jar = processing_conf.static.procyon_path
+deobfuscator_jar = processing_conf.static.deobfuscator_path
+deobfuscator_conf = processing_conf.static.deobfuscator_conf_path
 
 
 def static_file_info(data_dictionary: dict, file_path: str, task_id: str, package: str, options: str, destination_folder: str):
@@ -78,7 +80,11 @@ def static_file_info(data_dictionary: dict, file_path: str, task_id: str, packag
     elif "Java Jar" in data_dictionary["type"] or file_path.endswith(".jar"):
         if decomp_jar and not os.path.exists(decomp_jar):
             log.error("procyon_path specified in processing.conf but the file does not exist")
-        data_dictionary["java"] = Java(file_path, decomp_jar).run()
+        if deobfuscator_jar and not os.path.exists(deobfuscator_jar):
+            log.error("deobfuscator_path specified in processing.conf but the file does not exist")
+        if deobfuscator_conf and not os.path.exists(deobfuscator_conf):
+            log.error("deobfuscator_conf_path specified in processing.conf but the file does not exist")
+        data_dictionary["java"] = Java(file_path, decomp_jar, deobfuscator_jar, deobfuscator_conf).run()
 
     # It's possible to fool libmagic into thinking our 2007+ file is a zip.
     # So until we have static analysis for zip files, we can use oleid to fail us out silently,
