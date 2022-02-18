@@ -72,7 +72,6 @@ def _set_base_uri(pdf):
                                         return elem.getValue()
     except Exception as e:
         log.error(e, exc_info=True)
-        pass
 
 
 def peepdf_parse(filepath, pdfresult):
@@ -176,15 +175,15 @@ def peepdf_parse(filepath, pdfresult):
                 type_elem = details.getElementByName("/Type")
                 if not subtype_elem or not type_elem:
                     continue
-                subtype_elem = _get_obj_val(i, subtype_elem)
-                type_elem = _get_obj_val(i, type_elem)
+                subtype_elem = _get_obj_val(pdf, i, subtype_elem)
+                type_elem = _get_obj_val(pdf, i, type_elem)
                 if subtype_elem.getValue() != "/Link" or type_elem.getValue() != "/Annot":
                     continue
                 a_elem = details.getElementByName("/A")
-                a_elem = _get_obj_val(i, a_elem)
+                a_elem = _get_obj_val(pdf, i, a_elem)
                 if a_elem.type == "dictionary" and a_elem.hasElement("/URI"):
                     uri_elem = a_elem.getElementByName("/URI")
-                    uri_elem = _get_obj_val(i, uri_elem)
+                    uri_elem = _get_obj_val(pdf, i, uri_elem)
                     annoturiset.add(base_uri + uri_elem.getValue())
             else:
                 # can be dictionaries, arrays, etc, don't bother displaying them
