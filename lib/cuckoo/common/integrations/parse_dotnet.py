@@ -145,10 +145,9 @@ class DotNETExecutable(object):
             results["assemblyrefs"] = self._get_assembly_refs()
             results["assemblyinfo"] = self._get_assembly_info()
             results["customattrs"] = self._get_custom_attrs()
-            #
-            #posttime = datetime.now()
-            #timediff = posttime - pretime
-            #self.add_statistic("static_dotnet", "time", float(f"{timediff.seconds}.{timediff.microseconds // 1000:03d}"))
+            posttime = datetime.now()
+            timediff = posttime - pretime
+            self.add_statistic("static_dotnet", "time", float(f"{timediff.seconds}.{timediff.microseconds // 1000:03d}"))
             return results
         except Exception as e:
             log.error(e, exc_info=True)
