@@ -182,7 +182,6 @@ class File(object):
         self._pefile = False
         self.file_type = None
         self.pe = None
-        self.dotnet = False
 
     def get_name(self):
         """Get file name.
@@ -401,35 +400,6 @@ class File(object):
 
         return self.file_type
 
-    def check_dotnet(self):
-        """Check if file uses dotnet framework
-        @return:
-        """
-        if self.dotnet:
-            return self.dotnet
-        if self.file_path:
-            try:
-                if IsPEImage(self.file_data):
-                    self._pefile = True
-                    if not HAVE_PEFILE:
-                        if not File.notified_pefile:
-                            File.notified_pefile = True
-                            log.warning("Unable to import pefile (install with `pip3 install pefile`)")
-                    else:
-                        try:
-                            self.pe = pefile.PE(data=self.file_data, fast_load=True)
-                        except pefile.PEFormatError:
-                            self.file_type = "PE image for MS Windows"
-                            log.error("Unable to instantiate pefile on image")
-                        if self.pe:
-                            is_dotnet = self.pe.OPTIONAL_HEADER.DATA_DIRECTORY[14]
-                            if is_dotnet.VirtualAddress != 0 and is_dotnet.Size != 0:
-                                self.dotnet = True
-            except Exception as e:
-                log.error(e, exc_info=True)
-
-        return self.dotnet
-
     def _yara_encode_string(self, yara_string):
         # Beware, spaghetti code ahead.
         try:
@@ -597,7 +567,6 @@ class File(object):
         infos["clamav"] = self.get_clamav()
         infos["tlsh"] = self.get_tlsh()
         infos["sha3_384"] = self.get_sha3_384()
-        infos["is_dotnet"] = self.check_dotnet()
 
         return infos, self.pe
 
