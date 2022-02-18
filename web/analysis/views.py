@@ -1534,6 +1534,7 @@ def file(request, category, task_id, dlfile):
         "procdumpzip",
         "memdumpzip",
         "networkzip",
+        "pcapzip",
     ):
         # ability to download password protected zip archives
         path = ""
@@ -1559,9 +1560,13 @@ def file(request, category, task_id, dlfile):
         elif category.startswith("memdumpzip"):
             path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "memory", file_name + ".dmp")
             file_name += ".dmp"
+        elif category in ("pcap", "pcapzip"):
+            file_name += ".pcap"
+            path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "dump.pcap")
+            cd = "application/vnd.tcpdump.pcap"
         if path and not os.path.exists(path):
             return render(request, "error.html", {"error": "File {} not found".format(os.path.basename(path))})
-        if category in ("staticzip", "droppedzip", "CAPEzip", "procdumpzip", "memdumpzip", "networkzip"):
+        if category in ("staticzip", "droppedzip", "CAPEzip", "procdumpzip", "memdumpzip", "networkzip", "pcapzip"):
             if HAVE_PYZIPPER:
                 mem_zip = BytesIO()
                 with pyzipper.AESZipFile(mem_zip, "w", compression=pyzipper.ZIP_LZMA, encryption=pyzipper.WZ_AES) as zf:
@@ -1577,10 +1582,6 @@ def file(request, category, task_id, dlfile):
         path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "debugger", str(dlfile) + ".log")
     elif category == "rtf":
         path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "rtf_objects", file_name)
-    elif category == "pcap":
-        file_name += ".pcap"
-        path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "dump.pcap")
-        cd = "application/vnd.tcpdump.pcap"
     elif category == "usage":
         path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "aux", "usage.svg")
         file_name = "usage.svg"
@@ -1627,7 +1628,7 @@ def file(request, category, task_id, dlfile):
     if not cd:
         cd = "application/octet-stream"
     try:
-        if category in ("staticzip", "droppedzip", "CAPEzip", "procdumpzip", "memdumpzip", "networkzip"):
+        if category in ("staticzip", "droppedzip", "CAPEzip", "procdumpzip", "memdumpzip", "networkzip", "pcapzip"):
             if mem_zip:
                 mem_zip.seek(0)
                 resp = StreamingHttpResponse(mem_zip, content_type=cd)
