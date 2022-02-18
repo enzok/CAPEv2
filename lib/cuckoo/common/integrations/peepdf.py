@@ -59,15 +59,15 @@ def _set_base_uri(pdf):
             if trailer is not None:
                 elem = trailer.dict.getElementByName("/Root")
                 if elem:
-                    elem = _get_obj_val(version, elem)
+                    elem = _get_obj_val(pdf, version, elem)
                     if elem:
                         elem = elem.getElementByName("/URI")
                         if elem:
-                            elem = _get_obj_val(version, elem)
+                            elem = _get_obj_val(pdf, version, elem)
                             if elem:
                                 elem = elem.getElementByName("/Base")
                                 if elem:
-                                    elem = _get_obj_val(version, elem)
+                                    elem = _get_obj_val(pdf, version, elem)
                                     if elem:
                                         return elem.getValue()
     except Exception as e:
@@ -107,8 +107,8 @@ def peepdf_parse(filepath, pdfresult):
             obj_data["Offset"] = offset
             obj_data["Size"] = size
             if details.type == "stream":
+                decoded_stream = details.decodedStream
                 if isJavascript(decoded_stream.strip()):
-                    decoded_stream = details.decodedStream
                     jsdata = None
                     try:
                         jslist, unescapedbytes, urlsfound, errors, ctxdummy = analyseJS(decoded_stream.strip())
