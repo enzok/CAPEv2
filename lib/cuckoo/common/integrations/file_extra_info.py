@@ -52,6 +52,7 @@ processing_conf = Config("processing")
 decomp_jar = processing_conf.static.procyon_path
 deobfuscator_jar = processing_conf.static.deobfuscator_path
 deobfuscator_conf = processing_conf.static.deobfuscator_conf_path
+unautoit_bin = os.path.join(CUCKOO_ROOT, "data", "unautoit")
 
 
 def static_file_info(data_dictionary: dict, file_path: str, task_id: str, package: str, options: str, destination_folder: str):
