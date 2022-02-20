@@ -2304,7 +2304,13 @@ def archive_index(request, page=1):
     paging["prev_page"] = str(page - 1)
 
     pages_files_num = 0
-    tasks_files_number = mongo_find("analysis", {"target.category": "file"}, archive=True).count()
+
+    count_aggregation = [
+        {"$match": {"target.category": "file"}},
+        {"$count": "num_files"}
+    ]
+
+    tasks_files_number = list(mongo_aggregate("analysis", count_aggregation, archive=True))[0].get("num_files", None)
     if tasks_files_number:
         pages_files_num = int(tasks_files_number / TASK_LIMIT + 1)
 
