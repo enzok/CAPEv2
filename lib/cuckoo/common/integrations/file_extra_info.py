@@ -1,4 +1,5 @@
 import hashlib
+import json
 import logging
 import os
 import shutil
@@ -52,7 +53,12 @@ processing_conf = Config("processing")
 decomp_jar = processing_conf.static.procyon_path
 deobfuscator_jar = processing_conf.static.deobfuscator_path
 deobfuscator_conf = processing_conf.static.deobfuscator_conf_path
-unautoit_bin = os.path.join(CUCKOO_ROOT, "data", "unautoit")
+unautoit_bin = os.path.join(CUCKOO_ROOT, "data", "UnAutoIt", "UnAutoIt")
+
+# Replace with DIE
+if processing_conf.trid.enabled:
+    trid_binary = os.path.join(CUCKOO_ROOT, processing_conf.trid.identifier)
+    definitions = os.path.join(CUCKOO_ROOT, processing_conf.trid.definitions)
 
 
 def static_file_info(data_dictionary: dict, file_path: str, task_id: str, package: str, options: str, destination_folder: str):
@@ -101,6 +107,46 @@ def static_file_info(data_dictionary: dict, file_path: str, task_id: str, packag
         is_text_file(data_dictionary, file_path, 8192, f.read())
 
     generic_file_extractors(file_path, destination_folder, data_dictionary["type"], data_dictionary)
+
+    if processing_conf.trid.enabled:
+        trid_info(file_path, data_dictionary)
+
+    if processing_conf.die.enabled:
+        detect_it_easy_info(file_path, data_dictionary)
+
+
+def detect_it_easy_info(file_path, data_dictionary):
+    if not os.path.exists(processing_conf.die.binary):
+        return
+
+    try:
+        output = subprocess.check_output(
+            [processing_conf.die.binary, "-j", file_path], stderr=subprocess.STDOUT, universal_newlines=True
+        )
+        if "detects" not in output:
+            return
+
+        strings = []
+        for block in json.loads(output).get("detects", []) or []:
+            strings += [sub["string"] for sub in block.get("values", [])]
+
+        if strings:
+            data_dictionary["die"] = strings
+    except subprocess.CalledProcessError:
+        log.warning("You need to configure your server to make TrID work properly")
+        log.warning("sudo rm -f /usr/lib/locale/locale-archive && sudo locale-gen --no-archive")
+
+
+def trid_info(file_path, data_dictionary):
+
+    try:
+        output = subprocess.check_output(
+            [trid_binary, f"-d:{definitions}", file_path], stderr=subprocess.STDOUT, universal_newlines=True
+        )
+        data_dictionary["trid"] = output.split("\n")[6:-1]
+    except subprocess.CalledProcessError:
+        log.warning("You need to configure your server to make TrID work properly")
+        log.warning("sudo rm -f /usr/lib/locale/locale-archive && sudo locale-gen --no-archive")
 
 
 def _extracted_files_metadata(folder, destination_folder, data_dictionary, content=False, files=False):
@@ -273,11 +319,11 @@ def kixtart_extract(file, destination_folder, filetype, data_dictionary):
 
 def UnAutoIt_extract(file, destination_folder, filetype, data_dictionary):
 
-    if not os.path.exists(unautoit_bin):
-        # log.error(f"Missed UnAutoIt binary: {unautoit_bin}. You can download a copy from - https://github.com/x0r19x91/UnAutoIt")
+    if not any([block.get("name") == "AutoIT_Compiled" for block in data_dictionary.get("yara")]):
         return
 
-    if not any([block.get("name") == "AutoIT_Compiled" for block in data_dictionary.get("yara")]):
+    if not os.path.exists(unautoit_bin):
+        log.warning(f"Missed UnAutoIt binary: {unautoit_bin}. You can download a copy from - https://github.com/x0r19x91/UnAutoIt")
         return
 
     metadata = list()

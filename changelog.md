@@ -1,3 +1,20 @@
+### [20-02-2022] [UnAutoIt](https://github.com/x0r19x91/UnAutoIt) by @x0r19x91
+* You need to compile it by yourself and put binary under `/opt/CAPEv2/data/UnAutoIt`
+````
+cd /opt/CAPEv2/data/
+snap install go --classic
+git clone https://github.com/x0r19x91/UnAutoIt && cd UnAutoIt
+GOOS="linux" GOARCH="amd64" go build -o /opt/CAPEv2/data/UnAutoIt
+```
+
+### [19-02-2022] [Detect It Easy](https://github.com/horsicq/Detect-It-Easy/) by @horsicq
+* To install it you can download installer from [here](https://github.com/horsicq/DIE-engine/releases)
+```
+sudo apt install libqt5opengl5 libqt5script5 libqt5scripttools5 -y
+wget "https://github.com/horsicq/DIE-engine/releases/download/${DIE_VERSION}/die_${DIE_VERSION}_Ubuntu_${UBUNTU_VERSION}_amd64.deb" -O DIE.deb
+sudo dpkg -i DIE.deb
+```
+
 ### [18-02-2022] Depricate static
 * To be able to generate the same info as was generated for initial binary under static tab. We decided to depricate static module and make it reusable for any other files like dropped, downloaded, etc.
 * So now you will be able all file static info on each file to speedup your analysis

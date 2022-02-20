@@ -192,6 +192,32 @@
             </td>
         </tr>
         {% endif %}
+        {% if sub_file.trid %}
+        <tr>
+            <th>TriD</th>
+            <td>
+            <ul style="margin-top: 0;margin-bottom: 0;">
+                {% for str in sub_file.trid %}
+                    <li>{{str}}</li>
+                {% endfor %}
+            </ul>
+            </td>
+        </tr>
+        {% endif %}
+
+        {% if sub_file.die %}
+        <tr>
+            <th>Detect It Easy</th>
+            <td>
+            <ul style="margin-top: 0;margin-bottom: 0;">
+                {% for str in sub_file.die %}
+                    <li>{{str}}</li>
+                {% endfor %}
+            </ul>
+            </td>
+        </tr>
+        {% endif %}
+
         {% if sub_file.dropdir %}
         <tr>
             <th></th>
@@ -335,7 +361,7 @@
                 <div class="collapse" id="extracted_files_{{sub_file.sha256}}">
                     <div class="card card-body">
                         {% for sub_file in sub_file.extracted_files %}
-                            {% include "analysis/overview/_subfile_info.html" %}
+                            {% include "analysis/generic/_subfile_info.html" %}
                         {% endfor %}
                     </div>
                 </div>
