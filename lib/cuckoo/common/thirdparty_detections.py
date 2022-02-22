@@ -52,7 +52,7 @@ def get_mandiant_name(identifier):
     :param identifier: full mandiant yara rule identifier
     :return name: malware name
     """
-    name_re1 = "^FE_(.*)$"
+    name_re1 = "^(FE|MTI)_(.*)$"
     ids = {}
 
     try:
