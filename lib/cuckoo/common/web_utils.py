@@ -893,6 +893,17 @@ search_term_map = {
     "payloads": "CAPE.payloads.",
     "dhash": "static.pe.icon_dhash",
     "submitter": "info.options.submitter",
+    "dport": ("network.tcp.dport", "network.udp.dport", "network.smtp_ex.dport"),
+    "sport": ("network.tcp.dport", "network.udp.dport", "network.smtp_ex.dport"),
+    "port": (
+        "network.tcp.dport",
+        "network.udp.dport",
+        "network.smtp_ex.dport",
+        "network.tcp.dport",
+        "network.udp.dport",
+        "network.smtp_ex.dport",
+    ),
+    "die": ("target.file.die", "dropped.die", "procdump.die", "CAPE.payloads.die"),
 }
 
 # search terms that will be forwarded to mongodb in a lowered normalized form
