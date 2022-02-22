@@ -128,7 +128,10 @@
         </tr>
         <tr>
             <th>SHA256</th>
-            <td style="word-wrap: break-word;">{{file.sha256}}</td>
+            <td style="word-wrap: break-word;">{{file.sha256}}
+                <a href="https://mwdb.cert.pl/file/{{file.sha256}}" style="color: #e74c3c">[MWDB]
+                </a> <a href="https://bazaar.abuse.ch/sample/{{file.sha256}}/" style="color: #e74c3c">[Bazaar]</a>
+            </td>
         </tr>
         {% if file.sha3_384 %}
         <tr>
@@ -234,8 +237,7 @@
         {% if file.dropdir %}
         <tr>
             <th></th>
-            <td><a href="{% url "file" tab_name id file.dropdir %}" class="btn btn-secondary btn-sm">Download</a>
-            </td>
+            <td><a href="{% url "file" tab_name id file.dropdir %}" class="btn btn-secondary btn-sm">Download</a></td>
         </tr>
         {% else %}
         <tr>
@@ -351,10 +353,10 @@
                 <th></th><td>
                 <div class="collapse" id="text_{{file.sha256}}">
                     <div class="card card-body">
-                    <pre>{{file.data|escape}}</pre>
+                    <p>{{file.data|escape}}</p>
                     </div>
                 </div>
-            </td>
+                </td>
             </tr>
         {% endif %}
         {% if file.decoded_files %}
@@ -362,7 +364,7 @@
                 <th></th><td>
                 <div class="collapse" id="decoded_files_{{file.sha256}}">
                     <div class="card card-body">
-                    <pre>{{file.decoded_files|escape}}</pre>
+                    <p>{{file.decoded_files|escape}}</p>
                     </div>
                 </div>
             </td>
