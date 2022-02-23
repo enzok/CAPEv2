@@ -1,9 +1,8 @@
 <section id="static_analysis">
-    {% load key_tags %}
     <div>
         <h4>XLM Macro</h4>
         <pre>
-            { % for line in file.office.XLMMacroDeobfuscator.Code %}
+            {% for line in file.office.XLMMacroDeobfuscator.Code %}
                 {{line}}
             {% endfor %}
         </pre>
