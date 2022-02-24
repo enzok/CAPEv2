@@ -30,6 +30,12 @@
                                 <col width="250" />
                                 <col width="*" />
                             </colgroup>
+                            {% for key, value in file.office.Metadata.SummaryInformation.items|dictsort:"0.lower" %}
+                                <tr>
+                                    <td>{{key}}</td>
+                                    <td>{{value}}</td>
+                                </tr>
+                            {% endfor %}
                             {% if file.office.Metadata.SummaryInformation.creating_application %}
                             <tr>
                                 <td>Creating Application</td>
@@ -110,6 +116,12 @@
                                 <col width="250" />
                                 <col width="*" />
                             </colgroup>
+                            {% for key, value in file.office.Metadata.DocumentSummaryInformation.items|dictsort:"0.lower" %}
+                                <tr>
+                                    <td>{{key}}</td>
+                                    <td>{{value}}</td>
+                                </tr>
+                            {% endfor %}
                             {% if file.office.Metadata.DocumentSummaryInformation.company %}
                             <tr>
                                 <td>Company</td>
