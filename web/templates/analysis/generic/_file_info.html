@@ -5,25 +5,25 @@
         {% if tab_name == "static" %}
             style="table-layout: fixed;"
         {% else %}
-           style="table-layout: fixed; width: 50%;margin-left: auto;margin-right: auto;"
+           style="table-layout: fixed; width: 65%;margin-left: auto;margin-right: auto;"
         {% endif %}
         >
 
         {% if source_url %}
             <tr>
-                <th style="border-top: 0; width: 15%;">File downloaded from</th>
+                <th style="border-top: 0; width: 20%;">File downloaded from</th>
                 <td style="border-top: 0; word-wrap: break-word;">{{source_url|escape}}</td>
             </tr>
             {% endif %}
 
         {% if file.cape_type %}
             <tr>
-                <th style="border-top: 0; width: 15%;">Type</th>
+                <th style="border-top: 0; width: 20%;">Type</th>
                 <td style="border-top: 0; word-wrap: break-word;"><b>{{file.cape_type}}</b></td>
             </tr>
         {% endif %}
         <tr>
-            <th style="border-top: 0; width: 15%;">Filename</th>
+            <th style="border-top: 0; width: 20%;">Filename</th>
             <td>
                 {% for name in file.name|str2list %}
                 <div style="border-top: 0; word-wrap: break-word;"><b>{{name|safe}}</b></div>
@@ -32,13 +32,13 @@
         </tr>
         {% if file.type %}
             <tr>
-                <th style="border-top: 0; width: 15%;">File Type</th>
+                <th style="border-top: 0; width: 20%;">File Type</th>
                 <td style="border-top: 0; word-wrap: break-word;"><b>{{file.type}}</b></td>
             </tr>
         {% endif %}
         {% if file.guest_paths and tab_name == "dropped" %}
             <tr>
-                <th style="border-top: 0; width: 15%;">Associated Filenames</th>
+                <th style="border-top: 0; width: 20%;">Associated Filenames</th>
                 <td style="border-top: 0; word-wrap: break-word;">
                     {% for path in file.guest_paths|str2list %}
                         <div>{{path}}</div>
@@ -47,7 +47,7 @@
             </tr>
         {% endif %}
         <tr>
-            <th style="border-top: 0; width: 15%;">File Size</th>
+            <th style="border-top: 0; width: 20%;">File Size</th>
             <td style="border-top: 0; word-wrap: break-word;"><b>{{file.size}} bytes</b></td>
         </tr>
         {% if file.module_path and file.process_path != file.module_path %}
