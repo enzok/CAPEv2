@@ -764,7 +764,7 @@ class PortableExecutable(object):
                 "md5_fingerprint": md5,
                 "sha1_fingerprint": sha1,
                 "sha256_fingerprint": sha256,
-                "serial_number": str(cert.serial_number),
+                "serial_number": " ".join(re.findall("..", f"{cert.serial_number:032x}")),
                 "not_before": cert.not_valid_before.isoformat(),
                 "not_after": cert.not_valid_after.isoformat(),
             }
