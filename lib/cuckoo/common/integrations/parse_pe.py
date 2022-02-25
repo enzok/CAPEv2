@@ -910,6 +910,7 @@ class PortableExecutable(object):
         pe = pefile.PE(self.file_path)
         peresults = {}
         peresults["guest_signers"] = self.get_guest_digital_signers(task_id)
+        peresults["digital_signers"] = self._get_digital_signers(pe)
         peresults["imagebase"] = self.get_imagebase(pe)
         peresults["entrypoint"] = self.get_entrypoint(pe)
         peresults["ep_bytes"] = self.get_ep_bytes(pe)
