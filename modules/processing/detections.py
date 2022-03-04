@@ -27,9 +27,10 @@ class Detections(Processing):
                 procres = self.results.get(proctype, None)
                 if procres:
                     maldata = get_crowdstrike_family(proctype, procres)
-                for khash in maldata:
-                    for family in maldata.get(khash, []):
-                        add_family_detection(self.results, family, "CS Yara", khash)
+                for data in maldata:
+                    for khash in data.keys():
+                        for family in data.get[khash]:
+                            add_family_detection(self.results, family, "CS Yara", khash)
 
         log.debug("Running Mandiant family detections")
         if processing_cfg.detections.mandiant_yara:
@@ -38,6 +39,7 @@ class Detections(Processing):
                 procres = self.results.get(proctype, None)
                 if procres:
                     maldata = get_mandiant_family(proctype, procres)
-                for khash in maldata:
-                    for family in maldata.get(khash, []):
-                        add_family_detection(self.results, family, "Mandiant Yara", khash)
+                for data in maldata:
+                    for khash in data.keys():
+                        for family in data[khash]:
+                            add_family_detection(self.results, family, "Mandiant Yara", khash)
