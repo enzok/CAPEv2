@@ -58,8 +58,8 @@ def get_mandiant_name(identifier):
     ids = {}
 
     try:
-        if identifier.startswith("FE_"):
-            name = re.findall(name_re1, identifier)[0]
+        if identifier.startswith(("FE_", "MTI_")):
+            name = re.findall(name_re1, identifier)[0][1]
             ids[name] = 1
         else:
             return
@@ -168,16 +168,19 @@ def get_mandiant_name(identifier):
     omitlist = set(omitlist)
 
     for key in ids.keys():
-        parts = key.split("_")
-        matches = omitlist.intersection(set(parts))
-        if matches:
-            finparts = [x for x in parts if x not in matches]
-        else:
-            finparts = parts
-        if len(finparts) > 1:
-            name = "_".join(finparts)
-        else:
-            name = finparts[0]
+        try:
+            parts = key.split("_")
+            matches = omitlist.intersection(set(parts))
+            if matches:
+                finparts = [x for x in parts if x not in matches]
+            else:
+                finparts = parts
+            if len(finparts) > 1:
+                name = "_".join(finparts)
+            else:
+                name = finparts[0]
+        except Exception as e:
+            pass
 
     return name
 

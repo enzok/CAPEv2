@@ -17,7 +17,6 @@ class Detections(Processing):
     order = 4
 
     def run(self):
-        self.key = "detections"
         maldata = []
 
         log.debug("Running CrowdStrike family detections")
@@ -30,6 +29,7 @@ class Detections(Processing):
                 for data in maldata:
                     for khash in data.keys():
                         for family in data[khash]:
+                            print(f"Adding detection: {family} for {khash}")
                             add_family_detection(self.results, family, "CS Yara", khash)
 
         log.debug("Running Mandiant family detections")
