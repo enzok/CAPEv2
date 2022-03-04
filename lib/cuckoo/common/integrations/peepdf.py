@@ -184,7 +184,7 @@ def peepdf_parse(filepath, pdfresult):
                 if a_elem.type == "dictionary" and a_elem.hasElement("/URI"):
                     uri_elem = a_elem.getElementByName("/URI")
                     uri_elem = _get_obj_val(pdf, i, uri_elem)
-                    annoturiset.add(base_uri + uri_elem.getValue())
+                    annoturiset.add(f"{base_uri}{uri_elem.getValue()}")
             else:
                 # can be dictionaries, arrays, etc, don't bother displaying them
                 # all for now
