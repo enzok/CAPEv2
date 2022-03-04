@@ -29,7 +29,7 @@ class Detections(Processing):
                     maldata = get_crowdstrike_family(proctype, procres)
                 for data in maldata:
                     for khash in data.keys():
-                        for family in data.get[khash]:
+                        for family in data[khash]:
                             add_family_detection(self.results, family, "CS Yara", khash)
 
         log.debug("Running Mandiant family detections")
