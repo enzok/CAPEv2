@@ -17,6 +17,7 @@ class Detections(Processing):
     order = 4
 
     def run(self):
+        self.key = "thirdpartydetections"
         maldata = []
 
         log.debug("Running CrowdStrike family detections")
