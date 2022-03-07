@@ -71,6 +71,7 @@ banlist = (
     "trojanpws",
     "reputation",
     "script",
+    "score",
     "w97m",
     "pp97m",
     "lookslike",
