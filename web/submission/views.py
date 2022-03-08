@@ -240,9 +240,7 @@ def index(request, resubmit_hash=False):
             if paths:
                 content = get_file_content(paths)
                 if not content:
-                    return render(
-                        request, "error.html", {"error": "Can't find {} on disk, {}".format(resubmission_hash, str(paths))}
-                    )
+                    return render(request, "error.html", {"error": f"Can't find {resubmission_hash} on disk, {str(paths)}"})
                 folder = os.path.join(settings.TEMP_PATH, "cape-resubmit")
                 if not os.path.exists(folder):
                     os.makedirs(folder)
