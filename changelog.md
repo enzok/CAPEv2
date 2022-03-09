@@ -1,3 +1,8 @@
+### [4-3-2022]
+* Rewritten detection.
+    * Now if you have many different detections it will show all of them, not only 1. Details about each detection is in CAPE signature
+    * This is not backward compatible feature, so search won't return old matches
+
 ### [2-3-2022]
 * Emotet updates
 
@@ -8,7 +13,7 @@
 
 ### [20-02-2022] [UnAutoIt](https://github.com/x0r19x91/UnAutoIt) by @x0r19x91
 * You need to compile it by yourself and put binary under `/opt/CAPEv2/data/UnAutoIt`
-````
+```
 cd /opt/CAPEv2/data/
 snap install go --classic
 git clone https://github.com/x0r19x91/UnAutoIt && cd UnAutoIt
