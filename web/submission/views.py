@@ -235,12 +235,43 @@ def index(request, resubmit_hash=False):
         }
 
         if "hash" in request.POST and request.POST.get("hash", False) and request.POST.get("hash")[0] != "":
-            resubmission_hash = request.POST.get("hash").strip()
-            paths = db.sample_path_by_hash(resubmission_hash)
-            if paths:
+            for hash in request.POST.get("hash").strip().split(","):
+                paths = []
+                if len(hash) in (32, 40, 64):
+                    paths = db.sample_path_by_hash(hash)
+                else:
+                    task_binary = os.path.join(settings.CUCKOO_PATH, "storage", "analyses", str(hash), "binary")
+                    if os.path.exists(task_binary):
+                        paths.append(task_binary)
+                    else:
+                        tmp_paths = db.find_sample(task_id=int(hash))
+                        if not tmp_paths:
+                            details["errors"].append({hash: "Task not found for resubmission"})
+                            continue
+                        for tmp_sample in tmp_paths:
+                            path = False
+                            tmp_dict = tmp_sample.to_dict()
+                            if os.path.exists(tmp_dict.get("target", "")):
+                                path = tmp_dict["target"]
+                            else:
+                                tmp_tasks = db.find_sample(sample_id=tmp_dict["sample_id"])
+                                for tmp_task in tmp_tasks:
+                                    tmp_path = os.path.join(
+                                        settings.CUCKOO_PATH, "storage", "binaries", tmp_task.to_dict()["sha256"]
+                                    )
+                                    if os.path.exists(tmp_path):
+                                        path = tmp_path
+                                        break
+                            if path:
+                                paths.append(path)
+                if not paths:
+                    details["errors"].append({hash: "File not found on hdd for resubmission"})
+                    continue
+
                 content = get_file_content(paths)
                 if not content:
-                    return render(request, "error.html", {"error": f"Can't find {resubmission_hash} on disk, {str(paths)}"})
+                    details["errors"].append({hash: f"Can't find {hash} on disk"})
+                    continue
                 folder = os.path.join(settings.TEMP_PATH, "cape-resubmit")
                 if not os.path.exists(folder):
                     os.makedirs(folder)
@@ -248,7 +279,7 @@ def index(request, resubmit_hash=False):
                 if opt_filename:
                     filename = base_dir + "/" + opt_filename
                 else:
-                    filename = base_dir + "/" + sanitize_filename(resubmission_hash)
+                    filename = base_dir + "/" + sanitize_filename(hash)
                 path = store_temp_file(content, filename)
                 details["path"] = path
                 details["content"] = content
@@ -258,11 +289,9 @@ def index(request, resubmit_hash=False):
                 else:
                     details["task_ids"] = task_ids_tmp
                     if web_conf.general.get("existent_tasks", False):
-                        records = perform_search("target_sha256", resubmission_hash, search_limit=5)
+                        records = perform_search("target_sha256", hash, search_limit=5)
                         for record in records:
                             existent_tasks.setdefault(record["target"]["file"]["sha256"], []).append(record)
-            else:
-                return render(request, "error.html", {"error": "File not found on hdd for resubmission"})
 
         elif "sample" in request.FILES:
             samples = request.FILES.getlist("sample")

@@ -11,13 +11,13 @@ from lib.cuckoo.common.exceptions import CuckooDependencyError, CuckooReportErro
 from modules.reporting.report_doc import ensure_valid_utf8, get_json_document, insert_calls
 
 try:
+    from pymongo import TEXT
+    from pymongo.errors import InvalidDocument
+
     from dev_utils.mongodb import (
-        TEXT,
-        InvalidDocument,
         mongo_collection_names,
         mongo_create_index,
         mongo_delete_data,
-        mongo_find,
         mongo_find_one,
         mongo_insert_one,
         mongo_update_one,
@@ -129,7 +129,7 @@ class MongoDB(Report):
         # Create an index based on the info.id dict key. Increases overall scalability
         # with large amounts of data.
         # Note: Silently ignores the creation if the index already exists.
-        mongo_create_index("analysis", "info.id")
+        mongo_create_index("analysis", "info.id", name="info.id_1")
 
         # We performs a lot of SHA256 hash lookup so we need this index
         mongo_create_index(
@@ -137,7 +137,6 @@ class MongoDB(Report):
             [("target.file.sha256", TEXT), ("dropped.sha256", TEXT), ("procdump.sha256", TEXT), ("CAPE.payloads.sha256", TEXT)],
             name="ALL_SHA256",
         )
-
         # trick for distributed api
         if results.get("info", {}).get("options", {}).get("main_task_id", ""):
             report["info"]["id"] = int(results["info"]["options"]["main_task_id"])
