@@ -14,7 +14,6 @@ from multiprocessing.pool import ThreadPool
 CUCKOO_ROOT = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..")
 sys.path.append(CUCKOO_ROOT)
 
-from bson.objectid import ObjectId
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.dist_db import Task as DTask
@@ -33,7 +32,7 @@ from lib.cuckoo.core.database import (
 )
 from lib.cuckoo.core.startup import create_structure, init_console_logging
 
-log = logging.getLogger()
+log = logging.getLogger(__name__)
 
 cuckoo = Config()
 repconf = Config("reporting")
@@ -43,15 +42,7 @@ resolver_pool = ThreadPool(50)
 db = Database()
 if repconf.mongodb.enabled:
     mdb = repconf.mongodb.get("db", "cuckoo")
-    from dev_utils.mongodb import (
-        connect_to_mongo,
-        mdb,
-        mongo_delete_data,
-        mongo_delete_many,
-        mongo_drop_database,
-        mongo_find,
-        mongo_update_one,
-    )
+    from dev_utils.mongodb import connect_to_mongo, mdb, mongo_delete_data, mongo_drop_database, mongo_find, mongo_update_one
 elif repconf.elasticsearchdb.enabled:
     from dev_utils.elasticsearchdb import all_docs, delete_analysis_and_related_calls, get_analysis_index
 
@@ -68,7 +59,8 @@ def is_reporting_db_connected():
     try:
         if repconf.mongodb.enabled:
             results_db = connect_to_mongo()[mdb]
-            if not results_db:
+            # Database objects do not implement truth value testing or bool(). Please compare with None instead: database is not None
+            if results_db is None:
                 log.info("Can't connect to mongo")
                 return False
             return True
