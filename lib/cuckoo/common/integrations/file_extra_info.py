@@ -156,24 +156,40 @@ def _extracted_files_metadata(folder, destination_folder, data_dictionary, conte
         files - file names
     """
     metadata = []
+    filelog = os.path.join(os.path.dirname(destination_folder), "files.json")
     if not files:
         files = os.listdir(folder)
-    for file in files:
-        full_path = os.path.join(folder, file)
-        file_details = File(full_path).get_all()
-        if file_details:
-            file_details = file_details[0]
+    with open(filelog, "a") as f:
+        for file in files:
+            full_path = os.path.join(folder, file)
+            file_details = File(full_path).get_all()
+            if file_details:
+                file_details = file_details[0]
 
-        if processing_conf.trid.enabled:
-            trid_info(full_path, file_details)
+            if processing_conf.trid.enabled:
+                trid_info(full_path, file_details)
 
-        if processing_conf.die.enabled:
-            detect_it_easy_info(full_path, file_details)
+            if processing_conf.die.enabled:
+                detect_it_easy_info(full_path, file_details)
 
-        metadata.append(file_details)
-        dest_path = os.path.join(destination_folder, file_details["sha256"])
-        if not os.path.exists(dest_path):
-            shutil.move(full_path, dest_path)
+            metadata.append(file_details)
+            dest_path = os.path.join(destination_folder, file_details["sha256"])
+            if not os.path.exists(dest_path):
+                shutil.move(full_path, dest_path)
+                print(
+                    json.dumps(
+                        {
+                            "path": os.path.join("files", file_details["sha256"]),
+                            "filepath": file_details["name"],
+                            "pids": [],
+                            "ppids": [],
+                            "metadata": "",
+                            "category": "files",
+                        },
+                        ensure_ascii=False,
+                    ),
+                    file=f,
+                )
 
     return metadata
 
