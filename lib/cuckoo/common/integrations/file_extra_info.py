@@ -418,7 +418,7 @@ def UnAutoIt_extract(file, destination_folder, filetype, data_dictionary):
 
 def RarSFX_extract(file, destination_folder, filetype, data_dictionary):
     if any(["SFX: WinRAR" in string for string in data_dictionary.get("die", {})]) or \
-            any(["RAR Self Extracting archive" in string for string in data_dictionary("trid", {})]) or \
+            any(["RAR Self Extracting archive" in string for string in data_dictionary.get("trid", {})]) or \
             "RAR self-extracting archive" in data_dictionary.get("type", ""):
         if not os.path.exists(selfextract_conf.RarSFX_extract.binary):
             log.warning(f"Missed UnRar binary: {selfextract_conf.RarSFX_extract.binary}. sudo apt install unrar")
