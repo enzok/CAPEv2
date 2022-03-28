@@ -574,7 +574,7 @@ def extract_config(filebuf):
             if yara_matches.get("$ref_eccK"):
                 ref_ecc_offset = int(yara_matches["$ref_eccK"])
                 delta1 = 14
-                delta2 = 158
+                delta2 = 166
             if ref_ecc_offset:
                 ref_eck_rva = struct.unpack("I", filebuf[ref_ecc_offset + delta1 : ref_ecc_offset + delta1 + 4])[0] - image_base
                 ref_ecs_rva = struct.unpack("I", filebuf[ref_ecc_offset + delta2 : ref_ecc_offset + delta2 + 4])[0] - image_base
