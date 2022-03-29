@@ -2336,7 +2336,7 @@ class Database(object, metaclass=Singleton):
         }
 
         query_filter = sizes.get(len(sample_hash), "")
-        sample = None
+        sample = []
         # check storage/binaries
         if query_filter:
             session = self.Session()
@@ -2348,7 +2348,7 @@ class Database(object, metaclass=Singleton):
                     if os.path.exists(path):
                         sample = [path]
 
-                if sample is None:
+                if not sample:
                     if repconf.mongodb.enabled:
                         tasks = mongo_find(
                             "analysis",
@@ -2423,7 +2423,7 @@ class Database(object, metaclass=Singleton):
                                 if sample:
                                     break
 
-                if sample is None:
+                if not sample:
                     # search in temp folder if not found in binaries
                     db_sample = session.query(Task).filter(query_filter == sample_hash).filter(Sample.id == Task.sample_id).all()
                     if db_sample is not None:
@@ -2436,7 +2436,7 @@ class Database(object, metaclass=Singleton):
                                     sample = [path]
                                     break
 
-                if sample is None:
+                if not sample:
                     # search in Suricata files folder
                     if repconf.mongodb.enabled:
                         tasks = mongo_find(
