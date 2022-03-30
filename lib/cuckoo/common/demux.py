@@ -41,7 +41,7 @@ cuckoo_conf = Config()
 tmp_path = cuckoo_conf.cuckoo.get("tmppath", "/tmp").encode()
 
 demux_extensions_list = [
-    "",
+    b"",
     b".accdr",
     b".exe",
     b".dll",
