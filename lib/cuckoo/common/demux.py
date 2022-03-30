@@ -42,65 +42,66 @@ tmp_path = cuckoo_conf.cuckoo.get("tmppath", "/tmp").encode()
 
 demux_extensions_list = [
     "",
-    ".exe",
-    ".dll",
-    ".com",
-    ".jar",
-    ".pdf",
-    ".msi",
-    ".bin",
-    ".scr",
-    ".zip",
-    ".tar",
-    ".gz",
-    ".tgz",
-    ".rar",
-    ".htm",
-    ".html",
-    ".hta",
-    ".doc",
-    ".dot",
-    ".docx",
-    ".dotx",
-    ".docm",
-    ".dotm",
-    ".docb",
-    ".mht",
-    ".mso",
-    ".js",
-    ".jse",
-    ".vbs",
-    ".vbe",
-    ".xls",
-    ".xlt",
-    ".xlm",
-    ".xlsx",
-    ".xltx",
-    ".xlsm",
-    ".xltm",
-    ".xlsb",
-    ".xla",
-    ".xlam",
-    ".xll",
-    ".xlw",
-    ".ppt",
-    ".pot",
-    ".pps",
-    ".pptx",
-    ".pptm",
-    ".potx",
-    ".potm",
-    ".ppam",
-    ".ppsx",
-    ".ppsm",
-    ".sldx",
-    ".sldm",
-    ".wsf",
-    ".bat",
-    ".ps1",
-    ".sh",
-    ".pl",
-    ".lnk",
+    b".accdr",
+    b".exe",
+    b".dll",
+    b".com",
+    b".jar",
+    b".pdf",
+    b".msi",
+    b".bin",
+    b".scr",
+    b".zip",
+    b".tar",
+    b".gz",
+    b".tgz",
+    b".rar",
+    b".htm",
+    b".html",
+    b".hta",
+    b".doc",
+    b".dot",
+    b".docx",
+    b".dotx",
+    b".docm",
+    b".dotm",
+    b".docb",
+    b".mht",
+    b".mso",
+    b".js",
+    b".jse",
+    b".vbs",
+    b".vbe",
+    b".xls",
+    b".xlt",
+    b".xlm",
+    b".xlsx",
+    b".xltx",
+    b".xlsm",
+    b".xltm",
+    b".xlsb",
+    b".xla",
+    b".xlam",
+    b".xll",
+    b".xlw",
+    b".ppt",
+    b".pot",
+    b".pps",
+    b".pptx",
+    b".pptm",
+    b".potx",
+    b".potm",
+    b".ppam",
+    b".ppsx",
+    b".ppsm",
+    b".sldx",
+    b".sldm",
+    b".wsf",
+    b".bat",
+    b".ps1",
+    b".sh",
+    b".pl",
+    b".lnk",
 ]
 
 whitelist_extensions = ("doc", "xls", "ppt", "pub", "jar")
@@ -116,6 +117,7 @@ OFFICE_TYPES = ["Composite Document File",
                 "Word 2007+",
                 "Microsoft OOXML",
                 ]
+MS_IGNORE = ["Outlook", "Message", "Disk Image"]
 
 
 def options2passwd(options):
@@ -173,10 +175,10 @@ def get_filenames(retlist, tmp_dir, children):
             if (
                 "file" in at["type"]
                 or child.package in whitelist_extensions
-                or ("Microsoft" in magic and not ("Outlook" in magic or "Message" in magic))
+                or ("Microsoft" in magic and not any(x in magic for x in MS_IGNORE))
             ):
-                base, ext = os.path.splitext(at["filename"])
-                ext = ext.lower().decode("utf8")
+                _, ext = os.path.splitext(at["filename"])
+                ext = ext.lower()
                 if ext in demux_extensions_list or is_valid_type(magic):
                     retlist.append(os.path.join(tmp_dir, at["filename"]))
             elif "container" in at["type"] and child.package not in whitelist_extensions:
@@ -238,18 +240,17 @@ def demux_sample(filename, package, options, use_sflock=True):
 
     # if file is an Office doc and password is supplied, try to decrypt the doc
     if "Microsoft" in magic:
-        ignore = ["Outlook", "Message", "Disk Image"]
-        if any(x in magic for x in ignore):
+        if any(x in magic for x in MS_IGNORE):
             pass
         elif any(x in magic for x in OFFICE_TYPES):
             password = False
             tmp_pass = options2passwd(options)
             if tmp_pass:
                 password = tmp_pass
-            if password:
+            if HAS_SFLOCK and use_sflock:
                 return demux_office(filename, password)
             else:
-                return [filename]
+                log.error("Detected password protected office file, but no sflock is installed: pip3 install -U sflock2")
 
     # don't try to extract from Java archives or executables
     if "Java Jar" in magic or "Java archive data" in magic:
@@ -261,9 +262,6 @@ def demux_sample(filename, package, options, use_sflock=True):
 
     retlist = []
     if HAS_SFLOCK:
-        # all in one unarchiver
-        retlist = demux_sflock(filename, options)
-
         if use_sflock:
             # all in one unarchiver
             retlist = demux_sflock(filename, options)
