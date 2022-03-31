@@ -148,6 +148,7 @@ banlist = (
     "dynamer",
     "obfsstrm",
     "krypt",
+    "lazy",
     "linux",
     "unix",
     "ftmn",
