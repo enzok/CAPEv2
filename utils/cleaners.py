@@ -4,6 +4,7 @@
 
 from __future__ import absolute_import, print_function
 import argparse
+import atexit
 import logging
 import os
 import shutil
@@ -37,6 +38,7 @@ log = logging.getLogger(__name__)
 cuckoo = Config()
 repconf = Config("reporting")
 resolver_pool = ThreadPool(50)
+atexit.register(resolver_pool.close)
 
 # Initialize the database connection.
 db = Database()
@@ -518,29 +520,6 @@ def cape_clean_tlp():
     resolver_pool.map(lambda tid: delete_data(tid), tlp_tasks)
 
 
-def cuckoo_clean_range(args):
-    """Clean up pending tasks
-    It deletes all stored data from file system and configured databases (SQL
-    and MongoDB for listed tasks.
-    """
-    # Init logging.
-    # This need to init a console logger handler, because the standard
-    # logger (init_logging()) logs to a file which will be deleted.
-    create_structure()
-    init_console_logging()
-
-    task = args[0]
-    end_task = args[1]
-
-    if end_task < task:
-        print("No tasks deleted. Ending task greater than starting task.")
-        return
-
-    while task <= end_task:
-        delete_data(task)
-        task += 1
-
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--clean", help="Remove all tasks and samples and their associated data", action="store_true", required=False)
@@ -660,5 +639,5 @@ if __name__ == "__main__":
         sys.exit(0)
 
     if args.range_clean:
-        cuckoo_clean_range(args.range_clean)
+        cuckoo_clean_range_tasks(args.range_clean[0], args.range_clean[1])
         sys.exit(0)
