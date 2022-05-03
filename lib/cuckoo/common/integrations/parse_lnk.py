@@ -9,6 +9,13 @@ from typing import Any, Dict, Tuple
 
 from lib.cuckoo.common.structures import LnkEntry, LnkHeader
 
+try:
+    import LnkParse3
+
+    HAVE_LNK3 = True
+except ImportError:
+    HAVE_LNK3 = False
+
 log = logging.getLogger(__name__)
 
 
@@ -79,9 +86,13 @@ class LnkShortcut:
     def run(self) -> Dict[str, Any]:
         with open(self.filepath, "rb") as f:
             buf = self.buf = f.read()
-        if len(buf) < ctypes.sizeof(LnkHeader):
-            log.warning("Provided .lnk file is corrupted or incomplete")
-            return
+
+        if HAVE_LNK3:
+            return LnkParse3.lnk_file(buf).get_json(get_all=True)
+        else:
+            if len(buf) < ctypes.sizeof(LnkHeader):
+                log.warning("Provided .lnk file is corrupted or incomplete")
+                return
 
         try:
             header = LnkHeader.from_buffer_copy(buf[: ctypes.sizeof(LnkHeader)])
