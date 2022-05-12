@@ -173,7 +173,7 @@ def extract_config(filebuf):
                 if cont in (b"\x00", b"\x01"):
                     p_data[idx_list[i]] = FLAG[cont]
                 elif i in (9, 16, 25, 37):
-                    p_data[idx_list[i]] = setup_list[int(cont)]
+                    p_data[idx_list[i]] = setup_list.get(int(cont), "Unknown")
                 elif i == 0:
                     control = cont.split(b"|", 1)[0].decode("utf8")
                     p_data["Control"] = f"tcp://{control}"
