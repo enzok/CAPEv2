@@ -1528,9 +1528,7 @@ def file(request, category, task_id, dlfile):
     if category in zip_categories and not HAVE_PYZIPPER:
         return render(request, "error.html", {"error": "Missed pyzipper library"})
 
-    if category == "sample":
-        path = os.path.join(CUCKOO_ROOT, "storage", "binaries", dlfile)
-    elif category in ("static", "staticzip"):
+    if category in ("sample", "static", "staticzip"):
         path = os.path.join(CUCKOO_ROOT, "storage", "binaries", file_name)
     elif category in ("dropped", "droppedzip"):
         path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "files", file_name)
