@@ -293,7 +293,11 @@
                     <a class="btn btn-secondary btn-sm" href="{% url "on_demand" "xlsdeobf" id "static" file.sha256 %}" role="button" data-bs-toggle="tooltip" title="Run XLMMacroDeobfuscator"><span class="fas fa-cogs"></span><i class="far fa-file-excel"></i> XLMMacros</a>
                 {% endif %}
                 {% if config.vtupload and tlp != "Red" %}
-                    <a class="btn btn-secondary btn-sm" href="{% url "vtupload" tab_name id file.name file.sha256 %}"><span class="fas fa-exclamation-triangle"></span> <span class="fas fa-upload"></span> VirusTotal</a>
+                    {% if file.name %}
+                        <a class="btn btn-secondary btn-sm" href="{% url "vtupload" tab_name id file.name file.sha256 %}"><span class="fas fa-exclamation-triangle"></span> <span class="fas fa-upload"></span> VirusTotal</a>
+                    {% else %}
+                        <a class="btn btn-secondary btn-sm" href="{% url "vtupload" tab_name id file.sha256 file.sha256 %}"><span class="fas fa-exclamation-triangle"></span> <span class="fas fa-upload"></span> VirusTotal</a>
+                    {% endif %}
                 {% endif %}
                 {% if file.data %}
                     <a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#text_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="text_{{file.sha256}}"  data-bs-toggle="tooltip" title="Display text"><span class="fas fa-envelope-open-text"></span> Text</a>
