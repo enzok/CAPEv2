@@ -179,6 +179,8 @@ def get_mandiant_name(identifier):
                 name = "_".join(finparts)
             else:
                 name = finparts[0]
+            if "generic" in name.lower():
+                name = ""
         except Exception as e:
             pass
 
