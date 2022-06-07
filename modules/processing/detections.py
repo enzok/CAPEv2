@@ -30,5 +30,5 @@ class Detections(Processing):
                 for data in maldata:
                     for khash in data.keys():
                         for family in data[khash]:
-                            print(f"Adding detection: {family} for {khash}")
+                            log.debug("Adding detection: %s for %s", family, khash)
                             add_family_detection(self.results, family, "Thirdparty Yara", khash)
