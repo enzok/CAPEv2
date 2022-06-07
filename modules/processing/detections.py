@@ -31,4 +31,4 @@ class Detections(Processing):
                     for khash in data.keys():
                         for family in data[khash]:
                             print(f"Adding detection: {family} for {khash}")
-                            add_family_detection(self.results, family, "CS Yara", khash)
+                            add_family_detection(self.results, family, "Thirdparty Yara", khash)
