@@ -17,9 +17,8 @@ storage/*
 # Ignore OS generated files
 .DS_Store*
 .AppleDouble
-ehthumbs.db
+*.db
 Icon?
-Thumbs.db
 
 # Ignore development files
 docs/book/src/_build/
@@ -45,9 +44,7 @@ __pycache__/
 *.sqlite
 env/
 .env/
-*.pyc
 tests/test_objects/
 log/*
-storage/*
-web/web/secret_key.py
+tests/test_bson.bson.compressed
 .idea
