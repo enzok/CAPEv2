@@ -130,7 +130,7 @@ def install(enabled, force, rewrite, filepath):
                 continue
 
             filepath = os.path.join(CUCKOO_ROOT, folder, member.name[len(name_start) + 1 :])
-            if member.name in {".gitignore", "pyproject.toml", "poetry.lock"}:
+            if member.name.endswith(".gitignore"):
                 continue
 
             if member.isdir():
