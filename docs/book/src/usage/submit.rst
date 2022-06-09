@@ -111,6 +111,11 @@ some options (in this case a command line argument for the malware)::
 
 .. _webpy:
 
+Web Interface
+=============
+
+Detailed usage of the web interface is described in :doc:`web`.
+
 .. _apipy:
 
 API
@@ -137,7 +142,7 @@ use PostgreSQL, SQLite, MySQL, and several other SQL database systems.
 
 CAPE is designed to be easily integrated into larger solutions and to be fully
 automated. To automate analysis submission we suggest using the REST
-API interface described in :doc:`api`, but in case you want to write a 
+API interface described in :doc:`api`, but in case you want to write a
 Python submission script, you can also use the ``add_path()`` and ``add_url()`` functions.
 
 .. function:: add_path(file_path[, timeout=0[, package=None[, options=None[, priority=1[, custom=None[, machine=None[, platform=None[, memory=False[, enforce_timeout=False], clock=None[]]]]]]]]])

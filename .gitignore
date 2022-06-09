@@ -48,3 +48,5 @@ tests/test_objects/
 log/*
 tests/test_bson.bson.compressed
 .idea
+.cache/
+.local/

@@ -10,6 +10,7 @@ import socket
 import threading
 import time
 import xml.etree.ElementTree as ET
+from typing import Dict, List
 
 import dns.resolver
 import requests
@@ -860,6 +861,20 @@ class Signature:
             for sub_block in self.results["static"]["office"]["XLMMacroDeobfuscator"].get("info", []).get("yara_macro", []) or []:
                 if re.findall(name, sub_block["name"], re.I):
                     yield "macro", os.path.join(macro_path, "xlm_macro"), sub_block
+
+    def signature_matched(self, signame: str) -> bool:
+        # Check if signature has matched (useful for ordered signatures)
+        matched_signatures = [sig["name"] for sig in self.results.get("signatures", [])]
+        return signame in matched_signatures
+
+    def get_signature_data(self, signame: str) -> List[Dict[str, str]]:
+        # Retrieve data from matched signature (useful for ordered signatures)
+        if self.check_signature_match(signame):
+            signature = next((match for match in self.results.get("signatures", []) if match.get("name") == signame), None)
+
+            if signature:
+                return signature.get("data", []) + signature.get("new_data", [])
+        return []
 
     def add_statistic(self, name, field, value):
         if name not in self.results["statistics"]["signatures"]:

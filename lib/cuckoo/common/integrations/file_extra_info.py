@@ -63,7 +63,6 @@ selfextract_conf = Config("selfextract")
 
 unautoit_binary = os.path.join(CUCKOO_ROOT, selfextract_conf.UnAutoIt_extract.binary)
 
-# Replace with DIE
 if processing_conf.trid.enabled:
     trid_binary = os.path.join(CUCKOO_ROOT, processing_conf.trid.identifier)
     definitions = os.path.join(CUCKOO_ROOT, processing_conf.trid.definitions)
@@ -225,13 +224,13 @@ def generic_file_extractors(file: str, destination_folder: str, filetype: str, d
         batch_extract,
         UnAutoIt_extract,
         UPX_unpack,
-        SevenZip_unpack,
+        RarSFX_extract,
         Inno_extract,
+        SevenZip_unpack,
     ):
 
         if not getattr(selfextract_conf, funcname.__name__).get("enabled", False):
             continue
-
         try:
             funcname(file, destination_folder, filetype, data_dictionary, options, results)
         except Exception as e:
@@ -309,7 +308,7 @@ def msi_extract(file: str, destination_folder: str, filetype: str, data_dictiona
         return
 
     if not os.path.exists(selfextract_conf.msi_extract.binary):
-        logging.error("Missed dependency: sudo apt install msitools")
+        log.error("Missed dependency: sudo apt install msitools")
         return
 
     metadata = []
@@ -325,10 +324,11 @@ def msi_extract(file: str, destination_folder: str, filetype: str, data_dictiona
                     for extracted_file in list(filter(None, files.split("\n")))
                     if os.path.isfile(os.path.join(tempdir, extracted_file))
                 ]
-                metadata.extend(_extracted_files_metadata(tempdir, destination_folder, files=files))
+                if not test:
+                    metadata.extend(_extracted_files_metadata(tempdir, destination_folder, files=files))
 
         except Exception as e:
-            logging.error(e, exc_info=True)
+            log.error(e, exc_info=True)
 
     for meta in metadata:
         is_text_file(meta, destination_folder, 8192)
@@ -344,7 +344,7 @@ def Inno_extract(file: str, destination_folder: str, filetype: str, data_diction
         return
 
     if not os.path.exists(selfextract_conf.Inno_extract.binary):
-        logging.error("Missed dependency: sudo apt install innoextract")
+        log.error("Missed dependency: sudo apt install innoextract")
         return
 
     metadata = []
@@ -355,9 +355,9 @@ def Inno_extract(file: str, destination_folder: str, filetype: str, data_diction
             files = [os.path.join(root, file) for root, _, filenames in os.walk(tempdir) for file in filenames]
             metadata.extend(_extracted_files_metadata(tempdir, destination_folder, files=files))
         except subprocess.CalledProcessError:
-            logging.error("Can't unpack InnoSetup for %s", file)
+            log.error("Can't unpack InnoSetup for %s", file)
         except Exception as e:
-            logging.error(e, exc_info=True)
+            log.error(e, exc_info=True)
 
     if metadata:
         for meta in metadata:
@@ -421,9 +421,9 @@ def UnAutoIt_extract(file: str, destination_folder: str, filetype: str, data_dic
                 ]
                 metadata.extend(_extracted_files_metadata(tempdir, destination_folder, files=files))
         except subprocess.CalledProcessError:
-            logging.error("Can't unpack AutoIT for %s", file)
+            log.error("Can't unpack AutoIT for %s", file)
         except Exception as e:
-            logging.error(e, exc_info=True)
+            log.error(e, exc_info=True)
 
     if metadata:
         for meta in metadata:
@@ -456,9 +456,9 @@ def UPX_unpack(file: str, destination_folder: str, filetype: str, data_dictionar
             if output and "Unpacked 1 file." in output:
                 metadata.extend(_extracted_files_metadata(tempdir, destination_folder, files=[dest_path]))
         except subprocess.CalledProcessError:
-            logging.error("Can't unpack UPX for %s", file)
+            log.error("Can't unpack UPX for %s", file)
         except Exception as e:
-            logging.error(e, exc_info=True)
+            log.error(e, exc_info=True)
 
     if metadata:
         for meta in metadata:
@@ -468,45 +468,116 @@ def UPX_unpack(file: str, destination_folder: str, filetype: str, data_dictionar
         data_dictionary.setdefault("extracted_files_tool", "UnUPX")
 
 
+# ToDo do not ask for password + test with pass
 def SevenZip_unpack(file: str, destination_folder: str, filetype: str, data_dictionary: dict, options: dict, results: dict):
     tool = False
-    if "Nullsoft Installer self-extracting archive" in filetype:
-        tool = "UnNSIS"
-        prefix = "unnsis_"
 
-    elif any("7-zip Installer data" in string for string in data_dictionary.get("die", {})):
+    password = ""
+    # Only for real 7zip, breaks others
+    password = options.get("password", "infected")
+    if any(
+        "7-zip Installer data" in string for string in data_dictionary.get("die", {})
+    ) or "Zip archive data" in data_dictionary.get("type", ""):
         tool = "7Zip"
         prefix = "7zip_"
+        password = options.get("password", "infected")
+        password = f"-p{password}"
 
-    elif any("Microsoft Cabinet" in string for string in data_dictionary.get("die", {})):
+    elif any(
+        "Microsoft Cabinet" in string
+        for string in data_dictionary.get("die", {}) or "Microsoft Cabinet" in data_dictionary.get("type", "")
+    ):
         tool = "UnCab"
         prefix = "cab_"
-    elif (
-        all("SFX: WinRAR" not in string for string in data_dictionary.get("die", {}))
-        and all("RAR Self Extracting archive" not in string for string in data_dictionary.get("trid", {}))
-        and "RAR self-extracting archive" not in data_dictionary.get("type", "")
-    ):
-        tool = "UnRarSFX"
-        prefix = "unrar_"
+        password = ""
 
+    elif "Nullsoft Installer self-extracting archive" in filetype:
+        tool = "UnNSIS"
+        prefix = "unnsis_"
+        """
+        elif (
+            any("SFX: WinRAR" in string for string in data_dictionary.get("die", {}))
+            or any("RAR Self Extracting archive" in string for string in data_dictionary.get("trid", {}))
+            or "RAR self-extracting archive" in data_dictionary.get("type", "")
+        ):
+            tool = "UnRarSFX"
+            prefix = "unrar_"
+        """
     else:
         return
 
     metadata = []
-
     with tempfile.TemporaryDirectory(prefix=prefix) as tempdir:
         try:
+            HAVE_SFLOCK = False
             if HAVE_SFLOCK:
-                unpacked = unpack(file.encode(), password=options.get("password"))
+                unpacked = unpack(file.encode(), password=password)
                 for child in unpacked.children:
                     with open(os.path.join(tempdir, child.filename.decode()), "wb") as f:
                         f.write(child.contents)
+
+            else:
+                output = subprocess.check_output(
+                    [
+                        "7z",
+                        "e",
+                        file,
+                        password,
+                        f"-o{tempdir}",
+                    ],
+                    universal_newlines=True,
+                )
+                print(output)
+            files = [
+                os.path.join(tempdir, extracted_file)
+                for extracted_file in tempdir
+                if os.path.isfile(os.path.join(tempdir, extracted_file))
+            ]
+            metadata.extend(_extracted_files_metadata(tempdir, destination_folder, files=files))
+        except subprocess.CalledProcessError:
+            logging.error("Can't unpack with 7Zip for %s", file)
+        except Exception as e:
+            log.error(e, exc_info=True)
+
+    if metadata:
+        for meta in metadata:
+            is_text_file(meta, destination_folder, 8192)
+
+        data_dictionary.setdefault("extracted_files", metadata)
+        data_dictionary.setdefault("extracted_files_tool", tool)
+
+
+# ToDo move to sflock
+def RarSFX_extract(file, destination_folder, filetype, data_dictionary, options: dict, results: dict):
+    if (
+        all("SFX: WinRAR" not in string for string in data_dictionary.get("die", {}))
+        and all("RAR Self Extracting archive" not in string for string in data_dictionary.get("trid", {}))
+        and "RAR self-extracting archive" not in data_dictionary.get("type", "")
+    ):
+        return
+
+    if not os.path.exists("/usr/bin/unrar"):
+        log.warning(f"Missed UnRar binary: /usr/bin/unrar. sudo apt install unrar")
+        return
+
+    metadata = []
+
+    with tempfile.TemporaryDirectory(prefix="unrar_") as tempdir:
+        try:
+            password = options.get("password", "infected")
+            output = subprocess.check_output(
+                ["/usr/bin/unrar", "e", "-kb", f"-p{password}", file, tempdir], universal_newlines=True
+            )
+            if output:
                 files = [
                     os.path.join(tempdir, extracted_file)
                     for extracted_file in tempdir
                     if os.path.isfile(os.path.join(tempdir, extracted_file))
                 ]
                 metadata.extend(_extracted_files_metadata(tempdir, destination_folder, files=files))
+
+        except subprocess.CalledProcessError:
+            logging.error("Can't unpack SFX for %s", file)
         except Exception as e:
             logging.error(e, exc_info=True)
 
@@ -515,4 +586,4 @@ def SevenZip_unpack(file: str, destination_folder: str, filetype: str, data_dict
             is_text_file(meta, destination_folder, 8192)
 
         data_dictionary.setdefault("extracted_files", metadata)
-        data_dictionary.setdefault("extracted_files_tool", tool)
+        data_dictionary.setdefault("extracted_files_tool", "UnRarSFX")
