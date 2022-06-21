@@ -832,8 +832,6 @@ class Database(object, metaclass=Singleton):
                     log.debug("Task id %d - needs VM: %s. %s - %s", row.id, need_VM, row.machine, machine.label)
                     return None
             else:
-                if need_VM:
-                    log.debug("No task for machine with arch: %s", machine.arch)
                 return None
 
             self.set_status(task_id=row.id, status=TASK_RUNNING)
@@ -2050,6 +2048,8 @@ class Database(object, metaclass=Singleton):
             if added_before:
                 search = search.filter(Task.added_on < added_before)
             if options_like:
+                # Replace '*' wildcards with wildcard for sql
+                options_like = options_like.replace("*", "%")
                 search = search.filter(Task.options.like(f"%{options_like}%"))
             if tags_tasks_like:
                 search = search.filter(Task.tags_tasks.like(f"%{tags_tasks_like}%"))

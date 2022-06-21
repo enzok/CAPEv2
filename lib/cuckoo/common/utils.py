@@ -23,7 +23,7 @@ import xmlrpc.client
 import zipfile
 from datetime import datetime
 from io import BytesIO
-from typing import Tuple
+from typing import Tuple, Union
 
 from data.family_detection_names import family_detection_names
 from lib.cuckoo.common import utils_dicts
@@ -102,6 +102,10 @@ texttypes = [
 # this doesn't work for bytes
 # textchars = bytearray({7, 8, 9, 10, 12, 13, 27} | set(range(0x20, 0x100)) - {0x7F})
 # is_binary_file = lambda bytes: bool(bytes.translate(None, textchars))
+
+
+def make_bytes(value: Union[str, bytes], encoding: str = "latin-1") -> bytes:
+    return value.encode(encoding) if isinstance(value, str) else value
 
 
 def is_text_file(file_info, destination_folder, buf, file_data=False):
@@ -881,3 +885,8 @@ def get_options(optstring: str):
 def get_ip_address(ifname):
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     return socket.inet_ntoa(fcntl.ioctl(s.fileno(), 0x8915, struct.pack("256s", ifname[:15].encode()))[20:24])  # SIOCGIFADDR
+
+
+def validate_ttp(ttp: str) -> bool:
+    regex = r"^(O?[BCTFSU]\d{4}(\.\d{3})?)|(E\d{4}(\.m\d{2})?)$"
+    return bool(re.fullmatch(regex, ttp, flags=re.IGNORECASE))

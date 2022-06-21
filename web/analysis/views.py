@@ -34,9 +34,7 @@ from lib.cuckoo.common.web_utils import (
     category_all_files,
     my_rate_minutes,
     my_rate_seconds,
-    perform_malscore_search,
     perform_search,
-    perform_ttps_search,
     rateblock,
     statistics,
     perform_archive_search
@@ -633,6 +631,7 @@ def load_files(request, task_id, category):
         if category == "debugger":
             ajax_response["debugger_logs"] = debugger_logs
         elif category == "network":
+            ajax_response["domainlookups"] = {(i["domain"], i["ip"]) for i in ajax_response.get("network", {}).get("domains", {})}
             ajax_response["suricata"] = data.get("suricata", {})
             ajax_response["cif"] = data.get("cif", [])
             tls_path = os.path.join(ANALYSIS_BASE_PATH, "analyses", str(task_id), "tlsdump", "tlsdump.log")
@@ -1531,6 +1530,9 @@ def file(request, category, task_id, dlfile):
         path = os.path.join(CUCKOO_ROOT, "storage", "binaries", file_name)
     elif category in ("dropped", "droppedzip"):
         path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "files", file_name)
+        # Self Extracted support folder
+        if not os.path.exists(path):
+            path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "selfextracted", file_name)
     elif category in ("droppedzipall", "procdumpzipall", "CAPEzipall"):
         if web_cfg.zipped_download.download_all:
             sub_cat = category.replace("zipall", "")
@@ -1587,20 +1589,24 @@ def file(request, category, task_id, dlfile):
     # Just for suricata dropped files currently
     elif category == "zip":
         file_name = "files.zip"
-        path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "logs", "files.zip")
+        path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "logs", "files.zip")
         cd = "application/zip"
     elif category == "suricata":
-        path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "logs", "files", file_name)
+        path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "logs", "files", file_name)
     elif category == "rtf":
-        path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "rtf_objects", file_name)
+        path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "rtf_objects", file_name)
     elif category == "tlskeys":
-        path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "tlsdump", "tlsdump.log")
+        path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "tlsdump", "tlsdump.log")
     elif category == "evtx":
-        path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "evtx", "evtx.zip")
+        path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "evtx", "evtx.zip")
         file_name = f"{task_id}_evtx.zip"
         cd = "application/zip"
     else:
         return render(request, "error.html", {"error": "Category not defined"})
+
+    send_filename = f"{task_id + '_' if task_id not in os.path.basename(path) else ''}{os.path.basename(path)}"
+    if category in zip_categories:
+        send_filename += ".zip"
 
     if not path:
         return render(
@@ -1635,7 +1641,7 @@ def file(request, category, task_id, dlfile):
         else:
             resp = StreamingHttpResponse(FileWrapper(open(path, "rb"), 8091), content_type=cd)
             resp["Content-Length"] = os.path.getsize(path)
-        resp["Content-Disposition"] = "attachment; filename={0}".format(os.path.basename(path))
+        resp["Content-Disposition"] = f"attachment; filename={send_filename}"
         return resp
     except Exception as e:
         print(e)
@@ -1828,8 +1834,8 @@ def search(request, searched=""):
         else:
             value = searched.strip()
 
-        # Check on search size. But malscore can be a single digit number.
-        if term != "malscore" and len(value) < 3:
+        # Check on search size. But malscore, ID and package can be strings of less than 3 characters.
+        if term not in {"malscore", "id", "ids", "package"} and len(value) < 3:
             return render(
                 request,
                 "analysis/search.html",
@@ -1863,13 +1869,12 @@ def search(request, searched=""):
                     {"analyses": None, "term": searched, "error": "Not all values are integers"},
                 )
 
+        # Escape forward slash characters
+        if isinstance(value, str):
+            value = value.replace("\\", "\\\\")
+
         try:
-            if term == "malscore":
-                records = perform_malscore_search(value)
-            elif term == "ttp":
-                records = perform_ttps_search(value)
-            else:
-                records = perform_search(term, value, user_id=request.user.id, privs=request.user.is_staff)
+            records = perform_search(term, value, user_id=request.user.id, privs=request.user.is_staff, web=True)
         except ValueError:
             if term:
                 return render(
@@ -2173,18 +2178,14 @@ def on_demand(request, service: str, task_id: int, category: str, sha256):
     # 4. reload page
     """
 
-    if (
-        service
-        not in (
-            "bingraph",
-            "flare_capa",
-            "vba2graph",
-            "virustotal",
-            "xlsdeobf",
-            "strings",
-        )
-        and not on_demand_config_mapper.get(service, {}).get(service, {}).get("on_demand")
-    ):
+    if service not in (
+        "bingraph",
+        "flare_capa",
+        "vba2graph",
+        "virustotal",
+        "xlsdeobf",
+        "strings",
+    ) and not on_demand_config_mapper.get(service, {}).get(service, {}).get("on_demand"):
         return render(request, "error.html", {"error": "Not supported/enabled service on demand"})
 
     if category == "static":

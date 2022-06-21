@@ -12,7 +12,10 @@ import time
 import xml.etree.ElementTree as ET
 from typing import Dict, List
 
-import dns.resolver
+try:
+    import dns.resolver
+except ImportError:
+    print("Missed dependency -> pip3 install dnspython")
 import requests
 
 from lib.cuckoo.common.config import Config
@@ -689,6 +692,7 @@ class Processing:
         # self.memory_path = os.path.join(self.analysis_path, "memory.dmp")
         self.network_path = os.path.join(self.analysis_path, "network")
         self.tlsmaster_path = os.path.join(self.analysis_path, "tlsmaster.txt")
+        self.self_extracted = os.path.join(self.analysis_path, "selfextracted")
 
     def add_statistic_tmp(self, name, field, pretime):
         posttime = datetime.datetime.now()
@@ -727,6 +731,8 @@ class Signature:
     enabled = True
     minimum = None
     maximum = None
+    ttps = []
+    mbcs = []
 
     # Higher order will be processed later (only for non-evented signatures)
     # this can be used for having meta-signatures that check on other lower-
@@ -780,6 +786,7 @@ class Signature:
         self.pmemory_path = os.path.join(self.analysis_path, "memory")
         # self.memory_path = os.path.join(self.analysis_path, "memory.dmp")
         self.memory_path = get_memdump_path(analysis_path.rsplit("/", 1)[-1])
+        self.self_extracted = os.path.join(self.analysis_path, "selfextracted")
 
         try:
             create_folder(folder=self.reports_path)
@@ -802,7 +809,7 @@ class Signature:
                     for yara_block in block[keyword]:
                         if re.findall(name, yara_block["name"], re.I):
                             # we can't use here values from set_path
-                            yield "sample", os.path.join(analysis_folder, "files", block["sha256"]), block
+                            yield "sample", os.path.join(analysis_folder, "selfextracted", block["sha256"]), block
 
         for block in self.results.get("CAPE", {}).get("payloads", []) or []:
             for sub_keyword in ("cape_yara", "yara"):
@@ -814,7 +821,7 @@ class Signature:
                 for keyword in ("cape_yara", "yara"):
                     for yara_block in subblock[keyword]:
                         if re.findall(name, yara_block["name"], re.I):
-                            yield "sample", os.path.join(analysis_folder, "files", block["sha256"]), block
+                            yield "sample", os.path.join(analysis_folder, "selfextracted", block["sha256"]), block
 
         for keyword in ("procdump", "procmemory", "extracted", "dropped"):
             if self.results.get(keyword) is not None:
@@ -837,7 +844,7 @@ class Signature:
                         for keyword in ("cape_yara", "yara"):
                             for yara_block in subblock[keyword]:
                                 if re.findall(name, yara_block["name"], re.I):
-                                    yield "sample", os.path.join(analysis_folder, "files", subblock["sha256"]), block
+                                    yield "sample", os.path.join(analysis_folder, "selfextracted", subblock["sha256"]), block
 
         for macroname in self.results.get("static", {}).get("office", {}).get("Macro", {}).get("info", []) or []:
             for yara_block in self.results["static"]["office"]["Macro"]["info"].get("macroname", []) or []:
@@ -1603,6 +1610,7 @@ class Report:
         # self.memory_path = os.path.join(self.analysis_path, "memory.dmp")
         self.memory_path = get_memdump_path(analysis_path.rsplit("/", 1)[-1])
         self.files_metadata = os.path.join(self.analysis_path, "files.json")
+        self.self_extracted = os.path.join(self.analysis_path, "selfextracted")
 
         try:
             create_folder(folder=self.reports_path)

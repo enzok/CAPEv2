@@ -48,9 +48,7 @@ from lib.cuckoo.common.web_utils import (
     force_int,
     get_file_content,
     parse_request_arguments,
-    perform_malscore_search,
     perform_search,
-    perform_ttps_search,
     search_term_map,
     statistics,
     validate_task,
@@ -193,7 +191,12 @@ def tasks_create_static(request):
         tmp_path = store_temp_file(sample.read(), sanitize_filename(sample.name))
         try:
             task_id, extra_details = db.demux_sample_and_add_to_db(
-                tmp_path, options=options, priority=priority, static=1, only_extraction=True, user_id=request.user.id or 0
+                tmp_path,
+                options=options,
+                priority=priority,
+                static=1,
+                only_extraction=True,
+                user_id=request.user.id or 0,
             )
             task_ids.extend(task_id)
         except CuckooDemuxError as e:
@@ -285,7 +288,7 @@ def tasks_create_file(request):
             else:
                 resp = {
                     "error": True,
-                    "error_value": ("Machine '{0}' does not exist. Available: {1}".format(machine, ", ".join(vm_list))),
+                    "error_value": "Machine '{0}' does not exist. Available: {1}".format(machine, ", ".join(vm_list)),
                 }
                 return Response(resp)
         # Parse a max file size to be uploaded
@@ -454,7 +457,7 @@ def tasks_create_url(request):
             else:
                 resp = {
                     "error": True,
-                    "error_value": ("Machine '{0}' does not exist. Available: {1}".format(machine, ", ".join(vm_list))),
+                    "error_value": "Machine '{0}' does not exist. Available: {1}".format(machine, ", ".join(vm_list)),
                 }
                 return Response(resp)
 
@@ -544,7 +547,7 @@ def tasks_create_dlnexec(request):
             else:
                 resp = {
                     "error": True,
-                    "error_value": ("Machine '{0}' does not exist. Available: {1}".format(machine, ", ".join(vm_list))),
+                    "error_value": "Machine '{0}' does not exist. Available: {1}".format(machine, ", ".join(vm_list)),
                 }
                 return Response(resp)
 
@@ -739,12 +742,7 @@ def ext_tasks_search(request):
             del tmp_value
 
         try:
-            if term == "malscore":
-                records = perform_malscore_search(value)
-            elif term == "ttp":
-                records = perform_ttps_search(value)
-            else:
-                records = perform_search(term, value, user_id=request.user.id, privs=request.user.is_staff)
+            records = perform_search(term, value, user_id=request.user.id, privs=request.user.is_staff, web=False)
         except ValueError:
             if not term:
                 resp = {"error": True, "error_value": "No option provided."}
@@ -988,7 +986,10 @@ def tasks_reschedule(request, task_id):
         resp["error"] = False
         resp["data"] = "Task ID {0} has been rescheduled".format(task_id)
     else:
-        resp = {"error": True, "error_value": ("An error occurred while trying to reschedule Task ID {0}".format(task_id))}
+        resp = {
+            "error": True,
+            "error_value": "An error occurred while trying to reschedule Task ID {0}".format(task_id),
+        }
 
     return Response(resp)
 
@@ -1049,7 +1050,7 @@ def tasks_delete(request, task_id, status=False):
     if isinstance(task_id, int):
         task_id = [task_id]
     else:
-        task_id = [task.strip() for task in task_id.split(",")]
+        task_id = [force_int(task.strip()) for task in task_id.split(",")]
 
     resp = {}
     s_deleted = []
@@ -1057,16 +1058,16 @@ def tasks_delete(request, task_id, status=False):
     for task in task_id:
         check = validate_task(task, status)
         if check["error"]:
-            f_deleted.append(task)
+            f_deleted.append(str(task))
             continue
 
         if db.delete_task(task):
             delete_folder(os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task))
             mongo_delete_data(task)
 
-            s_deleted.append(task)
+            s_deleted.append(str(task))
         else:
-            f_deleted.append(task)
+            f_deleted.append(str(task))
 
     if s_deleted:
         resp["data"] = "Task(s) ID(s) {0} has been deleted".format(",".join(s_deleted))
@@ -1101,7 +1102,7 @@ def tasks_status(request, task_id):
 def tasks_report(request, task_id, report_format="json", make_zip=False):
 
     if not apiconf.taskreport.get("enabled"):
-        resp = {"error": True, "error_value": "Task Deletion API is Disabled"}
+        resp = {"error": True, "error_value": "Task Report API is Disabled"}
         return Response(resp)
 
     check = validate_task(task_id)
@@ -1113,7 +1114,7 @@ def tasks_report(request, task_id, report_format="json", make_zip=False):
     resp = {}
     srcdir = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, "reports")
     if not os.path.normpath(srcdir).startswith(ANALYSIS_BASE_PATH):
-        return render(request, "error.html", {"error": "File not found".format(os.path.basename(srcdir))})
+        return render(request, "error.html", {"error": f"File not found {os.path.basename(srcdir)}"})
 
     # Report validity check
     if os.path.exists(srcdir) and len(os.listdir(srcdir)) == 0:
@@ -1131,16 +1132,22 @@ def tasks_report(request, task_id, report_format="json", make_zip=False):
     }
 
     report_formats = {
+        # Use the 'all' option if you want all generated files except for memory.dmp
         "all": {"type": "-", "files": ["memory.dmp"]},
+        # Use the 'dropped' option if you want all dropped files found in the /files directory
         "dropped": {"type": "+", "files": ["files"]},
+        # Use the 'dist' option if you want all generated files except for binary, dump_sorted.pcap, memory.dmp, and
+        # those found in the /logs directory
         "dist": {"type": "-", "files": ["binary", "dump_sorted.pcap", "memory.dmp", "logs"]},
+        #  Use the 'lite' option if you want the generated files files.json, dump.pcap, and those found
+        # in the /CAPE, /files, /procdump, /macros and /shots directories
         "lite": {"type": "+", "files": ["files.json", "CAPE", "files", "procdump", "macros", "shots", "dump.pcap"]},
     }
 
     if report_format.lower() in formats:
         report_path = os.path.join(srcdir, formats[report_format.lower()])
         if not os.path.normpath(report_path).startswith(ANALYSIS_BASE_PATH):
-            return render(request, "error.html", {"error": "File not found".format(os.path.basename(report_path))})
+            return render(request, "error.html", {"error": f"File not found {os.path.basename(report_path)}"})
         if os.path.exists(report_path):
             if report_format in ("litereport", "json", "maec5"):
                 content = "application/json; charset=UTF-8"
@@ -1159,7 +1166,7 @@ def tasks_report(request, task_id, report_format="json", make_zip=False):
             if make_zip:
                 mem_zip = create_zip(files=report_path)
                 if mem_zip is False:
-                    esp = {"error": True, "error_value": "Can't create zip archive for report file"}
+                    resp = {"error": True, "error_value": "Can't create zip archive for report file"}
                     return Response(resp)
 
                 resp = StreamingHttpResponse(mem_zip, content_type="application/zip")
@@ -1178,30 +1185,16 @@ def tasks_report(request, task_id, report_format="json", make_zip=False):
             resp = {"error": True, "error_value": "Reports directory does not exist"}
             return Response(resp)
 
-    elif report_format.lower() == "all":
-        if not apiconf.taskreport.get("all"):
-            resp = {"error": True, "error_value": "Downloading all reports in one call is disabled"}
-            return Response(resp)
-
-        mem_zip = create_zip(folder=srcdir)
-        if mem_zip is False:
-            resp = {"error": True, "error_value": "Can't create zip archive for report file"}
-            return Response(resp)
-
-        resp = StreamingHttpResponse(mem_zip, content_type="application/zip")
-        resp["Content-Length"] = len(mem_zip.getvalue())
-        resp["Content-Disposition"] = f"attachment; filename={task_id}_reports.zip"
-        return resp
-
     elif report_format.lower() in report_formats:
+        if report_format.lower() == "all":
+            if not apiconf.taskreport.get("all"):
+                resp = {"error": True, "error_value": "Downloading all reports in one call is disabled"}
+                return Response(resp)
+
         report_files = report_formats[report_format.lower()]
         srcdir = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id))
-        if not os.path.normpath(srcdir).startswith(ANALYSIS_BASE_PATH):
-            return render(request, "error.html", {"error": "File not found".format(os.path.basename(srcdir))})
-
-        if not os.path.exists(srcdir):
-            resp = {"error": True, "error_value": "Report doesn't exists"}
-            return Response(resp)
+        if not os.path.normpath(srcdir).startswith(ANALYSIS_BASE_PATH) and os.path.exists(srcdir):
+            return render(request, "error.html", {"error": f"File not found {os.path.basename(srcdir)}"})
 
         mem_zip = BytesIO()
         with zipfile.ZipFile(mem_zip, "a", zipfile.ZIP_DEFLATED, False) as zf:
@@ -1223,22 +1216,22 @@ def tasks_report(request, task_id, report_format="json", make_zip=False):
                 except Exception as e:
                     log.error(e, exc_info=True)
 
-            # # exception for lite report that is under reports/lite.json
+            # exception for lite report that is under reports/lite.json
             if report_format.lower() == "lite":
                 lite_report_path = os.path.join(srcdir, "reports", "lite.json")
                 if os.path.exists(lite_report_path):
                     zf.write(lite_report_path, "reports/lite.json")
+                else:
+                    log.warning("Lite report does not exist. Did you enable 'litereport' in reporting.conf?")
+
         mem_zip.seek(0)
         resp = StreamingHttpResponse(mem_zip, content_type="application/zip")
         resp["Content-Length"] = len(mem_zip.getvalue())
         resp["Content-Disposition"] = f"attachment; filename={report_format.lower()}.zip"
 
         print(
-            "Time needed to generate report for task",
-            task_id,
-            datetime.now() - time_start,
-            "size is:",
-            f'int({int(resp["Content-Length"])/int(1<<20):,.0f} MB',
+            f"Time needed to generate report for task {task_id}: {datetime.now() - time_start}; "
+            f"Size is: {int(resp['Content-Length'])/int(1<<20):,.0f} MB"
         )
         return resp
 
@@ -1509,9 +1502,10 @@ def tasks_screenshot(request, task_id, screenshot="all"):
     else:
         shot = srcdir + "/" + screenshot.zfill(4) + ".jpg"
         if os.path.exists(shot):
+            fname = f"{task_id}_{os.path.basename(shot)}"
             resp = StreamingHttpResponse(FileWrapper(open(shot, "rb"), 8096), content_type="image/jpeg")
             resp["Content-Length"] = os.path.getsize(shot)
-            resp["Content-Disposition"] = "attachment; filename=" + os.path.basename(shot)
+            resp["Content-Disposition"] = f"attachment; filename={fname}"
             return resp
 
         else:
@@ -1578,7 +1572,10 @@ def tasks_dropped(request, task_id):
         size = len(mem_zip.getvalue())
         size_in_mb = int(size / 1024 / 1024)
         if dropped_max_size_limit and size_in_mb > int(dropped_max_size_limit):
-            resp = {"error": True, "error_value": "Archive is bigger than max size. Current size is {}".format(size_in_mb)}
+            resp = {
+                "error": True,
+                "error_value": "Archive is bigger than max size. Current size is {}".format(size_in_mb),
+            }
             return Response(resp)
 
         resp = StreamingHttpResponse(mem_zip, content_type="application/zip")
@@ -1632,7 +1629,9 @@ def tasks_rollingsuri(request, window=60):
     dummy_id = ObjectId.from_datetime(gen_time)
     result = list(
         mongo_find(
-            "analysis", {"suricata.alerts": {"$exists": True}, "_id": {"$gte": dummy_id}}, {"suricata.alerts": 1, "info.id": 1}
+            "analysis",
+            {"suricata.alerts": {"$exists": True}, "_id": {"$gte": dummy_id}},
+            {"suricata.alerts": 1, "info.id": 1},
         )
     )
     resp = []
@@ -1779,9 +1778,10 @@ def tasks_fullmemory(request, task_id):
     if filename:
         content_type = "application/octet-stream"
         chunk_size = 8192
+        fname = f"{task_id}_{filename}"
         response = StreamingHttpResponse(FileWrapper(open(file_path, "rb"), chunk_size), content_type=content_type)
         response["Content-Length"] = os.path.getsize(file_path)
-        response["Content-Disposition"] = "attachment; filename=%s" % filename
+        response["Content-Disposition"] = f"attachment; filename={fname}"
         return response
     else:
         resp = {"error": True, "error_value": "Memory dump not found for task " + task_id}
@@ -1922,7 +1922,12 @@ def cuckoo_status(request):
 
             # add more from https://pypi.org/project/psutil/
             resp["data"]["server"] = {
-                "storage": {"free": hdd_free, "total": hdd_total, "used": hdd_used, "used_by": "{}%".format(hdd_percent_used)},
+                "storage": {
+                    "free": hdd_free,
+                    "total": hdd_total,
+                    "used": hdd_used,
+                    "used_by": "{}%".format(hdd_percent_used),
+                },
                 "ram": {"free": ram_free, "total": ram_total, "used": ram_used},
             }
     return Response(resp)
@@ -2161,7 +2166,10 @@ def common_download_func(service, request):
         if not (settings.VTDL_KEY or opt_apikey) or not settings.VTDL_PATH:
             resp = {
                 "error": True,
-                "error_value": "You specified VirusTotal but must edit the file and specify your VTDL_KEY variable and VTDL_PATH base directory",
+                "error_value": (
+                    "You specified VirusTotal but must edit the file and specify your VTDL_KEY variable and VTDL_PATH"
+                    " base directory"
+                ),
             }
             return Response(resp)
 
@@ -2181,7 +2189,7 @@ def common_download_func(service, request):
         else:
             resp = {
                 "error": True,
-                "error_value": ("Machine '{0}' does not exist. Available: {1}".format(machine, ", ".join(vm_list))),
+                "error_value": "Machine '{0}' does not exist. Available: {1}".format(machine, ", ".join(vm_list)),
             }
             return Response(resp)
 

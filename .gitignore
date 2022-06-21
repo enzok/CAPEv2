@@ -1,52 +1,21 @@
-# Ignore Cuckoo Database
-db/cuckoo.db
-
-# Ignore Cuckoo logs
-log/*.log*
-
-# Ignore Cuckoo analyses
-storage/*
-
-# Ignore Python byte code
-*.pyc
-
-# Ignore certificates
-*.pem
-*.cert
-
-# Ignore OS generated files
-.DS_Store*
-.AppleDouble
-*.db
-Icon?
-
-# Ignore development files
-docs/book/src/_build/
-.idea/
-
-# Ignore Django secret_key
-web/web/secret_key.py
-
-cuckoo.v11.suo
-cuckoo.v12.suo
-
-# Ignore yara rules
-data/yara/index_*.yar
-UpgradeLog.htm
-
-# Ignore virtualenvs
-venv/
-.venv/
-virtualenv/
-.virtualenv/
-
-__pycache__/
-*.sqlite
-env/
-.env/
-tests/test_objects/
-log/*
-tests/test_bson.bson.compressed
 .idea
+*.DS_Store
+*.log
+*.db
+*.sqlite
+*.pyc
+*.yarc
+__pycache__/
 .cache/
 .local/
+.env/
+
+env/
+venv/
+tests/test_objects/
+log/
+storage/
+
+web/web/secret_key.py
+tests/test_bson.bson.compressed
+*~

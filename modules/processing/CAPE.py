@@ -25,7 +25,7 @@ from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.integrations.file_extra_info import static_file_info
 from lib.cuckoo.common.objects import File
-from lib.cuckoo.common.utils import add_family_detection, get_clamav_consensus
+from lib.cuckoo.common.utils import add_family_detection, get_clamav_consensus, make_bytes
 
 try:
     import pydeep
@@ -130,7 +130,7 @@ class CAPE(Processing):
             str(self.task["id"]),
             self.task.get("package", ""),
             self.task.get("options", ""),
-            self.dropped_path,
+            self.self_extracted,
             self.results,
         )
 
@@ -248,8 +248,18 @@ class CAPE(Processing):
 
         # Process CAPE Yara hits
 
+        # Prefilter extracted data + beauty is better than oneliner:
+        all_files = []
+        for extracted_file in file_info.get("extracted_files", []):
+            for yara in extracted_file["cape_yara"]:
+                if extracted_file.get("data", ""):
+                    all_files.append((make_bytes(extracted_file["data"]), yara))
+
+        for yara in file_info["cape_yara"]:
+            all_files.append((file_data, yara))
+
         executed_config_parsers = set()
-        for hit in file_info["cape_yara"]:
+        for tmp_data, hit in all_files:
 
             # Check for a payload or config hit
             try:
@@ -265,7 +275,7 @@ class CAPE(Processing):
                     file_info["cape_type"] += "DLL" if type_strings[2] == ("(DLL)") else "executable"
 
             if cape_name and cape_name not in executed_config_parsers:
-                tmp_config = static_config_parsers(cape_name, file_data)
+                tmp_config = static_config_parsers(cape_name, tmp_data)
                 config.update(tmp_config)
                 executed_config_parsers.add(cape_name)
 
