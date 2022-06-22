@@ -456,14 +456,21 @@ class Analyzer:
             # if module.__name__ == "Screenshots" and disable_screens:
             #    continue
             try:
-                log.debug('Initializing auxiliary module "%s"...', module.__name__)
                 aux = module(self.options, self.config)
-                # log.debug('Initialized auxiliary module "%s"', module.__name__)
+                log.debug('Initialized auxiliary module "%s"', module.__name__)
                 aux_avail.append(aux)
-                # log.debug('Trying to start auxiliary module "%s"...', module.__name__)
-                aux.start()
-            except (NotImplementedError, AttributeError):
-                log.warning("Auxiliary module %s was not implemented", module.__name__)
+
+                # If the auxiliary module is not enabled, we shouldn't start it
+                if hasattr(aux, "enabled") and not getattr(aux, "enabled", False):
+                    log.debug('Auxiliary module "%s" is disabled.', module.__name__)
+                    # We continue so that the module is not added to AUX_ENABLED
+                    continue
+                else:
+                    log.debug('Trying to start auxiliary module "%s"...', module.__name__)
+                    aux.start()
+                    log.debug('Started auxiliary module "%s"', module.__name__)
+            except (NotImplementedError, AttributeError) as e:
+                log.warning("Auxiliary module %s was not implemented: %s", module.__name__, e)
             except Exception as e:
                 log.warning("Cannot execute auxiliary module %s: %s", module.__name__, e)
             else:
