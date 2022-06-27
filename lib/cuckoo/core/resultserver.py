@@ -46,11 +46,9 @@ BANNED_PATH_CHARS = b"\x00:"
 RESULT_UPLOADABLE = (
     b"CAPE",
     b"aux",
-    b"buffer",
     b"curtain",
     b"debugger",
     b"tlsdump",
-    b"extracted",
     b"files",
     b"memory",
     b"procdump",
@@ -333,25 +331,9 @@ class GeventResultServerWorker(gevent.server.StreamServer):
                 ctx.cancel()
 
     def create_folders(self):
-        folders = (
-            "CAPE",
-            "aux",
-            "curtain",
-            "files",
-            "logs",
-            "memory",
-            "shots",
-            "sysmon",
-            "stap",
-            "procdump",
-            "debugger",
-            "tlsdump",
-            "evtx",
-        )
-
-        for folder in folders:
+        for folder in list(RESULT_UPLOADABLE) + [b"logs"]:
             try:
-                create_folder(self.storagepath, folder=folder)
+                create_folder(self.storagepath, folder=folder.decode())
             except Exception as e:
                 log.error(e, exc_info=True)
             # ToDo
