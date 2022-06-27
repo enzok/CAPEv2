@@ -102,7 +102,7 @@ def parse_binary_c2_2(data):
 
     if actual_sha1 != expected_sha1:
         log.error("Expected sha1: %s actual: %s", expected_sha1, actual_sha1)
-        return
+        return []
 
     length = len(c2_data)
 
@@ -221,6 +221,9 @@ def extract_config(filebuf):
                         dec_bytes = decrypt_data3(res_data)
                         config = parse_config(dec_bytes)
                     elif str(entry.name) in ("26F517AB", "EBBA", "102"):
+                        dec_bytes = decrypt_data3(res_data)
+                        controllers = parse_binary_c2_2(dec_bytes)
+                    else:
                         dec_bytes = decrypt_data3(res_data)
                         controllers = parse_binary_c2_2(dec_bytes)
                     end_config["Loader Build"] = parse_build(pe).decode()
