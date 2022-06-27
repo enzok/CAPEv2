@@ -225,7 +225,10 @@ def extract_config(filebuf):
                         controllers = parse_binary_c2_2(dec_bytes)
                     else:
                         dec_bytes = decrypt_data3(res_data)
-                        controllers = parse_binary_c2_2(dec_bytes)
+                        if len(dec_bytes) < 256:
+                            config = parse_config(dec_bytes)
+                        else:
+                            controllers = parse_binary_c2_2(dec_bytes)
                     end_config["Loader Build"] = parse_build(pe).decode()
                     for k, v in config.items():
                         # log.info({ k: v })
