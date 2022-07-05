@@ -29,12 +29,10 @@ if processing_conf.flare_capa.enabled:
             print("FLARE-CAPA missed, pip3 install -U flare-capa")
         else:
             import capa.main
+            import capa.render.result_document as rd
             import capa.render.utils as rutils
             import capa.rules
             from capa.main import UnsupportedRuntimeError
-            from capa.render.result_document import (
-                convert_capabilities_to_result_document as capa_convert_capabilities_to_result_document,
-            )
             from capa.rules import InvalidRuleSet, InvalidRuleWithPath
 
             rules_path = os.path.join(CUCKOO_ROOT, "data", "capa-rules")
@@ -225,10 +223,10 @@ def flare_capa_details(file_path: str, category: str = False, on_demand=False, d
             extractor = capa.main.get_extractor(
                 file_path, "auto", capa.main.BACKEND_VIV, signatures, disable_progress=disable_progress
             )
-            meta = capa.main.collect_metadata("", file_path, capa.main.RULES_PATH_DEFAULT_STRING, extractor)
+            meta = capa.main.collect_metadata([], file_path, capa.main.RULES_PATH_DEFAULT_STRING, extractor)
             capabilities, counts = capa.main.find_capabilities(rules, extractor, disable_progress=True)
             meta["analysis"].update(counts)
-            doc = capa_convert_capabilities_to_result_document(meta, rules, capabilities)
+            doc = rd.ResultDocument.from_capa(meta, rules, capabilities)
             capa_dictionary = render_dictionary(doc)
         except MemoryError:
             log.warning("FLARE CAPA -> MemoryError")
