@@ -65,6 +65,6 @@ class extract_overlay_data(Processing):
             output["pe"]["overlay"]["fileinfo"] = process_overlay_file(fld).run()
 
         except Exception as e:
-            log.error(e)
+            log.error(e, exc_info=True)
 
         return output

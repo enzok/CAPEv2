@@ -56,6 +56,7 @@ class FLOSS(Processing):
             except subprocess.CalledProcessError as e:
                 # TODO: improve error handling
                 log.warning("FLOSS failed: %s", e)
-                log.warning(e.stderr)
+                log.error(e.stderr)
+                log.error(e, exc_info=True)
 
         return results
