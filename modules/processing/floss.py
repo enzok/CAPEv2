@@ -4,10 +4,12 @@ import os.path
 import subprocess
 
 from lib.cuckoo.common.abstracts import Processing
+from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.exceptions import CuckooProcessingError
 
 log = logging.getLogger()
 
+processing_cfg = Config("processing")
 
 class FLOSS(Processing):
     """Extract strings from sample using FLOSS."""
@@ -30,14 +32,15 @@ class FLOSS(Processing):
                 output_json_path = os.path.join(self.analysis_path, "floss.json")
                 floss_options = [
                     self.options.get("floss_path", "floss"),
-                    "--output-json",
-                    output_json_path,
+                    "-j",
+                    "-q",
+                    f"-o {output_json_path}",
                     self.file_path,
                 ]
 
                 # handle shellcode samples
                 if self.task["package"] in {"Shellcode", "Shellcode_x64"}:
-                    floss_options.insert(-1, "-s")
+                    floss_options.insert(-1, "-f auto")
 
                 subprocess.run(
                     floss_options,
