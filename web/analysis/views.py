@@ -2261,7 +2261,7 @@ def on_demand(request, service: str, task_id: int, category: str, sha256):
 
         elif category == "static":
             if buf.get(category, {}):
-                if service == "virustotal":
+                if service in ("virustotal", "floss"):
                     buf[service] = details
                 elif service == "xlsdeobf":
                     buf["static"].setdefault("office", {}).setdefault("XLMMacroDeobfuscator", details)
@@ -2274,8 +2274,8 @@ def on_demand(request, service: str, task_id: int, category: str, sha256):
                     block[service] = details
                     break
 
-        if service == "virustotal" and category == "static":
-            category = "virustotal"
+        if service in ("virustotal", "floss") and category == "static":
+            category = service
 
         mongo_update_one("analysis", {"_id": ObjectId(buf["_id"])}, {"$set": {category: buf[category]}})
         del details
