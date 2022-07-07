@@ -68,7 +68,7 @@ if processing_conf.trid.enabled:
     definitions = os.path.join(CUCKOO_ROOT, processing_conf.trid.definitions)
 
 HAVE_FLOSS = False
-if processing_conf.floss.enabled and not processing_conf.floss.on_demand:
+if processing_conf.floss.enabled:
     from lib.cuckoo.common.integrations.floss import HAVE_FLOSS, Floss
 
 
@@ -135,7 +135,7 @@ def static_file_info(
         detect_it_easy_info(file_path, data_dictionary)
 
     if HAVE_FLOSS and processing_conf.floss.enabled:
-        floss_strings = Floss(file_path, "static", package).run()
+        floss_strings = Floss(file_path, package).run()
         if floss_strings:
             data_dictionary["floss"] = floss_strings
 

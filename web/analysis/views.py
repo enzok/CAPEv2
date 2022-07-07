@@ -2201,6 +2201,10 @@ def on_demand(request, service: str, task_id: int, category: str, sha256):
 
     if category == "static":
         path = os.path.join(ANALYSIS_BASE_PATH, "analyses", str(task_id), "binary")
+        if service in ("virustotal", "strings"):
+            category = service
+        else:
+            category = "target.file"
     elif category == "dropped":
         path = os.path.join(ANALYSIS_BASE_PATH, "analyses", str(task_id), "files", sha256)
     else:
@@ -2250,34 +2254,37 @@ def on_demand(request, service: str, task_id: int, category: str, sha256):
             print("Bingraph on demand error:", e)
     elif service == "floss" and HAVE_FLOSS:
         package = get_task_package(int(task_id))
-        details = Floss(path, category, package, on_demand=True).run()
+        details = Floss(path, package, on_demand=True).run()
+        if not details:
+            details = {"msg": "No results"}
     if details:
         buf = mongo_find_one("analysis", {"info.id": int(task_id)}, {"_id": 1, category: 1})
+
         if category == "CAPE":
             for block in buf[category].get("payloads", []) or []:
                 if block.get("sha256") == sha256:
                     block[service] = details
                     break
-
-        elif category == "static":
-            if buf.get(category, {}):
-                if service in ("virustotal", "floss"):
-                    buf[service] = details
-                elif service == "xlsdeobf":
-                    buf["static"].setdefault("office", {}).setdefault("XLMMacroDeobfuscator", details)
-                else:
-                    buf["static"][service] = details
-
+            servicedata = buf[category]
         elif category in ("procdump", "procmemory", "dropped"):
             for block in buf[category] or []:
                 if block.get("sha256") == sha256:
                     block[service] = details
                     break
+            servicedata = buf[category]
+        elif category in ("virustotal", "strings"):
+            buf[category] = details
+            servicedata = buf[category]
+        elif "target" in category:
+            servicedata = buf.get("target", {}).get("file", {})
+            if servicedata:
+                if service == "xlsdeobf":
+                    servicedata.setdefault("office", {}).setdefault("XLMMacroDeobfuscator", details)
+                else:
+                    servicedata.setdefault(service, details)
 
-        if service in ("virustotal", "floss") and category == "static":
-            category = service
-
-        mongo_update_one("analysis", {"_id": ObjectId(buf["_id"])}, {"$set": {category: buf[category]}})
+        if servicedata:
+            mongo_update_one("analysis", {"_id": ObjectId(buf["_id"])}, {"$set": {category: servicedata}})
         del details
 
     return redirect("report", task_id=task_id)
