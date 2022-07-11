@@ -40,7 +40,6 @@ from lib.cuckoo.common.web_utils import (
     perform_archive_search
 )
 from lib.cuckoo.core.database import TASK_PENDING, Database, Task
-from lib.cuckoo.common.integrations.virustotal import vt_lookup
 from analysis.templatetags.analysis_tags import malware_config
 
 try:
@@ -99,6 +98,7 @@ except (NameError, ImportError):
 HAVE_STRINGS = False
 if processing_cfg.strings.on_demand:
     from lib.cuckoo.common.integrations.strings import extract_strings
+
     HAVE_STRINGS = True
 
 HAVE_VBA2GRAPH = False
@@ -108,6 +108,12 @@ if processing_cfg.vba2graph.on_demand:
 HAVE_XLM_DEOBF = False
 if processing_cfg.xlsdeobf.on_demand:
     from lib.cuckoo.common.integrations.XLMMacroDeobfuscator import HAVE_XLM_DEOBF, xlmdeobfuscate
+
+HAVE_VIRUSTOTAL = False
+if processing_cfg.virustotal.on_demand:
+    from lib.cuckoo.common.integrations.virustotal import vt_lookup
+
+    HAVE_VIRUSTOTAL = True
 
 if reporting_cfg.bingraph.on_demand:
     try:
@@ -120,10 +126,6 @@ if reporting_cfg.bingraph.on_demand:
         HAVE_BINGRAPH = False
 else:
     HAVE_BINGRAPH = False
-
-HAVE_FLOSS = False
-if processing_cfg.floss.on_demand:
-    from lib.cuckoo.common.integrations.floss import Floss, HAVE_FLOSS
 
 HAVE_FLOSS = False
 if processing_cfg.floss.on_demand:
@@ -2229,7 +2231,7 @@ def on_demand(request, service: str, task_id: int, category: str, sha256):
         if not details:
             details = {"strings": "No strings extracted"}
 
-    elif service == "virustotal":
+    elif service == "virustotal" and HAVE_VIRUSTOTAL:
         details = vt_lookup("file", sha256, on_demand=True)
         if not details:
             details = {"msg": "No results"}
