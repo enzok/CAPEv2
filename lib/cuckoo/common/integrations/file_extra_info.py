@@ -79,7 +79,7 @@ if processing_conf.trid.enabled:
     definitions = os.path.join(CUCKOO_ROOT, processing_conf.trid.definitions)
 
 HAVE_FLOSS = False
-if processing_conf.floss.enabled:
+if processing_conf.floss.enabled and not processing_conf.floss.on_demand:
     from lib.cuckoo.common.integrations.floss import HAVE_FLOSS, Floss
 
 
