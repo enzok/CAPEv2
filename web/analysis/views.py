@@ -2265,7 +2265,7 @@ def on_demand(request, service: str, task_id: int, category: str, sha256):
             details = {"msg": "No results"}
     if details:
         buf = mongo_find_one("analysis", {"info.id": int(task_id)}, {"_id": 1, category: 1})
-
+        servicedata = {}
         if category == "CAPE":
             for block in buf[category].get("payloads", []) or []:
                 if block.get("sha256") == sha256:
