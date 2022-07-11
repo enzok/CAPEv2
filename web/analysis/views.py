@@ -40,7 +40,7 @@ from lib.cuckoo.common.web_utils import (
     perform_archive_search
 )
 from lib.cuckoo.core.database import TASK_PENDING, Database, Task
-from modules.processing.virustotal import vt_lookup
+from lib.cuckoo.common.integrations.virustotal import vt_lookup
 from analysis.templatetags.analysis_tags import malware_config
 
 try:
