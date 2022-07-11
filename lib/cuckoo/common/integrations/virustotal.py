@@ -11,9 +11,7 @@ from collections import defaultdict
 import requests
 from time import strftime, localtime
 
-from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.config import Config
-from lib.cuckoo.common.exceptions import CuckooProcessingError
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.utils import add_family_detection
 
@@ -187,7 +185,7 @@ def get_vt_consensus(namelist: list):
 
 
 # https://developers.virustotal.com/v3.0/reference#file-info
-def vt_lookup(category: str, target: str, on_demand: bool = False):
+def vt_lookup(category: str, target: str, results: dict = {}, on_demand: bool = False):
     if not processing_conf.virustotal.enabled or processing_conf.virustotal.get("on_demand", False) and not on_demand:
         return {}
     if category not in ("file", "url"):
@@ -210,7 +208,8 @@ def vt_lookup(category: str, target: str, on_demand: bool = False):
             try:
                 urlscrub_compiled_re = re.compile(urlscrub)
             except Exception as e:
-                raise CuckooProcessingError(f"Failed to compile urlscrub regex: {e}") from e
+                log.error(f"Failed to compile urlscrub regex: {e}")
+                return {}
             try:
                 target = re.sub(urlscrub_compiled_re, "", target)
             except Exception as e:
@@ -273,6 +272,8 @@ def vt_lookup(category: str, target: str, on_demand: bool = False):
                 detectnames.append(block["result"])
 
         virustotal["detection"] = get_vt_consensus(detectnames)
+        if virustotal.get("detection", False) and results:
+            add_family_detection(results, vt_response["detection"], "VirusTotal", vt_response["sha256"])
         return virustotal
     except requests.exceptions.RequestException as e:
         return {
@@ -280,37 +281,4 @@ def vt_lookup(category: str, target: str, on_demand: bool = False):
             "msg": f"Unable to complete connection to VirusTotal: {e}",
         }
 
-
-class VirusTotal(Processing):
-    """Gets antivirus signatures from VirusTotal.com"""
-
-    def run(self):
-        """Runs VirusTotal processing
-        @return: full VirusTotal report.
-        """
-        self.key = "virustotal"
-
-        if not key:
-            raise CuckooProcessingError("VirusTotal API key not configured, skipping")
-
-        if processing_conf.virustotal.get("on_demand", False):
-            log.debug("VT on_demand enabled, returning")
-            return {}
-
-        target = False
-        if self.task["category"] == "file" and do_file_lookup:
-            target = self.file_path
-        elif self.task["category"] == "url" and do_url_lookup:
-            target = self.task["target"]
-        else:
-            # Not supported type, exit.
-            return {}
-
-        vt_response = vt_lookup(self.task["category"], target)
-        if "error" in vt_response:
-            raise CuckooProcessingError(vt_response["msg"])
-
-        if processing_conf.detections.virustotal and self.task["category"] == "file" and vt_response.get("detection", False):
-            add_family_detection(self.results, vt_response["detection"], "VirusTotal", vt_response["sha256"])
-
-        return vt_response
+    return {}
