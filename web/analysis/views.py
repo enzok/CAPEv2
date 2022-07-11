@@ -95,8 +95,7 @@ if processing_cfg.flare_capa.on_demand:
 
 HAVE_STRINGS = False
 if processing_cfg.strings.on_demand:
-    from modules.processing.strings import extract_strings
-
+    from lib.cuckoo.common.integrations.strings import extract_strings
     HAVE_STRINGS = True
 
 HAVE_VBA2GRAPH = False
@@ -2171,9 +2170,6 @@ on_demand_config_mapper = {
     "floss": processing_cfg,
 }
 
-str_nulltermonly = processing_cfg.strings.get("nullterminated_only", True)
-str_minchars = processing_cfg.strings.get("minchars", 5)
-
 
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 @ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
@@ -2207,10 +2203,7 @@ def on_demand(request, service: str, task_id: int, category: str, sha256):
 
     if category == "static":
         path = os.path.join(ANALYSIS_BASE_PATH, "analyses", str(task_id), "binary")
-        if service in ("virustotal", "strings"):
-            category = service
-        else:
-            category = "target.file"
+        category = "target.file"
     elif category == "dropped":
         path = os.path.join(ANALYSIS_BASE_PATH, "analyses", str(task_id), "files", sha256)
     else:
@@ -2229,7 +2222,9 @@ def on_demand(request, service: str, task_id: int, category: str, sha256):
         vba2graph_func(path, str(task_id), sha256, on_demand=True)
 
     elif service == "strings" and HAVE_STRINGS:
-        details = extract_strings(path, str_nulltermonly, str_minchars)
+        details = extract_strings(path, on_demand=True)
+        if not details:
+            details = {"strings": "No strings extracted"}
 
     elif service == "virustotal":
         details = vt_lookup("file", sha256, on_demand=True)
@@ -2277,9 +2272,6 @@ def on_demand(request, service: str, task_id: int, category: str, sha256):
                 if block.get("sha256") == sha256:
                     block[service] = details
                     break
-            servicedata = buf[category]
-        elif category in ("virustotal", "strings"):
-            buf[category] = details
             servicedata = buf[category]
         elif "target" in category:
             servicedata = buf.get("target", {}).get("file", {})
