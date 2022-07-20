@@ -2,13 +2,13 @@
 # Copyright (C) 2010-2015 Cuckoo Foundation.
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
-
 import logging
 import os
 import random
 import sys
 import tempfile
 
+from base64 import b64encode
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect, render
@@ -34,6 +34,8 @@ from lib.cuckoo.common.web_utils import (
 from lib.cuckoo.core.database import Database
 from lib.cuckoo.core.rooter import _load_socks5_operational, vpns
 
+from uuid import uuid4
+
 # this required for hash searches
 cfg = Config("cuckoo")
 routing = Config("routing")
@@ -52,6 +54,7 @@ disable_warnings()
 
 logger = logging.getLogger(__name__)
 
+guacamole_enabled = cfg.guacamole.enabled
 
 def get_form_data(platform):
     files = os.listdir(os.path.join(settings.CUCKOO_PATH, "analyzer", platform, "modules", "packages"))
@@ -117,6 +120,7 @@ def get_platform(magic):
 
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def index(request, resubmit_hash=False):
+    remote_console = False
     submitter = []
     if request.META["HTTP_X_REMOTE_USER"] and web_conf.submitter.enabled:
         submitter = request.META["HTTP_X_REMOTE_USER"]
@@ -170,6 +174,8 @@ def index(request, resubmit_hash=False):
 
         if request.POST.get("nohuman"):
             options += "nohuman=yes,"
+            if guacamole_enabled:
+                remote_console = True
 
         if request.POST.get("tor"):
             options += "tor=yes,"
@@ -504,6 +510,7 @@ def index(request, resubmit_hash=False):
                 "tasks_count": tasks_count,
                 "errors": details["errors"],
                 "existent_tasks": existent_tasks,
+                "remote_console": remote_console,
             }
             return render(request, "submission/complete.html", data)
         else:
@@ -615,3 +622,29 @@ def status(request, task_id):
         status = "processing"
 
     return render(request, "submission/status.html", {"completed": completed, "status": status, "task_id": task_id})
+
+
+@conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
+def remote_session(request, task_id):
+    task = db.view_task(task_id)
+    if not task:
+        return render(request, "error.html", {"error": "The specified task doesn't seem to exist."})
+
+    machine_status = False
+    label = ""
+    if task.status == "running":
+        machine = db.view_machine(task.machine)
+        label = machine.label
+        machine_status = True
+        session_id = uuid4().hex[:16]
+        session_data = b64encode(f"{session_id}|{label}".encode("utf8"))
+
+    return render(
+        request,
+        "submission/remote_status.html",
+        {
+            "running": machine_status,
+            "task_id": task_id,
+            "session_data": session_data,
+        }
+    )
