@@ -67,7 +67,7 @@ $(document).ready( function() {
                     {% if resubmit %}
                         <li class="nav-item active"><a class="nav-link" href="#resubmit" data-toggle="tab"><span class="fa fa-file"></span> File resubmission</a></li>
                     {% else %}
-                        <li class="nav-item active"><a class="nav-link" href="#file" data-toggle="tab"><span class="fa fa-file"></span> File</a></li>
+                        <li class="nav-item active"><a class="nav-link" href="#file" data-toggle="tab"><span class="fa fa-file"></span> File(s)</a></li>
                         {% if config.vt %}
                             <li class="nav-item"><a class="nav-link" href="#vtdl" data-toggle="tab"><span class="fa fa-download"></span>VirusTotal</a></li>
                         {% endif %}
@@ -173,8 +173,20 @@ $(document).ready( function() {
                                     </div>
                                 </div>
                                 {% endif %}
-
-
+                                {% if resubmit %}
+                                    <div class="form-group">
+                                        <label for="form_package">Task Category</label>
+                                        <select class="form-control" id="form_package" name="job_category">
+                                            <option value="hash" checked>Resubmit</option>
+                                            <option value="sample">Files</option>
+                                            <option value="quarantine">Quarantine</option>
+                                            <option value="static">Static analysis</option>
+                                            <option value="pcap">Pcap</option>
+                                            <option value="dlnexec">Download and Execute</option>
+                                            <option value="vtdl">Virustotal Download</option>
+                                        </select>
+                                    </div>
+                                {% endif %}
                                 <div class="form-group">
                                     <label for="form_package">Analysis Package</label>
                                     <select class="form-control" id="form_package" name="package">
