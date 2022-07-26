@@ -62,6 +62,7 @@ def _set_base_uri(pdf):
                     return elem.getValue()
     except Exception as e:
         log.error(e, exc_info=True)
+        return ""
 
 
 def peepdf_parse(filepath: str, pdfresult: Dict[str, Any]) -> Dict[str, Any]:
@@ -175,7 +176,7 @@ def peepdf_parse(filepath: str, pdfresult: Dict[str, Any]) -> Dict[str, Any]:
                 if a_elem.type == "dictionary" and a_elem.hasElement("/URI"):
                     uri_elem = a_elem.getElementByName("/URI")
                     uri_elem = _get_obj_val(pdf, i, uri_elem)
-                    annoturiset.add(f"{base_uri}{uri_elem.getValue()}")
+                    annoturiset.add(f"{uri_elem.getValue()}")
         pdfresult["JSStreams"] = retobjects
     if "creator" in metadata:
         pdfresult["Info"]["Creator"] = convert_to_printable(_clean_string(metadata["creator"]))
