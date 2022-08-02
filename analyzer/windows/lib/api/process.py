@@ -38,6 +38,7 @@ from lib.common.defines import (
     OPEN_EXISTING,
     PROCESS_ALL_ACCESS,
     PROCESS_INFORMATION,
+    PROCESS_QUERY_LIMITED_INFORMATION,
     PROCESSENTRY32,
     STARTUPINFO,
     SYSTEM_INFO,
@@ -140,6 +141,8 @@ class Process:
                 self.h_process = KERNEL32.GetCurrentProcess()
             else:
                 self.h_process = KERNEL32.OpenProcess(PROCESS_ALL_ACCESS, False, self.pid)
+                if not self.h_process:
+                    self.h_process = KERNEL32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, self.pid)
             ret = True
 
         if self.thread_id and not self.h_thread:
