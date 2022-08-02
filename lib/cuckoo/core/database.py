@@ -1839,18 +1839,6 @@ class Database(object, metaclass=Singleton):
         elif task.category == "static":
             add = self.add_static
 
-        # Change status to recovered.
-        session = self.Session()
-        session.query(Task).get(task_id).status = TASK_RECOVERED
-        try:
-            session.commit()
-        except SQLAlchemyError as e:
-            log.debug("Database error rescheduling task: %s", e)
-            session.rollback()
-            return False
-        finally:
-            session.close()
-
         # Normalize tags.
         if task.tags:
             tags = ",".join(tag.name for tag in task.tags)
