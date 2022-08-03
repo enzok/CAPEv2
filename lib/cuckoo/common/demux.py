@@ -103,6 +103,7 @@ demux_extensions_list = [
     b".lnk",
     b".eml",
     b".msg",
+    b".iso",
 ]
 
 whitelist_extensions = ("doc", "xls", "ppt", "pub", "jar")
