@@ -584,6 +584,7 @@ def SevenZip_unpack(file: str, destination_folder: str, filetype: str, data_dict
                         file,
                         password,
                         f"-o{tempdir}",
+                        "-y",
                     ],
                     universal_newlines=True,
                 )
