@@ -6,7 +6,7 @@
     {% for task in tasks %}
         <a href="{% url "submission_status" task %}">{{task}}</a>
         {% if remote_console %}
-            Click on the link to start an interactive remote session:
+            Click to start an interactive remote session:
             <a href="{% url "remote_session" task %}">{{task}}</a>
         {% endif %}
     {% endfor %}.

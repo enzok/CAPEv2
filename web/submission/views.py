@@ -8,7 +8,7 @@ import random
 import sys
 import tempfile
 
-from base64 import b64encode
+from base64 import urlsafe_b64encode
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect, render
@@ -637,7 +637,7 @@ def remote_session(request, task_id):
         label = machine.label
         machine_status = True
         session_id = uuid4().hex[:16]
-        session_data = b64encode(f"{session_id}|{label}".encode("utf8"))
+        session_data = urlsafe_b64encode(f"{session_id}|{label}".encode("utf8")).decode("utf8")
 
     return render(
         request,

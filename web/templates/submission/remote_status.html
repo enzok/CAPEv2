@@ -3,7 +3,7 @@
 
 {% if running %}
     <script>
-        window.open(window.location.origin + "/guac/{{session_data}}", "_blank");
+        window.open(window.location.origin + "/guac/{{task_id}}/{{session_data}}", "_blank");
         window.open(window.location.origin + "/submit/status/{{task_id}}", "_self");
     </script>
 {% else %}
