@@ -54,7 +54,7 @@ disable_warnings()
 
 logger = logging.getLogger(__name__)
 
-guacamole_enabled = cfg.guacamole.enabled
+guacamole_enabled = web_conf.guacamole.enabled
 
 def get_form_data(platform):
     files = os.listdir(os.path.join(settings.CUCKOO_PATH, "analyzer", platform, "modules", "packages"))
