@@ -184,7 +184,7 @@
                         {% if config.virustotal %}
                         <td>
                             {% if analysis.virustotal_summary %}
-                                <a href="{% url "antivirus" analysis.id %}" target="_blank"><span class="mono">{{analysis.virustotal_summary}}</span></a>
+                                <a href="{% url "antivirus" analysis.id %}" target="_blank"><span class="mono">{{analysis.target.file.virustotal_summary}}</span></a>
                             {% else %}
                                   <span class="mono">-</span>
                             {% endif %}
