@@ -251,7 +251,7 @@ def get_analysis_info(db, id=-1, task=None):
             query=get_query_by_info_id(str(new["id"])),
             _source=[
                 "info",
-                "virustotal_summary",
+                "target.file.virustotal.summary",
                 "malscore",
                 "detections",
                 "network.pcap_sha256",
@@ -275,7 +275,6 @@ def get_analysis_info(db, id=-1, task=None):
     if rtmp:
         for keyword in (
             "detections",
-            "virustotal_summary",
             "mlist_cnt",
             "f_mlist_cnt",
             "suri_tls_cnt",
@@ -306,6 +305,8 @@ def get_analysis_info(db, id=-1, task=None):
             for keyword in ("clamav", "trid"):
                 if rtmp["info"].get(keyword, False):
                     new[keyword] = rtmp["info"]["target"][keyword]
+            if rtmp["target"]["file"].get("virustotal", {}).get("summary", False):
+                new["virustotal_summary"] = rtmp["target"]["file"]["virustotal"]["summary"]
 
         if settings.MOLOCH_ENABLED:
             if settings.MOLOCH_BASE[-1] != "/":
@@ -2338,7 +2339,7 @@ def archive_index(request, page=1):
                  "target.file.name":1,
                  "target.file.md5":1,
                  "detections":1,
-                 "virustotal_summary":1
+                 "target.file.virustotal.summary":1
             },
         },
         {"$skip": off},
@@ -2499,7 +2500,7 @@ def archive_search(request, searched=""):
                          "target.file.name":1,
                          "target.file.md5":1,
                          "detections":1,
-                         "virustotal_summary":1
+                         "target.file.virustotal.summary":1
                     },
                     archive=True
                 )
