@@ -228,7 +228,7 @@ def get_analysis_info(db, id=-1, task=None):
             {"info.id": int(new["id"])},
             {
                 "info": 1,
-                "virustotal_summary": 1,
+                "target.file.virustotal.summary": 1,
                 "malscore": 1,
                 "detections": 1,
                 "network.pcap_sha256": 1,
