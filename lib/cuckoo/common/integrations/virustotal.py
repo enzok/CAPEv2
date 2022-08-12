@@ -274,7 +274,7 @@ def vt_lookup(category: str, target: str, results: dict = {}, on_demand: bool = 
         virustotal["detection"] = get_vt_consensus(detectnames)
         if virustotal.get("detection", False) and results:
             add_family_detection(results, virustotal["detection"], "VirusTotal", virustotal["sha256"])
-        if virustotal.get("positives", False) and results.get("total", False):
+        if virustotal.get("positives", False) and virustotal.get("total", False):
             virustotal["summary"] = f"{virustotal['positives']}/{virustotal['total']}"
 
         return virustotal
