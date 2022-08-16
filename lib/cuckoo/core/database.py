@@ -809,6 +809,8 @@ class Database(object, metaclass=Singleton):
         @return: boolean indicating if a relevant machine is available
         """
         # Are there available machines that match up with a task?
+        task_archs = [tag.name for tag in task.tags if tag.name in ["x86", "x64"]]
+        task_tags = [tag.name for tag in task.tags if tag.name not in task_archs]
         if task.category.lower() == "url":
             task_arch = None
             task_tags = None
@@ -817,7 +819,7 @@ class Database(object, metaclass=Singleton):
             task_tags = [tag.name for tag in task.tags if tag.name != task_arch]
 
         relevant_available_machines = self.list_machines(
-            locked=False, label=task.machine, platform=task.platform, tags=task_tags, arch=task_arch
+            locked=False, label=task.machine, platform=task.platform, tags=task_tags, arch=task_archs
         )
         if len(relevant_available_machines) > 0:
             # There are? Awesome!
@@ -962,7 +964,7 @@ class Database(object, metaclass=Singleton):
         Allow x64 machines to be returned when requesting x86.
         """
         if arch:
-            if arch == "x86":
+            if "x86" in arch:
                 # Prefer x86 machines over x64 if x86 is what was requested.
                 machines = machines.filter(Machine.arch.in_(("x64", "x86"))).order_by(Machine.arch.desc())
             else:
