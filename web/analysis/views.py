@@ -501,8 +501,8 @@ def pending(request):
 
     pending = []
     for task in tasks:
-        sample = db.view_sample(task.sample_id)
         # Some tasks do not have sample attributes
+        sample = db.view_sample(task.sample_id)
         if sample:
             pending.append(
                 {
