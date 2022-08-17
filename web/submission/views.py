@@ -447,9 +447,12 @@ def index(request, resubmit_hash=False):
                     else:
                         machines = [machine]
                 else:
-                    machines = []
+                    machines = ["first"]
 
                 for entry in machines:
+                    if machine == "first":
+                        machine = None
+
                     task_id = db.add_url(
                         url=url,
                         package=package,
