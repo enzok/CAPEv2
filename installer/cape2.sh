@@ -57,8 +57,8 @@ cat << EndOfHelp
 
     * This ISN'T a silver bullet, we can't control all changes in all third part software, you are welcome to report updates
 
-    Usage: $0 <command> cape <iface_ip> | tee $0.log
-        Example: $0 all cape 192.168.1.1 | tee $0.log
+    Usage: $0 <command> <iface_ip> | tee $0.log
+        Example: $0 all 192.168.1.1 | tee $0.log
     Commands - are case insensitive:
         Base - Installs dependencies, CAPE, systemd, see code for full list
         All - Installs everything - (don't use it if you don't know what will be installed ;))
@@ -610,7 +610,9 @@ function install_mongo(){
     echo "deb [ arch=amd64 ] https://repo.mongodb.org/apt/ubuntu focal/mongodb-org/${MONGO_VERSION} multiverse" | sudo tee /etc/apt/sources.list.d/mongodb.list
     apt update 2>/dev/null
     # From Ubuntu version 20 repo we need to add extra dependency libssl1.1
-    apt install libssl1.1 libpcre3-dev numactl -y
+    curl -LO http://archive.ubuntu.com/ubuntu/pool/main/o/openssl/libssl1.1_1.1.1-1ubuntu2.1~18.04.20_amd64.deb
+    sudo dpkg -i ./libssl1.1_1.1.1-1ubuntu2.1~18.04.20_amd64.deb
+    apt install libpcre3-dev numactl -y
     apt install -y mongodb-org
     pip3 install pymongo -U
 
@@ -763,6 +765,8 @@ function dependencies() {
     chgrp pcap /usr/sbin/tcpdump
     setcap cap_net_raw,cap_net_admin=eip /usr/sbin/tcpdump
 
+    usermod -a -G systemd-journal ${USER}
+
     # https://www.torproject.org/docs/debian.html.en
     echo "deb [ arch=amd64 ] http://deb.torproject.org/torproject.org $(lsb_release -cs) main" >> /etc/apt/sources.list
     echo "deb-src http://deb.torproject.org/torproject.org $(lsb_release -cs) main" >> /etc/apt/sources.list
@@ -808,6 +812,11 @@ EOF
         echo "net.bridge.bridge-nf-call-iptables = 0";
         echo "net.bridge.bridge-nf-call-arptables = 0";
     } >> /etc/sysctl.conf
+
+    # enable packet forwarding for IPv4
+    if ! grep -q -E '^net.ipv4.ip_forward=1' /etc/sysctl.conf; then
+        echo "net.ipv4.ip_forward=1" >> /etc/sysctl.conf
+    fi
 
     sudo modprobe br_netfilter
     sudo sysctl -p
@@ -1208,7 +1217,7 @@ fi
 sandbox_version=$(echo "$sandbox_version"|tr "{A-Z}" "{a-z}")
 
 #check if start with root
-if [ "$EUID" -ne 0 ]; then
+if [ "$EUID" -ne 0 ] && [[ -z "${BUILD_ENV}" ]]; then
    echo 'This script must be run as root'
    exit 1
 fi
