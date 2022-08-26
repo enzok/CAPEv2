@@ -2,18 +2,21 @@
 # Copyright (C) 2010-2015 Cuckoo Foundation.
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
+
 import logging
 import os
 import random
 import sys
 import tempfile
-
 from base64 import urlsafe_b64encode
+
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect, render
 
 sys.path.append(settings.CUCKOO_PATH)
+from uuid import NAMESPACE_DNS, uuid3
+
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.quarantine import unquarantine
@@ -34,8 +37,6 @@ from lib.cuckoo.common.web_utils import (
 from lib.cuckoo.core.database import Database
 from lib.cuckoo.core.rooter import _load_socks5_operational, vpns
 
-from uuid import uuid3, NAMESPACE_DNS
-
 # this required for hash searches
 cfg = Config("cuckoo")
 routing = Config("routing")
@@ -54,7 +55,6 @@ disable_warnings()
 
 logger = logging.getLogger(__name__)
 
-guacamole_enabled = web_conf.guacamole.enabled
 
 def get_form_data(platform):
     files = os.listdir(os.path.join(settings.CUCKOO_PATH, "analyzer", platform, "modules", "packages"))
@@ -174,8 +174,11 @@ def index(request, resubmit_hash=False):
 
         if request.POST.get("nohuman"):
             options += "nohuman=yes,"
-            if guacamole_enabled:
-                remote_console = True
+
+        if web_conf.guacamole.enabled and request.POST.get("interactive_desktop"):
+            remote_console = True
+            if "nohuman=yes," not in options:
+                options += "nohuman=yes,"
 
         if request.POST.get("tor"):
             options += "tor=yes,"
@@ -652,5 +655,5 @@ def remote_session(request, task_id):
             "running": machine_status,
             "task_id": task_id,
             "session_data": session_data,
-        }
+        },
     )

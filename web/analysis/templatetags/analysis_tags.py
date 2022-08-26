@@ -7,6 +7,7 @@ except ImportError:
     import re
 
 from collections import OrderedDict
+from uuid import NAMESPACE_DNS, uuid3
 
 from django.template.defaultfilters import register
 from django.utils.html import escape
