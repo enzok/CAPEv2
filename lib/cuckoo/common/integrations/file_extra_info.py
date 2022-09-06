@@ -101,6 +101,7 @@ def static_file_info(
 ):
 
     if int(os.path.getsize(file_path) / (1024 * 1024)) > int(processing_conf.static.max_file_size):
+        log.info("File size exceeds configured limit in processing.conf")
         return
 
     if (
@@ -409,20 +410,42 @@ def msi_extract(file: str, destination_folder: str, filetype: str, data_dictiona
         return
 
     metadata = []
+    files = []
 
     with tempfile.TemporaryDirectory(prefix="msidump_") as tempdir:
         try:
-            files = subprocess.check_output(
+            output = subprocess.check_output(
                 [selfextract_conf.msi_extract.binary, file, "--directory", tempdir], universal_newlines=True
             )
-            if files:
+            if output:
                 files = [
-                    extracted_file
-                    for extracted_file in list(filter(None, files.split("\n")))
+                    extracted_file.split("Binary.")[-1]
+                    for root, _, extracted_files in os.walk(tempdir)
+                    for extracted_file in extracted_files
                     if os.path.isfile(os.path.join(tempdir, extracted_file))
                 ]
+            else:
+                output = subprocess.check_output(
+                    [
+                        "7z",
+                        "e",
+                        f"-o{tempdir}",
+                        "-y",
+                        file,
+                        "Binary.*",
+                    ],
+                    universal_newlines=True,
+                )
+                for root, _, filenames in os.walk(tempdir):
+                    for filename in filenames:
+                        os.rename(os.path.join(root, filename), os.path.join(root, filename.split("Binary.")[-1]))
+                files = [
+                    os.path.join(tempdir, extracted_file.split("Binary.")[-1])
+                    for extracted_file in tempdir
+                    if os.path.isfile(os.path.join(tempdir, extracted_file))
+                ]
+            if files:
                 metadata.extend(_extracted_files_metadata(tempdir, destination_folder, files=files))
-
         except Exception as e:
             log.error(e, exc_info=True)
 
