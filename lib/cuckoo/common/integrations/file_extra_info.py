@@ -418,12 +418,12 @@ def msi_extract(file: str, destination_folder: str, filetype: str, data_dictiona
                 [selfextract_conf.msi_extract.binary, file, "--directory", tempdir], universal_newlines=True
             )
             if output:
-                files = [
-                    extracted_file.split("Binary.")[-1]
-                    for root, _, extracted_files in os.walk(tempdir)
-                    for extracted_file in extracted_files
-                    if os.path.isfile(os.path.join(tempdir, extracted_file))
-                ]
+                if output:
+                    files = [
+                        extracted_file
+                        for extracted_file in list(filter(None, output.split("\n")))
+                        if os.path.isfile(os.path.join(tempdir, extracted_file))
+                    ]
             else:
                 output = subprocess.check_output(
                     [
@@ -440,8 +440,9 @@ def msi_extract(file: str, destination_folder: str, filetype: str, data_dictiona
                     for filename in filenames:
                         os.rename(os.path.join(root, filename), os.path.join(root, filename.split("Binary.")[-1]))
                 files = [
-                    os.path.join(tempdir, extracted_file.split("Binary.")[-1])
-                    for extracted_file in tempdir
+                    extracted_file.split("Binary.")[-1]
+                    for root, _, extracted_files in os.walk(tempdir)
+                    for extracted_file in extracted_files
                     if os.path.isfile(os.path.join(tempdir, extracted_file))
                 ]
             if files:
