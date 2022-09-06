@@ -19,7 +19,7 @@ from lib.common.exceptions import CuckooPackageError
 log = logging.getLogger(__name__)
 
 
-FILE_NAME_REGEX = re.compile("[\s]{2}([a-zA-Z0-9\.\-_\\\\]+)\\r")
+FILE_NAME_REGEX = re.compile("[\s]{2}((?:[a-zA-Z0-9\.\-,_\\\\]+( [a-zA-Z0-9\.\-,_\\\\]+)?)+)\\r")
 EXE_REGEX = re.compile(r"(\.exe|\.dll|\.scr|\.msi|\.bat|\.lnk|\.js|\.jse|\.vbs|\.vbe|\.wsf|\.ps1)$", flags=re.IGNORECASE)
 
 
@@ -35,13 +35,13 @@ class Archive(Package):
         ("ProgramFiles", "7-Zip", "7z.exe"),
     ]
 
-    def extract_archive(self, archive_path, extract_path, password="infected"):
+    def extract_archive(self, seven_zip_path, archive_path, extract_path, password="infected"):
         """Extracts a nested archive file.
+        @param seven_zip_path: path to 7z binary
         @param archive_path: archive path
         @param extract_path: where to extract
         @param password: archive password
         """
-        seven_zip_path = self.get_path("7z.exe")
         log.debug([seven_zip_path, "x", "-p", "-y", f"-o{extract_path}", archive_path])
         p = subprocess.run([seven_zip_path, "x", "-p", "-y", f"-o{extract_path}", archive_path], capture_output=True)
         stdoutput, stderr = p.stdout, p.stderr
@@ -56,12 +56,12 @@ class Archive(Package):
         elif b"Can not open the file as archive" in stdoutput:
             raise TypeError
 
-    def get_file_names(self, archive_path):
+    def get_file_names(self, seven_zip_path, archive_path):
         """Get the file names from archive file.
+        @param seven_zip_path: path to 7z binary
         @param archive_path: archive file path
         @return: A list of file names
         """
-        seven_zip_path = self.get_path("7z.exe")
         log.debug([seven_zip_path, "l", archive_path])
         p = subprocess.run([seven_zip_path, "l", archive_path], capture_output=True)
         stdoutput = p.stdout.decode()
@@ -132,19 +132,39 @@ class Archive(Package):
             return self.execute(file_path, self.options.get("arguments"), file_path)
 
     def start(self, path):
+        # Is 7z in analyzer/windows/bin?
+        seven_zip_path = os.path.join(os.getcwd(), "bin", "7z.exe")
+        if not os.path.exists(seven_zip_path):
+            # Let's hope it's in the VM image
+            seven_zip_path = self.get_path("7z.exe")
+
         password = self.options.get("password", "")
 
         archive_name = path.split("\\")[-1].split(".")[0]
         root = os.path.join(os.environ["TEMP"], archive_name)
-        os.mkdir(root)
 
-        file_names = self.get_file_names(path)
+        # Check if root exists already due to the file path
+        if os.path.exists(root) and os.path.isfile(root):
+            root = os.path.join(os.environ["TEMP"], "extracted_iso", archive_name)
+
+        os.makedirs(root)
+
+        file_names = self.get_file_names(seven_zip_path, path)
         if not len(file_names):
             raise CuckooPackageError("Empty archive")
 
         log.debug(file_names)
-        self.extract_archive(path, root, password)
-        log.debug([item for item in os.walk(root)])
+        self.extract_archive(seven_zip_path, path, root, password)
+
+        # Handle special characters that 7ZIP cannot
+        # We have the file names according to 7ZIP output (file_names)
+        # We have the file names that were actually extracted (files at root)
+        # If these values are different, replace all
+        files_at_root = [f for _, _, files in os.walk(root) for f in files]
+        log.debug(files_at_root)
+        if set(file_names) != set(files_at_root):
+            log.debug(f"Replacing {file_names} with {files_at_root}")
+            file_names = files_at_root
 
         file_name = self.options.get("file")
         # If no file name is provided via option, discover files to execute.
