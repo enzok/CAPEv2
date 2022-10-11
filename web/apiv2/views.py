@@ -85,6 +85,11 @@ try:
 except AttributeError:
     zippwd = b"infected"
 
+try:
+    import re2 as re
+except ImportError:
+    import re
+
 # FORMAT = '%(asctime)-15s %(clientip)s %(user)-8s %(message)s'
 
 # Config variables
@@ -885,6 +890,27 @@ def tasks_view(request, task_id):
         sample = db.view_sample(task.sample_id)
         entry["sample"] = sample.to_dict()
 
+    if task.status == TASK_RECOVERED and task.custom:
+        m = re.match("^Recovery_(?P<taskid>\d+)$", task.custom)
+        if m:
+            task_id = int(m.group("taskid"))
+            task = db.view_task(task_id, details=True)
+            resp["error"] = False
+            if task:
+                entry = task.to_dict()
+                if entry["category"] != "url":
+                    entry["target"] = entry["target"].rsplit("/", 1)[-1]
+                    entry["guest"] = {}
+                if task.guest:
+                    entry["guest"] = task.guest.to_dict()
+                entry["errors"] = []
+                for error in task.errors:
+                    entry["errors"].append(error.message)
+                entry["sample"] = {}
+                if task.sample_id:
+                    sample = db.view_sample(task.sample_id)
+                    entry["sample"] = sample.to_dict()
+
     if repconf.mongodb.enabled:
         rtmp = mongo_find_one(
             "analysis",
@@ -1120,6 +1146,10 @@ def tasks_report(request, task_id, report_format="json", make_zip=False):
     if check["error"]:
         return Response(check)
 
+    rtid = check.get("rtid", 0)
+    if rtid:
+        task_id = rtid
+
     resp = {}
     srcdir = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, "reports")
     if not os.path.normpath(srcdir).startswith(ANALYSIS_BASE_PATH):
@@ -1255,6 +1285,10 @@ def tasks_iocs(request, task_id, detail=None):
     check = validate_task(task_id)
     if check["error"]:
         return Response(check)
+
+    rtid = check.get("rtid", 0)
+    if rtid:
+        task_id = rtid
 
     buf = {}
     if repconf.mongodb.get("enabled") and not buf:
@@ -1485,6 +1519,10 @@ def tasks_screenshot(request, task_id, screenshot="all"):
     if check["error"]:
         return Response(check)
 
+    rtid = check.get("rtid", 0)
+    if rtid:
+        task_id = rtid
+
     srcdir = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, "shots")
     if not os.path.normpath(srcdir).startswith(ANALYSIS_BASE_PATH):
         return render(request, "error.html", {"error": "File not found".format(os.path.basename(srcdir))})
@@ -1530,6 +1568,10 @@ def tasks_pcap(request, task_id):
     if check["error"]:
         return Response(check)
 
+    rtid = check.get("rtid", 0)
+    if rtid:
+        task_id = rtid
+
     srcfile = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, "dump.pcap")
     if not os.path.normpath(srcfile).startswith(ANALYSIS_BASE_PATH):
         return render(request, "error.html", {"error": "File not found".format(os.path.basename(srcfile))})
@@ -1556,6 +1598,10 @@ def tasks_dropped(request, task_id):
     check = validate_task(task_id)
     if check["error"]:
         return Response(check)
+
+    rtid = check.get("rtid", 0)
+    if rtid:
+        task_id = rtid
 
     srcdir = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, "files")
     if not os.path.normpath(srcdir).startswith(ANALYSIS_BASE_PATH):
@@ -1600,6 +1646,10 @@ def tasks_surifile(request, task_id):
     check = validate_task(task_id)
     if check["error"]:
         return Response(check)
+
+    rtid = check.get("rtid", 0)
+    if rtid:
+        task_id = rtid
 
     srcfile = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, "logs", "files.zip")
     if not os.path.normpath(srcfile).startswith(ANALYSIS_BASE_PATH):
@@ -1709,6 +1759,10 @@ def tasks_procmemory(request, task_id, pid="all"):
     if check["error"]:
         return Response(check)
 
+    rtid = check.get("rtid", 0)
+    if rtid:
+        task_id = rtid
+
     # Check if any process memory dumps exist
     srcdir = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, "memory")
     if not os.path.exists(srcdir):
@@ -1761,6 +1815,10 @@ def tasks_fullmemory(request, task_id):
     if check["error"]:
         return Response(check)
 
+    rtid = check.get("rtid", 0)
+    if rtid:
+        task_id = rtid
+
     filename = ""
     file_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "memory.dmp")
     if os.path.exists(file_path):
@@ -1811,6 +1869,10 @@ def file(request, stype, value):
         check = validate_task(value)
         if check["error"]:
             return Response(check)
+
+        rtid = check.get("rtid", 0)
+        if rtid:
+            task_id = rtid
         sid = db.view_task(value).to_dict()["sample_id"]
         file_hash = db.view_sample(sid).to_dict()["sha256"]
 
@@ -1993,6 +2055,10 @@ def tasks_payloadfiles(request, task_id):
     if check["error"]:
         return Response(check)
 
+    rtid = check.get("rtid", 0)
+    if rtid:
+        task_id = rtid
+
     srcdir = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "CAPE")
 
     if not os.path.normpath(srcdir).startswith(ANALYSIS_BASE_PATH):
@@ -2025,6 +2091,10 @@ def tasks_procdumpfiles(request, task_id):
     if check["error"]:
         return Response(check)
 
+    rtid = check.get("rtid", 0)
+    if rtid:
+        task_id = rtid
+
     # ToDo add all/one
 
     srcdir = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "procdump")
@@ -2055,6 +2125,10 @@ def tasks_config(request, task_id, cape_name=False):
 
     if check["error"]:
         return Response(check)
+
+    rtid = check.get("rtid", 0)
+    if rtid:
+        task_id = rtid
 
     buf = {}
     if repconf.mongodb.get("enabled"):

@@ -32,6 +32,7 @@ from lib.cuckoo.core.database import (
     TASK_FAILED_ANALYSIS,
     TASK_FAILED_PROCESSING,
     TASK_FAILED_REPORTING,
+    TASK_RECOVERED,
     TASK_REPORTED,
     Database,
     Sample,
@@ -58,6 +59,11 @@ rps = web_cfg.ratelimit.get("rps", "1/rps")
 rpm = web_cfg.ratelimit.get("rpm", "5/rpm")
 
 db = Database()
+
+try:
+    import re2 as re
+except:
+    import re
 
 DYNAMIC_PLATFORM_DETERMINATION = web_cfg.general.dynamic_platform_determination
 
@@ -825,13 +831,27 @@ def category_all_files(task_id, category, base_path):
 
 
 def validate_task(tid, status=TASK_REPORTED):
-    task = db.view_task(tid)
+    task = db.view_task(tid, details=True)
+    task_id = tid
     if not task:
         return {"error": True, "error_value": "Task does not exist"}
+
+    if task.status == TASK_RECOVERED:
+        entry = task.to_dict()
+        if task.status == TASK_RECOVERED:
+            if task.custom:
+                m = re.match("^Recovery_(?P<taskid>\d+)$", task.custom)
+                if m:
+                    task_id = int(m.group("taskid"))
+                    task = db.view_task(task_id, details=True)
 
     if status and status not in ALL_DB_STATUSES:
         return {"error": True, "error_value": "Specified wrong task status"}
     elif status == task.status:
+        if tid != task_id:
+            return {"error": False, "rtid": task_id}
+        else:
+            return {"error": False}
         return {"error": False}
     elif task.status in {TASK_FAILED_ANALYSIS, TASK_FAILED_PROCESSING, TASK_FAILED_REPORTING}:
         return {"error": True, "error_value": "Task failed"}
@@ -1255,11 +1275,15 @@ def process_new_task_files(request, samples, details, opt_filename, unique):
         if not sample.size:
             details["errors"].append({sample.name: "You uploaded an empty file."})
             continue
-        elif sample.size > web_cfg.general.max_sample_size:
-            details["errors"].append(
-                {sample.name: "You uploaded a file that exceeds the maximum allowed upload size specified in conf/web.conf."}
-            )
-            continue
+
+        elif not web_cfg.general.allow_ignore_size and "ignore_size_check" not in details["options"]:
+            if sample.size > web_cfg.general.max_sample_size:
+                details["errors"].append(
+                    {
+                        sample.name: f"You uploaded a file that exceeds the maximum allowed upload size specified in conf/web.conf. Sample size is: {sample.size/float(1<<20):,.0f} Allowed size is:{web_cfg.general.max_sample_size/float(1<<20):,.0f} "
+                    }
+                )
+                continue
 
         if opt_filename:
             filename = opt_filename

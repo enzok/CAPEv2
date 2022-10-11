@@ -23,6 +23,7 @@ import xmlrpc.client
 import zipfile
 from datetime import datetime
 from io import BytesIO
+from pathlib import Path
 from typing import Tuple, Union
 
 from data.family_detection_names import family_detection_names
@@ -102,6 +103,10 @@ texttypes = [
 # this doesn't work for bytes
 # textchars = bytearray({7, 8, 9, 10, 12, 13, 27} | set(range(0x20, 0x100)) - {0x7F})
 # is_binary_file = lambda bytes: bool(bytes.translate(None, textchars))
+
+
+def get_file_size(file: str):
+    return Path(file).stat().st_size
 
 
 def make_bytes(value: Union[str, bytes], encoding: str = "latin-1") -> bytes:
