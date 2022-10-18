@@ -170,7 +170,7 @@ class Archive(Package):
 
         password = self.options.get("password", "")
 
-        archive_name = path.split("\\")[-1].split(".")[0]
+        archive_name = Path(path).name
 
         # We are extracting the archive to C:\\<archive_name> rather than the TEMP directory because
         # actors are using LNK files that use relative directory traversal at arbitrary depth.
