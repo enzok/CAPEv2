@@ -175,13 +175,7 @@ class Archive(Package):
         # We are extracting the archive to C:\\<archive_name> rather than the TEMP directory because
         # actors are using LNK files that use relative directory traversal at arbitrary depth.
         # They expect to find the root of the drive.
-        root = os.path.join("C:\\", archive_name)
-
-        # Check if root exists already due to the file path
-        if os.path.exists(root) and os.path.isfile(root):
-            root = os.path.join("C:\\", "extracted_iso", archive_name)
-
-        os.makedirs(root, exist_ok=True)
+        root = os.path.join("C:\\")
 
         file_names = self.get_file_names(seven_zip_path, path)
         if not len(file_names):
