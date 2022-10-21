@@ -2,9 +2,9 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-import configparser
 import glob
 import os
+from configparser import ConfigParser
 from typing import Dict, Iterable
 
 from lib.cuckoo.common.colors import bold, red
@@ -34,6 +34,11 @@ def parse_options(options: str) -> Dict[str, str]:
     return ret
 
 
+class CaseConfigParser(ConfigParser):
+    def optionxform(self, optionstr):
+        return optionstr
+
+
 class _BaseConfig:
     """Configuration file parser."""
 
@@ -54,7 +59,7 @@ class _BaseConfig:
     def _read_files(self, files: Iterable[str]):
         # Escape the percent signs so that ConfigParser doesn't try to do
         # interpolation of the value as well.
-        config = configparser.ConfigParser({f"ENV:{key}": val.replace("%", "%%") for key, val in os.environ.items()})
+        config = CaseConfigParser({f"ENV:{key}": val.replace("%", "%%") for key, val in os.environ.items()})
 
         try:
             config.read(files)
