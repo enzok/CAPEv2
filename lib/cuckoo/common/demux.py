@@ -149,7 +149,7 @@ def demux_office(filename: bytes, password: str) -> List[bytes]:
 
 
 def is_valid_type(magic: str) -> bool:
-    # check for valid file types and don't rely just on file extentsion
+    # check for valid file types and don't rely just on file extension
     VALID_TYPES.update(VALID_LINUX_TYPES)
     return any(ftype in magic for ftype in VALID_TYPES)
 
@@ -165,7 +165,7 @@ def _sf_chlildren(child: sfFile) -> bytes:
         tmp_dir = tempfile.mkdtemp(dir=target_path)
         try:
             if child.contents:
-                path_to_extract = os.path.join(tmp_dir, sanitize_filename((child.filename).decode()).encode())
+                path_to_extract = os.path.join(tmp_dir, sanitize_filename(child.filename.decode()).encode())
                 with open(path_to_extract, "wb") as f:
                     f.write(child.contents)
         except Exception as e:
@@ -179,10 +179,6 @@ def demux_sflock(filename: bytes, options: str) -> List[bytes]:
     ext = os.path.splitext(filename)[1]
     if ext == b".bin":
         return retlist
-
-    # to handle when side file for exec is required
-    if "exefile=" in options:
-        return [filename]
 
     try:
         password = options2passwd(options) or "infected"
@@ -219,6 +215,10 @@ def demux_sample(filename: bytes, package: str, options: str, use_sflock: bool =
         filename = filename.encode()
     # if a package was specified, then don't do anything special
     if package:
+        return [filename]
+
+    # to handle when side file for exec is required
+    if "file=" in options:
         return [filename]
 
     # don't try to extract from office docs
