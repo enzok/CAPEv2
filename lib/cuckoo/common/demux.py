@@ -6,11 +6,12 @@ import logging
 import os
 import sys
 import tempfile
+from typing import List
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.exceptions import CuckooDemuxError
 from lib.cuckoo.common.objects import File
-from lib.cuckoo.common.utils import get_options
+from lib.cuckoo.common.utils import get_options, sanitize_filename
 
 sf_version = ""
 try:
@@ -39,8 +40,8 @@ log = logging.getLogger(__name__)
 cuckoo_conf = Config()
 tmp_path = cuckoo_conf.cuckoo.get("tmppath", "/tmp").encode()
 
-demux_extensions_list = [
-    b"",
+demux_extensions_list = {
+    "",
     b".accdr",
     b".exe",
     b".dll",
@@ -101,28 +102,19 @@ demux_extensions_list = [
     b".sh",
     b".pl",
     b".lnk",
-    b".eml",
-    b".msg",
-]
+}
 
-whitelist_extensions = ("doc", "xls", "ppt", "pub", "jar")
+whitelist_extensions = {"doc", "xls", "ppt", "pub", "jar"}
 
-blacklist_extensions = ("apk", "dmg")
+blacklist_extensions = {"apk", "dmg"}
 
 # list of valid file types to extract - TODO: add more types
-VALID_TYPES = ["PE32", "Java Jar", "Outlook", "Message", "MS Windows shortcut"]
-VALID_LINUX_TYPES = ["Bourne-Again", "POSIX shell script", "ELF", "Python"]
-OFFICE_TYPES = ["Composite Document File",
-                "CDFV2 Encrypted",
-                "Excel 2007+",
-                "Word 2007+",
-                "Microsoft OOXML",
-                ]
-MS_IGNORE = ["Outlook", "Message", "Disk Image"]
+VALID_TYPES = {"PE32", "Java Jar", "Outlook", "Message", "MS Windows shortcut"}
+VALID_LINUX_TYPES = {"Bourne-Again", "POSIX shell script", "ELF", "Python"}
 
 
-def options2passwd(options):
-    password = False
+def options2passwd(options: str) -> str:
+    password = ""
     if "password=" in options:
         password = get_options(options).get("password")
         if password and isinstance(password, bytes):
@@ -131,7 +123,7 @@ def options2passwd(options):
     return password
 
 
-def demux_office(filename, password):
+def demux_office(filename: bytes, password: str) -> List[bytes]:
     retlist = []
     basename = os.path.basename(filename)
     target_path = os.path.join(tmp_path, b"cuckoo-tmp/msoffice-crypt-tmp")
@@ -142,12 +134,11 @@ def demux_office(filename, password):
     if HAS_SFLOCK:
         ofile = OfficeFile(sfFile.from_path(filename))
         d = ofile.decrypt(password)
-        if hasattr(d, "contents"):
-            # TODO add decryption verification checks
-            if "Encrypted" not in d.magic:
-                with open(decrypted_name, "wb") as outs:
-                    outs.write(d.contents)
-                retlist.append(decrypted_name)
+        # TODO: add decryption verification checks
+        if hasattr(d, "contents") and "Encrypted" not in d.magic:
+            with open(decrypted_name, "wb") as outs:
+                outs.write(d.contents)
+            retlist.append(decrypted_name)
     else:
         raise CuckooDemuxError("MS Office decryptor not available")
 
@@ -157,79 +148,73 @@ def demux_office(filename, password):
     return retlist
 
 
-def is_valid_type(magic):
+def is_valid_type(magic: str) -> bool:
     # check for valid file types and don't rely just on file extentsion
-    VALID_TYPES.extend(VALID_LINUX_TYPES)
-    for ftype in VALID_TYPES:
-        if ftype in magic:
-            return True
-    return False
+    VALID_TYPES.update(VALID_LINUX_TYPES)
+    return any(ftype in magic for ftype in VALID_TYPES)
 
 
-def get_filenames(retlist, tmp_dir, children):
-    try:
-        for child in children:
-            if child.filesize == 0:
-                continue
-            at = child.astree()
-            magic = child.magic
-            if (
-                "file" in at["type"]
-                or child.package in whitelist_extensions
-                or ("Microsoft" in magic and not any(x in magic for x in MS_IGNORE))
-            ):
-                _, ext = os.path.splitext(at["filename"])
-                ext = ext.lower()
-                if ext in demux_extensions_list or is_valid_type(magic):
-                    retlist.append(os.path.join(tmp_dir, at["filename"]))
-            elif "container" in at["type"] and child.package not in whitelist_extensions:
-                get_filenames(retlist, tmp_dir, child.children)
-    except Exception as err:
-        log.error(err, exc_info=True)
-        pass
-
-    return retlist
+def _sf_chlildren(child: sfFile) -> bytes:
+    path_to_extract = b""
+    _, ext = os.path.splitext(child.filename)
+    ext = ext.lower()
+    if ext in demux_extensions_list or is_valid_type(child.magic):
+        target_path = os.path.join(tmp_path, b"cuckoo-sflock")
+        if not os.path.exists(target_path):
+            os.mkdir(target_path)
+        tmp_dir = tempfile.mkdtemp(dir=target_path)
+        try:
+            if child.contents:
+                path_to_extract = os.path.join(tmp_dir, sanitize_filename((child.filename).decode()).encode())
+                with open(path_to_extract, "wb") as f:
+                    f.write(child.contents)
+        except Exception as e:
+            log.error(e, exc_info=True)
+    return path_to_extract
 
 
-def demux_sflock(filename, options):
+def demux_sflock(filename: bytes, options: str) -> List[bytes]:
     retlist = []
-    try:
-        password = ""
-        tmp_pass = options2passwd(options)
-        if tmp_pass:
-            password = tmp_pass
+    # do not extract from .bin (downloaded from us)
+    ext = os.path.splitext(filename)[1]
+    if ext == b".bin":
+        return retlist
 
+    # to handle when side file for exec is required
+    if "exefile=" in options:
+        return [filename]
+
+    try:
+        password = options2passwd(options) or "infected"
         try:
             unpacked = unpack(filename, password=password)
         except UnpackException:
             unpacked = unpack(filename)
 
+        if unpacked.package in whitelist_extensions:
+            return [filename]
         if unpacked.package in blacklist_extensions:
             return retlist
-
-        if unpacked.children:
-            target_path = os.path.join(tmp_path, b"cuckoo-sflock")
-            if not os.path.exists(target_path):
-                os.mkdir(target_path)
-            tmp_dir = tempfile.mkdtemp(dir=target_path)
-
-            retlist = get_filenames([], tmp_dir, unpacked.children)
-
-            if retlist:
-                unpacked.extract(tmp_dir)
-
+        for sf_child in unpacked.children:
+            if sf_child.to_dict().get("children"):
+                retlist.extend(_sf_chlildren(ch) for ch in sf_child.children)
+                # child is not available, the original file should be put into the list
+                if filter(None, retlist):
+                    retlist.append(_sf_chlildren(sf_child))
+            else:
+                retlist.append(_sf_chlildren(sf_child))
     except Exception as e:
         log.error(e, exc_info=True)
+    return list(filter(None, retlist))
 
-    return retlist
 
-
-def demux_sample(filename, package, options, use_sflock=True):
+def demux_sample(filename: bytes, package: str, options: str, use_sflock: bool = True) -> List[bytes]:
     """
     If file is a ZIP, extract its included files and return their file paths
     If file is an email, extracts its attachments and return their file paths (later we'll also extract URLs)
     """
     # sflock requires filename to be bytes object for Py3
+    # TODO: Remove after checking all uses of demux_sample use bytes ~TheMythologist
     if isinstance(filename, str) and use_sflock:
         filename = filename.encode()
     # if a package was specified, then don't do anything special
@@ -239,39 +224,35 @@ def demux_sample(filename, package, options, use_sflock=True):
     # don't try to extract from office docs
     magic = File(filename).get_type()
 
+    OFFICE_TYPES = ["Composite Document File",
+                    "CDFV2 Encrypted",
+                    "Excel 2007+",
+                    "Word 2007+",
+                    "Microsoft OOXML",
+                    ]
     # if file is an Office doc and password is supplied, try to decrypt the doc
     if "Microsoft" in magic:
-        if any(x in magic for x in MS_IGNORE):
-            pass
-        elif any(x in magic for x in OFFICE_TYPES):
-            password = False
-            tmp_pass = options2passwd(options)
-            if tmp_pass:
-                password = tmp_pass
-            if HAS_SFLOCK and use_sflock:
+        pass
+        # ignore = {"Outlook", "Message", "Disk Image"}
+    elif any(x in magic for x in OFFICE_TYPES):
+        password = options2passwd(options) or None
+        if use_sflock:
+            if HAS_SFLOCK:
                 return demux_office(filename, password)
             else:
                 log.error("Detected password protected office file, but no sflock is installed: pip3 install -U sflock2")
 
     # don't try to extract from Java archives or executables
-    if "Java Jar" in magic or "Java archive data" in magic:
-        return [filename]
-    if "PE32" in magic or "MS-DOS executable" in magic:
-        return [filename]
-    if any(x in magic for x in VALID_LINUX_TYPES):
+    if "Java Jar" in magic or "Java archive data" in magic or \
+            "PE32" in magic or "MS-DOS executable" in magic or\
+            any(x in magic for x in VALID_LINUX_TYPES):
         return [filename]
 
-    retlist = []
-    if HAS_SFLOCK:
-        if use_sflock:
-            # all in one unarchiver
-            retlist = demux_sflock(filename, options)
+    # all in one unarchiver
+    retlist = demux_sflock(filename, options) if HAS_SFLOCK and use_sflock else []
     # if it wasn't a ZIP or an email or we weren't able to obtain anything interesting from either, then just submit the
     # original file
     if not retlist:
         retlist.append(filename)
-    else:
-        if len(retlist) > 10:
-            retlist = retlist[:10]
 
-    return retlist
+    return retlist[:10]
