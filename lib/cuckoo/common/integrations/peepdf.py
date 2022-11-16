@@ -66,7 +66,7 @@ def _set_base_uri(pdf):
 
 
 def peepdf_parse(filepath: str, pdfresult: Dict[str, Any]) -> Dict[str, Any]:
-    """Uses V8Py from peepdf to extract JavaScript from PDF objects."""
+    """Extract JavaScript from PDF objects."""
     log.debug("About to parse with PDFParser")
     parser = PDFParser()
     try:
@@ -81,6 +81,8 @@ def peepdf_parse(filepath: str, pdfresult: Dict[str, Any]) -> Dict[str, Any]:
     metadata = {}
 
     base_uri = _set_base_uri(pdf)
+    if not base_uri:
+        base_uri = ""
 
     for i, body in enumerate(pdf.body):
         metatmp = pdf.getBasicMetadata(i)
@@ -176,7 +178,7 @@ def peepdf_parse(filepath: str, pdfresult: Dict[str, Any]) -> Dict[str, Any]:
                 if a_elem.type == "dictionary" and a_elem.hasElement("/URI"):
                     uri_elem = a_elem.getElementByName("/URI")
                     uri_elem = _get_obj_val(pdf, i, uri_elem)
-                    annoturiset.add(f"{uri_elem.getValue()}")
+                    annoturiset.add(f"{base_uri}{uri_elem.getValue()}")
         pdfresult["JSStreams"] = retobjects
     if "creator" in metadata:
         pdfresult["Info"]["Creator"] = convert_to_printable(_clean_string(metadata["creator"]))
