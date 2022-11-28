@@ -10,6 +10,7 @@ repconf = Config("reporting")
 
 mdb = repconf.mongodb.get("db", "cuckoo")
 
+
 if repconf.mongodb.enabled:
     from pymongo import MongoClient, version_tuple
     from pymongo.errors import AutoReconnect, ConnectionFailure, OperationFailure, ServerSelectionTimeoutError
@@ -87,8 +88,7 @@ def mongo_find(collection: str, query, projection=False, sort=None, archive=Fals
         db = archive_db
     if projection:
         return getattr(db, collection).find(query, projection, sort=sort)
-    else:
-        return getattr(db, collection).find(query, sort=sort)
+    return getattr(db, collection).find(query, sort=sort)
 
 
 @graceful_auto_reconnect
@@ -100,8 +100,7 @@ def mongo_find_one(collection: str, query, projection=False, sort=None, archive=
         db = archive_db
     if projection:
         return getattr(db, collection).find_one(query, projection, sort=sort)
-    else:
-        return getattr(db, collection).find_one(query, sort=sort)
+    return getattr(db, collection).find_one(query, sort=sort)
 
 
 @graceful_auto_reconnect

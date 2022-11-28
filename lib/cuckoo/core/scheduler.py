@@ -24,7 +24,7 @@ from lib.cuckoo.common.exceptions import (
 from lib.cuckoo.common.integrations.parse_pe import PortableExecutable
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.utils import convert_to_printable, create_folder, free_space_monitor, get_memdump_path, load_categories
-from lib.cuckoo.core.database import TASK_COMPLETED, TASK_PENDING, Database, Task
+from lib.cuckoo.core.database import TASK_COMPLETED, TASK_FAILED_ANALYSIS, TASK_PENDING, Database, Task
 from lib.cuckoo.core.guest import GuestManager
 from lib.cuckoo.core.log import task_log_stop
 from lib.cuckoo.core.plugins import RunAuxiliary, list_plugins
@@ -186,7 +186,7 @@ class AnalysisManager(threading.Thread):
 
             # If the user specified a specific machine ID, a platform to be
             # used or machine tags acquire the machine accordingly.
-            task_archs = [tag.name for tag in self.task.tags if tag.name in ["x86", "x64"]]
+            task_archs = [tag.name for tag in self.task.tags if tag.name in ("x86", "x64")]
             task_tags = [tag.name for tag in self.task.tags if tag.name not in task_archs]
             if self.task.category.lower() == "url":
                 task_arch = None
@@ -271,7 +271,7 @@ class AnalysisManager(threading.Thread):
         return options
 
     def category_checks(self):
-        if self.task.category in ["file", "pcap", "static"]:
+        if self.task.category in ("file", "pcap", "static"):
             sha256 = File(self.task.target).get_sha256()
             # Check whether the file has been changed for some unknown reason.
             # And fail this analysis if it has been modified.
@@ -611,7 +611,7 @@ class AnalysisManager(threading.Thread):
                 )
                 self._rooter_response_check()
 
-        log.info("Enabled route '%s'", self.route)
+        log.info("Enabled route '%s'. Bear in mind that routes none and drop won't generate PCAP file", self.route)
 
         if self.rt_table:
             self.rooter_response = rooter("srcroute_enable", self.rt_table, self.machine.ip)
@@ -862,6 +862,13 @@ class Scheduler:
                     for task in self.db.list_tasks(
                         status=TASK_PENDING, order_by=(Task.priority.desc(), Task.added_on), options_not_like="node="
                     ):
+                        # Can this task ever be serviced?
+                        if not self.db.is_serviceable(task):
+                            if self.cfg.cuckoo.fail_unserviceable:
+                                log.debug("Task #%s: Failing unserviceable task", task.id)
+                                self.db.set_status(task.id, TASK_FAILED_ANALYSIS)
+                                continue
+                            log.debug("Task #%s: Unserviceable task", task.id)
                         relevant_machine_is_available = self.db.is_relevant_machine_available(task)
                         if relevant_machine_is_available:
                             break

@@ -6,7 +6,9 @@ import sys
 import tempfile
 import time
 from collections import OrderedDict
+from contextlib import suppress
 from datetime import datetime, timedelta
+from pathlib import Path
 from random import choice
 
 import magic
@@ -157,8 +159,7 @@ def my_rate_seconds(group, request):
 
     if not rateblock or request.user.is_authenticated:
         return "99999999999999/s"
-    else:
-        return rps
+    return rps
 
 
 def my_rate_minutes(group, request):
@@ -174,8 +175,7 @@ def my_rate_minutes(group, request):
     """
     if not rateblock or request.user.is_authenticated:
         return "99999999999999/m"
-    else:
-        return rpm
+    return rpm
 
 
 def load_vms_exits():
@@ -220,6 +220,8 @@ all_vms_tags_str = ",".join(all_vms_tags)
 
 
 def top_detections(date_since: datetime = False, results_limit: int = 20) -> dict:
+    if web_cfg.general.get("top_detections", False) == False:
+        return False
 
     t = int(time.time())
 
@@ -442,8 +444,7 @@ def jsonize(data, response=False):
     if response:
         jdata = json.dumps(data, sort_keys=False, indent=4)
         return HttpResponse(jdata, content_type="application/json; charset=UTF-8")
-    else:
-        return json.dumps(data, sort_keys=False, indent=4)
+    return json.dumps(data, sort_keys=False, indent=4)
 
 
 def get_file_content(paths):
@@ -452,8 +453,8 @@ def get_file_content(paths):
         paths = [paths]
     for path in paths:
         if os.path.exists(path):
-            with open(path, "rb") as f:
-                content = f.read()
+            path = path.decode() if isinstance(path, bytes) else path
+            content = Path(path).read_bytes()
             break
     return content
 
@@ -505,8 +506,7 @@ def get_magic_type(data):
 def get_platform(magic):
     if magic and any(x in magic for x in VALID_LINUX_TYPES):
         return "linux"
-    else:
-        return "windows"
+    return "windows"
 
 
 def download_file(**kwargs):
@@ -624,8 +624,7 @@ def download_file(**kwargs):
             if retrieved_hash != kwargs["fhash"].lower():
                 return "error", {"error": f"Hashes mismatch, original hash: {kwargs['fhash']} - retrieved hash: {retrieved_hash}"}
         if not os.path.exists(kwargs.get("path")):
-            with open(kwargs["path"], "wb") as f:
-                f.write(kwargs["content"])
+            _ = Path(kwargs["path"]).write_bytes(kwargs["content"])
     except Exception as e:
         print(e)
         return "error", {"error": f"Error writing {kwargs['service']} storing/download file to temporary path"}
@@ -754,9 +753,7 @@ def save_script_to_storage(task_ids, kwargs):
 
             os.makedirs(script_temp_path, exist_ok=True)
             log.info("Writing pre_script to temp folder %s", script_temp_path)
-            with open(os.path.join(script_temp_path, f"pre_script{file_ext}"), "wb") as f:
-                f.write(kwargs["pre_script_content"])
-
+            _ = Path(os.path.join(script_temp_path, f"pre_script{file_ext}")).write_bytes(kwargs["pre_script_content"])
         if "during_script_name" in kwargs and "during_script_content" in kwargs:
             file_ext = os.path.splitext(kwargs["during_script_name"])[-1]
             if file_ext not in (".py", ".ps1", ".exe"):
@@ -764,8 +761,7 @@ def save_script_to_storage(task_ids, kwargs):
 
             os.makedirs(script_temp_path, exist_ok=True)
             log.info("Writing during_script to temp folder %s", script_temp_path)
-            with open(os.path.join(script_temp_path, f"during_script{file_ext}"), "wb") as f:
-                f.write(kwargs["during_script_content"])
+            _ = Path(os.path.join(script_temp_path, f"during_script{file_ext}")).write_bytes(kwargs["during_script_content"])
 
 
 def url_defang(url):
@@ -1041,10 +1037,8 @@ def perform_search(term, value, search_limit=False, user_id=False, privs=False, 
     elif term in normalized_int_terms:
         query_val = int(value)
     elif term in ("surisid", "id"):
-        try:
+        with suppress(Exception):
             query_val = int(value)
-        except Exception:
-            pass
     elif term in ("ids", "options", "tags_tasks", "user_tasks"):
         try:
             ids = []

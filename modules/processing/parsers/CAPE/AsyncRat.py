@@ -118,14 +118,12 @@ def extract_config(filebuf):
 
     if config["version"].startswith("0"):
         return config
-    else:
-        return {}
+    return {}
 
 
 if __name__ == "__main__":
     import sys
+    from pathlib import Path
 
-    with open(sys.argv[1], "rb") as f:
-        data = f.read()
-
+    data = Path(sys.argv[1]).read_bytes()
     print(extract_config(data))

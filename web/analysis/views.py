@@ -10,7 +10,9 @@ import sys
 import tempfile
 import zipfile
 import zlib
+from contextlib import suppress
 from io import BytesIO
+from pathlib import Path
 from urllib.parse import quote
 from wsgiref.util import FileWrapper
 
@@ -127,7 +129,7 @@ if processing_cfg.floss.on_demand:
 # Used for displaying enabled config options in Django UI
 enabledconf = {}
 on_demand_conf = {}
-for cfile in ["reporting", "processing", "auxiliary", "web"]:
+for cfile in ("reporting", "processing", "auxiliary", "web"):
     curconf = Config(cfile)
     confdata = curconf.get_config()
     for item in confdata:
@@ -539,8 +541,7 @@ def _load_file(task_id, sha256, existen_details, name):
                 if not log.endswith(".log"):
                     continue
 
-                with open(os.path.join(debugger_log_path, log), "r") as f:
-                    existen_details[int(log.strip(".log"))] = f.read()
+                existen_details[int(log.strip(".log"))] = Path(os.path.join(debugger_log_path, log)).read_text()
     else:
         return existen_details
 
@@ -1273,15 +1274,11 @@ def report(request, task_id):
     if enabledconf["compressresults"]:
         for keyword in ("CAPE", "procdump", "enhanced", "summary"):
             if report.get(keyword, False):
-                try:
+                with suppress(Exception):
                     report[keyword] = json.loads(zlib.decompress(report[keyword]))
-                except Exception:
-                    pass
         if report.get("behavior", {}).get("summary", {}):
-            try:
+            with suppress(Exception):
                 report["behavior"]["summary"] = json.loads(zlib.decompress(report["behavior"]["summary"]))
-            except Exception:
-                pass
     children = 0
     if "CAPE_children" in report:
         children = report["CAPE_children"]
@@ -1407,7 +1404,7 @@ def report(request, task_id):
         "reporting": 0,
     }
     for stats_category in ("processing", "signatures", "reporting"):
-        total = float()
+        total = 0.0
         for item in report.get("statistics", {}).get(stats_category, []) or []:
             total += item["time"]
 
@@ -1720,13 +1717,11 @@ def procdump(request, task_id, process_id, start, end, zipped=False):
                 response["Content-Disposition"] = "attachment; filename={0}".format(file_name)
                 break
 
-    try:
+    with suppress(Exception):
         if tmp_file_path:
             os.unlink(tmp_file_path)
         if tmpdir:
             delete_folder(tmpdir)
-    except Exception:
-        pass
 
     if response:
         return response
@@ -1807,8 +1802,7 @@ def full_memory_dump_file(request, analysis_number):
         response["Content-Length"] = os.path.getsize(file_path)
         response["Content-Disposition"] = "attachment; filename=%s" % filename
         return response
-    else:
-        return render(request, "error.html", {"error": "File not found"})
+    return render(request, "error.html", {"error": "File not found"})
 
 
 @require_safe
@@ -1830,8 +1824,7 @@ def full_memory_dump_strings(request, analysis_number):
         response["Content-Length"] = os.path.getsize(file_path)
         response["Content-Disposition"] = "attachment; filename=%s" % filename
         return response
-    else:
-        return render(request, "error.html", {"error": "File not found"})
+    return render(request, "error.html", {"error": "File not found"})
 
 
 @csrf_exempt
@@ -1889,7 +1882,7 @@ def search(request, searched=""):
             value = value.replace("\\", "\\\\")
 
         try:
-            records = perform_search(term, value, user_id=request.user.id, privs=request.user.is_staff, web=True)
+            records = perform_search(term, value, user_id=request.user.id, privs=request.user.is_staff)
         except ValueError:
             if term:
                 return render(
@@ -1921,8 +1914,7 @@ def search(request, searched=""):
             "analysis/search.html",
             {"analyses": analyses, "config": enabledconf, "term": searched, "error": None},
         )
-    else:
-        return render(request, "analysis/search.html", {"analyses": None, "term": None, "error": None})
+    return render(request, "analysis/search.html", {"analyses": None, "term": None, "error": None})
 
 
 @require_safe
@@ -2075,8 +2067,7 @@ def comments(request, task_id):
             es.update(index=esidx, id=esid, body={"doc": {"info": {"comments": curcomments}}})
         return redirect("report", task_id=task_id)
 
-    else:
-        return render(request, "error.html", {"error": "Invalid Method"})
+    return render(request, "error.html", {"error": "Invalid Method"})
 
 
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
@@ -2115,8 +2106,6 @@ def vtupload(request, category, task_id, filename, dlfile):
                 )
         except Exception as err:
             return render(request, "error.html", {"error": err})
-    else:
-        return
 
 
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
@@ -2165,8 +2154,7 @@ def statistics_data(request, days=7):
                 request, "error.html", {"error": "Please restart your database. Probably it had an update or it just down"}
             )
         return render(request, "statistics.html", {"statistics": details, "days": days})
-    else:
-        return render(request, "error.html", {"error": "Provide days as number"})
+    return render(request, "error.html", {"error": "Provide days as number"})
 
 
 on_demand_config_mapper = {
@@ -2270,12 +2258,12 @@ def on_demand(request, service: str, task_id: int, category: str, sha256):
         except Exception as e:
             print("Bingraph on demand error:", e)
     elif service == "floss" and HAVE_FLOSS:
-        package = get_task_package(int(task_id))
+        package = get_task_package(task_id)
         details = Floss(path, package, on_demand=True).run()
         if not details:
             details = {"msg": "No results"}
     if details:
-        buf = mongo_find_one("analysis", {"info.id": int(task_id)}, {"_id": 1, category: 1})
+        buf = mongo_find_one("analysis", {"info.id": task_id}, {"_id": 1, category: 1})
 
         servicedata = {}
         if category == "CAPE":
@@ -2315,8 +2303,7 @@ def ban_all_user_tasks(request, user_id: int):
     if request.user.is_staff or request.user.is_superuser:
         db.ban_user_tasks(user_id)
         return HttpResponseRedirect(request.META.get("HTTP_REFERER", "/"))
-    else:
-        return render(request, "error.html", {"error": "Nice try! You don't have permission to ban user tasks"})
+    return render(request, "error.html", {"error": "Nice try! You don't have permission to ban user tasks"})
 
 
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
@@ -2327,8 +2314,7 @@ def ban_user(request, user_id: int):
             return HttpResponseRedirect(request.META.get("HTTP_REFERER", "/"))
         else:
             return render(request, "error.html", {"error": f"Can't ban user id {user_id}"})
-    else:
-        return render(request, "error.html", {"error": "Nice try! You don't have permission to ban users"})
+    return render(request, "error.html", {"error": "Nice try! You don't have permission to ban users"})
 
 
 @require_safe
