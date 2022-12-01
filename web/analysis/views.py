@@ -549,8 +549,7 @@ def _load_file(task_id, sha256, existen_details, name):
         if not filepath or not os.path.exists(filepath) or not os.path.normpath(filepath).startswith(ANALYSIS_BASE_PATH):
             return existen_details
 
-        with open(filepath, "r") as f:
-            existen_details.setdefault(sha256, f.read())
+        existen_details.setdefault(sha256, Path(filepath).read_text())
 
     return existen_details
 
@@ -1364,8 +1363,7 @@ def report(request, task_id):
         )
 
         if os.path.exists(vba2graph_svg_path) and os.path.normpath(vba2graph_svg_path).startswith(ANALYSIS_BASE_PATH):
-            with open(vba2graph_svg_path, "rb") as f:
-                vba2graph_dict_content.setdefault(report["target"]["file"]["sha256"], f.read().decode())
+            vba2graph_dict_content.setdefault(report["target"]["file"]["sha256"], Path(vba2graph_svg_path).read_text())
 
     bingraph = reporting_cfg.bingraph.enabled
     bingraph_dict_content = {}
@@ -1373,8 +1371,7 @@ def report(request, task_id):
     if os.path.exists(bingraph_path):
         for file in os.listdir(bingraph_path):
             tmp_file = os.path.join(bingraph_path, file)
-            with open(tmp_file, "r") as f:
-                bingraph_dict_content.setdefault(os.path.basename(tmp_file).split("-", 1)[0], f.read())
+            bingraph_dict_content.setdefault(os.path.basename(tmp_file).split("-", 1)[0], Path(tmp_file).read_text())
 
     domainlookups = {}
     iplookups = {}
@@ -1736,7 +1733,14 @@ def procdump(request, task_id, process_id, start, end, zipped=False):
 def filereport(request, task_id, category):
 
     # check if allowed to download to all + if no if user has permissions
-    if not settings.ALLOW_DL_REPORTS_TO_ALL and not request.user.userprofile.reports:
+    if not settings.ALLOW_DL_REPORTS_TO_ALL and (
+        request.user.is_anonymous
+        or (
+            hasattr(request.user, "userprofile")
+            and hasattr(request.user.userprofile, "reports")
+            and not request.user.userprofile.reports
+        )
+    ):
         return render(
             request,
             "error.html",
@@ -1744,6 +1748,7 @@ def filereport(request, task_id, category):
         )
 
     formats = {
+        "protobuf": "report.protobuf",
         "json": "report.json",
         "html": "report.html",
         "htmlsummary": "summary-report.html",
@@ -1758,16 +1763,13 @@ def filereport(request, task_id, category):
 
     if category in formats:
         file_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "reports", formats[category])
-        file_name = str(task_id) + "_" + formats[category]
-        content_type = "application/octet-stream"
 
         if not os.path.normpath(file_path).startswith(ANALYSIS_BASE_PATH):
             return render(request, "error.html", {"error": "File not found".format(os.path.basename(file_path))})
 
         if os.path.exists(file_path):
-            response = HttpResponse(open(file_path, "rb").read(), content_type=content_type)
-            response["Content-Disposition"] = "attachment; filename={0}".format(file_name)
-
+            response = HttpResponse(Path(file_path).read_bytes(), content_type="application/octet-stream")
+            response["Content-Disposition"] = f"attachment; filename={task_id}_{formats[category]}"
             return response
 
         """
