@@ -11,8 +11,9 @@ from typing import List
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.exceptions import CuckooDemuxError
+from lib.cuckoo.common.integrations.parse_pe import HAVE_PEFILE, IsPEImage
 from lib.cuckoo.common.objects import File
-from lib.cuckoo.common.utils import get_options, sanitize_filename
+from lib.cuckoo.common.utils import get_options, sanitize_filename, trim_sample
 
 sf_version = ""
 try:
@@ -39,6 +40,7 @@ if sf_version:
 
 log = logging.getLogger(__name__)
 cuckoo_conf = Config()
+web_cfg = Config("web")
 tmp_path = cuckoo_conf.cuckoo.get("tmppath", "/tmp").encode()
 
 demux_extensions_list = {
@@ -253,5 +255,19 @@ def demux_sample(filename: bytes, package: str, options: str, use_sflock: bool =
     # original file
     if not retlist:
         retlist.append(filename)
+    else:
+        for filename in retlist:
+            if File(filename).get_size() > web_cfg.general.max_sample_size:
+                if not (web_cfg.general.allow_ignore_size and "ignore_size_check" in options):
+                    file_chunk = File(filename).get_chunks(64).__next__()
+                    retlist.remove(filename)
+                    if web_cfg.general.enable_trim and HAVE_PEFILE and IsPEImage(file_chunk):
+                        trimmed_size = trim_sample(file_chunk)
+                        if trimmed_size:
+                            data = File(filename).get_chunks(trimmed_size).__next__()
+                            if trimmed_size < web_cfg.general.max_sample_size:
+                                with open(filename, "wb") as of:
+                                    of.write(data)
+                                retlist.append(filename)
 
     return retlist[:10]
