@@ -114,6 +114,13 @@ blacklist_extensions = {"apk", "dmg"}
 # list of valid file types to extract - TODO: add more types
 VALID_TYPES = {"PE32", "Java Jar", "Outlook", "Message", "MS Windows shortcut"}
 VALID_LINUX_TYPES = {"Bourne-Again", "POSIX shell script", "ELF", "Python"}
+OFFICE_TYPES = [
+    "Composite Document File",
+    "CDFV2 Encrypted",
+    "Excel 2007+",
+    "Word 2007+",
+    "Microsoft OOXML",
+]
 
 
 def options2passwd(options: str) -> str:
@@ -225,12 +232,6 @@ def demux_sample(filename: bytes, package: str, options: str, use_sflock: bool =
     # don't try to extract from office docs
     magic = File(filename).get_type()
 
-    OFFICE_TYPES = ["Composite Document File",
-                    "CDFV2 Encrypted",
-                    "Excel 2007+",
-                    "Word 2007+",
-                    "Microsoft OOXML",
-                    ]
     # if file is an Office doc and password is supplied, try to decrypt the doc
     if "Microsoft" in magic:
         pass
@@ -244,9 +245,13 @@ def demux_sample(filename: bytes, package: str, options: str, use_sflock: bool =
                 log.error("Detected password protected office file, but no sflock is installed: pip3 install -U sflock2")
 
     # don't try to extract from Java archives or executables
-    if "Java Jar" in magic or "Java archive data" in magic or \
-            "PE32" in magic or "MS-DOS executable" in magic or\
-            any(x in magic for x in VALID_LINUX_TYPES):
+    if (
+        "Java Jar" in magic
+        or "Java archive data" in magic
+        or "PE32" in magic
+        or "MS-DOS executable" in magic
+        or any(x in magic for x in VALID_LINUX_TYPES)
+    ):
         return [filename]
 
     # all in one unarchiver
