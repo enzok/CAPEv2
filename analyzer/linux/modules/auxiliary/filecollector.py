@@ -13,6 +13,7 @@ try:
 
     HAVE_PYINOTIFY = True
 except ImportError:
+    print("Missed pyinotify dependency")
     HAVE_PYINOTIFY = False
 
 log = logging.getLogger(__name__)
