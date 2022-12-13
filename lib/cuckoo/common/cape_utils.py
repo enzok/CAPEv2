@@ -18,6 +18,7 @@ try:
 except ImportError:
     HAVE_YARA = False
 
+
 cape_malware_parsers = {}
 
 # Config variables
