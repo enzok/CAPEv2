@@ -27,17 +27,16 @@ class Java:
         """Run analysis.
         @return: analysis results dict or None.
         """
-        p = Path(self.file_path)
-        if not p.exists():
+        fp = Path(self.file_path)
+        if not fp.exists():
             return None
 
+        data = fp.read_bytes()
         results = {"java": {}}
         ojar_file = ""
         jar_file = ""
 
         if self.deobfuscator_jar:
-            f = Path(self.file_path)
-            data = f.read_bytes()
             ijar_file = ""
             # TODO: run with detect: true, then apply from list of approved, discovered transformers
             try:
@@ -61,13 +60,12 @@ class Java:
                 pass
 
             try:
-                Path(ijar_file).unlink()
+                Path(ijar_file.decode()).unlink()
             except:
                 pass
 
         if self.decomp_jar:
             if not jar_file:
-                data = p.read_bytes()
                 jar_file = store_temp_file(data, "decompile.jar")
 
             try:
@@ -80,5 +78,5 @@ class Java:
                 log.error(e, exc_info=True)
 
             with contextlib.suppress(Exception):
-                Path(jar_file).unlink()
+                Path(jar_file.decode()).unlink()
         return results
