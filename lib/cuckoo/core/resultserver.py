@@ -7,6 +7,7 @@ import json
 import logging
 import os
 import socket
+from pathlib import Path
 from threading import Lock, Thread
 
 import gevent.pool
@@ -206,7 +207,7 @@ class FileUpload(ProtocolHandler):
             try:
                 if file_path.endswith("_script.log"):
                     self.fd = open_inclusive(file_path)
-                elif not os.path.exists(file_path):
+                elif not Path(file_path).exists():
                     # open_exclusive will fail if file_path already exists
                     self.fd = open_exclusive(file_path)
             except OSError as e:

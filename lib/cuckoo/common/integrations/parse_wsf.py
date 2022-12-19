@@ -2,6 +2,7 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
+from pathlib import Path
 from typing import List
 
 from lib.cuckoo.common.integrations.parse_encoded_script import EncodedScriptFile
@@ -28,8 +29,7 @@ class WindowsScriptFile:
     def run(self) -> List[str]:
         ret = []
         try:
-            with open(self.filepath, "r") as f:
-                source = f.read()
+            source = Path(self.filepath).read_text()
         except UnicodeError:
             return ret
 

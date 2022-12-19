@@ -5,6 +5,7 @@
 import contextlib
 import logging
 import os
+from pathlib import Path
 from subprocess import PIPE, Popen
 from typing import Any, Dict
 
@@ -26,7 +27,8 @@ class Java:
         """Run analysis.
         @return: analysis results dict or None.
         """
-        if not os.path.exists(self.file_path):
+        p = Path(self.file_path)
+        if not p.exists():
             return None
 
         results = {"java": {}}
@@ -34,21 +36,21 @@ class Java:
         jar_file = ""
 
         if self.deobfuscator_jar:
-            f = open(self.file_path, "rb")
-            data = f.read()
-            f.close()
+            f = Path(self.file_path)
+            data = f.read_bytes()
+            ijar_file = ""
             # TODO: run with detect: true, then apply from list of approved, discovered transformers
             try:
                 ijar_file = store_temp_file(data, "obfuscated.jar")
                 tmpdir = os.path.dirname(ijar_file)
                 ojar_file = os.path.join(tmpdir, b"decompile.jar")
                 tmp_conf = os.path.join(tmpdir, b"config.yml")
-                with open (self.deobfuscator_conf, "r") as cf:
-                    confdata = cf.read()
-                with open (tmp_conf, "w") as tf:
-                    tf.write("input: " + ijar_file.decode('utf8') + "\n")
-                    tf.write("output: " + ojar_file.decode('utf8') + "\n")
-                    tf.write(confdata)
+                cf = Path(self.deobfuscator_conf)
+                confdata = cf.read_text()
+                tf = Path(tmp_conf.decode())
+                tf.write_text("input: " + ijar_file.decode() + "\n")
+                tf.write_text("output: " + ojar_file.decode() + "\n")
+                tf.write_text(confdata)
 
                 p = Popen(["java", "-jar", self.deobfuscator_jar, "--config", tmp_conf], stdout=PIPE)
                 log.info(convert_to_printable(p.stdout.read()))
@@ -59,14 +61,13 @@ class Java:
                 pass
 
             try:
-                os.unlink(ijar_file)
+                Path(ijar_file).unlink()
             except:
                 pass
 
         if self.decomp_jar:
             if not jar_file:
-                with open(self.file_path, "rb") as f:
-                    data = f.read()
+                data = p.read_bytes()
                 jar_file = store_temp_file(data, "decompile.jar")
 
             try:
@@ -79,5 +80,5 @@ class Java:
                 log.error(e, exc_info=True)
 
             with contextlib.suppress(Exception):
-                os.unlink(jar_file)
+                Path(jar_file).unlink()
         return results

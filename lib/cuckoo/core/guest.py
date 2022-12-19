@@ -14,6 +14,7 @@ import sys
 import time
 import timeit
 from io import BytesIO
+from pathlib import Path
 from zipfile import ZIP_STORED, ZipFile
 
 import requests
@@ -40,7 +41,7 @@ def analyzer_zipfile(platform):
     root = os.path.join(CUCKOO_ROOT, "analyzer", platform)
     root_len = len(os.path.abspath(root))
 
-    if not os.path.exists(root):
+    if not Path(root).exists():
         log.error("No valid analyzer found at path: %s", root)
         raise CuckooGuestError(f"No valid analyzer found for {platform} platform!")
 
