@@ -24,6 +24,7 @@ from lib.cuckoo.common.utils import (
     get_ip_address,
     get_options,
     get_user_filename,
+    path_to_ascii,
     sanitize_filename,
     store_temp_file,
     trim_sample,
@@ -494,12 +495,13 @@ def recon(filename, orig_options, timeout, enforce_timeout):
 
 def get_magic_type(data):
     try:
-        if Path(data).exists():
+        path = path_to_ascii(data)
+        if Path(path).exists():
             return magic.from_file(data)
         else:
             return magic.from_buffer(data)
     except Exception as e:
-        print(e)
+        print(e, "get_magic_type")
 
     return False
 
@@ -624,10 +626,13 @@ def download_file(**kwargs):
             retrieved_hash = hashes[len(kwargs["fhash"])](kwargs["content"]).hexdigest()
             if retrieved_hash != kwargs["fhash"].lower():
                 return "error", {"error": f"Hashes mismatch, original hash: {kwargs['fhash']} - retrieved hash: {retrieved_hash}"}
-        if not Path(kwargs.get("path")).exists():
-            _ = Path(kwargs["path"]).write_bytes(kwargs["content"])
+
+        path = kwargs.get("path") if isinstance(kwargs.get("path", ""), str) else kwargs.get("path").decode()
+        p = Path(path)
+        if not p.exists():
+            _ = p.write_bytes(kwargs["content"])
     except Exception as e:
-        print(e)
+        print(e, sys.exc_info())
         return "error", {"error": f"Error writing {kwargs['service']} storing/download file to temporary path"}
 
     # Distribute task based on route support by worker
@@ -642,10 +647,7 @@ def download_file(**kwargs):
 
         if not node:
             # get nodes that supports this exit
-            tmp_workers = []
-            for node, exitnodes in all_nodes_exits.items():
-                if route in exitnodes:
-                    tmp_workers.append(node)
+            tmp_workers = [node for node, exitnodes in all_nodes_exits.items() if route in exitnodes]
             if tmp_workers:
                 if kwargs["options"]:
                     kwargs["options"] += f",node={choice(tmp_workers)}"
