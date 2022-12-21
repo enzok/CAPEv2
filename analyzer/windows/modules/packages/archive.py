@@ -170,17 +170,12 @@ class Archive(Package):
 
         password = self.options.get("password", "")
 
-        root_archive_path = self.options.get("root_archive_path", False)
-
         archive_name = Path(path).name
 
         # We are extracting the archive to C:\\<archive_name> rather than the TEMP directory because
         # actors are using LNK files that use relative directory traversal at arbitrary depth.
         # They expect to find the root of the drive.
-        if root_archive_path:
-            root = "C:\\"
-        else:
-            root = os.path.join("C:\\", archive_name)
+        root = os.path.join("C:\\", archive_name)
 
         # Check if root exists already due to the file path
         if os.path.exists(root) and os.path.isfile(root):
