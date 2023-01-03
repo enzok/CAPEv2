@@ -100,13 +100,12 @@ def required(package):
 
 
 try:
-    from flask import Flask, jsonify, make_response, request
+    from flask import Flask, jsonify, make_response
 except ImportError:
     required("flask")
 
 try:
     import requests
-    from requests.auth import HTTPBasicAuth
 except ImportError:
     required("requests")
 
@@ -762,10 +761,8 @@ class Retriever(threading.Thread):
                                 shutil.move(t.path, destination)
                             # creating link to analysis folder
                             if os.path.exists(t.path):
-                                try:
+                                with suppress(Exception):
                                     os.symlink(destination, os.path.join(report_path, "binary"))
-                                except Exception as e:
-                                    pass
 
                         else:
                             log.debug(f"{t.path} doesn't exist")

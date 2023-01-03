@@ -1,21 +1,19 @@
 #!/bin/python
 import email
-import hashlib
+
+# import hashlib
 import imaplib
-import mimetypes
 import os
 import smtplib
 import sys
-import tempfile
-from email import Encoders
 from email.mime.text import MIMEText
-from email.MIMEBase import MIMEBase
+
+# from email.MIMEBase import MIMEBase
 from email.MIMEMultipart import MIMEMultipart
 from time import sleep
 
 try:
     from sflock.abstracts import File
-    from sflock.main import unpack
     from sflock.unpack import ZipFile
 except ImportError:
     print(
@@ -29,7 +27,7 @@ CUCKOO_ROOT = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..")
 sys.path.append(CUCKOO_ROOT)
 from sqlalchemy import Boolean, Column, DateTime, Integer, String, create_engine
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import relationship, sessionmaker
+from sqlalchemy.orm import sessionmaker
 from sqlalchemy.sql import func
 
 from lib.cuckoo.common.config import Config
@@ -77,7 +75,7 @@ def send_email(url, id, to):
         msg["From"] = email_config.cuckoomx.get("user")
         msg["To"] = to
         msg["Body"] = url + id
-        part = MIMEBase("application", "octet-stream")
+        # part = MIMEBase("application", "octet-stream")
         msgAlternative = MIMEMultipart("alternative")
         msg.attach(msgAlternative)
         msgAlternative.attach(MIMEText(url + id, "plain"))
@@ -115,10 +113,10 @@ def get_new_emails(db):
                     for part in msg.walk():
                         attachment = False
                         if part.get_filename():
-                            filename = part.get_filename()
-                            content_type = part.get_content_type()
+                            # filename = part.get_filename()
+                            # content_type = part.get_content_type()
                             attachment = part.get_payload(decode=True)
-                            sha256 = hashlib.sha256(attachment).hexdigest()
+                            # sha256 = hashlib.sha256(attachment).hexdigest()
 
                             if attachment:
                                 # unpack it

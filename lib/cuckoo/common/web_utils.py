@@ -16,7 +16,7 @@ import requests
 from django.http import HttpResponse
 
 from lib.cuckoo.common.config import Config
-from lib.cuckoo.common.integrations.parse_pe import HAVE_PEFILE, IsPEImage, PortableExecutable, pefile
+from lib.cuckoo.common.integrations.parse_pe import HAVE_PEFILE, IsPEImage, pefile
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.utils import (
     bytes2str,
@@ -66,7 +66,7 @@ db = Database()
 
 try:
     import re2 as re
-except:
+except ImportError:
     import re
 
 DYNAMIC_PLATFORM_DETERMINATION = web_cfg.general.dynamic_platform_determination
@@ -222,7 +222,7 @@ all_vms_tags_str = ",".join(all_vms_tags)
 
 
 def top_detections(date_since: datetime = False, results_limit: int = 20) -> dict:
-    if web_cfg.general.get("top_detections", False) == False:
+    if web_cfg.general.get("top_detections", False) is False:
         return False
 
     t = int(time.time())
@@ -307,9 +307,9 @@ def get_stats_per_category(category: str, date_since):
                 "name": 1,
                 "successful": 1,
                 "runs": 1,
-                "average": 1,
+                # "average": 1,
                 "total": {"$round": ["$total_time", 2]},
-                "average": {"$round": [{"$divide": [f"$total_time", "$runs"]}, 2]},
+                "average": {"$round": [{"$divide": ["$total_time", "$runs"]}, 2]},
             }
         },
         {"$limit": 20},
@@ -834,14 +834,11 @@ def validate_task(tid, status=TASK_REPORTED):
     if not task:
         return {"error": True, "error_value": "Task does not exist"}
 
-    if task.status == TASK_RECOVERED:
-        entry = task.to_dict()
-        if task.status == TASK_RECOVERED:
-            if task.custom:
-                m = re.match("^Recovery_(?P<taskid>\d+)$", task.custom)
-                if m:
-                    task_id = int(m.group("taskid"))
-                    task = db.view_task(task_id, details=True)
+    if task.status == TASK_RECOVERED and task.custom:
+        m = re.match("^Recovery_(?P<taskid>\d+)$", task.custom)
+        if m:
+            task_id = int(m.group("taskid"))
+            task = db.view_task(task_id, details=True)
 
     if status and status not in ALL_DB_STATUSES:
         return {"error": True, "error_value": "Specified wrong task status"}
@@ -986,7 +983,6 @@ search_term_map = {
         "network.smtp_ex.dport",
     ),
     "die": ("target.file.die", "dropped.die", "procdump.die", "CAPE.payloads.die"),
-    "package": "info.package",
     # File_extra_info
     "extracted_tool": (
         "info.parent_sample.extracted_files_tool",
@@ -1338,7 +1334,7 @@ def process_new_dlnexec_task(url, route, options, custom):
         return False, False, False
 
     name = os.path.basename(url)
-    if not "." in name:
+    if "." not in name:
         name = get_user_filename(options, custom) or generate_fake_name()
 
     path = store_temp_file(response, name)

@@ -12,7 +12,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import base64
 import logging
 import socket
 import struct
@@ -29,8 +28,8 @@ log = logging.getLogger()
 log.setLevel(logging.INFO)
 
 try:
-    from unicorn import *
-    from unicorn.x86_const import *
+    from unicorn import UC_ARCH_X86, UC_HOOK_CODE, UC_MODE_64, Uc, UcError
+    from unicorn.x86_const import UC_X86_REG_R9, UC_X86_REG_RAX, UC_X86_REG_RCX, UC_X86_REG_RDX, UC_X86_REG_RIP, UC_X86_REG_RSP
 except ImportError:
     log.error("Unicorn not installed")
 
@@ -207,7 +206,7 @@ def extract_emotet_rsakey(pe):
             seq = asn1.DerSequence()
             try:
                 seq.decode(pub_key)
-            except ValueError as e:
+            except ValueError:
                 # log.error(e)
                 return
             return RSA.construct((seq[0], seq[1]))
@@ -232,7 +231,7 @@ def hook_instr(uc, address, size, mode):
 def emulate(code, ep):
     global call_count
     call_count = 0
-    try:
+    with suppress(UcError):
         uc = Uc(UC_ARCH_X86, UC_MODE_64)
         size = int(len(code) / 0x1000) * 0x1000
         if len(code) % 0x1000:
@@ -247,8 +246,6 @@ def emulate(code, ep):
         uc.reg_write(UC_X86_REG_R9, stack + 0x108)
         uc.hook_add(UC_HOOK_CODE, hook_instr, user_data=UC_MODE_64)
         uc.emu_start(code_base + ep, code_base + len(code))
-    except unicorn.UcError as e:
-        pass
     return uc
 
 
@@ -562,11 +559,8 @@ def extract_config(filebuf):
     if not c2found:
         return
     pem_key = False
-    try:
+    with suppress(ValueError):
         pem_key = extract_emotet_rsakey(pe)
-    except ValueError as e:
-        # log.error(e)
-        pass
     if pem_key:
         conf_dict.setdefault("RSA public key", pem_key.exportKey().decode())
     else:

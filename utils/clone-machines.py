@@ -155,17 +155,17 @@ def print_machines_config(machines):
 
     with open("machines.conf", "w") as machines_file:
         for machine in machines:
-            machine_lines = [
-                f"[{machine.name}]",
-                f"label = {machine.name}",
-                f"platform = windows",
-                f"ip = {machine.ip}",
-                f"tags = x64",
-                f"snapshot = {DEFAULT_SNAPSHOT_NAME}",
-                f"arch = x64",
-            ]
-
-            machine_lines_str = "\n".join(machine_lines)
+            machine_lines_str = "\n".join(
+                [
+                    f"[{machine.name}]",
+                    f"label = {machine.name}",
+                    "platform = windows",
+                    f"ip = {machine.ip}",
+                    "tags = x64",
+                    f"snapshot = {DEFAULT_SNAPSHOT_NAME}",
+                    "arch = x64",
+                ]
+            )
 
             machines_file.write(machine_lines_str + "\n\n")
             print(machine_lines_str + "\n")

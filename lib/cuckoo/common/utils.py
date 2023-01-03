@@ -136,13 +136,9 @@ def is_text_file(file_info, destination_folder, buf, file_data=False):
             file_data = Path(extracted_path).read_bytes()
 
         if len(file_data) > buf:
-            data = file_data[:buf] + b" <truncated>"
-            file_info.setdefault("data", data.decode("latin-1"))
-            # file_info.setdefault("data_file", file_info["sha256"])
-
+            return file_data[:buf].decode("latin-1") + " <truncated>"
         else:
-            file_info.setdefault("data", file_data.decode("latin-1"))
-            # file_info.setdefault("data_file", file_info["sha256"])
+            return file_data.decode("latin-1")
 
 
 def create_zip(files=False, folder=False, encrypted=False):
@@ -192,7 +188,6 @@ def free_space_monitor(path=False, return_value=False, processing=False, analysi
     need_space, space_available = False, 0
     while True:
         try:
-            path = False
             # Calculate the free disk space in megabytes.
             # Check main FS if processing
             if processing:
@@ -216,7 +211,9 @@ def free_space_monitor(path=False, return_value=False, processing=False, analysi
             return need_space, space_available
 
         if need_space:
-            log.error("Not enough free disk space! (Only %d MB!)", space_available)
+            log.error(
+                "Not enough free disk space! (Only %d MB!). You can change limits it in cuckoo.conf -> freespace", space_available
+            )
             time.sleep(5)
         else:
             break

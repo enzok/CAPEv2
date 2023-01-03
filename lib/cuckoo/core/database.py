@@ -40,7 +40,6 @@ try:
         event,
         func,
         not_,
-        or_,
     )
     from sqlalchemy.exc import IntegrityError, OperationalError, SQLAlchemyError
     from sqlalchemy.ext.declarative import declarative_base
@@ -1580,7 +1579,6 @@ class Database(object, metaclass=Singleton):
         # force auto package for linux files
         if platform == "linux":
             package = ""
-        original_options = options
         # extract files from the (potential) archive
         extracted_files = demux_sample(file_path, package, options)
         # check if len is 1 and the same file, if diff register file, and set parent
@@ -2330,7 +2328,7 @@ class Database(object, metaclass=Singleton):
     def delete_tasks(self, ids):
         session = self.Session()
         try:
-            search = session.query(Task).filter(Task.id.in_(ids)).delete(synchronize_session=False)
+            _ = session.query(Task).filter(Task.id.in_(ids)).delete(synchronize_session=False)
         except SQLAlchemyError as e:
             log.debug("Database error deleting task: %s", e)
             session.rollback()

@@ -1,3 +1,13 @@
+### [28.12.2022] NETReactorSlayer
+* Integrated deobfuscator and unpacker for Eziriz .NET Reactor. [Source](https://github.com/SychicBoy/NETReactorSlayer).
+    * You need to download version for your CPU and extract it to `data/NETReactorSlayer.CLI`
+        * In case if you are on x64 host, then just run: `poetry run python utils/community.py -waf`
+    * Add execution permission with `chmod a+x data/NETReactorSlayer.CLI`
+* Now each section inside of `selfextract.conf` has timeout value. Default is 60 seconds
+
+### [24.12.2022]
+* Monitor updates: Fix NtAllocateVirtualMemoryEx & NtMapViewOfSectionEx hooks and rebuild with Visual Studio 2022
+
 ### [2.12.2022]
 * Monitor updates: add 32-bit hook compatibility to allow hooking of GetCommandLine APIs (and add GetCommandLineA hook)
 

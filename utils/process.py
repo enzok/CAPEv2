@@ -6,7 +6,6 @@ import argparse
 import gc
 import json
 import logging
-import multiprocessing
 import os
 import platform
 import resource
@@ -176,7 +175,7 @@ def init_logging(auto=False, tid=0, debug=False):
 def processing_finished(future):
     task_id = pending_future_map.get(future)
     try:
-        result = future.result()
+        # result = future.result()
         log.info("Reports generation completed")
     except TimeoutError as error:
         log.error("Processing Timeout %s. Function: %s", error, error.args[1])
@@ -212,14 +211,7 @@ def autoprocess(parallel=1, failed_processing=False, maxtasksperchild=7, memory_
                     # Resolve the full base path to the analysis folder, just in
                     # case somebody decides to make a symbolic link out of it.
                     dir_path = os.path.join(CUCKOO_ROOT, "storage", "analyses")
-                    need_space, space_available = free_space_monitor(dir_path, return_value=True, processing=True)
-                    if need_space:
-                        log.error(
-                            "Not enough free disk space! (Only %d MB!). You can change limits it in cuckoo.conf -> freespace",
-                            space_available,
-                        )
-                        time.sleep(60)
-                        continue
+                    free_space_monitor(dir_path, processing=True)
 
                 # If still full, don't add more (necessary despite pool).
                 if len(pending_task_id_map) >= parallel:
@@ -260,7 +252,7 @@ def autoprocess(parallel=1, failed_processing=False, maxtasksperchild=7, memory_
                         log.info("(after) GC object counts: %d, %d", len(gc.get_objects()), len(gc.garbage))
                     count += 1
                     added = True
-                    if copy_path:
+                    if copy_path is not None:
                         copy_origin_path = os.path.join(CUCKOO_ROOT, "storage", "binaries", sample.sha256)
                         if cfg.cuckoo.delete_bin_copy and os.path.exists(copy_origin_path):
                             os.unlink(copy_origin_path)
@@ -277,7 +269,7 @@ def autoprocess(parallel=1, failed_processing=False, maxtasksperchild=7, memory_
         print("Remain: %.2f GB" % mem)
         sys.stderr.write("\n\nERROR: Memory Exception\n")
         sys.exit(1)
-    except Exception as e:
+    except Exception:
         import traceback
 
         traceback.print_exc()

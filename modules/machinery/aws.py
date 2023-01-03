@@ -11,7 +11,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from lib.cuckoo.common.abstracts import Machinery
 from lib.cuckoo.common.config import Config
-from lib.cuckoo.common.exceptions import CuckooCriticalError, CuckooMachineError
+from lib.cuckoo.common.exceptions import CuckooMachineError
 
 logging.getLogger("boto3").setLevel(logging.CRITICAL)
 logging.getLogger("botocore").setLevel(logging.CRITICAL)
@@ -338,7 +338,7 @@ class AWS(Machinery):
             try:
                 new_instance.modify_attribute(SourceDestCheck={"Value": False})
                 break
-            except Exception as e:
+            except Exception:
                 attempts += 1
                 log.warning("Failed while modifying new instance attribute. Trying again.")
         log.debug("Created %s\n%s", new_instance.id, repr(response))
