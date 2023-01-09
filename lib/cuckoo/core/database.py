@@ -1587,7 +1587,7 @@ class Database(object, metaclass=Singleton):
         if extracted_files and file_path not in extracted_files:
             sample_parent_id = self.register_sample(File(file_path), source_url=source_url)
             if conf.cuckoo.delete_archive:
-                Path(file_path).unlink()
+                Path(file_path.decode()).unlink()
 
         # create tasks for each file in the archive
         for file in extracted_files:
