@@ -503,7 +503,6 @@ fi
 
 function install_suricata() {
     echo '[+] Installing Suricata'
-    apt install libssl1.1 -y
     add-apt-repository ppa:oisf/suricata-stable -y
     apt install suricata -y
     touch /etc/suricata/threshold.config
@@ -600,8 +599,7 @@ function install_yara() {
 
 function install_mongo(){
     echo "[+] Installing MongoDB"
-    # Mongo 5 requires CPU AVX instruction support https://www.mongodb.com/docs/manual/administration/production-notes/#x86_64
-    # $(lsb_release -cs) on 20.04 they uses 18.04 repo
+    # Mongo >=5 requires CPU AVX instruction support https://www.mongodb.com/docs/manual/administration/production-notes/#x86_64
     if grep -q ' avx ' /proc/cpuinfo; then
         MONGO_VERSION="6.0"
     else
@@ -610,13 +608,9 @@ function install_mongo(){
     fi
 
     sudo curl -fsSL "https://www.mongodb.org/static/pgp/server-${MONGO_VERSION}.asc" | sudo gpg --dearmor -o /etc/apt/keyrings/mongo.gpg --yes
-    # echo "deb [signed-by=/etc/apt/keyrings/mongo.gpg arch=amd64] https://repo.mongodb.org/apt/ubuntu $(lsb_release -cs)/mongodb-org/${MONGO_VERSION} multiverse" > /etc/apt/sources.list.d/mongodb.list
-    echo "deb [signed-by=/etc/apt/keyrings/mongo.gpg arch=amd64] https://repo.mongodb.org/apt/ubuntu focal/mongodb-org/${MONGO_VERSION} multiverse" > /etc/apt/sources.list.d/mongodb.list
-
+    echo "deb [signed-by=/etc/apt/keyrings/mongo.gpg arch=amd64] https://repo.mongodb.org/apt/ubuntu $(lsb_release -cs)/mongodb-org/${MONGO_VERSION} multiverse" > /etc/apt/sources.list.d/mongodb.list
+    
     apt update 2>/dev/null
-    # From Ubuntu version 20 repo we need to add extra dependency libssl1.1
-    # curl -LO http://archive.ubuntu.com/ubuntu/pool/main/o/openssl/libssl1.1_1.1.1-1ubuntu2.1~18.04.20_amd64.deb
-    # sudo dpkg -i ./libssl1.1_1.1.1-1ubuntu2.1~18.04.20_amd64.deb
     apt install libpcre3-dev numactl -y
     apt install -y mongodb-org
     pip3 install pymongo -U
@@ -716,7 +710,7 @@ function dependencies() {
     #sudo canonical-livepatch enable APITOKEN
 
     # deps
-    apt install python3-pip build-essential libssl-dev libssl1.1 python3-dev cmake -y
+    apt install python3-pip build-essential libssl-dev libssl3 python3-dev cmake -y
     apt install innoextract msitools iptables psmisc jq sqlite3 tmux net-tools checkinstall graphviz python3-pydot git numactl python3 python3-dev python3-pip libjpeg-dev zlib1g-dev -y
     apt install upx-ucl wget zip unzip p7zip-full lzip rar unrar unace-nonfree cabextract geoip-database libgeoip-dev libjpeg-dev mono-utils ssdeep libfuzzy-dev exiftool -y
     apt install uthash-dev libconfig-dev libarchive-dev libtool autoconf automake privoxy software-properties-common wkhtmltopdf xvfb xfonts-100dpi tcpdump libcap2-bin -y
