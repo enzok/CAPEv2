@@ -254,7 +254,7 @@ def static_file_info(
 
 def detect_it_easy_info(file_path: str):
     if not Path(processing_conf.die.binary).exists():
-        return
+        return []
 
     try:
         output = subprocess.check_output(
@@ -263,7 +263,7 @@ def detect_it_easy_info(file_path: str):
             universal_newlines=True,
         )
         if "detects" not in output:
-            return
+            return []
 
         strings = [sub["string"] for block in json.loads(output).get("detects", []) for sub in block.get("values", [])]
 
@@ -272,6 +272,8 @@ def detect_it_easy_info(file_path: str):
     except subprocess.CalledProcessError:
         log.warning("You need to configure your server to make TrID work properly")
         log.warning("sudo rm -f /usr/lib/locale/locale-archive && sudo locale-gen --no-archive")
+
+    return []
 
 
 def trid_info(file_path: dict):
