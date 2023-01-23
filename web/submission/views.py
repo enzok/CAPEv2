@@ -19,6 +19,7 @@ sys.path.append(settings.CUCKOO_PATH)
 from uuid import NAMESPACE_DNS, uuid3
 
 from lib.cuckoo.common.config import Config
+from lib.cuckoo.common.path_utils import path_delete, path_exists, path_mkdir
 from lib.cuckoo.common.quarantine import unquarantine
 from lib.cuckoo.common.saztopcap import saz_to_pcap
 from lib.cuckoo.common.utils import get_options, get_user_filename, sanitize_filename, store_temp_file
@@ -68,9 +69,7 @@ def get_form_data(platform):
     # Prepare a list of VM names, description label based on tags.
     machines = []
     for machine in db.list_machines():
-        tags = []
-        for tag in machine.tags:
-            tags.append(tag.name)
+        tags = [tag.name for tag in machine.tags]
 
         label = f"{machine.label}:{machine.arch}"
         if tags:
@@ -301,7 +300,7 @@ def index(request, task_id=None, resubmit_hash=None):
                     paths = db.sample_path_by_hash(hash)
                 else:
                     task_binary = os.path.join(settings.CUCKOO_PATH, "storage", "analyses", str(task_id), "binary")
-                    if os.path.exists(task_binary):
+                    if path_exists(task_binary):
                         paths.append(task_binary)
                     else:
                         tmp_paths = db.find_sample(task_id=task_id)
@@ -311,7 +310,7 @@ def index(request, task_id=None, resubmit_hash=None):
                         for tmp_sample in tmp_paths:
                             path = False
                             tmp_dict = tmp_sample.to_dict()
-                            if os.path.exists(tmp_dict.get("target", "")):
+                            if path_exists(tmp_dict.get("target", "")):
                                 path = tmp_dict["target"]
                             else:
                                 tmp_tasks = db.find_sample(sample_id=tmp_dict["sample_id"])
@@ -319,7 +318,7 @@ def index(request, task_id=None, resubmit_hash=None):
                                     tmp_path = os.path.join(
                                         settings.CUCKOO_PATH, "storage", "binaries", tmp_task.to_dict()["sha256"]
                                     )
-                                    if os.path.exists(tmp_path):
+                                    if path_exists(tmp_path):
                                         path = tmp_path
                                         break
                             if path:
@@ -328,7 +327,7 @@ def index(request, task_id=None, resubmit_hash=None):
                 if not paths:
                     # Self Extracted support folder
                     path = os.path.join(settings.CUCKOO_PATH, "storage", "analyses", str(task_id), "selfextracted", hash)
-                    if os.path.exists(path):
+                    if path_exists(path):
                         paths.append(path)
 
                 if not paths:
@@ -340,8 +339,8 @@ def index(request, task_id=None, resubmit_hash=None):
                     details["errors"].append({hash: f"Can't find {hash} on disk"})
                     continue
                 folder = os.path.join(settings.TEMP_PATH, "cape-resubmit")
-                if not os.path.exists(folder):
-                    os.makedirs(folder)
+                if not path_exists(folder):
+                    path_mkdir(folder)
                 base_dir = tempfile.mkdtemp(prefix="resubmit_", dir=folder)
                 if opt_filename:
                     filename = base_dir + "/" + opt_filename
@@ -402,7 +401,7 @@ def index(request, task_id=None, resubmit_hash=None):
             for content, tmp_path, sha256, _ in list_of_tasks:
                 path = unquarantine(tmp_path)
                 try:
-                    os.remove(tmp_path)
+                    path_delete(tmp_path)
                 except Exception as e:
                     print(e)
 
@@ -432,7 +431,7 @@ def index(request, task_id=None, resubmit_hash=None):
                     saz = saz_to_pcap(path)
                     if saz:
                         with suppress(Exception):
-                            os.remove(path)
+                            path_delete(path)
                         path = saz
                     else:
                         details["errors"].append({os.path.basename(path): "Conversion from SAZ to PCAP failed."})
