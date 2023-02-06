@@ -420,7 +420,9 @@ def index(request, task_id=None, resubmit_hash=None):
 
         elif task_category == "static":
             for content, path, sha256, sample_parent_id in list_of_tasks:
-                task_id = db.add_static(file_path=path, priority=priority, tlp=tlp, user_id=request.user.id or 0)
+                task_id = db.add_static(
+                    file_path=path, priority=priority, tlp=tlp, options=options, user_id=request.user.id or 0
+                )
                 if not task_id:
                     return render(request, "error.html", {"error": "We don't have static extractor for this"})
                 details["task_ids"] += task_id
@@ -438,7 +440,9 @@ def index(request, task_id=None, resubmit_hash=None):
                         details["errors"].append({os.path.basename(path): "Conversion from SAZ to PCAP failed."})
                         continue
 
-                task_id = db.add_pcap(file_path=path, priority=priority, tlp=tlp, user_id=request.user.id or 0)
+                task_id = db.add_pcap(
+                    file_path=path, priority=priority, tlp=tlp, options=options, user_id=request.user.id or 0
+                )
                 if task_id:
                     details["task_ids"].append(task_id)
 
