@@ -9,6 +9,7 @@ import inspect
 import logging
 import multiprocessing
 import os
+import pefile
 import random
 import shutil
 import socket
@@ -20,6 +21,7 @@ import threading
 import time
 import xmlrpc.client
 import zipfile
+from contextlib import suppress
 from datetime import datetime
 from io import BytesIO
 from typing import Tuple, Union
@@ -883,3 +885,13 @@ def trim_sample(first_chunk):
             return overlay_data_offset
     except Exception as e:
         log.info(e)
+
+
+def pe_trimmed_size(data):
+    with suppress(Exception):
+        pe = pefile.PE(data=data, fast_load=False)
+        if pe.FILE_HEADER.NumberOfSections:
+            return (
+                pe.sections[pe.FILE_HEADER.NumberOfSections - 1].PointerToRawData
+                + pe.sections[pe.FILE_HEADER.NumberOfSections - 1].SizeOfRawData
+            )
