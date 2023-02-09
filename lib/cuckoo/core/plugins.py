@@ -33,6 +33,7 @@ _modules = defaultdict(dict)
 
 processing_cfg = Config("processing")
 reporting_cfg = Config("reporting")
+routing_cfg = Config("routing")
 
 config_mapper = {
     "processing": processing_cfg,
@@ -227,6 +228,13 @@ class RunProcessing:
         # If the processing module is disabled in the config, skip it.
         if not options.enabled:
             return None
+
+        # Get server ip if task route is inetsim
+        if "inetsim_ip" not in options:
+            task_info = db.view_task(self.task["id"])
+            if task_info:
+                if task_info.route == "inetsim":
+                    options["inetsim_ip"] = routing_cfg.inetsim.server
 
         # Give it path to the analysis results.
         current.set_path(self.analysis_path)

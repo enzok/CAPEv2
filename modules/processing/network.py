@@ -257,7 +257,7 @@ class Pcap:
                     # We add external IPs to the list, only the first time
                     # we see them and if they're the destination of the
                     # first packet they appear in.
-                    if not self._is_private_ip(ip):
+                    if not self._is_private_ip(ip) or ip == self.options.inetsim_ip:
                         self.unique_hosts.append(ip)
 
     def _enrich_hosts(self, unique_hosts):
@@ -447,7 +447,7 @@ class Pcap:
                 for reject in domain_passlist_re:
                     if re.search(reject, query["request"]):
                         for addip in query["answers"]:
-                            if addip["type"] in ("A", "AAAA"):
+                            if addip["type"] in ("A", "AAAA") and not self.options.inetsim_ip:
                                 ip_passlist.add(addip["data"])
                         return True
 
@@ -457,7 +457,9 @@ class Pcap:
                 reqtuple = query["type"], query["request"]
                 if reqtuple not in self.dns_requests:
                     self.dns_requests[reqtuple] = query
-                new_answers = {(i["type"], i["data"]) for i in query["answers"]} - self.dns_answers
+                new_answers = {(i["type"], i["data"]) for i in query["answers"]}
+                if not self.options.inetsim_ip:
+                    new_answers = new_answers - self.dns_answers
 
                 self.dns_answers.update(new_answers)
                 self.dns_requests[reqtuple]["answers"].extend({"type": i[0], "data": i[1]} for i in new_answers)
