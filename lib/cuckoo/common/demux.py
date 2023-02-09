@@ -8,6 +8,7 @@ import tempfile
 from typing import List
 
 from lib.cuckoo.common.config import Config
+from lib.cuckoo.common.constants import PE_HEADER_LIMIT
 from lib.cuckoo.common.exceptions import CuckooDemuxError
 from lib.cuckoo.common.integrations.parse_pe import HAVE_PEFILE, IsPEImage
 from lib.cuckoo.common.objects import File
@@ -34,8 +35,6 @@ log = logging.getLogger(__name__)
 cuckoo_conf = Config()
 web_cfg = Config("web")
 tmp_path = cuckoo_conf.cuckoo.get("tmppath", "/tmp")
-
-PE_HEADER_LIMIT = 0x200
 
 demux_extensions_list = {
     "",
