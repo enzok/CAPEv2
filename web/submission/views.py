@@ -366,7 +366,6 @@ def index(request, task_id=None, resubmit_hash=None):
                     details["during_script_name"] = request.FILES["during_script"].name
                     details["during_script_content"] = during_script.read()
 
-
                 details["path"] = path
                 details["content"] = content
                 status, task_ids_tmp = download_file(**details)
