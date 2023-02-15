@@ -173,6 +173,11 @@ class CAPE(Processing):
         if not path_exists(file_path):
             return
 
+        # temporary until WER files are handled properly by monitor
+        if category == "dropped":
+            if metadata["filepath"].rsplit("\\", 1)[-1].startswith(("WER", "wer")):
+                return
+
         cape_names = set()
         buf_size = self.options.get("buffer", 8192)
         # ToDo filename argument for procdump
@@ -225,6 +230,10 @@ class CAPE(Processing):
             if category == "dropped":
                 file_info.update(metadata.get(file_info["path"][0], {}))
                 file_info["guest_paths"] = list({path.get("filepath") for path in metadata.get(file_path, [])})
+                if not file_info["guest_paths"]:
+                    guest_path = metadata.get("filepath", "")
+                    if "CAPE" not in guest_path:
+                        file_info["guest_paths"] = [guest_path]
                 file_info["name"] = list(
                     {path.get("filepath", "").rsplit("\\", 1)[-1] for path in metadata.get(file_path, [])}
                 ) or [metadata.get("filepath").rsplit("\\", 1)[-1]]
