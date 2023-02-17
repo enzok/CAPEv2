@@ -403,6 +403,7 @@ def generic_file_extractors(
     options: dict,
     results: dict,
     duplicated: DuplicatesType,
+    tests: False,
 ):
     """
     file - path to binary
@@ -425,6 +426,7 @@ def generic_file_extractors(
         "filetype": data_dictionary["type"],
         "data_dictionary": data_dictionary,
         "options": options,
+        "tests": tests,
     }
 
     futures = {}
@@ -629,25 +631,24 @@ def de4dot_deobfuscate(file: str, *, filetype: str, **_) -> ExtractorReturnType:
 
 
 @time_tracker
-def msi_extract(file: str, *, filetype: str, **_) -> ExtractorReturnType:
+def msi_extract(file: str, *, filetype: str, **kwargs) -> ExtractorReturnType:
     """Work on MSI Installers"""
 
     if "MSI Installer" not in filetype:
         return
 
-    if not path_exists(selfextract_conf.msi_extract.binary):
-        log.error("Missed dependency: sudo apt install msitools")
-        return
-
     extracted_files = []
-
+    # sudo apt install msitools or 7z
     with extractor_ctx(file, "MsiExtract", prefix="msidump_") as ctx:
         tempdir = ctx["tempdir"]
-        output = subprocess.check_output(
-            [selfextract_conf.msi_extract.binary, file, "--directory", tempdir],
-            universal_newlines=True,
-            stderr=subprocess.PIPE,
-        )
+        output = False
+        if not kwargs.get("tests"):
+            # msiextract in different way that 7z, we need to add subfolder support
+            output = subprocess.check_output(
+                [selfextract_conf.msi_extract.binary, file, "--directory", tempdir],
+                universal_newlines=True,
+                stderr=subprocess.PIPE,
+            )
         if output:
             extracted_files = [
                 extracted_file
@@ -872,7 +873,7 @@ def RarSFX_extract(file, *, data_dictionary, options: dict, **_) -> ExtractorRet
 
 
 @time_tracker
-def office_one(file, *, data_dictionary, options: dict, **_) -> ExtractorReturnType:
+def office_one(file, **_) -> ExtractorReturnType:
 
     if not HAVE_ONE or open(file, "rb").read(16) not in (
         b"\xE4\x52\x5C\x7B\x8C\xD8\xA7\x4D\xAE\xB1\x53\x78\xD0\x29\x96\xD3",
