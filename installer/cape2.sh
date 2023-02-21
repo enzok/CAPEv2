@@ -1119,21 +1119,21 @@ function install_CAPE() {
     #chmod -R =rwX,g=rwX,o=X /usr/var/malheur/
     # Adapting owner permissions to the ${USER} path folder
     mkdir -p "/opt/CAPEv2/custom/conf"
-    chown ${USER}:${USER} -R "/opt/CAPEv2/"
-
-    cd CAPEv2 || return
+    cd "/opt/CAPEv2/" || return
     pip3 install poetry crudini
     CRYPTOGRAPHY_DONT_BUILD_RUST=1 sudo -u ${USER} bash -c 'export PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring; poetry install'
     sudo -u ${USER} bash -c 'export PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring; poetry run extra/poetry_libvirt_installer.sh'
     sudo usermod -aG kvm ${USER}
     sudo usermod -aG libvirt ${USER}
 
-    cp -r "conf/*.conf" "custom/conf"
+    cp -r conf/*.conf "custom/conf"
     sed -i "/connection =/cconnection = postgresql://${USER}:${PASSWD}@localhost:5432/${USER}" custom/conf/cuckoo.conf
     sed -i "/tor/{n;s/enabled = no/enabled = yes/g}" custom/conf/routing.conf
     #sed -i "/memory_dump = off/cmemory_dump = on" custom/conf/cuckoo.conf
     #sed -i "/machinery =/cmachinery = kvm" custom/conf/cuckoo.conf
     sed -i "/interface =/cinterface = ${NETWORK_IFACE}" custom/conf/auxiliary.conf
+
+    chown ${USER}:${USER} -R "/opt/CAPEv2/"
 
 	# default is enabled, so we only need to disable it
 	if [ "$mongo_enable" -lt 1 ]; then
