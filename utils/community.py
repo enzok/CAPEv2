@@ -105,6 +105,7 @@ def install(enabled, force, rewrite, filepath: str = False, access_token=None, p
         "data": "data",
         "integrations": "lib/cuckoo/common/integrations",
         "mitre": "data/mitre",
+        "yara": "data/yara",
     }
 
     members = t.getmembers()
@@ -203,6 +204,7 @@ def main():
         "-t", "--token", help="Access token to download private repositories", action="store", default=None, required=False
     )
     parser.add_argument("--proxy", help="Proxy to use. Ex http://127.0.0.1:8080", action="store", required=False)
+    parser.add_argument("-y", "--yara", help="Download YARA rules", action="store_true", required=False)
     args = parser.parse_args()
 
     enabled = []
@@ -223,8 +225,11 @@ def main():
             enabled.append("machinery")
         if args.analyzer:
             enabled.append("analyzer")
+        # Data contains yara
         if args.data:
             enabled.append("data")
+        elif args.yara:
+            enabled.append("yara")
         if args.integrations:
             enabled.append("integrations")
         if args.mitre_offline:
