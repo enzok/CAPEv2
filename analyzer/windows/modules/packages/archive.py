@@ -2,6 +2,7 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
+import hashlib
 import logging
 import os
 import shutil
@@ -17,15 +18,13 @@ from pathlib import Path
 from lib.common.abstracts import Package
 from lib.common.common import check_file_extension
 from lib.common.exceptions import CuckooPackageError
+from lib.common.hashing import hash_file
 from lib.common.results import upload_to_host
 
 log = logging.getLogger(__name__)
 
 
 FILE_NAME_REGEX = re.compile("[\s]{2}((?:[a-zA-Z0-9\.\-,_\\\\]+( [a-zA-Z0-9\.\-,_\\\\]+)?)+)\\r")
-EXE_REGEX = re.compile(
-    r"(\.exe|\.dll|\.scr|\.msi|\.bat|\.lnk|\.js|\.jse|\.vbs|\.vbe|\.wsf|\.ps1|\.db|\.cmd|\.dat|\.tmp|\.temp)$", flags=re.IGNORECASE
-)
 PE_INDICATORS = [b"MZ", b"This program cannot be run in DOS mode"]
 
 
@@ -168,7 +167,7 @@ class Archive(Package):
         # Let's hope it's in the VM image
         seven_zip_path = self.get_path_app_in_path("7z.exe")
 
-        password = self.options.get("password", "")
+        password = self.options.get("password", "infected")
 
         archive_name = Path(path).name
 
@@ -205,8 +204,8 @@ class Archive(Package):
             try:
                 file_path = os.path.join(root, entry)
                 log.info("Uploading {0} to host".format(file_path))
-                filename = "files/{0}".format(Path(entry).name)
-                upload_to_host(file_path, filename, duplicated=False)
+                filename = f"files/{hash_file(hashlib.sha256, file_path)}"
+                upload_to_host(file_path, filename, metadata=Path(entry).name, duplicated=False)
             except Exception as e:
                 log.warning(f"Couldn't upload file {Path(entry).name} to host {e}")
 
@@ -227,14 +226,22 @@ class Archive(Package):
                 except Exception as e:
                     log.warning(f"Couldn't copy {d} to root of C: {e}")
 
-        file_name = self.options.get("file")
+        file_name = self.options.get("file", "")
+        file_ext = self.options.get("file_ext", "")
+        if file_ext:
+            exe_regex = re.compile(r"(\." + file_ext + ")$", flags=re.IGNORECASE)
+        else:
+            exe_regex = re.compile(
+                r"(\.exe|\.dll|\.scr|\.msi|\.bat|\.lnk|\.js|\.jse|\.vbs|\.vbe|\.wsf|\.ps1|\.db|\.cmd|\.dat|\.tmp|\.temp)$",
+                flags=re.IGNORECASE
+            )
         # If no file name is provided via option, discover files to execute.
         if not file_name:
             # Attempt to find at least one valid exe extension in the archive
             interesting_files = []
             ret_list = []
             for f in file_names:
-                if re.search(EXE_REGEX, f):
+                if re.search(exe_regex, f):
                     interesting_files.append(f)
 
             if not interesting_files:
