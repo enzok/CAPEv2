@@ -505,7 +505,7 @@ def mse_unquarantine(f):
 
     sha256 = hashlib.sha256(outdata[headerlen:]).hexdigest()
 
-    return store_temp_file(outdata[headerlen:], sha256)
+    return store_temp_file(outdata[headerlen:], sha256[:23])
 
 
 # Never before published; reversed & developed by Optiv, Inc.
