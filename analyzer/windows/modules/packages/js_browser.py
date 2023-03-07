@@ -8,11 +8,11 @@ from pathlib import Path
 from lib.common.abstracts import CuckooPackageError, Package
 
 
-class Applet(Package):
+class JsBrowser(Package):
     """Java Applet analysis package."""
 
     PATHS = [
-        ("ProgramFiles", "Microsoft", "Edge", "Application", "msedge.exe")
+        ("ProgramFiles", "Microsoft", "Edge", "Application", "msedge.exe"),
         ("ProgramFiles", "Internet Explorer", "iexplore.exe"),
     ]
 
