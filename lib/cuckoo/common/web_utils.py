@@ -31,6 +31,7 @@ from lib.cuckoo.common.utils import (
     pe_trimmed_size,
     validate_referrer,
     validate_ttp,
+    get_platform,
 )
 from lib.cuckoo.core.database import (
     ALL_DB_STATUSES,
@@ -104,8 +105,6 @@ if repconf.elasticsearchdb.enabled:
         es_as_db = True
 
     es = elastic_handler
-
-VALID_LINUX_TYPES = ["Bourne-Again", "POSIX shell script", "ELF", "Python"]
 
 hash_len = {
     32: "md5",
@@ -505,12 +504,6 @@ def get_magic_type(data):
         print(e, "get_magic_type")
 
     return False
-
-
-def get_platform(magic):
-    if magic and any(x in magic for x in VALID_LINUX_TYPES):
-        return "linux"
-    return "windows"
 
 
 def download_file(**kwargs):

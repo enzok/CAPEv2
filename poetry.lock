@@ -2186,14 +2186,14 @@ pyasn1 = ">=0.4.6,<0.5.0"
 
 [[package]]
 name = "pyattck"
-version = "7.0.0"
+version = "7.1.1"
 description = "A Python package to interact with the Mitre ATT&CK Frameworks"
 category = "main"
 optional = false
 python-versions = ">=3.7,<4.0"
 files = [
-    {file = "pyattck-7.0.0-py3-none-any.whl", hash = "sha256:001f741529b032c7adfb3f98fa0115b9de983528ebadd50f441168c3d75bc632"},
-    {file = "pyattck-7.0.0.tar.gz", hash = "sha256:a30cc9621b4450f717817d3087a3ef3fbc05a068d95ee98293fe0128396636f2"},
+    {file = "pyattck-7.1.1-py3-none-any.whl", hash = "sha256:53b56000e7bdc79d02e248ef90b00a85ac9dcdde25e62bef2d727713e0e0b3e8"},
+    {file = "pyattck-7.1.1.tar.gz", hash = "sha256:3be874aef04f83ff3fe733cbbe32bd77ba4930c41d50a351dff403898595082b"},
 ]
 
 [package.dependencies]
@@ -3234,14 +3234,14 @@ test = ["pytest"]
 
 [[package]]
 name = "setuptools"
-version = "67.5.0"
+version = "67.5.1"
 description = "Easily download, build, install, upgrade, and uninstall Python packages"
 category = "main"
 optional = false
 python-versions = ">=3.7"
 files = [
-    {file = "setuptools-67.5.0-py3-none-any.whl", hash = "sha256:9f0004c0daa3d41ef4465934a89498da3eef994039f48845d6eb8202aa13b2e9"},
-    {file = "setuptools-67.5.0.tar.gz", hash = "sha256:113ff8d482b826d2f3b99f26adb1fe505e526a94a08e68cdf392d1dff9ce0595"},
+    {file = "setuptools-67.5.1-py3-none-any.whl", hash = "sha256:1c39d42bda4cb89f7fdcad52b6762e3c309ec8f8715b27c684176b7d71283242"},
+    {file = "setuptools-67.5.1.tar.gz", hash = "sha256:15136a251127da2d2e77ac7a1bc231eb504654f7e3346d93613a13f2e2787535"},
 ]
 
 [package.extras]
@@ -4081,4 +4081,4 @@ testing = ["coverage (>=5.0.3)", "zope.event", "zope.testing"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.8"
-content-hash = "5332384f781f3b2e563983d7be0235207169ac73fdafe2212f43f0e39ddc5aae"
+content-hash = "50d905c0a9e647f6a1ad67579e28579eb5d216d55b6bb62eceecdd0701eb5171"

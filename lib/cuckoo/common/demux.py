@@ -14,7 +14,7 @@ from lib.cuckoo.common.integrations.parse_pe import HAVE_PEFILE, IsPEImage
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.path_utils import path_exists, path_mkdir, path_write_file
 from lib.cuckoo.common.quarantine import unquarantine
-from lib.cuckoo.common.utils import get_options, sanitize_filename, pe_trimmed_size
+from lib.cuckoo.common.utils import get_options, sanitize_filename, get_platform, pe_trimmed_size
 
 sf_version = ""
 try:
@@ -36,6 +36,7 @@ log = logging.getLogger(__name__)
 cuckoo_conf = Config()
 web_cfg = Config("web")
 tmp_path = cuckoo_conf.cuckoo.get("tmppath", "/tmp")
+linux_enabled = web_cfg.linux.get("enabled", False)
 
 demux_extensions_list = {
     "",
@@ -262,7 +263,15 @@ def demux_sample(filename: bytes, package: str, options: str, use_sflock: bool =
     if not retlist:
         retlist.append(filename)
     else:
-        for filename in retlist:
+        for filename in retlist.copy():
+
+            # verify not Windows binaries here:
+            magic_type = File(filename).get_type()
+            platform = get_platform(magic_type)
+            if platform == "linux" and not linux_enabled and "Python" not in magic_type:
+                retlist.remove(filename)
+                continue
+
             if File(filename).get_size() > web_cfg.general.max_sample_size and not (
                 web_cfg.general.allow_ignore_size and "ignore_size_check" in options
             ):

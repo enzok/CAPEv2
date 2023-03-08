@@ -25,6 +25,9 @@ log = logging.getLogger(__name__)
 
 
 FILE_NAME_REGEX = re.compile("[\s]{2}((?:[a-zA-Z0-9\.\-,_\\\\]+( [a-zA-Z0-9\.\-,_\\\\]+)?)+)\\r")
+EXE_REGEX = re.compile(
+    r"(\.exe|\.dll|\.scr|\.msi|\.bat|\.lnk|\.js|\.jse|\.vbs|\.vbe|\.wsf|\.ps1|\.db|\.cmd|\.dat|\.tmp|\.temp)$", flags=re.IGNORECASE
+)
 PE_INDICATORS = [b"MZ", b"This program cannot be run in DOS mode"]
 
 
@@ -43,6 +46,7 @@ class Archive(Package):
         ("SystemRoot", "sysnative", "WindowsPowerShell", "v1.0", "powershell.exe"),
         ("SystemRoot", "system32", "xpsrchvw.exe"),
         ("ProgramFiles", "7-Zip", "7z.exe"),
+        ("ProgramFiles", "WinRAR", "WinRAR.exe"),
     ]
 
     def extract_archive(self, seven_zip_path, archive_path, extract_path, password="infected"):
@@ -159,13 +163,27 @@ class Archive(Package):
             file_path = check_file_extension(file_path, ".exe")
             return self.execute(file_path, self.options.get("arguments"), file_path)
 
+    def winrar_extractor(self, winrar_binary, extract_path, archive_path):
+        log.debug([winrar_binary, "x", archive_path, extract_path])
+        p = subprocess.run(
+            [winrar_binary, "x", archive_path, extract_path],
+            stdin=subprocess.DEVNULL,
+            stderr=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+        )
+        # stdoutput, stderr = p.stdout, p.stderr
+        log.debug(p.stdout + p.stderr)
+
+        return os.listdir(extract_path)
+
     def start(self, path):
-        # TODO: This does not work... WHY?!
-        # Is 7z in analyzer/windows/bin?
+        # 7za and 7r is limited so better install it inside of the vm
         # seven_zip_path = os.path.join(os.getcwd(), "bin", "7z.exe")
         # if not os.path.exists(seven_zip_path):
         # Let's hope it's in the VM image
         seven_zip_path = self.get_path_app_in_path("7z.exe")
+        password = self.options.get("password", "")
+        archive_name = path.split("\\")[-1].split(".")[0]
 
         password = self.options.get("password", "infected")
 
@@ -183,11 +201,19 @@ class Archive(Package):
         os.makedirs(root, exist_ok=True)
 
         file_names = self.get_file_names(seven_zip_path, path)
-        if not len(file_names):
+        if len(file_names):
+            self.extract_archive(seven_zip_path, path, root, password)
+
+        # Try extract with winrar, in some cases 7z-full fails with .Iso
+        if not file_names:
+            winrar_path = self.get_path_app_in_path("WinRAR.exe")
+            if os.path.exists(winrar_path):
+                file_names = self.winrar_extractor(winrar_path, root, path)
+
+        if not file_names:
             raise CuckooPackageError("Empty archive")
 
         log.debug(file_names)
-        self.extract_archive(seven_zip_path, path, root, password)
 
         # Handle special characters that 7ZIP cannot
         # We have the file names according to 7ZIP output (file_names)
@@ -226,22 +252,14 @@ class Archive(Package):
                 except Exception as e:
                     log.warning(f"Couldn't copy {d} to root of C: {e}")
 
-        file_name = self.options.get("file", "")
-        file_ext = self.options.get("file_ext", "")
-        if file_ext:
-            exe_regex = re.compile(r"(\." + file_ext + ")$", flags=re.IGNORECASE)
-        else:
-            exe_regex = re.compile(
-                r"(\.exe|\.dll|\.scr|\.msi|\.bat|\.lnk|\.js|\.jse|\.vbs|\.vbe|\.wsf|\.ps1|\.db|\.cmd|\.dat|\.tmp|\.temp)$",
-                flags=re.IGNORECASE
-            )
+        file_name = self.options.get("file")
         # If no file name is provided via option, discover files to execute.
         if not file_name:
             # Attempt to find at least one valid exe extension in the archive
             interesting_files = []
             ret_list = []
             for f in file_names:
-                if re.search(exe_regex, f):
+                if re.search(EXE_REGEX, f):
                     interesting_files.append(f)
 
             if not interesting_files:
