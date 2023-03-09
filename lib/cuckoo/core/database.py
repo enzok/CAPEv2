@@ -1586,7 +1586,7 @@ class Database(object, metaclass=Singleton):
 
         if tmp_package and tmp_package in sandbox_packages:
             # This probably should be way much bigger list of formats
-            if tmp_package == "iso":
+            if tmp_package == ("iso", "udf", "vhd"):
                 package = "archive"
             elif tmp_package in ("zip", "rar"):
                 package = ""
@@ -1637,8 +1637,9 @@ class Database(object, metaclass=Singleton):
         if platform == "linux":
             package = ""
 
-        # Checking original file as some filetypes doesn't require demux
-        package, _ = self._identify_aux_func(file_path, package)
+        if not package:
+            # Checking original file as some filetypes doesn't require demux
+            package, _ = self._identify_aux_func(file_path, package)
 
         # extract files from the (potential) archive
         extracted_files = demux_sample(file_path, package, options)
@@ -1672,7 +1673,6 @@ class Database(object, metaclass=Singleton):
 
                     if not tmp_package:
                         log.info("Do sandbox packages need an update? Sflock identifies as: %s - %s", tmp_package, file)
-
                     if package == "dll" and "function" not in options:
                         dll_export = PortableExecutable(file).choose_dll_export()
                         if dll_export == "DllRegisterServer":
@@ -1684,8 +1684,6 @@ class Database(object, metaclass=Singleton):
                                 options += f",function={dll_export}"
                             else:
                                 options = f"function={dll_export}"
-                    if package in ("iso", "udf", "vhd"):
-                        package = "archive"
 
                 # ToDo better solution? - Distributed mode here:
                 # Main node is storage so try to extract before submit to vm isn't propagated to workers
