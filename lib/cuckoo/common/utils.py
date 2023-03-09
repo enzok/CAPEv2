@@ -889,19 +889,7 @@ def validate_ttp(ttp: str) -> bool:
 
 
 def trim_sample(first_chunk):
-    try:
+    with suppress(Exception):
         overlay_data_offset = PortableExecutable(data=first_chunk).get_overlay_raw()
         if overlay_data_offset is not None:
             return overlay_data_offset
-    except Exception as e:
-        log.info(e)
-
-
-def pe_trimmed_size(data):
-    with suppress(Exception):
-        pe = pefile.PE(data=data, fast_load=False)
-        if pe.FILE_HEADER.NumberOfSections:
-            return (
-                pe.sections[pe.FILE_HEADER.NumberOfSections - 1].PointerToRawData
-                + pe.sections[pe.FILE_HEADER.NumberOfSections - 1].SizeOfRawData
-            )

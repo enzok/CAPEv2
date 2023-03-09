@@ -8,13 +8,11 @@ import tempfile
 from typing import List
 
 from lib.cuckoo.common.config import Config
-from lib.cuckoo.common.constants import PE_HEADER_LIMIT
 from lib.cuckoo.common.exceptions import CuckooDemuxError
-from lib.cuckoo.common.integrations.parse_pe import HAVE_PEFILE, IsPEImage
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.path_utils import path_exists, path_mkdir, path_write_file
 from lib.cuckoo.common.quarantine import unquarantine
-from lib.cuckoo.common.utils import get_options, get_platform, pe_trimmed_size, sanitize_filename
+from lib.cuckoo.common.utils import get_options, get_platform, sanitize_filename, trim_sample
 
 sf_version = ""
 try:
@@ -275,13 +273,14 @@ def demux_sample(filename: bytes, package: str, options: str, use_sflock: bool =
             if File(filename).get_size() > web_cfg.general.max_sample_size and not (
                 web_cfg.general.allow_ignore_size and "ignore_size_check" in options
             ):
-                file_chunk = File(filename).get_chunks(PE_HEADER_LIMIT * 2).__next__()
+                file_head = File(filename).get_chunks(64).__next__()
                 retlist.remove(filename)
-                if web_cfg.general.enable_trim and HAVE_PEFILE and IsPEImage(file_chunk):
-                    trimmed_size = pe_trimmed_size(file_chunk)
+                if web_cfg.general.enable_trim:
+                    trimmed_size = trim_sample(file_head)
                     if trimmed_size and trimmed_size < web_cfg.general.max_sample_size:
-                        data = File(filename).get_chunks(int(trimmed_size / 1024)).__next__()
-                        _ = path_write_file(filename, data)
+                        with open(filename, "rb") as hfile:
+                            data = hfile.read(trimmed_size)
+                        _ = path_write_file(filename.decode(), data)
                         retlist.append(filename)
 
     return retlist[:10]

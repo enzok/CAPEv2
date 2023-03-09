@@ -16,7 +16,6 @@ import requests
 from django.http import HttpResponse
 
 from lib.cuckoo.common.config import Config
-from lib.cuckoo.common.constants import PE_HEADER_LIMIT
 from lib.cuckoo.common.integrations.parse_pe import HAVE_PEFILE, IsPEImage, pefile
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.path_utils import path_exists, path_mkdir, path_write_file
@@ -29,7 +28,7 @@ from lib.cuckoo.common.utils import (
     get_user_filename,
     sanitize_filename,
     store_temp_file,
-    pe_trimmed_size,
+    trim_sample,
     validate_referrer,
     validate_ttp,
 )
@@ -1265,15 +1264,11 @@ def process_new_task_files(request, samples, details, opt_filename, unique):
         data = False
         if size > web_cfg.general.max_sample_size:
             if not (web_cfg.general.allow_ignore_size and "bypass_size_check" in details["options"]):
-                first_chunk = sample.chunks(PE_HEADER_LIMIT * 2).__next__()
-                if web_cfg.general.enable_trim and HAVE_PEFILE and IsPEImage(first_chunk):
-                    trimmed_size = pe_trimmed_size(sample.chunks().__next__())
+                if web_cfg.general.enable_trim:
+                    trimmed_size = trim_sample(sample.chunks().__next__())
                     if trimmed_size:
                         size = trimmed_size
-                        data = sample.chunks(size).__next__()
-                else:
-                    # we need to rebuild original file
-                    data = first_chunk + sample.read()
+                data = sample.read(size)
                 if size > web_cfg.general.max_sample_size:
                     details["errors"].append(
                         {
