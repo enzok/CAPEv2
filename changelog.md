@@ -1,3 +1,8 @@
+### [10.3.2023]
+* Monitor fixes: 
+    * Prevent unpacker initialisation from adding imagebase to tracked regions, allow yara scans on caller
+    * CoGetClassObject hook: remove modification of dwClsContext parameter causing detonation failures
+
 ### [9.3.2023]
 * Monitor updates:
     * Remove cryptsp 'double' hooks in Office processes due to detonation failures (e.g. Word 2016)
