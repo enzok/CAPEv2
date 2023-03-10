@@ -1652,6 +1652,17 @@ class Database(object, metaclass=Singleton):
             if conf.cuckoo.delete_archive:
                 path_delete(file_path.decode())
 
+        # Check for 'file' option indicating supporting files needed for upload; otherwise create task for each file
+        opts = get_options(options)
+        if "file" in opts:
+            runfile = opts["file"].lower()
+            if isinstance(runfile, str):
+                runfile = runfile.encode()
+            for xfile in extracted_files:
+                if runfile in xfile.lower():
+                    extracted_files = [xfile]
+                    break
+
         # create tasks for each file in the archive
         for file in extracted_files:
             if static:
