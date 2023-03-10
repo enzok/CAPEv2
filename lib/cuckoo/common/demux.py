@@ -211,31 +211,25 @@ def trim_pe_file(filename: bytes, options: str) -> bool:
     """
     Trim PE file
     """
-    if web_cfg.general.enable_trim and File(filename).get_size() > web_cfg.general.max_sample_size and not (
-            web_cfg.general.allow_ignore_size and "ignore_size_check" in options
-    ):
-        file_head = File(filename).get_chunks(64).__next__()
-        trimmed_size = trim_sample(file_head)
-        if trimmed_size and trimmed_size < web_cfg.general.max_sample_size:
-            with open(filename, "rb") as hfile:
-                data = hfile.read(trimmed_size)
-            _ = path_write_file(filename.decode(), data)
-            return True
+    file_head = File(filename).get_chunks(64).__next__()
+    trimmed_size = trim_sample(file_head)
+    if trimmed_size and trimmed_size < web_cfg.general.max_sample_size:
+        with open(filename, "rb") as hfile:
+            data = hfile.read(trimmed_size)
+        _ = path_write_file(filename.decode(), data)
+        return True
 
 
 def trim_ole_file(filename: bytes, options: str) -> bool:
     """
     Trim OLE Doc file
     """
-    if web_cfg.general.enable_trim and File(filename).get_size() > web_cfg.general.max_sample_size and not (
-            web_cfg.general.allow_ignore_size and "ignore_size_check" in options
-    ):
-        trimmed_size = trim_ole_doc(filename)
-        if trimmed_size and trimmed_size < web_cfg.general.max_sample_size:
-            with open(filename, "rb") as hfile:
-                data = hfile.read(trimmed_size)
-            _ = path_write_file(filename.decode(), data)
-            return True
+    trimmed_size = trim_ole_doc(filename)
+    if trimmed_size and trimmed_size < web_cfg.general.max_sample_size:
+        with open(filename, "rb") as hfile:
+            data = hfile.read(trimmed_size)
+        _ = path_write_file(filename.decode(), data)
+        return True
 
 
 def demux_sample(filename: bytes, package: str, options: str, use_sflock: bool = True) -> List[bytes]:
@@ -250,11 +244,19 @@ def demux_sample(filename: bytes, package: str, options: str, use_sflock: bool =
 
     # if a package was specified, then don't do anything special
     if package:
-        if "doc" in package:
-            trim_ole_file(filename, options)
-        else:
-            trim_pe_file(filename, options)
-        return [filename]
+        retlist = [filename]
+        if File(filename).get_size() > web_cfg.general.max_sample_size and not (
+                web_cfg.general.allow_ignore_size and "ignore_size_check" in options
+        ):
+            if web_cfg.general.enable_trim:
+                if "doc" in package:
+                    if not trim_ole_file(filename, options):
+                        retlist.remove(filename)
+                else:
+                    if not trim_pe_file(filename, options):
+                        retlist.remove(filename)
+
+        return retlist
 
     # handle quarantine files
     tmp_path = unquarantine(filename)
@@ -287,8 +289,14 @@ def demux_sample(filename: bytes, package: str, options: str, use_sflock: bool =
         or "MS-DOS executable" in magic
         or any(x in magic for x in VALID_LINUX_TYPES)
     ):
-        trim_pe_file(filename, options)
-        return [filename]
+        retlist = [filename]
+        if File(filename).get_size() > web_cfg.general.max_sample_size and not (
+                web_cfg.general.allow_ignore_size and "ignore_size_check" in options
+        ):
+            if web_cfg.general.enable_trim:
+                if not trim_pe_file(filename, options):
+                    retlist.remove(filename)
+        return retlist
 
     # all in one unarchiver
     retlist = demux_sflock(filename, options) if HAS_SFLOCK and use_sflock else []
@@ -305,7 +313,12 @@ def demux_sample(filename: bytes, package: str, options: str, use_sflock: bool =
                 retlist.remove(filename)
                 continue
 
-            if not trim_pe_file(filename, options):
-                trim_ole_file(filename, options)
+            if File(filename).get_size() > web_cfg.general.max_sample_size and not (
+                    web_cfg.general.allow_ignore_size and "ignore_size_check" in options
+            ):
+                if web_cfg.general.enable_trim:
+                    if not trim_pe_file(filename, options):
+                        if not trim_ole_file(filename, options):
+                            retlist.remove(filename)
 
     return retlist[:10]
