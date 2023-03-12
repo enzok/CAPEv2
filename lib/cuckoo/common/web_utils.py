@@ -19,6 +19,7 @@ from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.integrations.parse_pe import HAVE_PEFILE, IsPEImage, pefile
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.path_utils import path_exists, path_mkdir, path_write_file
+from lib.cuckoo.common.trim_utils import trim_sample # trim_file
 from lib.cuckoo.common.utils import (
     bytes2str,
     generate_fake_name,
@@ -28,8 +29,6 @@ from lib.cuckoo.common.utils import (
     get_user_filename,
     sanitize_filename,
     store_temp_file,
-    trim_ole_doc,
-    trim_sample,
     validate_referrer,
     validate_ttp,
 )
@@ -1265,15 +1264,12 @@ def process_new_task_files(request, samples, details, opt_filename, unique):
         data = False
         if size > web_cfg.general.max_sample_size:
             if not (web_cfg.general.allow_ignore_size and "ignore_size_check" in details["options"]):
-                if web_cfg.general.enable_trim:
+                first_chunk = sample.chunks().__next__()
+                if web_cfg.general.enable_trim and HAVE_PEFILE and IsPEImage(first_chunk):
                     trimmed_size = trim_sample(sample.chunks().__next__())
                     if trimmed_size:
                         size = trimmed_size
-                    else:
-                        sample.seek(0)
-                        trimmed_size = trim_ole_doc(sample.read(size))
-                        if trimmed_size:
-                            size = trimmed_size
+                # move to start of sample file
                 sample.seek(0)
                 data = sample.read(size)
                 if size > web_cfg.general.max_sample_size:
@@ -1289,7 +1285,7 @@ def process_new_task_files(request, samples, details, opt_filename, unique):
         else:
             filename = sanitize_filename(sample.name)
 
-        # Moving sample from django temporary file to CAPE temporary storage to let it persist between reboot (if user like to configure it in that way).
+        # Moving sample from django temporary file to CAPE temporary storage for persistence, if configured by user.
         try:
             path = store_temp_file(data or sample.read(), filename)
         except OSError:
@@ -1299,7 +1295,7 @@ def process_new_task_files(request, samples, details, opt_filename, unique):
             continue
 
         target_file = File(path)
-        # Trimmed. We need to registger sample parent id
+        # Trimmed. We need to register sample parent id
         if size != sample.size:
             sample_parent_id = db.register_sample(target_file)
 
