@@ -224,7 +224,7 @@ def demux_sample(filename: bytes, package: str, options: str, use_sflock: bool =
         if File(filename).get_size() > web_cfg.general.max_sample_size and not (
                 web_cfg.general.allow_ignore_size and "ignore_size_check" in options
         ):
-            if web_cfg.general.enable_trim and not trim_file(filename, options, "doc" in package):
+            if web_cfg.general.enable_trim and not trim_file(filename, "doc" in package):
                 retlist.remove(filename)
 
         return retlist
@@ -265,12 +265,12 @@ def demux_sample(filename: bytes, package: str, options: str, use_sflock: bool =
                 web_cfg.general.allow_ignore_size and "ignore_size_check" in options
         ):
             if web_cfg.general.enable_trim:
-                if not trim_file(filename, options):
+                if not trim_file(filename):
                     retlist.remove(filename)
         return retlist
 
     # all in one unarchiver
-    retlist = demux_sflock(filename, options) if HAS_SFLOCK and use_sflock else []
+    retlist = demux_sflock(filename) if HAS_SFLOCK and use_sflock else []
     # if it wasn't a ZIP or an email or we weren't able to obtain anything interesting from either, then just submit the
     # original file
     if not retlist:
@@ -289,7 +289,7 @@ def demux_sample(filename: bytes, package: str, options: str, use_sflock: bool =
             ):
                 if web_cfg.general.enable_trim:
                     # maybe identify here
-                    if not trim_file(filename, options) and not trim_file(filename, options, doc=True):
+                    if not trim_file(filename) and not trim_file(filename, doc=True):
                         retlist.remove(filename)
 
     return retlist[:10]

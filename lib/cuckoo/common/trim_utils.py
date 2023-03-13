@@ -10,7 +10,7 @@ from lib.cuckoo.common.path_utils import path_write_file
 web_cfg = Config("web")
 
 
-def trim_file(filename: bytes, options: str, doc: bool = False, chunk: bytes=False, return_size:bool=False) -> bool:
+def trim_file(filename: bytes, doc: bool = False, chunks: iter = False, return_size: bool = False) -> bool:
     """
     Trim PE/OLE doc file
     """
@@ -18,8 +18,8 @@ def trim_file(filename: bytes, options: str, doc: bool = False, chunk: bytes=Fal
     if doc:
         trimmed_size = trim_ole_doc(filename)
     else:
-        if chunk:
-            trimmed_size = trim_sample(chunk)
+        if chunks:
+            trimmed_size = trim_sample(chunks.__next__())
         if not trimmed_size:
             file_head = File(filename).get_chunks(64).__next__()
             trimmed_size = trim_sample(file_head)
