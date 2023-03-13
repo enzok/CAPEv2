@@ -1253,7 +1253,7 @@ def download_from_vt(vtdl, details, opt_filename, settings):
 def process_new_task_files(request, samples, details, opt_filename, unique):
     list_of_files = []
     for sample in samples:
-        # Error if there was only one submitted sample and it's empty.
+        # Error if there was only one submitted sample, and it's empty.
         # But if there are multiple and one was empty, just ignore it.
         if not sample.size:
             details["errors"].append({sample.name: "You uploaded an empty file."})
@@ -1263,17 +1263,17 @@ def process_new_task_files(request, samples, details, opt_filename, unique):
         size = sample.size
         data = False
         if size > web_cfg.general.max_sample_size:
-            if not (web_cfg.general.allow_ignore_size and "ignore_size_check" in details["options"]):
+            if web_cfg.general.enable_trim and not (
+                    web_cfg.general.allow_ignore_size and "ignore_size_check" in details["options"]
+            ):
                 first_chunk = sample.chunks().__next__()
-                if web_cfg.general.enable_trim and HAVE_PEFILE and IsPEImage(first_chunk):
-                    trimmed_size = trim_file(b"", chunks=sample.chunks(), doc=True, return_size=True)
-                    if trimmed_size:
-                        size = trimmed_size
-                    else:
-                        sample.seek(0)
-                        trimmed_size = trim_file(b"", chunks=sample.chunks(), doc=True, return_size=True)
-                        if trimmed_size:
-                            size = trimmed_size
+                if HAVE_PEFILE and IsPEImage(first_chunk):
+                    trimmed_size = trim_file(sample)
+                else:
+                    trimmed_size = trim_file(sample, doc=True)
+
+                if trimmed_size:
+                    size = trimmed_size
 
                 if size > web_cfg.general.max_sample_size:
                     details["errors"].append(
