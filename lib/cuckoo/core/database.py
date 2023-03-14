@@ -1614,7 +1614,6 @@ class Database(object, metaclass=Singleton):
         shrike_sid=None,
         shrike_refer=None,
         parent_id=None,
-        sample_parent_id=None,
         tlp=None,
         static=False,
         source_url=False,
@@ -1644,16 +1643,13 @@ class Database(object, metaclass=Singleton):
             # Checking original file as some filetypes doesn't require demux
             package, _ = self._identify_aux_func(file_path, package)
 
-        if b"trimmed" in file_path:
-            extracted_files = [file_path]
-        else:
-            # extract files from the (potential) archive
-            extracted_files = demux_sample(file_path, package, options)
-            # check if len is 1 and the same file, if diff register file, and set parent
-            if extracted_files and file_path not in extracted_files:
-                sample_parent_id = self.register_sample(File(file_path), source_url=source_url)
-                if conf.cuckoo.delete_archive:
-                    path_delete(file_path.decode())
+        # extract files from the (potential) archive
+        extracted_files = demux_sample(file_path, package, options)
+        # check if len is 1 and the same file, if diff register file, and set parent
+        if extracted_files and file_path not in extracted_files:
+            sample_parent_id = self.register_sample(File(file_path), source_url=source_url)
+            if conf.cuckoo.delete_archive:
+                path_delete(file_path.decode())
 
         # Check for 'file' option indicating supporting files needed for upload; otherwise create task for each file
         opts = get_options(options)
@@ -1689,7 +1685,7 @@ class Database(object, metaclass=Singleton):
                     if not tmp_package:
                         log.info("Do sandbox packages need an update? Sflock identifies as: %s - %s", tmp_package, file)
                     if package == "dll" and "function" not in options:
-                        dll_export = PortableExecutable(file).choose_dll_export()
+                        dll_export = PortableExecutable(file.decode(())).choose_dll_export()
                         if dll_export == "DllRegisterServer":
                             package = "regsvr"
                         elif dll_export == "xlAutoOpen":
