@@ -1644,13 +1644,16 @@ class Database(object, metaclass=Singleton):
             # Checking original file as some filetypes doesn't require demux
             package, _ = self._identify_aux_func(file_path, package)
 
-        # extract files from the (potential) archive
-        extracted_files = demux_sample(file_path, package, options)
-        # check if len is 1 and the same file, if diff register file, and set parent
-        if extracted_files and file_path not in extracted_files:
-            sample_parent_id = self.register_sample(File(file_path), source_url=source_url)
-            if conf.cuckoo.delete_archive:
-                path_delete(file_path.decode())
+        if b"trimmed" in file_path:
+            extracted_files = [file_path]
+        else:
+            # extract files from the (potential) archive
+            extracted_files = demux_sample(file_path, package, options)
+            # check if len is 1 and the same file, if diff register file, and set parent
+            if extracted_files and file_path not in extracted_files:
+                sample_parent_id = self.register_sample(File(file_path), source_url=source_url)
+                if conf.cuckoo.delete_archive:
+                    path_delete(file_path.decode())
 
         # Check for 'file' option indicating supporting files needed for upload; otherwise create task for each file
         opts = get_options(options)

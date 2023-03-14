@@ -226,8 +226,10 @@ def demux_sample(filename: bytes, package: str, options: str, use_sflock: bool =
                 or (web_cfg.general.allow_ignore_size and "ignore_size_check" in options)
                 or (web_cfg.general.enable_trim and trim_file(filename, "doc" in package))
         ):
-            retlist.append(filename)
-
+            if b"trimmed" in filename:
+                retlist.append(b"trimmed_" + filename)
+            else:
+                retlist.append(filename)
         return retlist
 
     # handle quarantine files
@@ -267,7 +269,10 @@ def demux_sample(filename: bytes, package: str, options: str, use_sflock: bool =
                 or (web_cfg.general.allow_ignore_size and "ignore_size_check" in options)
                 or (web_cfg.general.enable_trim and trim_file(filename))
         ):
-            retlist.append(filename)
+            if b"trimmed" in filename:
+                retlist.append(b"trimmed_" + filename)
+            else:
+                retlist.append(filename)
 
         return retlist
 
@@ -291,7 +296,6 @@ def demux_sample(filename: bytes, package: str, options: str, use_sflock: bool =
             ):
                 if web_cfg.general.enable_trim:
                     # maybe identify here
-                    if not trim_file(filename) and not trim_file(filename, doc=True):
-                        retlist.remove(filename)
-
+                    if trim_file(filename) and trim_file(filename, doc=True):
+                        retlist.append(b"trimmed_" + filename)
     return retlist[:10]

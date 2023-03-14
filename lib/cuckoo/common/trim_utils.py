@@ -33,7 +33,7 @@ def trim_file(filename: any, doc: bool = False) -> Union[bool, int]:
     if trimmed_size and trimmed_size < web_cfg.general.max_sample_size:
         with open(filename, "rb") as hfile:
             data = hfile.read(trimmed_size)
-        _ = path_write_file(filename.decode(), data)
+        _ = path_write_file(f"trimmed_{filename.decode()}", data)
         return True
 
 
