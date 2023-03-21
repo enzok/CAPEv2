@@ -350,7 +350,7 @@ def _extracted_files_metadata(
 
             dest_path = os.path.join(destination_folder, file_info["sha256"])
             file_info["path"] = dest_path
-            file_info["guest_paths"] = file_info["name"]
+            file_info["guest_paths"] = [file_info["name"]]
             file_info["name"] = os.path.basename(dest_path)
             if not path_exists(dest_path):
                 shutil.move(full_path, dest_path)
