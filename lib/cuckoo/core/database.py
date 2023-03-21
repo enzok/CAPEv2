@@ -1640,8 +1640,12 @@ class Database(object, metaclass=Singleton):
             file_path = file_path.encode()
 
         if not package:
-            # Checking original file as some filetypes doesn't require demux
-            package, _ = self._identify_aux_func(file_path, package)
+            if "file=" in options:
+                # set zip as package when specifying file= in options
+                package = "zip"
+            else:
+                # Checking original file as some filetypes doesn't require demux
+                package, _ = self._identify_aux_func(file_path, package)
 
         # extract files from the (potential) archive
         extracted_files = demux_sample(file_path, package, options)
@@ -1650,17 +1654,6 @@ class Database(object, metaclass=Singleton):
             sample_parent_id = self.register_sample(File(file_path), source_url=source_url)
             if conf.cuckoo.delete_archive:
                 path_delete(file_path.decode())
-
-        # Check for 'file' option indicating supporting files needed for upload; otherwise create task for each file
-        opts = get_options(options)
-        if "file" in opts:
-            runfile = opts["file"].lower()
-            if isinstance(runfile, str):
-                runfile = runfile.encode()
-            for xfile in extracted_files:
-                if runfile in xfile.lower():
-                    extracted_files = [xfile]
-                    break
 
         # create tasks for each file in the archive
         for file in extracted_files:
@@ -1684,17 +1677,18 @@ class Database(object, metaclass=Singleton):
 
                     if not tmp_package:
                         log.info("Do sandbox packages need an update? Sflock identifies as: %s - %s", tmp_package, file)
-                    if package == "dll" and "function" not in options:
-                        dll_export = PortableExecutable(file.decode()).choose_dll_export()
-                        if dll_export == "DllRegisterServer":
-                            package = "regsvr"
-                        elif dll_export == "xlAutoOpen":
-                            package = "xls"
-                        elif dll_export:
-                            if options:
-                                options += f",function={dll_export}"
-                            else:
-                                options = f"function={dll_export}"
+
+                if package == "dll" and "function" not in options:
+                    dll_export = PortableExecutable(file.decode()).choose_dll_export()
+                    if dll_export == "DllRegisterServer":
+                        package = "regsvr"
+                    elif dll_export == "xlAutoOpen":
+                        package = "xls"
+                    elif dll_export:
+                        if options:
+                            options += f",function={dll_export}"
+                        else:
+                            options = f"function={dll_export}"
 
                 # ToDo better solution? - Distributed mode here:
                 # Main node is storage so try to extract before submit to vm isn't propagated to workers
