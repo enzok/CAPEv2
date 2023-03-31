@@ -110,6 +110,14 @@ def main():
     )
     parser.add_argument("--quiet", action="store_true", default=False, help="Only print text on failure", required=False)
     parser.add_argument("--procdump", action="store_true", default=False, help="Disable process dumps", required=False)
+    parser.add_argument(
+        "--route",
+        type=str,
+        action="store",
+        default="",
+        help="Specify the network route. (tor/vpn/etc.)",
+        required=False,
+    )
 
     try:
         args = parser.parse_args()
@@ -164,6 +172,7 @@ def main():
                 enforce_timeout=args.enforce_timeout,
                 custom=args.custom,
                 tags=args.tags,
+                route=args.route,
             )
 
             try:
@@ -206,6 +215,7 @@ def main():
                 enforce_timeout=args.enforce_timeout,
                 clock=args.clock,
                 tags=args.tags,
+                route=args.route,
             )
 
         if task_id:
@@ -276,6 +286,7 @@ def main():
                     enforce_timeout=args.enforce_timeout,
                     custom=args.custom,
                     tags=args.tags,
+                    route=args.route,
                 )
 
                 try:
@@ -327,6 +338,7 @@ def main():
                         enforce_timeout=args.enforce_timeout,
                         clock=args.clock,
                         tags=args.tags,
+                        route=args.route,
                     )
                 except CuckooDemuxError as e:
                     task_ids = []
