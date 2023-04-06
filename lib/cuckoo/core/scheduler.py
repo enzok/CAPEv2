@@ -40,7 +40,7 @@ try:
     network_interfaces = list(psutil.net_if_addrs().keys())
     HAVE_NETWORKIFACES = True
 except ImportError:
-    print("Missde dependency: pip3 install psutil")
+    print("Missed dependency: pip3 install psutil")
 
 log = logging.getLogger(__name__)
 
