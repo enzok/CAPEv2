@@ -248,7 +248,7 @@ def static_file_info(
                 data_dictionary["floss"] = floss_strings
 
         if HAVE_STRINGS:
-            strings = extract_strings(file_path)
+            strings = extract_strings(file_path, dedup=True)
             if strings:
                 data_dictionary["strings"] = strings
 

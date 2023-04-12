@@ -2333,7 +2333,7 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
         vba2graph_func(path, task_id, sha256, on_demand=True)
 
     elif service == "strings" and HAVE_STRINGS:
-        details = extract_strings(path, on_demand=True)
+        details = extract_strings(path, on_demand=True, dedup=True)
         if not details:
             details = {"strings": "No strings extracted"}
 
