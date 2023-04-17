@@ -70,7 +70,6 @@ yara = yes
 suricata = yes
 virustotal = no
 clamav = no
-thirdparty_yara = no
 
 # ... but this mechanism may still be switched on
 [procmemory]
@@ -114,8 +113,6 @@ enabled = yes
 on_demand = no
 nullterminated_only = no
 minchars = 5
-# Extract dotnet strings
-dotnet = no
 
 [trid]
 # Specify the path to the trid binary to use for static analysis.
