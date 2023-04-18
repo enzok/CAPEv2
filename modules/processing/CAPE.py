@@ -165,11 +165,6 @@ class CAPE(Processing):
         if not path_exists(file_path):
             return
 
-        # temporary until WER files are handled properly by monitor
-        if category == "dropped":
-            if metadata["filepath"].rsplit("\\", 1)[-1].startswith(("WER", "wer")):
-                return
-
         cape_names = set()
         buf_size = self.options.get("buffer", 8192)
         # ToDo filename argument for procdump
