@@ -8,20 +8,16 @@ from lib.common.abstracts import Package
 from lib.common.common import check_file_extension
 
 
-class PUB(Package):
-    """Word analysis package."""
-
+class PUB2007(Package):
     def __init__(self, options=None, config=None):
         if options is None:
             options = {}
         self.config = config
         self.options = options
 
+    """Word analysis package."""
     PATHS = [
-        ("ProgramFiles", "Microsoft Office", "MSPUB.EXE"),
-        ("ProgramFiles", "Microsoft Office", "Office*", "MSPUB.EXE"),
-        ("ProgramFiles", "Microsoft Office*", "root", "Office*", "MSPUB.EXE"),
-        ("ProgramFiles", "Microsoft Office", "MSPUB.EXE"),
+        ("ProgramFiles", "Microsoft Office*", "root", "Office16", "MSPUB.EXE"),
     ]
 
     def set_keys(self):
