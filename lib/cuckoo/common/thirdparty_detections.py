@@ -12,7 +12,7 @@ def get_thirdparty_family(proctype, procres):
         sha256 = procres.get("file", {}).get("sha256", "")
         families = []
         for yh in yarahits:
-            mf = yh.get("meta",{}).get("malware_family", "")
+            mf = yh.get("meta", {}).get("malware_family", "")
             if mf:
                 families.append(mf)
         maldata.append({sha256: families})
@@ -23,7 +23,7 @@ def get_thirdparty_family(proctype, procres):
             sha256 = payload.get("sha256", "")
             families = []
             for yh in yarahits:
-                mf = yh.get("meta",{}).get("malware_family", "")
+                mf = yh.get("meta", {}).get("malware_family", "")
                 if mf:
                     families.append(mf)
             if families:
@@ -34,7 +34,7 @@ def get_thirdparty_family(proctype, procres):
             sha256 = data.get("sha256", "")
             families = []
             for yh in yarahits:
-                mf = yh.get("meta",{}).get("malware_family", "")
+                mf = yh.get("meta", {}).get("malware_family", "")
                 if mf:
                     families.append(mf)
             if families:
