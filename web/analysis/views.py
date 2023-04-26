@@ -44,7 +44,7 @@ except ImportError:
     try:
         from ratelimit.decorators import ratelimit
     except ImportError:
-        print("missed dependency: pip3 install django-ratelimit -U")
+        print("missed dependency: poetry run pip install django-ratelimit -U")
 
 from lib.cuckoo.common.admin_utils import disable_user
 
@@ -65,7 +65,7 @@ try:
 
     HAVE_PYZIPPER = True
 except ImportError:
-    print("Missed dependency: pip3 install pyzipper -U")
+    print("Missed dependency: poetry run pip install pyzipper -U")
     HAVE_PYZIPPER = False
 
 try:
