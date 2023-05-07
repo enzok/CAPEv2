@@ -24,7 +24,6 @@ sys.path.append(os.path.join(os.path.abspath(os.path.dirname(__file__)), ".."))
 
 import lib.cuckoo.common.colors as colors
 from lib.cuckoo.common.constants import CUCKOO_ROOT
-from lib.cuckoo.common.integrations.mitre import mitre_update
 from lib.cuckoo.common.path_utils import path_exists, path_mkdir
 
 blocklist = {}
@@ -189,9 +188,8 @@ def main():
     parser.add_argument(
         "-cr", "--capa-rules", help="Download capa rules and signatures", action="store_true", default=False, required=False
     )
-    parser.add_argument("--mitre", help="Download updated MITRE JSONS", action="store_true", default=False, required=False)
     parser.add_argument(
-        "--mitre-offline",
+        "--mitre",
         help="Download updated MITRE JSONS from community repo",
         action="store_true",
         default=False,
@@ -232,16 +230,11 @@ def main():
             enabled.append("yara")
         if args.integrations:
             enabled.append("integrations")
-        if args.mitre_offline:
+        if args.mitre:
             enabled.append("mitre")
 
     if args.capa_rules:
         flare_capa(args.proxy)
-        if not enabled:
-            return
-
-    if args.mitre:
-        mitre_update()
         if not enabled:
             return
 

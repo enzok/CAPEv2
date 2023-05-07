@@ -16,18 +16,19 @@ def mitre_generate_attck(results, mitre):
     for ttp in results["ttps"]:
         ttp_dict.setdefault(ttp["ttp"], set()).add(ttp["signature"])
     try:
-        for technique in mitre.enterprise.techniques:
-            if technique.technique_id not in list(ttp_dict.keys()):
-                continue
-            for tactic in technique.tactics:
-                attck.setdefault(tactic.name, []).append(
-                    {
-                        "t_id": technique.technique_id,
-                        "ttp_name": technique.name,
-                        "description": technique.description,
-                        "signature": list(ttp_dict[technique.technique_id]),
-                    }
-                )
+        for ttp in ttp_dict:
+            mitre = mitre.get_object_by_attack_id(ttp, "attack-pattern")
+            if mitre:
+                for phase in mitre.get("kill_chain_phases", []):
+                    tactic = phase.phase_name
+                    attck.setdefault(tactic, []).append(
+                        {
+                            "t_id": ttp,
+                            "ttp_name": mitre.name,
+                            "description": mitre.description,
+                            "signature": list(ttp_dict[ttp]),
+                        }
+                    )
     except FileNotFoundError:
         print("MITRE Att&ck data missed, execute: 'python3 utils/community.py -waf --mitre'")
     except Exception as e:
@@ -37,71 +38,37 @@ def mitre_generate_attck(results, mitre):
     return attck
 
 
-def init_mitre_attck(online: bool = False):
-    config = False
-    mitre = False
+def init_mitre_attck():
+    mitre_attack_data = False
 
     try:
-        from pyattck import Attck
+        from mitreattack.stix20 import MitreAttackData
 
-        if online:
-            from pyattck.configuration import Configuration
-
-            config = Configuration()
     except ImportError:
-        print("Missed dependency: install pyattck library, see requirements for proper version")
+        print("Missed dependency: install mitreattack-python library")
         return
 
     try:
-        mitre = Attck(
-            nested_techniques=True,
-            use_config=False,
-            save_config=False,
-            config_file_path=os.path.join(CUCKOO_ROOT, "data", "mitre", "config.yml"),
-            data_path=os.path.join(CUCKOO_ROOT, "data", "mitre"),
-            enterprise_attck_json=config.enterprise_attck_json
-            if online
-            else os.path.join(CUCKOO_ROOT, "data", "mitre", "enterprise_attck_json.json"),
-            pre_attck_json=config.pre_attck_json if online else os.path.join(CUCKOO_ROOT, "data", "mitre", "pre_attck_json.json"),
-            mobile_attck_json=config.mobile_attck_json
-            if online
-            else os.path.join(CUCKOO_ROOT, "data", "mitre", "mobile_attck_json.json"),
-            ics_attck_json=config.ics_attck_json if online else os.path.join(CUCKOO_ROOT, "data", "mitre", "ics_attck_json.json"),
-            nist_controls_json=config.nist_controls_json
-            if online
-            else os.path.join(CUCKOO_ROOT, "data", "mitre", "nist_controls_json.json"),
-            generated_nist_json=config.generated_nist_json
-            if online
-            else os.path.join(CUCKOO_ROOT, "data", "mitre", "generated_nist_json.json"),
-        )
+        path = os.path.join(CUCKOO_ROOT, "data", "mitre", "enterprise_attck_json.json")
+        mitre_attack_data = MitreAttackData(path)
     except Exception as e:
-        log.error("Can't initialize mitre's Attck class: %s", str(e))
+        log.error("Can't initialize MitreAttackData: %s", str(e))
 
-    return mitre
-
-
-def mitre_update():
-    """Urls might change, for proper urls see https://github.com/swimlane/pyattck"""
-
-    mitre = init_mitre_attck(online=True)
-    if mitre:
-        print("[+] Updating MITRE datasets")
-        mitre.update()
+    return mitre_attack_data
 
 
 def mitre_load(enabled: bool = False):
     mitre = False
     HAVE_MITRE = False
-    pyattck_version = ()
 
     if not enabled:
-        return mitre, HAVE_MITRE, pyattck_version
+        return mitre, HAVE_MITRE
 
     try:
         mitre = init_mitre_attck()
         HAVE_MITRE = True
 
     except ImportError:
-        print("Missed pyattck dependency: check requirements.txt for exact pyattck version")
+        print("Missing mitreattack-python dependency")
 
-    return mitre, HAVE_MITRE, pyattck_version
+    return mitre, HAVE_MITRE
