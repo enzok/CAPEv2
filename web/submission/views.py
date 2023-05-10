@@ -657,14 +657,16 @@ def remote_session(request, task_id):
         return render(request, "error.html", {"error": "The specified task doesn't seem to exist."})
 
     machine_status = False
+    label = ""
     session_data = ""
 
     if task.status == "running":
-        machine = db.view_machine_by_label(task.machine)
+        machine = db.view_machine(task.machine)
+        label = machine.label
         guest_ip = machine.ip
         machine_status = True
         session_id = uuid3(NAMESPACE_DNS, task_id).hex[:16]
-        session_data = urlsafe_b64encode(f"{session_id}|{task.machine}|{guest_ip}".encode("utf8")).decode("utf8")
+        session_data = urlsafe_b64encode(f"{session_id}|{label}|{guest_ip}".encode("utf8")).decode("utf8")
 
     return render(
         request,
