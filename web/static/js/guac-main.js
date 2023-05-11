@@ -11,6 +11,7 @@ function GuacMe(element, guest_ip, vncport, session_id, recording_name) {
 
         dialog_container = $(element).find('.guaconsole')[0];
 
+        /* Build websocket url based on protocol */
         var terminal_ws_url = location.origin.replace(/^http(s?):/, function(match, p1) {
             return (p1 ? 'wss:' : 'ws:');
         });
