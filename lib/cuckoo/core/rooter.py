@@ -13,6 +13,7 @@ cfg = Config()
 router_cfg = Config("routing")
 log = logging.getLogger(__name__)
 
+vpns = dict()
 socks5s = dict()
 
 
@@ -49,7 +50,7 @@ def _load_socks5_operational():
                     with suppress(UnicodeDecodeError, AttributeError):
                         socks5s[name][k] = v.decode()
     except Socks5manDatabaseError as e:
-        print(e, "you might have an outdated database at $HOME/.socks5man")
+        print(e, "you migth have an outdated database at $HOME/.socks5man")
 
     return socks5s
 
