@@ -462,7 +462,6 @@ def generic_file_extractors(
                 continue
 
             func_timeout = int(getattr(selfextract_conf, funcname).get("timeout", 60))
-            func_timeout = 3600
             futures[funcname] = pool.schedule(extraction_func, args=args, kwargs=kwargs, timeout=func_timeout)
 
     pool.join()
