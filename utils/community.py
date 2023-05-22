@@ -103,6 +103,7 @@ def install(enabled, force, rewrite, filepath: str = False, access_token=None, p
         "machinery": "modules/machinery",
         "analyzer": "analyzer",
         "data": "data",
+        "common": "lib/cuckoo/common",
         "integrations": "lib/cuckoo/common/integrations",
         "mitre": "data/mitre",
         "yara": "data/yara",
@@ -144,7 +145,7 @@ def install(enabled, force, rewrite, filepath: str = False, access_token=None, p
             dest_file = os.path.basename(filepath)
 
             if filepath in blocklist.get(category, []):
-                print(f'You have blacklisted file: {dest_file}. {colors.yellow("skipped")}')
+                print(f'You have blocklisted file: {dest_file}. {colors.yellow("skipped")}')
                 continue
 
             if not force:
@@ -170,6 +171,7 @@ def main():
 
     parser = argparse.ArgumentParser()
     parser.add_argument("-a", "--all", help="Download everything", action="store_true", required=False)
+    parser.add_argument("-cm", "--common", help="Download CAPE common modules", action="store_true", required=False)
     parser.add_argument("-e", "--feeds", help="Download CAPE feed modules", action="store_true", required=False)
     parser.add_argument("-s", "--signatures", help="Download CAPE signatures", action="store_true", required=False)
     parser.add_argument("-p", "--processing", help="Download processing modules", action="store_true", required=False)
@@ -210,7 +212,18 @@ def main():
     enabled = []
 
     if args.all:
-        enabled = ["feeds", "processing", "signatures", "reporting", "machinery", "analyzer", "data", "integrations", "mitre"]
+        enabled = [
+            "feeds",
+            "processing",
+            "signatures",
+            "reporting",
+            "machinery",
+            "analyzer",
+            "data",
+            "integrations",
+            "mitre",
+            "common",
+        ]
         flare_capa()
     else:
         if args.feeds:
@@ -225,6 +238,8 @@ def main():
             enabled.append("machinery")
         if args.analyzer:
             enabled.append("analyzer")
+        if args.common:
+            enabled.append("common")
         # Data contains yara
         if args.data:
             enabled.append("data")
