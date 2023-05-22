@@ -4,6 +4,7 @@
 
 import contextlib
 import logging
+import os
 from pathlib import Path
 from subprocess import PIPE, Popen
 from typing import Any, Dict
@@ -32,7 +33,6 @@ class Java:
 
         data = fp.read_bytes()
         results = {"java": {}}
-        ojar_file = ""
         jar_file = ""
 
         if self.deobfuscator_jar:
@@ -44,17 +44,16 @@ class Java:
                 ojar_file = os.path.join(tmpdir, b"decompile.jar")
                 tmp_conf = os.path.join(tmpdir, b"config.yml")
                 cf = Path(self.deobfuscator_conf)
-                confdata = cf.read_text()
-                tf = Path(tmp_conf.decode())
-                tf.write_text("input: " + ijar_file.decode() + "\n")
-                tf.write_text("output: " + ojar_file.decode() + "\n")
-                tf.write_text(confdata)
+                confdata = f"input: {ijar_file.decode()}\noutput: {ojar_file.decode()}\n"
+                confdata += Path(self.deobfuscator_conf).read_text()
+                _ = Path(tmp_conf.decode()).write_text(confdata)
 
                 p = Popen(["java", "-jar", self.deobfuscator_jar, "--config", tmp_conf], stdout=PIPE)
-                log.info(convert_to_printable(p.stdout.read()))
-                jar_file = ojar_file
+                result = convert_to_printable(p.stdout.read())
+                log.info(result)
+                if not all(_ in result for _ in ("Decrypted 0", "Removed 0")):
+                    jar_file = ojar_file
             except Exception as e:
-                ojar_file = ""
                 log.error(e, exc_info=True)
                 pass
 

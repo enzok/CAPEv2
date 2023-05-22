@@ -215,7 +215,8 @@ def static_file_info(
     #    data_dictionary["js"] = EncodedScriptFile(file_path).run()
     elif (package == "lnk" or "MS Windows shortcut" in data_dictionary["type"]) and selfextract_conf.general.lnk:
         data_dictionary["lnk"] = LnkShortcut(file_path).run()
-    elif ("Java Jar" in data_dictionary["type"] or file_path.endswith(".jar")) and selfextract_conf.general.java:
+    elif (any(java_type in data_dictionary["type"].lower() for java_type in ("java jar", "java archive"))
+          or file_path.endswith(".jar")) and selfextract_conf.general.java:
         if selfextract_conf.procyon.binary and not path_exists(selfextract_conf.procyon.binary):
             log.error("procyon_path specified in processing.conf but the file does not exist")
         elif selfextract_conf.procyon.deobfuscator_jar and not Path(selfextract_conf.procyon.deobfuscator_jar).exists():
@@ -441,6 +442,10 @@ def generic_file_extractors(
     }
 
     futures = {}
+    extraction_functions = (
+
+    )
+
     with pebble.ProcessPool(max_workers=int(selfextract_conf.general.max_workers)) as pool:
         for extraction_func in (
                 msi_extract,
@@ -456,6 +461,7 @@ def generic_file_extractors(
                 eziriz_deobfuscate,
                 office_one,
                 msix_extract,
+                jar_extract,
         ):
             funcname = extraction_func.__name__
             if not getattr(selfextract_conf, funcname, {}).get("enabled", False):
@@ -931,13 +937,40 @@ def office_one(file, **_) -> ExtractorReturnType:
 def msix_extract(file: str, *, data_dictionary: dict, **_) -> ExtractorReturnType:
     """Work on MSIX Package"""
 
-    if ".msix" not in data_dictionary.get("name", "") or all(
-            [pattern not in File(file).file_data for pattern in (b"Registry.dat", b"AppxManifest.xml")]) or all(
-        "MSIX Windows app" not in string for string in data_dictionary.get("trid", [])
+    if not all([pattern in File(file).file_data for pattern in (b"Registry.dat", b"AppxManifest.xml")]) or not any(
+            "MSIX Windows app" in string for string in data_dictionary.get("trid", [])
     ):
         return
 
     with extractor_ctx(file, "MSIX", prefix="msixdump_") as ctx:
+        tempdir = ctx["tempdir"]
+        if HAVE_SFLOCK:
+            unpacked = unpack(file.encode())
+            for child in unpacked.children:
+                _ = path_write_file(os.path.join(tempdir, child.filename.decode()), child.contents)
+        else:
+            _ = subprocess.check_output(
+                [
+                    "unzip",
+                    file,
+                    f"-d {tempdir}",
+                ],
+                universal_newlines=True,
+                stderr=subprocess.PIPE,
+            )
+        ctx["extracted_files"] = collect_extracted_filenames(tempdir)
+
+    return ctx
+
+
+@time_tracker
+def jar_extract(file: str, *, data_dictionary: dict, **_) -> ExtractorReturnType:
+    """Extract Java jar files"""
+
+    if not any(_ in data_dictionary.get("type", "").lower() for _ in ("java jar", "java archive")):
+        return
+
+    with extractor_ctx(file, "JAR", prefix="jardump_") as ctx:
         tempdir = ctx["tempdir"]
         if HAVE_SFLOCK:
             unpacked = unpack(file.encode())
