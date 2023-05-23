@@ -19,6 +19,7 @@ import os
 import timeit
 from contextlib import suppress
 from pathlib import Path
+from tempfile import mkdtemp
 
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.cape_utils import cape_name_from_yara, is_duplicated_binary, pe_map, static_config_parsers
@@ -295,6 +296,10 @@ class CAPE(Processing):
                 self.update_cape_configs(cape_name, tmp_config, file_info)
                 executed_config_parsers[tmp_path].add(cape_name)
 
+                # If config_parser contains a file, write to files dir and add to files_meta file
+                if "dump_files" in tmp_config[cape_name]:
+                    tmp_config[cape_name] = self._dump_parser_files(tmp_config[cape_name])
+
         if type_string:
             file_info["cape_type"] = type_string
             if "config" in type_string.lower():
@@ -419,3 +424,36 @@ class CAPE(Processing):
         }
         for config in self.cape["configs"]:
             config["_associated_analysis_hashes"] = associated_analysis_hashes
+
+    def _dump_parser_files(self, tmp_config):
+        """ Write dump file to task files directory and append to files_meta file
+        @return: updated config
+        """
+        config = tmp_config
+        description = config.get("description", ["Missing description"])[0]
+        dump_files = tmp_config.get("dump_files", [])
+        if dump_files:
+            config["Parsed Files"] = []
+            for dmp_file in dump_files:
+                for sha256 in dmp_file.keys():
+                    files_path = os.path.join("files", sha256)
+                    file_path = os.path.join(self.dropped_path, sha256)
+                    try:
+                        Path(file_path).write_bytes(dmp_file[sha256])
+                        config["Parsed Files"].append({sha256: description})
+                        payload = {
+                            "path": files_path,
+                            "filepath": "",
+                            "pids": [],
+                            "ppids": [],
+                            "metadata": "",
+                            "category": "files"
+                        }
+                        with open(self.files_metadata, "a") as fh:
+                            print(json.dumps(payload, ensure_ascii=False), file=fh)
+                    except Exception as e:
+                        log.error("Failed to write %s file: %s", description, e)
+                        del config["Parsed Files"]
+            del config["dump_files"]
+            del config["description"]
+        return config
