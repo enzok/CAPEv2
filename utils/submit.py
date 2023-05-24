@@ -112,14 +112,6 @@ def main():
     )
     parser.add_argument("--quiet", action="store_true", default=False, help="Only print text on failure", required=False)
     parser.add_argument("--procdump", action="store_true", default=False, help="Disable process dumps", required=False)
-    parser.add_argument(
-        "--route",
-        type=str,
-        action="store",
-        default="",
-        help="Specify the network route. (tor/vpn/etc.)",
-        required=False,
-    )
 
     try:
         args = parser.parse_args()

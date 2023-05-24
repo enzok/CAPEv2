@@ -297,7 +297,7 @@ class CAPE(Processing):
                 executed_config_parsers[tmp_path].add(cape_name)
 
                 # If config_parser contains a file, write to files dir and add to files_meta file
-                if "dump_files" in tmp_config[cape_name]:
+                if "dump_files" in tmp_config.get("cape_name", []):
                     tmp_config[cape_name] = self._dump_parser_files(tmp_config[cape_name])
 
         if type_string:
