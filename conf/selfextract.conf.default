@@ -85,6 +85,10 @@ timeout = 60
 enabled = yes
 timeout = 60
 
+[msix_extract]
+enabled = no
+timeout = 60
+
 [jar_extract]
 enabled = no
 timeout = 60
