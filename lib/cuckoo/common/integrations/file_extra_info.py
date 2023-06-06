@@ -42,7 +42,7 @@ from lib.cuckoo.common.path_utils import (
 from lib.cuckoo.common.utils import get_options, is_text_file
 
 try:
-    from sflock import unpack
+    from sflock import unpack, magic
 
     HAVE_SFLOCK = True
 except ImportError:
@@ -695,7 +695,11 @@ def msi_extract(file: str, *, filetype: str, **kwargs) -> ExtractorReturnType:
             for root, _, filenames in os.walk(tempdir):
                 for filename in filenames:
                     path = os.path.join(root, filename)
-                    if any([x in File(path).get_type() for x in valid_msi_filetypes]):
+                    if HAVE_SFLOCK:
+                        file_type = magic.from_file(path)
+                    else:
+                        file_type = File(path).get_type()
+                    if any([x in file_type for x in valid_msi_filetypes]):
                         os.rename(path, os.path.join(root, filename.split(".")[-1].strip("'").strip("!")))
                     else:
                         path_delete(path)
