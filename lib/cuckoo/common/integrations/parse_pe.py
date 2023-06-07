@@ -98,19 +98,9 @@ def IsPEImage(buf: bytes, size: int = False) -> bool:
         # Check for sane value in e_lfanew
         e_lfanew = struct.unpack("<L", dos_header[60:64])[0]
     if not e_lfanew or e_lfanew > PE_HEADER_LIMIT:
-        offset = 0
-        while offset < PE_HEADER_LIMIT - 86:
-            # TODO
-            try:
-                machine_probe = struct.unpack("<H", buf[offset : offset + 2])[0]
-            except struct.error:
-                machine_probe = ""
-            if machine_probe and machine_probe in {IMAGE_FILE_MACHINE_I386, IMAGE_FILE_MACHINE_AMD64}:
-                nt_headers = buf[offset - 4 : offset + 252]
-                break
-            offset += 2
+        return False
     else:
-        nt_headers = buf[e_lfanew : e_lfanew + 256]
+        nt_headers = buf[e_lfanew:e_lfanew + 256]
 
     if not nt_headers:
         return False
