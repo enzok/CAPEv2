@@ -205,7 +205,7 @@ class Machine(Base):
     arch = Column(String(255), nullable=False)
     ip = Column(String(255), nullable=False)
     platform = Column(String(255), nullable=False)
-    tags = relationship("Tag", secondary=machines_tags, backref=backref("machines"))  # lazy="subquery"
+    tags = relationship("Tag", secondary=machines_tags, backref=backref("machines"))
     interface = Column(String(255), nullable=True)
     snapshot = Column(String(255), nullable=True)
     locked = Column(Boolean(), nullable=False, default=False)
@@ -418,7 +418,7 @@ class Task(Base):
     # Task tags
     tags_tasks = Column(String(256), nullable=True)
     # Virtual machine tags
-    tags = relationship("Tag", secondary=tasks_tags, backref=backref("tasks", lazy="subquery"))
+    tags = relationship("Tag", secondary=tasks_tags, backref=backref("tasks"), lazy="subquery")
     options = Column(Text(), nullable=True)
     platform = Column(String(255), nullable=True)
     memory = Column(Boolean, nullable=False, default=False)
