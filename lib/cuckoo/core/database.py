@@ -1950,16 +1950,16 @@ class Database(object, metaclass=Singleton):
                 task.clock,
                 tlp=task.tlp,
             )
+            with self.Session() as session:
+                session.get(Task, task_id).custom = f"Recovery_{new_task_id}"
+                try:
+                    session.commit()
+                except SQLAlchemyError as e:
+                    log.debug("Database error rescheduling task: %s", e)
+                    session.rollback()
+                    return False
 
-            session.get(Task, task_id).custom = f"Recovery_{new_task_id}"
-            try:
-                session.commit()
-            except SQLAlchemyError as e:
-                log.debug("Database error rescheduling task: %s", e)
-                session.rollback()
-                return False
-
-            return new_task_id
+                return new_task_id
 
     @classlock
     def count_matching_tasks(self, category=None, status=None, not_status=None):
