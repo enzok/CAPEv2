@@ -64,7 +64,7 @@ def yara_scan(raw_data, rule_name):
             if match.rule == "GraceWire":
                 for item in match.strings:
                     if rule_name:
-                        if item.identifier.strip("$") == rule_name:
+                        if item.identifier == rule_name:
                             hits.append(item)
     except Exception as e:
         print(e)
