@@ -1144,6 +1144,7 @@ def tasks_report(request, task_id, report_format="json", make_zip=False):
         "maec5": "report.maec-5.0.json",
         "metadata": "report.metadata.xml",
         "litereport": "lite.json",
+        "targetinfo": "targetinfo.txt",
     }
 
     report_formats = {
@@ -1181,7 +1182,7 @@ def tasks_report(request, task_id, report_format="json", make_zip=False):
             if report_format in ("litereport", "json", "maec5"):
                 content = "application/json; charset=UTF-8"
                 ext = "json"
-            elif report_format.startswith("html"):
+            elif report_format.startswith(("html", "targetinfo")):
                 content = "text/html"
                 ext = "html"
             elif report_format in ("maec", "metadata"):
