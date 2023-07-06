@@ -745,13 +745,13 @@ function install_yara() {
     cd ..
     # for root
     pip3 install ./yara-python
-    rm -r yara-python
 
-    # Remove the yara-python directory after installing it to avoid permission issues if
-    if [ -d "/opt/CAPEv2/" ]; then
-        cd /opt/CAPEv2/; sudo -u cape poetry run extra/poetry_yara_installer.sh
+    if id "cape" >/dev/null 2>&1; then
+        cd /opt/CAPEv2/
+        sudo -u cape poetry run extra/poetry_yara_installer.sh
+        cd -
     fi
-
+    rm -r yara-python
 }
 
 function install_mongo(){
@@ -1284,7 +1284,7 @@ function install_guacamole() {
     sudo ldconfig
 
     pip3 install -U 'Twisted[tls,http2]'
-    
+
     if [ -f "/etc/systemd/system/guacd.service" ] ; then
         sudo rm /etc/systemd/system/guacd.service
     fi
