@@ -22,6 +22,9 @@ class TargetInfoReport(Report):
             del report["pe"]["sections"]
             del report["pe"]["resources"]
 
+        with suppress(KeyError):
+            del report["data"]
+
         formatted_text = json.dumps(report, indent=indent)
 
         formatted_text = formatted_text.replace('"', '')
@@ -37,7 +40,7 @@ class TargetInfoReport(Report):
         path = os.path.join(self.reports_path, "targetinfo.txt")
 
         try:
-            report = results["target"]["file"]
+            report = dict(results["target"]["file"])
             formatted_text = self.format_json(report, indent=0)
 
             with open(path, "w") as hfile:
