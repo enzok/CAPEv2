@@ -718,9 +718,7 @@ def msi_extract(file: str, *, filetype: str, **kwargs) -> ExtractorReturnType:
                         file_type = magic.from_file(path)
                     else:
                         file_type = File(path).get_type()
-                    if any([x in file_type for x in valid_msi_filetypes]):
-                        os.rename(path, os.path.join(root, filename.split(".")[-1].strip("'").strip("!")))
-                    else:
+                    if not any([x in file_type for x in valid_msi_filetypes]):
                         path_delete(path)
             extracted_files = collect_extracted_filenames(tempdir)
 
