@@ -663,7 +663,10 @@ class RunReporting:
     """
 
     def __init__(self, task, results, reprocess=False):
-        """@param analysis_path: analysis folder path."""
+        """@param task: analysis task id.
+        @param results: results results from analysis.
+        @param reprocess: reprocess task.
+        """
         self.task = task
 
         if results.get("pefiles"):
@@ -684,10 +687,10 @@ class RunReporting:
         self.cfg = reporting_cfg
         self.reprocess = reprocess
 
-    def process(self, module):
+    def process(self, module, override=False):
         """Run a single reporting module.
         @param module: reporting module.
-        @param results: results results from analysis.
+        @param override: force running report module.
         """
         # Initialize current reporting module.
         try:
@@ -707,15 +710,15 @@ class RunReporting:
             log.info("Reporting module %s not found in configuration file", module_name)
             return
 
-        # If the reporting module is disabled in the config, skip it.
-        if not options.enabled:
+        # If the reporting module is disabled in the config or not override, skip it.
+        if not (options.enabled or override):
             return
 
         # Give it the path to the analysis results folder.
         current.set_path(self.analysis_path)
         # Give it the analysis task object.
         current.set_task(self.task)
-        # Give it the the relevant reporting.conf section.
+        # Give it the relevant reporting.conf section.
         current.set_options(options)
         # Load the content of the analysis.conf file.
         current.cfg = AnalysisConfig(current.conf_path)
@@ -800,7 +803,6 @@ class GetFeeds:
 
     def run(self):
         """Run a feed module.
-        @param module: feed module to run.
         @return None
         """
         feeds_list = list_plugins(group="feeds")

@@ -38,7 +38,7 @@ from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.path_utils import path_delete, path_exists, path_mkdir
 from lib.cuckoo.common.utils import free_space_monitor
 from lib.cuckoo.core.database import TASK_COMPLETED, TASK_FAILED_PROCESSING, TASK_REPORTED, Database, Task
-from lib.cuckoo.core.plugins import RunProcessing, RunReporting, RunSignatures
+from lib.cuckoo.core.plugins import RunProcessing, RunReporting, RunSignatures, import_plugin, list_plugins
 from lib.cuckoo.core.startup import ConsoleHandler, check_linux_dist, init_modules, init_yara
 
 cfg = Config()
@@ -64,6 +64,7 @@ pending_future_map = {}
 pending_task_id_map = {}
 original_proctitle = getproctitle()
 
+
 # https://stackoverflow.com/questions/41105733/limit-ram-usage-to-python-program
 def memory_limit(percentage: float = 0.8):
     if platform.system() != "Linux":
@@ -85,14 +86,15 @@ def get_memory():
 
 
 def process(
-    target=None,
-    sample_sha256=None,
-    task=None,
-    report=False,
-    auto=False,
-    capeproc=False,
-    memory_debugging=False,
-    debug: bool = False,
+        target=None,
+        sample_sha256=None,
+        task=None,
+        report=False,
+        auto=False,
+        capeproc=False,
+        memory_debugging=False,
+        debug: bool = False,
+        reportname=None,
 ):
     # This is the results container. It's what will be used by all the
     # reporting modules to make it consumable by humans and machines.
@@ -130,7 +132,33 @@ def process(
         else:
             reprocess = report
 
-        RunReporting(task=task.to_dict(), results=results, reprocess=reprocess).run()
+        if reportname:
+            # Check if report plugin loaded
+            loaded = False
+            for module in list_plugins(group="reporting") or []:
+                if module.__name__.lower() == reportname:
+                    loaded = True
+                    break
+
+            if not loaded:
+                try:
+                    # Load report plugin
+                    module = None
+                    import_plugin(f"modules.reporting.{reportname}")
+                    loaded = True
+                except Exception as e:
+                    log.info("Skipping report module: %s", reportname)
+
+            if loaded:
+                if not module:
+                    # Get report module updated report plugins list
+                    for module in list_plugins(group="reporting"):
+                        if module.__name__.lower() == reportname:
+                            break
+                RunReporting(task=task.to_dict(), results=results, reprocess=reprocess).process(module, override=True)
+        else:
+            RunReporting(task=task.to_dict(), results=results, reprocess=reprocess).run()
+
         Database().set_status(task_id, TASK_REPORTED)
 
         if auto:
@@ -244,7 +272,8 @@ def processing_finished(future):
 
 
 def autoprocess(
-    parallel=1, failed_processing=False, maxtasksperchild=7, memory_debugging=False, processing_timeout=300, debug: bool = False
+        parallel=1, failed_processing=False, maxtasksperchild=7, memory_debugging=False, processing_timeout=300,
+        debug: bool = False
 ):
     maxcount = cfg.cuckoo.max_analysis_count
     count = 0
@@ -271,7 +300,8 @@ def autoprocess(
                     time.sleep(5)
                     continue
                 if failed_processing:
-                    tasks = db.list_tasks(status=TASK_FAILED_PROCESSING, limit=parallel, order_by=Task.completed_on.asc())
+                    tasks = db.list_tasks(status=TASK_FAILED_PROCESSING, limit=parallel,
+                                          order_by=Task.completed_on.asc())
                 else:
                     tasks = db.list_tasks(status=TASK_COMPLETED, limit=parallel, order_by=Task.completed_on.asc())
                 added = False
@@ -328,7 +358,6 @@ def autoprocess(
 
 
 def _load_report(task_id: int, return_one: bool = False):
-
     if repconf.mongodb.enabled:
         if return_one:
             analysis = mongo_find_one("analysis", {"info.id": task_id}, sort=[("_id", -1)])
@@ -345,7 +374,8 @@ def _load_report(task_id: int, return_one: bool = False):
     if repconf.elasticsearchdb.enabled and not repconf.elasticsearchdb.searchonly:
         try:
             analyses = (
-                es.search(index=get_analysis_index(), query=get_query_by_info_id(task_id), sort={"info.id": {"order": "desc"}})
+                es.search(index=get_analysis_index(), query=get_query_by_info_id(task_id),
+                          sort={"info.id": {"order": "desc"}})
                 .get("hits", {})
                 .get("hits", [])
             )
@@ -386,17 +416,21 @@ def main():
         type=parse_id,
         help="ID of the analysis to process (auto for continuous processing of unprocessed tasks). Can be 1 or 1-10",
     )
-    parser.add_argument("-c", "--caperesubmit", help="Allow CAPE resubmit processing.", action="store_true", required=False)
+    parser.add_argument("-c", "--caperesubmit", help="Allow CAPE resubmit processing.", action="store_true",
+                        required=False)
     parser.add_argument("-d", "--debug", help="Display debug messages", action="store_true", required=False)
     parser.add_argument("-r", "--report", help="Re-generate report", action="store_true", required=False)
     parser.add_argument(
-        "-p", "--parallel", help="Number of parallel threads to use (auto mode only).", type=int, required=False, default=1
+        "-p", "--parallel", help="Number of parallel threads to use (auto mode only).", type=int, required=False,
+        default=1
     )
     parser.add_argument(
-        "-fp", "--failed-processing", help="reprocess failed processing", action="store_true", required=False, default=False
+        "-fp", "--failed-processing", help="reprocess failed processing", action="store_true", required=False,
+        default=False
     )
     parser.add_argument(
-        "-mc", "--maxtasksperchild", help="Max children tasks per worker", action="store", type=int, required=False, default=7
+        "-mc", "--maxtasksperchild", help="Max children tasks per worker", action="store", type=int, required=False,
+        default=7
     )
     parser.add_argument(
         "-md",
@@ -436,6 +470,14 @@ def main():
         "-jr",
         "--json-report",
         help="Path to json report, only if data not in mongo/default report location",
+        action="store",
+        default=False,
+        required=False,
+    )
+    testing_args.add_argument(
+        "-rn",
+        "--report-name",
+        help="Specify the name of a single report to generate",
         action="store",
         default=False,
         required=False,
@@ -497,6 +539,7 @@ def main():
                         capeproc=args.caperesubmit,
                         memory_debugging=args.memory_debugging,
                         debug=args.debug,
+                        reportname=args.report_name,
                     )
                 log.debug("Finished processing task")
                 set_formatter_fmt()
