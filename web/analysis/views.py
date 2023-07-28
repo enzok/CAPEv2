@@ -523,7 +523,7 @@ def pending(request):
                 }
             )
 
-    return render(request, "analysis/pending.html", {"tasks": pending})
+    return render(request, "analysis/pending.html", {"tasks": pending, "count": len(pending)})
 
 
 # @require_safe
