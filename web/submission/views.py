@@ -68,7 +68,7 @@ def get_form_data(platform):
 
     # Prepare a list of VM names, description label based on tags.
     machines = []
-    for machine in db.list_machines():
+    for machine in db.list_machines(include_reserved=True):
         tags = [tag.name for tag in machine.tags]
 
         label = f"{machine.label}:{machine.arch}"
