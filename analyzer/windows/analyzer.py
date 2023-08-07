@@ -346,10 +346,11 @@ class Analyzer:
                 raise CuckooError(f"No valid package available for file type: {self.config.file_type}")
 
             log.info('Automatically selected analysis package "%s"', package)
-        # Otherwise just select the specified package.
+            # Otherwise just select the specified package.
         else:
             package = self.config.package
             log.info('Analysis package "%s" has been specified', package)
+
         # Generate the package path.
         package_name = f"modules.packages.{package}"
         # Try to import the analysis package.
