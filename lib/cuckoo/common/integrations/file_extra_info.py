@@ -8,8 +8,6 @@ import shlex
 import shutil
 import signal
 import subprocess
-import tempfile
-import timeit
 from pathlib import Path
 from typing import DefaultDict, List, Optional, Set, Union
 
@@ -33,16 +31,8 @@ from lib.cuckoo.common.integrations.parse_office import HAVE_OLETOOLS, Office
 from lib.cuckoo.common.integrations.parse_pdf import PDF
 from lib.cuckoo.common.integrations.parse_pe import HAVE_PEFILE, PortableExecutable
 from lib.cuckoo.common.integrations.parse_wsf import WindowsScriptFile  # EncodedScriptFile
-from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.path_utils import (
     path_delete,
-    path_exists,
-    path_get_size,
-    path_is_file,
-    path_mkdir,
-    path_object,
-    path_read_file,
-    path_write_file,
 )
 
 # from lib.cuckoo.common.integrations.parse_elf import ELF
@@ -218,7 +208,7 @@ def static_file_info(
 
     # It's possible to fool libmagic into thinking our 2007+ file is a zip.
     # So until we have static analysis for zip files, we can use oleid to fail us out silently,
-    # yeilding no static analysis results for actual zip files.
+    # yielding no static analysis results for actual zip files.
     # elif ("ELF" in data_dictionary["type"] or file_path.endswith(".elf")) and selfextract_conf.general.elf:
     #    data_dictionary["elf"] = ELF(file_path).run()
     #    data_dictionary["keys"] = f.get_keys()
@@ -437,7 +427,6 @@ def generic_file_extractors(
         eziriz_deobfuscate,
         office_one,
         msix_extract,
-        jar_extract,
     ]
 
     futures = {}
@@ -931,34 +920,6 @@ def msix_extract(file: str, *, data_dictionary: dict, **_) -> ExtractorReturnTyp
         return
 
     with extractor_ctx(file, "MSIX", prefix="msixdump_") as ctx:
-        tempdir = ctx["tempdir"]
-        if HAVE_SFLOCK:
-            unpacked = unpack(file.encode())
-            for child in unpacked.children:
-                _ = path_write_file(os.path.join(tempdir, child.filename.decode()), child.contents)
-        else:
-            _ = run_tool(
-                [
-                    "unzip",
-                    file,
-                    f"-d {tempdir}",
-                ],
-                universal_newlines=True,
-                stderr=subprocess.PIPE,
-            )
-        ctx["extracted_files"] = collect_extracted_filenames(tempdir)
-
-    return ctx
-
-
-@time_tracker
-def jar_extract(file: str, *, data_dictionary: dict, **_) -> ExtractorReturnType:
-    """Extract Java jar files"""
-
-    if not any(_ in data_dictionary.get("type", "").lower() for _ in ("java jar", "java archive")):
-        return
-
-    with extractor_ctx(file, "JAR", prefix="jardump_") as ctx:
         tempdir = ctx["tempdir"]
         if HAVE_SFLOCK:
             unpacked = unpack(file.encode())
