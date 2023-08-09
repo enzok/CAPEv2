@@ -745,6 +745,7 @@ function install_yara() {
     cd ..
     # for root
     pip3 install ./yara-python
+    rm -r yara-python
 
     if id "cape" >/dev/null 2>&1; then
         cd /opt/CAPEv2/

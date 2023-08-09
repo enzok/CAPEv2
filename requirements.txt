@@ -1646,6 +1646,18 @@ werkzeug==2.2.3 ; python_version >= "3.8" and python_version < "4.0" \
     --hash=sha256:56433961bc1f12533306c624f3be5e744389ac61d722175d543e1751285da612
 win-unicode-console==0.5 ; platform_system == "Windows" and platform_python_implementation != "PyPy" and python_version >= "3.8" and python_version < "4.0" \
     --hash=sha256:d4142d4d56d46f449d6f00536a73625a871cba040f0bc1a2e305a04578f07d1e
+yara-python==4.3.1 ; python_version >= "3.8" and python_version < "4.0" \
+    --hash=sha256:51f1bdbcdbcfa29a7a2cf7e7e5d6a7d8dbd00568e4ab6103adceda5a499895a6 \
+    --hash=sha256:7af4354ee0f1561f51fd01771a121d8d385b93bbc6138a25a38ce68aa6801c2c \
+    --hash=sha256:834d8fe2cdb5cf61d5e505d32c504b62891df5ce5af9f04dbd8c7575c1dbef30 \
+    --hash=sha256:8847bb5e74d2b33cf48f372bed02805876ab2e414aa7fd50c16a7c6150316601 \
+    --hash=sha256:950377dd53d17870f66406f0db9ed9f6b04ac7e61c7f6fd5429459e2a00fd874 \
+    --hash=sha256:c032ad4ec6698a4f485b3d9721e6223028953bb61362482bdd7eabb147271e80 \
+    --hash=sha256:c8663f75f0c5f82e0f6053c9ddbddd97f956787bffb7f64cac1e40e0a21db89c \
+    --hash=sha256:ec05d0b7cc46728119d450875382d5386305510b8cfb14bad3627060c9e6f199 \
+    --hash=sha256:f0b7b2ea840638415a075a25860dbcb6466d83000a8367196188a6367b01af71 \
+    --hash=sha256:fbf8281a6eb538b5c219a9c54c65a910806e7adf28a7d878f2cff551cbbd43ea \
+    --hash=sha256:fd70fe0ba522d4ecd73cbf45e528872844e61e2febe8f66e8a94c2674751b831
 zipp==3.15.0 ; python_version >= "3.8" and python_version < "4.0" \
     --hash=sha256:112929ad649da941c23de50f356a2b5570c954b65150642bccdd66bf194d224b \
     --hash=sha256:48904fc76a60e542af151aded95726c1a5c34ed43ab4134b597665c86d7ad556

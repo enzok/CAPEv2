@@ -29,8 +29,7 @@ log.setLevel(logging.INFO)
 
 try:
     from unicorn import UC_ARCH_X86, UC_HOOK_CODE, UC_MODE_64, Uc, UcError
-    from unicorn.x86_const import UC_X86_REG_R9, UC_X86_REG_RAX, UC_X86_REG_RCX, UC_X86_REG_RDX, UC_X86_REG_RIP, \
-        UC_X86_REG_RSP
+    from unicorn.x86_const import UC_X86_REG_R9, UC_X86_REG_RAX, UC_X86_REG_RCX, UC_X86_REG_RDX, UC_X86_REG_RIP, UC_X86_REG_RSP
 except ImportError:
     log.error("Unicorn not installed")
 
@@ -134,7 +133,7 @@ def addresses_from_matches(matches, pattern):
 def c2_funcs_from_match(matches, pattern, data):
     addresses = []
     addr = first_match(matches, pattern)
-    hit = addr + data[first_match(matches, pattern):].find(b"\x48\x8D\x05")
+    hit = addr + data[addr:].find(b"\x48\x8D\x05")
     next = 1
     while next > 0:
         addresses.append(struct.unpack("i", data[hit + 3: hit + 7])[0] + hit + 7)

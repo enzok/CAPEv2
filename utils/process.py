@@ -39,7 +39,7 @@ from lib.cuckoo.common.path_utils import path_delete, path_exists, path_mkdir
 from lib.cuckoo.common.utils import free_space_monitor
 from lib.cuckoo.core.database import TASK_COMPLETED, TASK_FAILED_PROCESSING, TASK_REPORTED, Database, Task
 from lib.cuckoo.core.plugins import RunProcessing, RunReporting, RunSignatures, import_plugin, list_plugins
-from lib.cuckoo.core.startup import ConsoleHandler, check_linux_dist, init_modules, init_yara
+from lib.cuckoo.core.startup import ConsoleHandler, check_linux_dist, init_modules
 
 cfg = Config()
 logconf = Config("logging")
@@ -63,7 +63,6 @@ check_linux_dist()
 pending_future_map = {}
 pending_task_id_map = {}
 original_proctitle = getproctitle()
-
 
 # https://stackoverflow.com/questions/41105733/limit-ram-usage-to-python-program
 def memory_limit(percentage: float = 0.8):
@@ -484,7 +483,6 @@ def main():
     )
     args = parser.parse_args()
 
-    init_yara()
     init_modules()
     if args.id == "auto":
         if not logconf.logger.process_per_task_log:

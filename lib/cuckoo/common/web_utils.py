@@ -1200,7 +1200,7 @@ def force_int(value):
 
 
 def force_bool(value):
-    if type(value) == bool:
+    if isinstance(value, bool):
         return value
 
     if not value:
