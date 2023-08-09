@@ -1,7 +1,8 @@
 import base64
 import binascii
-import pefile
 import sys
+
+import pefile
 
 from lib.cuckoo.common.integrations.strings import extract_strings
 
@@ -30,7 +31,6 @@ def decode(data):
 
 
 def extract_config(data):
-    config_data = {}
     pe = pefile.PE(data=data)
     for section in pe.sections:
         if b"CODE" in section.Name:
