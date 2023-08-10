@@ -21,7 +21,7 @@ timeout = 60
 
 
 @time_tracker
-def jar_extract(file: str, *, data_dictionary: dict, **_) -> ExtractorReturnType:
+def extract_details(file: str, *, data_dictionary: dict, **_) -> ExtractorReturnType:
     """Extract Java jar files"""
 
     if not any(_ in data_dictionary.get("type", "").lower() for _ in ("java jar", "java archive")):
