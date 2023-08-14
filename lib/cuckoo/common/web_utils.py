@@ -1242,7 +1242,7 @@ def parse_request_arguments(request, keyword="POST"):
     unique = force_bool(getattr(request, keyword).get("unique", False))
     tlp = getattr(request, keyword).get("tlp")
     lin_options = getattr(request, keyword).get("lin_options", "")
-    route = getattr(request, keyword).get("route")
+    route = getattr(request, keyword).get("route", "")
     cape = getattr(request, keyword).get("cape", "")
 
     if getattr(request, keyword).get("process_memory"):
