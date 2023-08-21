@@ -504,6 +504,8 @@ def recon(
     if not isinstance(filename, str):
         filename = bytes2str(filename)
 
+    lowered_filename = filename.lower()
+
     if web_cfg.general.yara_recon:
         hits = File(filename).get_yara("binaries")
         for hit in hits:
@@ -518,7 +520,7 @@ def recon(
             if "package" in parsed_options:
                 package = parsed_options["package"]
 
-    if "name" in filename.lower():
+    if "name" in lowered_filename:
         orig_options += ",timeout=400,enforce_timeout=1,procmemdump=1,procdump=1"
         timeout = 400
         enforce_timeout = True
@@ -628,10 +630,6 @@ def download_file(**kwargs):
             route = vpn_random
         elif socks5s_random:
             route = socks5s_random
-
-    if package:
-        if package == "Emotet":
-            return "error", {"error": "Hey guy update your script, this package doesn't exist anymore"}
 
     if tags:
         if not all([tag.strip() in all_vms_tags for tag in tags.split(",")]):

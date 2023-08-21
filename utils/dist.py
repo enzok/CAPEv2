@@ -345,7 +345,9 @@ def node_submit_task(task_id, node_id, main_task_id):
                 log.debug("Submitted task to worker: {} - {} - {}".format(node.name, task.task_id, task.main_task_id))
 
         elif r.status_code == 500:
-            log.debug((r.status_code, r.text))
+            log.info("Saving error to /tmp/dist_error.html")
+            _ = path_write_file("/tmp/dist_error.html", r.content)
+            log.info((r.status_code, r.text[:200]))
 
         elif r.status_code == 429:
             log.info((r.status_code, "see api auth for more details"))
@@ -508,30 +510,25 @@ class Retriever(threading.Thread):
         while True:
             for node in db.query(Node).with_entities(Node.id, Node.name, Node.url, Node.apikey).filter_by(enabled=True).all():
                 log.info("Checking for failed tasks on: {}".format(node.name))
-                for status in ("failed_analysis", "failed_processing"):
-                    for task in node_fetch_tasks(status, node.url, node.apikey, action="delete"):
-                        t = db.query(Task).filter_by(task_id=task["id"], node_id=node.id).order_by(Task.id.desc()).first()
-                        if t is not None:
-                            log.info(
-                                "Cleaning failed_analysis for id:{}, node:{}: main_task_id: {}".format(
-                                    t.id, t.node_id, t.main_task_id
-                                )
-                            )
-                            main_db.set_status(t.main_task_id, TASK_FAILED_REPORTING)
-                            t.finished = True
-                            t.retrieved = True
-                            t.notificated = True
-                            lock_retriever.acquire()
-                            if (t.node_id, t.task_id) not in self.cleaner_queue.queue:
-                                self.cleaner_queue.put((t.node_id, t.task_id))
-                            lock_retriever.release()
-                        else:
-                            log.debug("failed_cleaner t is None for: {} - node_id: {}".format(task["id"], node.id))
-                            lock_retriever.acquire()
-                            if (node.id, task["id"]) not in self.cleaner_queue.queue:
-                                self.cleaner_queue.put((node.id, task["id"]))
-                            lock_retriever.release()
-                    db.commit()
+                for task in node_fetch_tasks("failed_analysis|failed_processing", node.url, node.apikey, action="delete"):
+                    t = db.query(Task).filter_by(task_id=task["id"], node_id=node.id).order_by(Task.id.desc()).first()
+                    if t is not None:
+                        log.info("Cleaning failed for id:{}, node:{}: main_task_id: {}".format(t.id, t.node_id, t.main_task_id))
+                        main_db.set_status(t.main_task_id, TASK_FAILED_REPORTING)
+                        t.finished = True
+                        t.retrieved = True
+                        t.notificated = True
+                        lock_retriever.acquire()
+                        if (t.node_id, t.task_id) not in self.cleaner_queue.queue:
+                            self.cleaner_queue.put((t.node_id, t.task_id))
+                        lock_retriever.release()
+                    else:
+                        log.debug("failed_cleaner t is None for: {} - node_id: {}".format(task["id"], node.id))
+                        lock_retriever.acquire()
+                        if (node.id, task["id"]) not in self.cleaner_queue.queue:
+                            self.cleaner_queue.put((node.id, task["id"]))
+                        lock_retriever.release()
+                db.commit()
             time.sleep(600)
         db.close()
 
