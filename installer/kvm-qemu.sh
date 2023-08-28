@@ -824,17 +824,7 @@ function replace_seabios_clues_public() {
     done
 }
 
-function install_jemalloc() {
-
-    # https://zapier.com/engineering/celery-python-jemalloc/
-    if ! $(dpkg -l "libjemalloc*" | grep -q "ii  libjemalloc"); then
-        aptitude install -f curl build-essential jq autoconf libjemalloc-dev -y
-    fi
-}
-
 function install_qemu() {
-    cd /tmp || return
-    install_jemalloc
     cd /tmp || return
 
     echo '[+] Cleaning QEMU old install if exists'
@@ -1335,8 +1325,6 @@ case "$COMMAND" in
     ;;
 'grub')
     grub_iommu;;
-'jemalloc')
-    install_jemalloc;;
 'needreboot')
     configure_needreboot;;
 'mosh')
