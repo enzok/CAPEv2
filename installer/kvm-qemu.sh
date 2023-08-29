@@ -920,7 +920,7 @@ function install_qemu() {
     if [ "$OS" = "linux" ]; then
         dpkg --get-selections | grep "qemu" | xargs apt-mark hold
         dpkg --get-selections | grep "libvirt" | xargs apt-mark hold
-        apt-mark unhold qemu libvirt
+        apt-mark hold qemu libvirt
     fi
 
 }
