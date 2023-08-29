@@ -20,6 +20,9 @@ import modules.feeds
 import modules.processing
 import modules.reporting
 import modules.signatures
+
+# Private
+import private.signatures
 from lib.cuckoo.common.colors import cyan, red, yellow
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
@@ -30,16 +33,6 @@ from lib.cuckoo.core.database import TASK_FAILED_ANALYSIS, TASK_RUNNING, Databas
 from lib.cuckoo.core.log import init_logger
 from lib.cuckoo.core.plugins import import_package, import_plugin, list_plugins
 from lib.cuckoo.core.rooter import rooter, socks5s, vpns
-
-try:
-    import yara
-
-    HAVE_YARA = True
-    if not int(yara.__version__[0]) >= 4:
-        raise ImportError("Missed library: poetry run pip install yara-python>=4.0.0 -U")
-except ImportError:
-    print("Missed library: poetry run pip install yara-python>=4.0.0 -U")
-    HAVE_YARA = False
 
 log = logging.getLogger()
 
@@ -260,8 +253,10 @@ def init_modules():
     import_package(modules.processing)
     # Import all signatures.
     import_package(modules.signatures)
+    # Import all private signatures
+    import_package(private.signatures)
     if len(os.listdir(os.path.join(CUCKOO_ROOT, "modules", "signatures"))) < 5:
-        log.warning("Suggestion: looks like you didn't install community, execute: python3 utils/community.py -h")
+        log.warning("Suggestion: looks like you didn't install community, execute: poetry run python utils/community.py -h")
     # Import all reporting modules.
     import_package(modules.reporting)
     # Import all feeds modules.
