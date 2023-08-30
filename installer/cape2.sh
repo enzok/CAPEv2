@@ -689,6 +689,9 @@ function install_suricata() {
     sed -i 's/#checksum-validation: none/checksum-validation: none/g' /etc/suricata/suricata.yaml
     sed -i 's/checksum-checks: auto/checksum-checks: no/g' /etc/suricata/suricata.yaml
 
+    # https://forum.suricata.io/t/suricata-service-crashes-with-pthread-create-is-11-error-when-processing-pcap-with-capev2/3870/5
+    sed -i 's|limit-noproc: true|limit-noproc: false|g' /etc/suricata/suricata.yaml
+
     # enable eve-log
     python3 -c "pa = '/etc/suricata/suricata.yaml';q=open(pa, 'rb').read().replace(b'eve-log:\n      enabled: no\n', b'eve-log:\n      enabled: yes\n');open(pa, 'wb').write(q);"
     python3 -c "pa = '/etc/suricata/suricata.yaml';q=open(pa, 'rb').read().replace(b'unix-command:\n  enabled: auto\n  #filename: custom.socket', b'unix-command:\n  enabled: yes\n  filename: /tmp/suricata-command.socket');open(pa, 'wb').write(q);"
@@ -751,7 +754,7 @@ function install_yara() {
 
     if id "cape" >/dev/null 2>&1; then
         cd /opt/CAPEv2/
-        sudo -u cape poetry run extra/poetry_yara_installer.sh
+        sudo -u cape poetry run extra/yara_installer.sh
         cd -
     fi
     if [ -d yara-python ]; then
@@ -1168,8 +1171,8 @@ function install_CAPE() {
     cd "/opt/CAPEv2/" || return
     pip3 install poetry crudini
     CRYPTOGRAPHY_DONT_BUILD_RUST=1 sudo -u ${USER} bash -c 'export PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring; poetry install'
-    sudo -u ${USER} bash -c 'export PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring; poetry run extra/poetry_libvirt_installer.sh'
-    sudo -u ${USER} bash -c 'poetry run extra/poetry_yara_installer.sh'
+    sudo -u ${USER} bash -c 'export PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring; poetry run extra/libvirt_installer.sh'
+    sudo -u ${USER} bash -c 'poetry run extra/yara_installer.sh'
 
     sudo usermod -aG kvm ${USER}
     sudo usermod -aG libvirt ${USER}
