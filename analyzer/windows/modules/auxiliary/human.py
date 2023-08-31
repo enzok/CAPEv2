@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
 # Copyright (C) 2010-2015 Cuckoo Foundation, Optiv, Inc. (brad.spengler@optiv.com)
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
@@ -119,6 +120,8 @@ def foreach_child(hwnd, lparam):
             "ausfuehren",
             "spaeter",
             "einverstanden",
+            # ru
+            "установить",
         )
 
         # List of buttons labels to not click.
@@ -138,6 +141,9 @@ def foreach_child(hwnd, lparam):
             "nicht ausfuehren",
             "hilfe",
             "stimme nicht zu",
+            # ru
+            "приoстановить",
+            "отмена",
         )
 
         # Check if the button is set as "clickable" and click it.

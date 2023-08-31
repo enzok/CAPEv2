@@ -15,14 +15,13 @@ import sys
 from contextlib import suppress
 from pathlib import Path
 
+# Private
+import custom.signatures
 import modules.auxiliary
 import modules.feeds
 import modules.processing
 import modules.reporting
 import modules.signatures
-
-# Private
-import private.signatures
 from lib.cuckoo.common.colors import cyan, red, yellow
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
@@ -254,7 +253,7 @@ def init_modules():
     # Import all signatures.
     import_package(modules.signatures)
     # Import all private signatures
-    import_package(private.signatures)
+    import_package(custom.signatures)
     if len(os.listdir(os.path.join(CUCKOO_ROOT, "modules", "signatures"))) < 5:
         log.warning("Suggestion: looks like you didn't install community, execute: poetry run python utils/community.py -h")
     # Import all reporting modules.
