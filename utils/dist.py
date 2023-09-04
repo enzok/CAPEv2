@@ -31,7 +31,7 @@ from sqlalchemy.exc import OperationalError, SQLAlchemyError
 try:
     import pyzipper
 except ImportError:
-    sys.exti("Missed pyzipper dependency: poetry run pip install pyzipper -U")
+    sys.exti("Missed pyzipper dependency: poetry install")
 
 CUCKOO_ROOT = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..")
 sys.path.append(CUCKOO_ROOT)
@@ -610,10 +610,10 @@ class Retriever(threading.Thread):
             self.current_queue.setdefault(node_id, []).append(task["id"])
 
             try:
-                # In the case that a Cuckoo node has been reset over time it"s
+                # In the case that a CAPE node has been reset over time it"s
                 # possible that there are multiple combinations of
                 # node-id/task-id, in this case we take the last one available.
-                # (This makes it possible to re-setup a Cuckoo node).
+                # (This makes it possible to re-setup a CAPE node).
                 t = (
                     db.query(Task)
                     .filter_by(node_id=node_id, task_id=task["id"], retrieved=False, finished=False)
