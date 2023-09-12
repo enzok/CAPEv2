@@ -26,8 +26,8 @@ from lib.cuckoo.common.defines import (
     PAGE_READWRITE,
     PAGE_WRITECOPY,
 )
-from lib.cuckoo.common.integrations.parse_pe import IMAGE_FILE_MACHINE_AMD64, IsPEImage
 from lib.cuckoo.common.integrations.clamav import get_clamav
+from lib.cuckoo.common.integrations.parse_pe import IMAGE_FILE_MACHINE_AMD64, IsPEImage
 from lib.cuckoo.common.path_utils import path_exists
 
 try:
@@ -388,7 +388,7 @@ class File:
                             is_x64 = self.pe.FILE_HEADER.Machine == IMAGE_FILE_MACHINE_AMD64
                             gui_type = "console" if self.pe.OPTIONAL_HEADER.Subsystem == 3 else "GUI"
                             dotnet_string = ""
-                            with contextlib.suppress(AttributeError):
+                            with contextlib.suppress(AttributeError, IndexError):
                                 dotnet_string = (
                                     " Mono/.Net assembly"
                                     if self.pe.OPTIONAL_HEADER.DATA_DIRECTORY[
@@ -563,7 +563,6 @@ class File:
         " Payload", " Config", or " Loader".
         """
         return cls.cape_name_regex.sub("", cape_type)
-
 
     def get_tlsh(self):
         """

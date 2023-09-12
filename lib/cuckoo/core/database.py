@@ -1911,11 +1911,21 @@ class Database(object, metaclass=Singleton):
         elif task.category == "static":
             add = self.add_static
 
-        # Normalize tags.
-        if task.tags:
-            tags = ",".join(tag.name for tag in task.tags)
-        else:
-            tags = task.tags
+        # Change status to recovered.
+        with self.Session() as session:
+            session.get(Task, task_id).status = TASK_RECOVERED
+            try:
+                session.commit()
+            except SQLAlchemyError as e:
+                log.debug("Database error rescheduling task: %s", e)
+                session.rollback()
+                return False
+
+            # Normalize tags.
+            if task.tags:
+                tags = ",".join(tag.name for tag in task.tags)
+            else:
+                tags = task.tags
 
             def _ensure_valid_target(task):
                 if task.category == "url":
@@ -1939,31 +1949,51 @@ class Database(object, metaclass=Singleton):
                 log.warning("Unable to find valid target for task: %s", task_id)
                 return
 
-            new_task_id = add(
-                task_target,
-                task.timeout,
-                task.package,
-                task.options,
-                task.priority,
-                task.custom,
-                task.machine,
-                task.platform,
-                tags,
-                task.memory,
-                task.enforce_timeout,
-                task.clock,
-                tlp=task.tlp,
-            )
-            with self.Session() as session:
-                session.get(Task, task_id).custom = f"Recovery_{new_task_id}"
-                try:
-                    session.commit()
-                except SQLAlchemyError as e:
-                    log.debug("Database error rescheduling task: %s", e)
-                    session.rollback()
-                    return False
+            new_task_id = None
+            if task.category in ("file", "url"):
+                new_task_id = add(
+                    task_target,
+                    task.timeout,
+                    task.package,
+                    task.options,
+                    task.priority,
+                    task.custom,
+                    task.machine,
+                    task.platform,
+                    tags,
+                    task.memory,
+                    task.enforce_timeout,
+                    task.clock,
+                    tlp=task.tlp,
+                    route=task.route,
+                )
+            elif task.category in ("pcap", "static"):
+                new_task_id = add(
+                    task_target,
+                    task.timeout,
+                    task.package,
+                    task.options,
+                    task.priority,
+                    task.custom,
+                    task.machine,
+                    task.platform,
+                    tags,
+                    task.memory,
+                    task.enforce_timeout,
+                    task.clock,
+                    tlp=task.tlp,
+                )
 
-                return new_task_id
+            session.get(Task, task_id).custom = f"Recovery_{new_task_id}"
+            try:
+                session.commit()
+            except SQLAlchemyError as e:
+                log.debug("Database error rescheduling task: %s", e)
+                session.rollback()
+                return False
+
+            return new_task_id
+
 
     @classlock
     def count_matching_tasks(self, category=None, status=None, not_status=None):
