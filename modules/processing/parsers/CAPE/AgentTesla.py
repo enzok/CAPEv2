@@ -9,6 +9,8 @@ def extract_config(data):
     i = 0
     while len(lines[i]) != 1:
         i += 1
+    while len(lines[i + 1]) == 1:
+        i += 1
     if lines[i] == "1":
         config_dict["Protocol"] = "SMTP"
         config_dict["Port"] = lines[i + 2]
@@ -24,6 +26,9 @@ def extract_config(data):
         config_dict["Protocol"] = "Telegram"
         config_dict["C2"] = lines[i + 1]
         config_dict["Password"] = lines[i + 2]
+    elif lines[i] == "4":
+        config_dict["Protocol"] = "Discord"
+        config_dict["C2"] = lines[i + 1]
     else:
         return
     return config_dict
