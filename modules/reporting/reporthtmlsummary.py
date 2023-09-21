@@ -57,7 +57,7 @@ class ReportHTMLSummary(Report):
                     # resize the image to thumbnail size, as weasyprint can't handle resizing
                     with suppress(Exception):
                         img = Image.open(shot_path)
-                        img = img.resize((150, 100), Image.ANTIALIAS)
+                        img = img.resize((150, 100), Image.LANCZOS)
                         img.save(output, format="JPEG")
 
                     shot = {}
