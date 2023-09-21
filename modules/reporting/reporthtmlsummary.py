@@ -8,7 +8,6 @@ import os
 from contextlib import suppress
 from io import BytesIO
 
-import PIL
 from PIL import Image
 
 from lib.cuckoo.common.abstracts import Report
@@ -58,7 +57,7 @@ class ReportHTMLSummary(Report):
                     # resize the image to thumbnail size, as weasyprint can't handle resizing
                     with suppress(Exception):
                         img = Image.open(shot_path)
-                        img = img.resize((150, 100), PIL.Image.ANTIALIAS)
+                        img = img.resize((150, 100), Image.ANTIALIAS)
                         img.save(output, format="JPEG")
 
                     shot = {}
