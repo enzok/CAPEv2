@@ -1691,6 +1691,8 @@ def _file_search_all_files(search_category: str, search_term: str) -> list:
         records = perform_search(search_category, search_term, projection=projection)
         search_term = search_term.lower()
         for _, filepath, _, _ in yara_detected(search_term, records):
+            if not path_exists(filepath):
+                continue
             path.append(filepath)
     except ValueError as e:
         print("mongodb load", e)
@@ -2059,6 +2061,8 @@ def search(request, searched=""):
         if isinstance(value, str):
             value = value.replace("\\", "\\\\")
 
+        term_only, value_only = term, value
+
         try:
             records = perform_search(term, value, user_id=request.user.id, privs=request.user.is_staff)
         except ValueError:
@@ -2087,7 +2091,7 @@ def search(request, searched=""):
             if not new:
                 continue
             analyses.append(new)
-        term_only, value_only = searched.split(":")
+
         return render(
             request,
             "analysis/search.html",
