@@ -36,7 +36,7 @@ from lib.cuckoo.common.utils import delete_folder, yara_detected
 from lib.cuckoo.common.web_utils import category_all_files, my_rate_minutes, my_rate_seconds, perform_search, rateblock, statistics, perform_archive_search
 from lib.cuckoo.core.database import TASK_PENDING, Database, Task
 from modules.reporting.report_doc import CHUNK_CALL_SIZE
-from web.analysis.templatetags.analysis_tags import malware_config
+from analysis.templatetags.analysis_tags import malware_config
 
 try:
     from django_ratelimit.decorators import ratelimit
