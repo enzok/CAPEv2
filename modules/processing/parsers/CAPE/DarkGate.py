@@ -38,5 +38,5 @@ def extract_config(data):
 
 if __name__ == "__main__":
     with open(sys.argv[1], "rb") as infile:
-        t = extract_config(infile.read())
+        t = decode(infile.read())
         print(t)
