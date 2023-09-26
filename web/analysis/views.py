@@ -1797,7 +1797,7 @@ def file(request, category, task_id, dlfile):
         path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "evtx", "evtx.zip")
         file_name = f"{task_id}_evtx.zip"
         cd = "application/zip"
-    elif category in ("capeyarazipall", "capetypezipall"):
+    elif category == "capeyarazipall":
         # search in mongo and get the path
         if enabledconf["mongodb"] and web_cfg.zipped_download.download_all:
             path = _file_search_all_files(category.replace("zipall", ""), dlfile)
@@ -2012,10 +2012,13 @@ def full_memory_dump_strings(request, analysis_number):
 @ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
 @ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
 def search(request, searched=""):
-    if "search" in request.POST or searched:
+    if "search" in request.POST or "search" in request.GET or searched:
         term = ""
-        if not searched and request.POST.get("search"):
-            searched = str(request.POST["search"])
+        if not searched:
+            if request.POST.get("search"):
+                searched = str(request.POST["search"])
+            elif request.GET.get("search"):
+                searched = str(request.GET["search"])
 
         if ":" in searched:
             term, value = searched.strip().split(":", 1)
