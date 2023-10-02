@@ -32,7 +32,7 @@ config_map = {
     "21": "cryptominer_process_name",
     "22": "cryptominer_c2_port",
     "23": "cryptominer_username",
-    "24": "start_cryptominer_c2_comms",
+    "24": "cryptominer_start_c2_comms",
     "25": "cryptominer_start_delay",
     "27": "GUID_random_seed",
     "28": "verify_process_name",
