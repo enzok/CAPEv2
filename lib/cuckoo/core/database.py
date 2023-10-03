@@ -1543,7 +1543,7 @@ class Database(object, metaclass=Singleton):
                 package = "archive"
             elif tmp_package in ("zip", "rar"):
                 package = ""
-            elif tmp_package in ("html"):
+            elif tmp_package in ("html",):
                 package = web_conf.url_analysis.package
             else:
                 package = tmp_package
@@ -1987,7 +1987,6 @@ class Database(object, metaclass=Singleton):
                 return False
 
             return new_task_id
-
 
     @classlock
     def count_matching_tasks(self, category=None, status=None, not_status=None):
