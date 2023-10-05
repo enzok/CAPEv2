@@ -1241,10 +1241,15 @@ def surifiles(request, task_id):
 def antivirus(request, task_id):
     if enabledconf["mongodb"]:
         rtmp = mongo_find_one(
-            "analysis", {"info.id": int(task_id)}, {"virustotal": 1, "info.category": 1, "_id": 0}, sort=[("_id", -1)]
+            "analysis",
+            {"info.id": int(task_id)},
+            {"target.file.virustotal": 1, "info.category": 1, "_id": 0}, sort=[("_id", -1)]
         )
+        rtmp["virustotal"] = rtmp.get("target", {}).get("file", {}).get("virustotal", {})
+        if "target" in rtmp:
+            del rtmp["target"]
     elif es_as_db:
-        rtmp = es.search(index=get_analysis_index(), query=get_query_by_info_id(task_id), _source=["virustotal", "info.category"])[
+        rtmp = es.search(index=get_analysis_index(), query=get_query_by_info_id(task_id), _source=["target.file.virustotal", "info.category"])[
             "hits"
         ]["hits"]
         if len(rtmp) == 0:
@@ -1261,7 +1266,7 @@ def antivirus(request, task_id):
         if "virustotal" in rtmp:
             rtmp["virustotal"] = gen_moloch_from_antivirus(rtmp["virustotal"])
 
-    return render(request, "analysis/antivirus.html", {"analysis": rtmp})
+    return render(request, "analysis/antivirus.html", {"file": rtmp})
 
 
 @csrf_exempt
