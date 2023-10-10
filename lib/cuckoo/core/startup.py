@@ -474,7 +474,7 @@ def init_routing():
 
 
 def check_tcpdump_permissions():
-    tcpdump = auxconf.sniffer.get("tcpdump", "/usr/sbin/tcpdump")
+    tcpdump = auxconf.sniffer.get("tcpdump", "/usr/bin/tcpdump")
 
     user = False
     with suppress(Exception):
@@ -501,7 +501,7 @@ def check_tcpdump_permissions():
             chgrp pcap {tcpdump}
             setcap cap_net_raw,cap_net_admin=eip {tcpdump}
 
-            OR add the following line to /etc/sudoers:
+            OR add the following line to /etc/sudoers.d/tcpdump:
 
             {user} ALL=NOPASSWD: {tcpdump}
             """
