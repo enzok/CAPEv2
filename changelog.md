@@ -1,3 +1,11 @@
+### [13.10.2023]
+* Formbook updates
+* Monitor updates:
+    * NtContinueEx hook
+    * Debugger action enhancements: setptr, patch, sleep, exit
+    * Software breakpoint handler enhancement
+    * Misc fixes/improvements
+    
 ### [11.10.2023]
 * Formbook config extraction
 * Monitor updates:
