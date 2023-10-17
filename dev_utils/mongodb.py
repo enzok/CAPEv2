@@ -71,6 +71,7 @@ def mongo_hook(mongo_funcs, collection):
         assert mongo_func in (
             mongo_insert_one,
             mongo_update_one,
+            mongo_find,
             mongo_find_one,
             mongo_delete_data,
         ), f"{mongo_func} can not have hooks applied"
@@ -120,8 +121,13 @@ def mongo_find(collection: str, query, projection=False, sort=None, archive=Fals
     if archive:
         db = archive_db
     if projection:
-        return getattr(db, collection).find(query, projection, sort=sort)
-    return getattr(db, collection).find(query, sort=sort)
+        result = getattr(db, collection).find(query, projection, sort=sort)
+    else:
+        result = getattr(db, collection).find(query, sort=sort)
+    if result:
+        for hook in hooks[mongo_find][collection]:
+            result = hook(result)
+    return result
 
 
 @graceful_auto_reconnect
