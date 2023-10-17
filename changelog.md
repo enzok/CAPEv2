@@ -1,3 +1,48 @@
+### [11.10.2023]
+* Formbook config extraction
+* Monitor updates:
+    * GetComputerNameExW hook added, PostThreadMessage hook enhancement
+    * Debugger action enhancements
+    * Misc fixes
+
+### Download files matched by YARA
+* When doing search by `capeyara` we expose button to download files that only matches that search criteria.
+    * For [@fumik0_](https://twitter.com/fumik0_) with love.
+
+### [22.9.2023] CSRF changes
+* __IMPORTANT__. If you using __https__ please update config to use new field for __CSRF__ in `conf/web.conf`.
+    * Before: `[general]` -> `hostname`.
+    * Now: `[security]` -> `csrf_trusted_origins`
+
+### [19.9.2023]
+* Storage of file data in MongoDB
+    * Store the parts of a report's file data that is independent of a detonation in a separate collection
+      to conserve disk space.
+* __ACTION REQUIRED__
+    * It is recommended to add a regular cron job to call `cd /opt/CAPEv2 && sudo -u cape poetry run python ./utils/cleaners.py --delete-unused-file-data-in-mongo`
+      to prune these entries that are no longer needed.
+
+### [13.9.2023]
+* Monitor updates:
+    * .NET JIT native cache handling improvements
+    * New debugger action 'string' to capture decrypted strings
+    * Fix issue in procname_watch_init() with non-null-terminated unicode paths - thanks Proofpoint for the report
+
+### [8.9.2023]
+* Monitor update:
+    * .NET JIT native cache scanning & dumping
+
+### [1.9.2023]
+* Monitor updates:
+    * Fix missing browser hooks config setting for Edge & Chrome
+    * Trace: add config option to try and skip loops which flood trace logs (loopskip=1)
+
+### [25.8.2023]
+* Monitor update: Upgrade monitor Yara to 4.3.2 (thanks Michael Weiser)
+
+### [19.8.2023]
+* Monitor update: fix memcpy hook logging issue
+
 ### [16.8.2023]
 * Monitor updates:
     * Filter uninteresting process dumps via new VerifyCodeSection() function checking code section for modification

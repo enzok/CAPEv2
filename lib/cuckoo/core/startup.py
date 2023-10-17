@@ -15,6 +15,8 @@ import sys
 from contextlib import suppress
 from pathlib import Path
 
+# Private
+import custom.signatures
 import modules.auxiliary
 import modules.feeds
 import modules.processing
@@ -30,16 +32,6 @@ from lib.cuckoo.core.database import TASK_FAILED_ANALYSIS, TASK_RUNNING, Databas
 from lib.cuckoo.core.log import init_logger
 from lib.cuckoo.core.plugins import import_package, import_plugin, list_plugins
 from lib.cuckoo.core.rooter import rooter, socks5s, vpns
-
-try:
-    import yara
-
-    HAVE_YARA = True
-    if not int(yara.__version__[0]) >= 4:
-        raise ImportError("Missed library: poetry run pip install yara-python>=4.0.0 -U")
-except ImportError:
-    print("Missed library: poetry run pip install yara-python>=4.0.0 -U")
-    HAVE_YARA = False
 
 log = logging.getLogger()
 
@@ -60,13 +52,12 @@ def check_python_version():
 
 
 def check_user_permissions(as_root: bool = False):
-
     if as_root:
         log.warning("You running part of CAPE as non 'cape' user! That breaks permissions on temp folder and log folder.")
         return
     if gt.getuser() != cuckoo.cuckoo.get("username", "cape"):
         raise CuckooStartupError(
-            f"Running as not 'cape' user breaks permissions! Run with cape user! Also fix permission on tmppath path: chown cape:cape {cuckoo.cuckoo.tmppath}\n log folder: chown cape:cape {os.path.join(CUCKOO_ROOT, 'logs')}"
+            f"Running as not 'cape' user breaks permissions! Run with cape user! Current user: {gt.getuser()} - Cape config user: {cuckoo.cuckoo.get('username', 'cape')}. Also fix permission on tmppath path: chown cape:cape {cuckoo.cuckoo.tmppath}\n log folder: chown cape:cape {os.path.join(CUCKOO_ROOT, 'logs')}"
         )
 
     # Check permission for tmp folder
@@ -94,13 +85,26 @@ def check_working_directory():
 
 def check_webgui_mongo():
     if repconf.mongodb.enabled:
-        from dev_utils.mongodb import connect_to_mongo
+        from dev_utils.mongodb import connect_to_mongo, mongo_create_index
 
-        good = connect_to_mongo
-        if not good:
+        client = connect_to_mongo()
+        if not client:
             sys.exit(
                 "You have enabled webgui but mongo isn't working, see mongodb manual for correct installation and configuration\nrun `systemctl status mongodb` for more info"
             )
+
+        # Create an index based on the info.id dict key. Increases overall scalability
+        # with large amounts of data.
+        # Note: Silently ignores the creation if the index already exists.
+        mongo_create_index("analysis", "info.id", name="info.id_1")
+        # mongo_create_index([("target.file.sha256", TEXT)], name="target_sha256")
+        # We performs a lot of SHA256 hash lookup so we need this index
+        # mongo_create_index(
+        #     "analysis",
+        #     [("target.file.sha256", TEXT), ("dropped.sha256", TEXT), ("procdump.sha256", TEXT), ("CAPE.payloads.sha256", TEXT)],
+        #     name="ALL_SHA256",
+        # )
+        mongo_create_index("files", [("_task_ids", 1)])
 
     elif repconf.elasticsearchdb.enabled:
         # ToDo add check
@@ -190,29 +194,31 @@ def init_logging(level: int):
     """Initializes logging.
     @param level: The logging level for the console logs
     """
+
+    # Pyattck creates root logger which we don't want. So we must use this dirty hack to remove it
+    # If basicConfig was already called by something and had a StreamHandler added,
+    # replace it with a ConsoleHandler.
+    for h in log.handlers[:]:
+        if isinstance(h, logging.StreamHandler) and h.stream == sys.stderr:
+            log.removeHandler(h)
+            h.close()
+
     formatter = logging.Formatter("%(asctime)s [%(name)s] %(levelname)s: %(message)s")
 
     init_logger("console", level)
     init_logger("database")
-
-    # if logconf.logger.cape_per_task_log:
-    # if logconf.logger.cape_analysis_folder:
-    #    fh = logging.handlers.WatchedFileHandler(os.path.join(CUCKOO_ROOT, "storage", "analyses", str(tid), "cape.log"))
-    # else:
-    #    fh = logging.handlers.WatchedFileHandler(os.path.join(CUCKOO_ROOT, "log", "cuckoo.log"))
 
     if logconf.logger.syslog_cape:
         fh = logging.handlers.SysLogHandler(address=logconf.logger.syslog_dev)
         fh.setFormatter(formatter)
         log.addHandler(fh)
 
+    path = os.path.join(CUCKOO_ROOT, "log", "cuckoo.log")
     if logconf.log_rotation.enabled:
         days = logconf.log_rotation.backup_count or 7
-        fh = logging.handlers.TimedRotatingFileHandler(
-            os.path.join(CUCKOO_ROOT, "log", "cuckoo.log"), when="midnight", backupCount=int(days)
-        )
+        fh = logging.handlers.TimedRotatingFileHandler(path, when="midnight", backupCount=int(days))
     else:
-        fh = logging.handlers.WatchedFileHandler(os.path.join(CUCKOO_ROOT, "log", "cuckoo.log"))
+        fh = logging.handlers.WatchedFileHandler(path)
     fh.setFormatter(formatter)
     log.addHandler(fh)
 
@@ -224,6 +230,14 @@ def init_logging(level: int):
 def init_console_logging():
     """Initializes logging only to console."""
     formatter = logging.Formatter("%(asctime)s [%(name)s] %(levelname)s: %(message)s")
+
+    # Pyattck creates root logger which we don't want. So we must use this dirty hack to remove it
+    # If basicConfig was already called by something and had a StreamHandler added,
+    # replace it with a ConsoleHandler.
+    for h in log.handlers[:]:
+        if isinstance(h, logging.StreamHandler) and h.stream == sys.stderr:
+            log.removeHandler(h)
+            h.close()
 
     ch = ConsoleHandler()
     ch.setFormatter(formatter)
@@ -259,8 +273,10 @@ def init_modules():
     import_package(modules.processing)
     # Import all signatures.
     import_package(modules.signatures)
+    # Import all private signatures
+    import_package(custom.signatures)
     if len(os.listdir(os.path.join(CUCKOO_ROOT, "modules", "signatures"))) < 5:
-        log.warning("Suggestion: looks like you didn't install community, execute: python3 utils/community.py -h")
+        log.warning("Suggestion: looks like you didn't install community, execute: poetry run python utils/community.py -h")
     # Import all reporting modules.
     import_package(modules.reporting)
     # Import all feeds modules.
@@ -335,6 +351,8 @@ def init_rooter():
     rooter("state_disable")
     rooter("state_enable")
 
+    # ToDo check if ip_forward is on
+
 
 def init_routing():
     """Initialize and check whether the routing information is correct."""
@@ -405,7 +423,9 @@ def init_routing():
         if routing.routing.verify_rt_table:
             is_rt_available = rooter("rt_available", routing.routing.rt_table)["output"]
             if not is_rt_available:
-                raise CuckooStartupError("The routing table that has been configured for dirty line interface is not available")
+                raise CuckooStartupError(
+                    f"The routing table that has been configured ({routing.routing.rt_table}) for dirty line interface is not available"
+                )
 
         # Disable & enable NAT on this network interface. Disable it just
         # in case we still had the same rule from a previous run.
@@ -453,8 +473,7 @@ def init_routing():
 
 
 def check_tcpdump_permissions():
-
-    tcpdump = auxconf.sniffer.get("tcpdump", "/usr/sbin/tcpdump")
+    tcpdump = auxconf.sniffer.get("tcpdump", "/usr/bin/tcpdump")
 
     user = False
     with suppress(Exception):
@@ -481,7 +500,7 @@ def check_tcpdump_permissions():
             chgrp pcap {tcpdump}
             setcap cap_net_raw,cap_net_admin=eip {tcpdump}
 
-            OR add the following line to /etc/sudoers:
+            OR add the following line to /etc/sudoers.d/tcpdump:
 
             {user} ALL=NOPASSWD: {tcpdump}
             """

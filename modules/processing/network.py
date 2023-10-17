@@ -8,6 +8,7 @@
 
 import binascii
 import heapq
+import ipaddress
 import logging
 import os
 import socket
@@ -23,6 +24,7 @@ from itertools import islice
 from json import loads
 from urllib.parse import urlunparse
 
+import cachetools.func
 import dns.resolver
 from dns.reversename import from_address
 
@@ -57,7 +59,7 @@ try:
     IS_DPKT = True
 except ImportError:
     IS_DPKT = False
-    print("Missed dependency: pip3 install -U dpkt")
+    print("Missed dependency: poetry run pip install")
 
 HAVE_HTTPREPLAY = False
 try:
@@ -89,6 +91,9 @@ passlist_file = proc_cfg.network.dnswhitelist_file
 enabled_ip_passlist = proc_cfg.network.ipwhitelist
 ip_passlist_file = proc_cfg.network.ipwhitelist_file
 
+enabled_network_passlist = proc_cfg.network.network_passlist
+network_passlist_file = proc_cfg.network.network_passlist_file
+
 # Be less verbose about httpreplay logging messages.
 logging.getLogger("httpreplay").setLevel(logging.CRITICAL)
 
@@ -101,6 +106,8 @@ if enabled_passlist and passlist_file:
             domain_passlist_re.append(domain)
 
 ip_passlist = set()
+network_passlist = []
+
 if enabled_ip_passlist and ip_passlist_file:
     f = path_read_file(os.path.join(CUCKOO_ROOT, ip_passlist_file), mode="text")
     for ip in f.splitlines():
@@ -108,12 +115,39 @@ if enabled_ip_passlist and ip_passlist_file:
         if ip:
             ip_passlist.add(ip)
 
+if enabled_network_passlist and network_passlist_file and os.path.isfile(network_passlist_file):
+    with open(os.path.join(CUCKOO_ROOT, network_passlist_file), "r") as f:
+        for cidr in set(f.read().splitlines()):
+            if cidr.startswith("#") or len(cidr.strip()) == 0:
+                # comment or empty line
+                continue
+
+            network_passlist.append(ipaddress.ip_network(cidr.strip()))
+
 if HAVE_GEOIP and proc_cfg.network.maxmind_database:
-    maxmind_db_path = os.path.join(CUCKOO_ROOT, proc_cfg.network.maxmind_database)
-    if proc_cfg.network.country_lookup and path_exists(maxmind_db_path):
-        maxminddb_client = maxminddb.open_database(maxmind_db_path)
-    else:
-        HAVE_GEOIP = False
+    # Reload the maxmind database when it has changed, but only check the file system
+    # every 5 minutes.
+    _MAXMINDDB_PATH = os.path.join(CUCKOO_ROOT, proc_cfg.network.maxmind_database)
+    _MAXMINDDB_CLIENT = None
+    _MAXMINDDB_MTIME = None
+
+    @cachetools.func.ttl_cache(maxsize=None, ttl=5 * 60)
+    def get_maxminddb_client():
+        global _MAXMINDDB_CLIENT
+        global _MAXMINDDB_MTIME
+        if path_exists(_MAXMINDDB_PATH):
+            mtime = os.stat(_MAXMINDDB_PATH).st_mtime
+            if mtime != _MAXMINDDB_MTIME:
+                _MAXMINDDB_MTIME = mtime
+                log.info("Loading maxmind database from %s", _MAXMINDDB_PATH)
+                _MAXMINDDB_CLIENT = maxminddb.open_database(_MAXMINDDB_PATH)
+            return _MAXMINDDB_CLIENT
+        return None
+
+else:
+
+    def get_maxminddb_client():
+        return None
 
 
 class Pcap:
@@ -234,11 +268,13 @@ class Pcap:
                     return True
 
     def _get_cn(self, ip):
-        if HAVE_GEOIP:
-            try:
-                return maxminddb_client.get(ip).get("country", {}).get("names", {}).get("en", "unknown")
-            except Exception:
-                log.error("Unable to resolve GEOIP for %s", ip)
+        if proc_cfg.network.country_lookup:
+            maxminddb_client = get_maxminddb_client()
+            if maxminddb_client:
+                try:
+                    return maxminddb_client.get(ip).get("country", {}).get("names", {}).get("en", "unknown")
+                except Exception:
+                    log.error("Unable to resolve GEOIP for %s", ip)
         return "unknown"
 
     def _add_hosts(self, connection):
@@ -250,7 +286,8 @@ class Pcap:
                 ip = convert_to_printable(connection["dst"])
 
                 if ip not in self.hosts:
-                    if ip in ip_passlist:
+                    ip_address = ipaddress.ip_address(ip)
+                    if ip in ip_passlist or any(ip_address in network for network in network_passlist):
                         return False
                     self.hosts.append(ip)
 
@@ -611,8 +648,8 @@ class Pcap:
         # data is list
         for conn, data in self.smtp_flow.items():
             # Detect new SMTP flow.
-            if b"EHLO" in data or b"HELO" in data:
-                self.smtp_requests.append({"dst": conn, "raw": convert_to_printable(data)})
+            if any(b"EHLO" in item or b"HELO" in item for item in data):
+                self.smtp_requests.append({"dst": conn, "raw": convert_to_printable(b"".join(data))})
 
     def _check_irc(self, tcpdata):
         """

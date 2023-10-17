@@ -15,6 +15,7 @@ import magic
 import requests
 from django.http import HttpResponse
 
+from dev_utils.mongo_hooks import FILE_REF_KEY, FILES_COLL, NORMALIZED_FILE_FIELDS
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.integrations.parse_pe import HAVE_PEFILE, IsPEImage, pefile
 from lib.cuckoo.common.objects import File
@@ -100,13 +101,6 @@ if repconf.elasticsearchdb.enabled:
         es_as_db = True
 
     es = elastic_handler
-
-hash_len = {
-    32: "md5",
-    40: "sha1",
-    64: "sha256",
-    128: "sha512",
-}
 
 hashes = {
     32: hashlib.md5,
@@ -923,8 +917,6 @@ def validate_task(tid, status=TASK_REPORTED):
     elif status == task.status:
         if tid != task_id:
             return {"error": False, "rtid": task_id}
-        else:
-            return {"error": False}
         return {"error": False}
     elif task.status in {TASK_FAILED_ANALYSIS, TASK_FAILED_PROCESSING, TASK_FAILED_REPORTING}:
         return {"error": True, "error_value": "Task failed"}
@@ -962,6 +954,16 @@ perform_search_filters = {
     "_id": 0,
 }
 
+hash_searches = {
+    "ssdeep": "ssdeep",
+    "crc32": "crc32",
+    "md5": "md5",
+    "sha1": "sha1",
+    "sha3": "sha3_384",
+    "sha256": "sha256",
+    "sha512": "sha512",
+}
+
 search_term_map = {
     "id": "info.id",
     "ids": "info.id",
@@ -969,13 +971,8 @@ search_term_map = {
     "package": "info.package",
     "ttp": "ttps.ttp",
     "malscore": "malscore",
-    "user_tasks": True,
     "name": "target.file.name",
     "type": "target.file.type",
-    "string": "strings",
-    "ssdeep": ("info.parent_sample.ssdeep", "target.file.ssdeep", "dropped.ssdeep", "procdump.ssdeep", "CAPE.payloads.ssdeep"),
-    "trid": "trid",
-    "crc32": ("info.parent_sample.crc32", "target.file.crc32", "dropped.crc32", "procdump.crc32", "CAPE.payloads.crc32"),
     "file": "behavior.summary.files",
     "command": "behavior.summary.executed_commands",
     "configs": "CAPE.configs",
@@ -990,8 +987,6 @@ search_term_map = {
     "url": "target.url",
     "iconhash": "static.pe.icon_hash",
     "iconfuzzy": "static.pe.icon_fuzzy",
-    # probably needs extend
-    "imphash": "static.pe.imphash",
     "surihttp": "suricata.http",
     "suritls": "suricata.tls",
     "surisid": "suricata.alerts.sid",
@@ -1014,39 +1009,10 @@ search_term_map = {
     "shrikesid": "info.shrike_sid",
     "custom": "info.custom",
     # initial binary
-    "target_sha256": "target.file.sha256",
-    # should be on all
-    "clamav": ("info.parent_sample.clamav", "target.file.clamav", "dropped.clamav", "procdump.clamav", "CAPE.payloads.clamav"),
-    "yaraname": (
-        "info.parent_sample.yara.name",
-        "target.file.yara.name",
-        "dropped.yara.name",
-        "procdump.yara.name",
-        "CAPE.payloads.yara.name",
-    ),
-    "capeyara": (
-        "info.parent_sample.cape_yara.name",
-        "target.file.cape_yara.name",
-        "dropped.cape_yara.name",
-        "procdump.cape_yara.name",
-        "CAPE.payloads.cape_yara.name",
-    ),
-    "capetype": (
-        "info.parent_sample.cape_type",
-        "target.file.cape_type",
-        "dropped.cape_type",
-        "procdump.cape_type",
-        "CAPE.payloads.cape_type",
-    ),
-    "md5": ("info.parent_sample.md5", "target.file.md5", "dropped.md5", "procdump.md5", "CAPE.payloads.md5"),
-    "sha1": ("info.parent_sample.sha1", "target.file.sha1", "dropped.sha1", "procdump.sha1", "CAPE.payloads.sha1"),
-    "sha3": ("info.parent_sample.sha3", "target.file.sha3_384", "dropped.sha3_384", "procdump.sha3_384", "CAPE.payloads.sha3_384"),
-    "sha256": ("info.parent_sample.sha256", "target.file.sha256", "dropped.sha256", "procdump.sha256", "CAPE.payloads.sha256"),
-    "sha512": ("info.parent_sample.sha512", "target.file.sha512", "dropped.sha512", "procdump.sha512", "CAPE.payloads.sha512"),
+    "target_sha256": ("target.file.sha256", f"target.file.{FILE_REF_KEY}"),
     "tlp": "info.tlp",
     "ja3_hash": "suricata.tls.ja3.hash",
     "ja3_string": "suricata.tls.ja3.string",
-    "payloads": "CAPE.payloads.",
     "dhash": "static.pe.icon_dhash",
     "dport": ("network.tcp.dport", "network.udp.dport", "network.smtp_ex.dport"),
     "sport": ("network.tcp.dport", "network.udp.dport", "network.smtp_ex.dport"),
@@ -1058,7 +1024,6 @@ search_term_map = {
         "network.udp.dport",
         "network.smtp_ex.dport",
     ),
-    "die": ("target.file.die", "dropped.die", "procdump.die", "CAPE.payloads.die"),
     # File_extra_info
     "extracted_tool": (
         "info.parent_sample.extracted_files_tool",
@@ -1068,6 +1033,28 @@ search_term_map = {
         "CAPE.payloads.extracted_files_tool",
     ),
 }
+
+search_term_map_repetetive_blocks = {
+    "ssdeep": "ssdeep",
+    "clamav": "clamav",
+    "yaraname": "yara.name",
+    "capeyara": "cape_yara.name",
+    "capetype": "cape_type.name",
+    "md5": "md5",
+    "sha1": "sha1",
+    "sha256": "sha256",
+    "sha3": "sha3_384",
+    "sha512": "sha512",
+    "crc32": "crc32",
+    "die": "die",
+    "trid": "trid",
+    "imphash": "imphash",
+}
+
+search_term_map_base_naming = ("info.parent_sample",) + NORMALIZED_FILE_FIELDS
+
+for key, value in search_term_map_repetetive_blocks.items():
+    search_term_map.update({key: [f"{path}.{value}" for path in search_term_map_base_naming]})
 
 # search terms that will be forwarded to mongodb in a lowered normalized form
 normalized_lower_terms = (
@@ -1093,7 +1080,7 @@ normalized_int_terms = (
 )
 
 
-def perform_search(term, value, search_limit=False, user_id=False, privs=False, web=True):
+def perform_search(term, value, search_limit=False, user_id=False, privs=False, web=True, projection=None):
     if repconf.mongodb.enabled and repconf.elasticsearchdb.enabled and essearch and not term:
         multi_match_search = {"query": {"multi_match": {"query": value, "fields": ["*"]}}}
         numhits = es.search(index=get_analysis_index(), body=multi_match_search, size=0)["hits"]["total"]
@@ -1158,9 +1145,6 @@ def perform_search(term, value, search_limit=False, user_id=False, privs=False, 
     if not search_limit:
         search_limit = web_cfg.general.get("search_limit", 50)
 
-    if term == "payloads" and len(value) in (32, 40, 64, 128):
-        search_term_map[term] = f"CAPE.payloads.{hash_len.get(len(value))}"
-
     elif term == "configs":
         # check if family name is string only maybe?
         search_term_map[term] = f"CAPE.configs.{value}"
@@ -1170,8 +1154,40 @@ def perform_search(term, value, search_limit=False, user_id=False, privs=False, 
         if isinstance(search_term_map[term], str):
             mongo_search_query = {search_term_map[term]: query_val}
         else:
-            mongo_search_query = {"$or": [{search_term: query_val} for search_term in search_term_map[term]]}
-        return mongo_find("analysis", mongo_search_query, perform_search_filters).sort([["_id", -1]]).limit(search_limit)
+            search_terms = [{search_term: query_val} for search_term in search_term_map[term]]
+            if term in hash_searches:
+                # For analyses where files have been stored in the "files" collection, search
+                # there for the _id (i.e. sha256) of documents matching the given hash. As a
+                # special case, we don't need to do that query if the requested hash type is
+                # "sha256" since that's what's stored in the "file_refs" key.
+                # We do all this in addition to search the old keys for backwards-compatibility
+                # with documents that do not use this mechanism for storing file data.
+                if term == "sha256":
+                    file_refs = [query_val]
+                else:
+                    file_docs = mongo_find(FILES_COLL, {hash_searches[term]: query_val}, {"_id": 1})
+                    file_refs = [doc["_id"] for doc in file_docs]
+                if file_refs:
+                    if len(file_refs) > 1:
+                        query = {"$in": file_refs}
+                    else:
+                        query = file_refs[0]
+                    search_terms.extend([{f"{pfx}.{FILE_REF_KEY}": query} for pfx in NORMALIZED_FILE_FIELDS])
+            mongo_search_query = {"$or": search_terms}
+
+        # Allow to overwrite perform_search_filters for custom results
+        if not projection:
+            projection = perform_search_filters
+        if "target.file.sha256" in projection:
+            projection = dict(**projection)
+            projection[f"target.file.{FILE_REF_KEY}"] = 1
+        retval = list(mongo_find("analysis", mongo_search_query, projection).sort([["_id", -1]]).limit(search_limit))
+        for doc in retval:
+            target_file = doc.get("target", {}).get("file", {})
+            if FILE_REF_KEY in target_file and "sha256" not in target_file:
+                target_file["sha256"] = target_file.pop(FILE_REF_KEY)
+        return retval
+
     if es_as_db:
         _source_fields = list(perform_search_filters.keys())[:-1]
         if isinstance(search_term_map[term], str):
@@ -1412,7 +1428,6 @@ def submit_task(
     filename: str = "",
     server_url: str = "",
 ):
-
     """
     ToDo add url support in future
     """

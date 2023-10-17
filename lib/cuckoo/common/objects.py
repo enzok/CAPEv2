@@ -26,6 +26,7 @@ from lib.cuckoo.common.defines import (
     PAGE_READWRITE,
     PAGE_WRITECOPY,
 )
+from lib.cuckoo.common.integrations.clamav import get_clamav
 from lib.cuckoo.common.integrations.parse_pe import IMAGE_FILE_MACHINE_AMD64, IsPEImage
 from lib.cuckoo.common.path_utils import path_exists
 
@@ -44,13 +45,6 @@ except ImportError:
     HAVE_PYDEEP = False
 
 try:
-    import pyclamd
-
-    HAVE_CLAMAV = True
-except ImportError:
-    HAVE_CLAMAV = False
-
-try:
     import re2 as re
 except ImportError:
     import re
@@ -67,14 +61,17 @@ try:
 
     HAVE_TLSH = True
 except ImportError:
-    print("Missed dependency: pip3 install python-tlsh")
+    print("Missed dependency: poetry run pip install -r extra/optional_dependencies.txt")
     HAVE_TLSH = False
 
 try:
     import yara
 
     HAVE_YARA = True
+    if not int(yara.__version__[0]) >= 4:
+        raise ImportError("Missed library. Run: poetry install")
 except ImportError:
+    print("Missed library. Run: poetry install")
     HAVE_YARA = False
 
 
@@ -139,16 +136,6 @@ type_list = [
     "MSI Installer",
     "Microsoft Cabinet",  # ToDo add die support here
 ]
-
-
-class Dictionary(dict):
-    """Cuckoo custom dict."""
-
-    def __getattr__(self, key):
-        return self.get(key)
-
-    __setattr__ = dict.__setitem__
-    __delattr__ = dict.__delitem__
 
 
 class PCAP:
@@ -385,13 +372,13 @@ class File:
                             self.pe = pefile.PE(data=self.file_data, fast_load=True)
                         except pefile.PEFormatError:
                             self.file_type = "PE image for MS Windows"
-                            log.error("Unable to instantiate pefile on image")
+                            log.error("Unable to instantiate pefile on image: %s", self.file_path)
                         if self.pe:
                             is_dll = self.pe.is_dll()
                             is_x64 = self.pe.FILE_HEADER.Machine == IMAGE_FILE_MACHINE_AMD64
                             gui_type = "console" if self.pe.OPTIONAL_HEADER.Subsystem == 3 else "GUI"
                             dotnet_string = ""
-                            with contextlib.suppress(AttributeError):
+                            with contextlib.suppress(AttributeError, IndexError):
                                 dotnet_string = (
                                     " Mono/.Net assembly"
                                     if self.pe.OPTIONAL_HEADER.DATA_DIRECTORY[
@@ -438,28 +425,28 @@ class File:
         """Generates index for yara signatures."""
 
         categories = ("binaries", "urls", "memory", "CAPE", "macro", "monitor")
-
         log.debug("Initializing Yara...")
 
         # Generate root directory for yara rules.
         yara_root = os.path.join(CUCKOO_ROOT, "data", "yara")
-
+        custom_yara_root = os.path.join(CUCKOO_ROOT, "custom", "yara")
         # Loop through all categories.
         for category in categories:
-            # Check if there is a directory for the given category.
-            category_root = os.path.join(yara_root, category)
-            if not path_exists(category_root):
-                log.warning("Missing Yara directory: %s?", category_root)
-                continue
-
             rules, indexed = {}, []
-            for category_root, _, filenames in os.walk(category_root, followlinks=True):
-                for filename in filenames:
-                    if not filename.endswith((".yar", ".yara")):
-                        continue
-                    filepath = os.path.join(category_root, filename)
-                    rules[f"rule_{category}_{len(rules)}"] = filepath
-                    indexed.append(filename)
+            # Check if there is a directory for the given category.
+            for path in (yara_root, custom_yara_root):
+                category_root = os.path.join(path, category)
+                if not path_exists(category_root):
+                    log.warning("Missing Yara directory: %s?", category_root)
+                    continue
+
+                for category_root, _, filenames in os.walk(category_root, followlinks=True):
+                    for filename in filenames:
+                        if not filename.endswith((".yar", ".yara")):
+                            continue
+                        filepath = os.path.join(category_root, filename)
+                        rules[f"rule_{category}_{len(rules)}"] = filepath
+                        indexed.append(filename)
 
                 # Need to define each external variable that will be used in the
             # future. Otherwise Yara will complain.
@@ -567,35 +554,6 @@ class File:
         """
         return cls.cape_name_regex.sub("", cape_type)
 
-    def get_clamav(self):
-        """Get ClamAV signatures matches.
-        Requires pyclamd module. Additionally if running with apparmor, an exception must be made.
-        apt-get install clamav clamav-daemon clamav-freshclam clamav-unofficial-sigs -y
-        pip3 install -U pyclamd
-        systemctl enable clamav-daemon
-        systemctl start clamav-daemon
-        usermod -a -G cuckoo clamav
-        echo "/opt/CAPEv2/storage/** r," | sudo tee -a /etc/apparmor.d/local/usr.sbin.clamd
-        @return: matched ClamAV signatures.
-        """
-        matches = []
-
-        if HAVE_CLAMAV and os.path.getsize(self.file_path) > 0:
-            try:
-                cd = pyclamd.ClamdUnixSocket()
-                results = cd.allmatchscan(self.file_path)
-                if results:
-                    for entry in results[self.file_path]:
-                        if entry[0] == "FOUND" and entry[1] not in matches:
-                            matches.append(entry[1])
-            except ConnectionError:
-                log.warning("failed to connect to clamd socket")
-            except Exception as e:
-                log.warning("failed to scan file with clamav %s", e)
-            finally:
-                return matches
-        return matches
-
     def get_tlsh(self):
         """
         Get TLSH.
@@ -689,7 +647,7 @@ class File:
             "type": self.get_type(),
             "yara": self.get_yara(),
             "cape_yara": self.get_yara(category="CAPE"),
-            "clamav": self.get_clamav(),
+            "clamav": get_clamav(self.file_path),
             "tlsh": self.get_tlsh(),
             "sha3_384": self.get_sha3_384(),
         }

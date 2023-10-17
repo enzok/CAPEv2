@@ -123,7 +123,7 @@ class packedSetting:
         conf_data = full_config_data[data_offset + repr_len : data_offset + repr_len + self.length]
         if self.datatype == confConsts.TYPE_SHORT:
             conf_data = unpack(">H", conf_data)[0]
-            if not conf_data:
+            if conf_data is None:
                 return
             if self.is_bool:
                 return str(conf_data != self.bool_false_value)
@@ -401,7 +401,10 @@ class cobaltstrikeConfig:
         """
 
         THRESHOLD = 1100
-        pe = pefile.PE(data=self.data)
+        try:
+            pe = pefile.PE(data=self.data)
+        except pefile.PEFormatError:
+            return {}
         data_sections = [s for s in pe.sections if s.Name.find(b".data") != -1]
         if not data_sections:
             return None

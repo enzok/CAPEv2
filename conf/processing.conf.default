@@ -24,7 +24,7 @@ enabled = yes
 
 # Community
 # FLARE capa -> to update rules utils/community.py -cr
-# install -> cd /tmp && git clone --recurse-submodules https://github.com/fireeye/capa.git && cd capa && git submodule update --init rules && python -m pip3 install .
+# install -> cd /tmp && git clone --recurse-submodules https://github.com/fireeye/capa.git && cd capa && git submodule update --init rules && python -m poetry run pip install .
 [flare_capa]
 enabled = no
 # Generate it always or generate on demand only(user need to click button to generate it), still should be enabled to use this feature on demand
@@ -102,6 +102,8 @@ dnswhitelist = yes
 dnswhitelist_file = extra/whitelist_domains.txt
 ipwhitelist = yes
 ipwhitelist_file = extra/whitelist_ips.txt
+network_passlist = no
+network_passlist_file = extra/whitelist_network.txt
 
 # Requires geoip2 and maxmind database
 country_lookup = no
@@ -213,6 +215,7 @@ max_file_size = 90
 userdb_signature = no
 # https://capev2.readthedocs.io/en/latest/usage/patterns_replacement.html
 replace_patterns = no
+clamav = no
 
 # Deduplicate screenshots
 # You need to install dependency ImageHash>=4.2.1
@@ -232,7 +235,7 @@ hashmethod = ahash
 # Mac - brew install graphviz
 # Ubuntu - sudo apt-get install graphviz
 # Arch - sudo pacman -S graphviz+
-# sudo pip3 install networkx>=2.1 graphviz>=0.8.4 pydot>=1.2.4
+# sudo poetry run pip install networkx>=2.1 graphviz>=0.8.4 pydot>=1.2.4
 enabled = yes
 on_demand = yes
 
@@ -244,7 +247,7 @@ ja3_path = data/ja3/ja3fingerprint.json
 [maliciousmacrobot]
 # https://maliciousmacrobot.readthedocs.io
 # Install mmbot
-#   sudo pip3 install mmbot
+#   sudo poetry run pip install mmbot
 # Create/Set required paths
 # Populate benign_path and malicious_path with appropriate macro maldocs (try the tests/samples in the github)
 #   https://github.com/egaus/MaliciousMacroBot/tree/master/tests/samples
@@ -261,7 +264,7 @@ model_path = /opt/cuckoo/data/mmbot/model
 
 # Community
 [xlsdeobf]
-# pip3 install git+https://github.com/DissectMalware/XLMMacroDeobfuscator.git
+# poetry run pip install git+https://github.com/DissectMalware/XLMMacroDeobfuscator.git
 enabled = no
 on_demand = no
 
@@ -318,3 +321,6 @@ tight_strings = yes
 min_length = 5
 # Download FLOSS signatures from https://github.com/mandiant/flare-floss/tree/master/sigs
 sigs_path = data/flare-signatures
+
+[html_scraper]
+enabled = no

@@ -51,16 +51,7 @@ from lib.cuckoo.common.web_utils import (
     statistics,
     validate_task,
 )
-from lib.cuckoo.core.database import (
-    TASK_COMPLETED,
-    TASK_FAILED_PROCESSING,
-    TASK_FAILED_REPORTING,
-    TASK_RECOVERED,
-    TASK_REPORTED,
-    TASK_RUNNING,
-    Database,
-    Task,
-)
+from lib.cuckoo.core.database import TASK_COMPLETED, TASK_RECOVERED, TASK_RUNNING, Database, Task
 from lib.cuckoo.core.rooter import _load_socks5_operational, vpns
 
 try:
@@ -779,6 +770,7 @@ def tasks_list(request, offset=None, limit=None, window=None):
         limit = int(apiconf.tasklist.get("maxlimit"))
 
     completed_after = request.query_params.get("completed_after")
+    ids_only = request.query_params.get("ids")
     if completed_after:
         completed_after = datetime.fromtimestamp(int(completed_after))
 
@@ -799,7 +791,7 @@ def tasks_list(request, offset=None, limit=None, window=None):
     resp["config"] = "Limit: {0}, Offset: {1}".format(limit, offset)
     resp["buf"] = 0
 
-    for row in db.list_tasks(
+    tasks = db.list_tasks(
         limit=limit,
         details=True,
         offset=offset,
@@ -807,27 +799,36 @@ def tasks_list(request, offset=None, limit=None, window=None):
         status=status,
         options_like=option,
         order_by=Task.completed_on.desc(),
-    ):
-        resp["buf"] += 1
-        task = row.to_dict()
-        task["guest"] = {}
-        if row.guest:
-            task["guest"] = row.guest.to_dict()
+    )
 
-        task["errors"] = []
-        for error in row.errors:
-            task["errors"].append(error.message)
+    if not tasks:
+        return Response(resp)
 
-        task["sample"] = {}
-        if row.sample_id:
-            sample = db.view_sample(row.sample_id)
-            if sample:
-                task["sample"] = sample.to_dict()
+    # Dist.py fetches only ids
+    if ids_only:
+        resp["data"] = [{"id": task.id} for task in tasks]
+    else:
+        for row in tasks:
+            resp["buf"] += 1
+            task = row.to_dict()
+            task["guest"] = {}
+            if row.guest:
+                task["guest"] = row.guest.to_dict()
 
-        if task.get("target"):
-            task["target"] = convert_to_printable(task["target"])
+            task["errors"] = []
+            for error in row.errors:
+                task["errors"].append(error.message)
 
-        resp["data"].append(task)
+            task["sample"] = {}
+            if row.sample_id:
+                sample = db.view_sample(row.sample_id)
+                if sample:
+                    task["sample"] = sample.to_dict()
+
+            if task.get("target"):
+                task["target"] = convert_to_printable(task["target"])
+
+            resp["data"].append(task)
 
     return Response(resp)
 
@@ -988,9 +989,12 @@ def tasks_reschedule(request, task_id):
         return Response(resp)
 
     resp = {}
-    if db.reschedule(task_id):
+    new_task_id = db.reschedule(task_id)
+    if new_task_id:
         resp["error"] = False
-        resp["data"] = "Task ID {0} has been rescheduled".format(task_id)
+        resp["data"] = {}
+        resp["data"]["new_task_id"] = new_task_id
+        resp["data"]["message"] = "Task ID {0} has been rescheduled".format(task_id)
     else:
         resp = {
             "error": True,
@@ -1009,34 +1013,12 @@ def tasks_reprocess(request, task_id):
         resp["error_value"] = "Task Reprocess API is Disabled"
         return Response(resp)
 
-    task = db.view_task(task_id)
-    if not task:
-        resp["error"] = True
-        resp["error_value"] = "Task ID does not exist in the database"
-        return Response(resp)
-
-    # task status suitable for reprocessing
-    valid_status = {
-        # allow reprocessing of tasks already processed (maybe detections changed)
-        TASK_REPORTED,
-        # allow reprocessing of tasks that were rescheduled
-        TASK_RECOVERED,
-        # allow reprocessing of tasks that previously failed the processing stage
-        TASK_FAILED_PROCESSING,
-        # allow reprocessing of tasks that previously failed the reporting stage
-        TASK_FAILED_REPORTING,
-    }
-
-    if task.status not in valid_status:
-        error_fmt = "Task ID {0} cannot be reprocessed in status {1}"
-        resp["error"] = True
-        resp["error_value"] = error_fmt.format(task_id, task.status)
-        return Response(resp)
+    error, msg, task_status = db.tasks_reprocess(task_id)
+    if error:
+        return Response({"error": True, "error_value": msg})
 
     db.set_status(task_id, TASK_COMPLETED)
-    resp["error"] = False
-    resp["data"] = f"Task ID {task_id} with status {task.status} marked for reprocessing"
-    return Response(resp)
+    return Response({"error": error, "data": f"Task ID {task_id} with status {task_status} marked for reprocessing"})
 
 
 @csrf_exempt
@@ -1831,12 +1813,10 @@ def file(request, stype, value):
         resp = {"error": True, "error_value": "Sample download API is disabled"}
         return Response(resp)
 
+    # This Func is not Synced with views.py "def file()"
+
     file_hash = False
-    if stype == "md5":
-        file_hash = db.find_sample(md5=value).to_dict()["sha256"]
-    elif stype == "sha1":
-        file_hash = db.find_sample(sha1=value).to_dict()["sha256"]
-    elif stype == "sha256":
+    if stype in ("md5", "sha1", "sha256"):
         file_hash = value
     elif stype == "task":
         check = validate_task(value)
@@ -1846,8 +1826,17 @@ def file(request, stype, value):
         sid = db.view_task(value).to_dict()["sample_id"]
         file_hash = db.view_sample(sid).to_dict()["sha256"]
 
-    sample = os.path.join(CUCKOO_ROOT, "storage", "binaries", file_hash)
-    if path_exists(sample):
+    if not file_hash:
+        resp = {"error": True, "error_value": "Sample %s was not found" % file_hash}
+        return Response(resp)
+
+    paths = db.sample_path_by_hash(sample_hash=file_hash)
+
+    if not paths:
+        resp = {"error": True, "error_value": "Sample %s was not found" % file_hash}
+        return Response(resp)
+
+    for sample in paths:
         if request.GET.get("encrypted"):
             # Check if file exists in temp folder
             file_exists = os.path.isfile(f"/tmp/{file_hash}.zip")
@@ -1864,9 +1853,6 @@ def file(request, stype, value):
             resp["Content-Length"] = os.path.getsize(sample)
             resp["Content-Disposition"] = f"attachment; filename={file_hash}.bin"
         return resp
-    else:
-        resp = {"error": True, "error_value": "Sample %s was not found" % file_hash}
-        return Response(resp)
 
 
 @csrf_exempt

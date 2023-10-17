@@ -43,9 +43,13 @@ class Package:
         """Check."""
         return True
 
+    def get_paths(self):
+        """Get the default list of paths."""
+        return self.PATHS
+
     def enum_paths(self):
         """Enumerate available paths."""
-        for path in self.PATHS:
+        for path in self.get_paths():
             basedir = path[0]
             sys32 = len(path) > 1 and path[1].lower() == "system32"
             if basedir == "SystemRoot":
@@ -59,8 +63,10 @@ class Package:
             elif basedir == "HomeDrive":
                 # os.path.join() does not work well when giving just C:
                 # instead of C:\\, so we manually add the backslash.
-                homedrive = f"{os.getenv('HomeDrive')}\\"
+                homedrive = "{}\\".format(os.getenv("HomeDrive"))
                 yield os.path.join(homedrive, *path[1:])
+            elif os.getenv(basedir):
+                yield os.path.join(os.getenv(basedir), *path[1:])
             else:
                 yield os.path.join(*path)
 

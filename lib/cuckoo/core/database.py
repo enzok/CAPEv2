@@ -195,6 +195,12 @@ def _get_linux_vm_tag(mgtype):
     return "x64"
 
 
+def get_count(q):
+    count_q = q.statement.with_only_columns([func.count()]).order_by(None)
+    count = q.session.execute(count_q).scalar()
+    return count
+
+
 class Machine(Base):
     """Configured virtual machines to be used as guests."""
 
@@ -788,25 +794,33 @@ class Database(object, metaclass=Singleton):
                 session.rollback()
 
     @classlock
-    def set_task_vm(self, task_id, vmname, vm_id):
-        """Set task status.
+    def set_task_vm_and_guest_start(self, task_id, vmname, vmlabel, vm_id, manager):
+        """Set task status and logs guest start.
         @param task_id: task identifier
         @param vmname: virtual vm name
-        @return: operation status
+        @param label: vm label
+        @param manager: vm manager
+        @return: guest row id
         """
         with self.Session() as session:
+            guest = Guest(vmname, vmlabel, manager)
             try:
+                guest.status = "init"
                 row = session.get(Task, task_id)
 
                 if not row:
                     return
 
+                row.guest = guest
                 row.machine = vmname
                 row.machine_id = vm_id
                 session.commit()
+                session.refresh(guest)
+                return guest.id
             except SQLAlchemyError as e:
-                log.debug("Database error setting status: %s", e)
+                log.debug("Database error setting task vm and logging guest start: %s", e)
                 session.rollback()
+                return None
 
     def _package_vm_requires_check(self, package: str) -> list:
         """
@@ -885,28 +899,6 @@ class Database(object, metaclass=Singleton):
                 log.debug("Database error fetching task: %s", e)
                 log.debug(red("Ensure that your database schema version is correct"))
                 session.rollback()
-
-    @classlock
-    def guest_start(self, task_id, name, label, manager):
-        """Logs guest start.
-        @param task_id: task identifier
-        @param name: vm name
-        @param label: vm label
-        @param manager: vm manager
-        @return: guest row id
-        """
-        with self.Session() as session:
-            guest = Guest(name, label, manager)
-            try:
-                guest.status = "init"
-                session.get(Task, task_id).guest = guest
-                session.commit()
-                session.refresh(guest)
-                return guest.id
-            except SQLAlchemyError as e:
-                log.debug("Database error logging guest start: %s", e)
-                session.rollback()
-                return None
 
     @classlock
     def guest_get_status(self, task_id):
@@ -1534,7 +1526,7 @@ class Database(object, metaclass=Singleton):
             username=username,
         )
 
-    def _identify_aux_func(self, file: bytes, package: str) -> str:
+    def _identify_aux_func(self, file: bytes, package: str) -> tuple:
         # before demux we need to check as msix has zip mime and we don't want it to be extracted:
         tmp_package = False
         if not package:
@@ -1551,6 +1543,8 @@ class Database(object, metaclass=Singleton):
                 package = "archive"
             elif tmp_package in ("zip", "rar"):
                 package = ""
+            elif tmp_package in ("html",):
+                package = web_conf.url_analysis.package
             else:
                 package = tmp_package
 
@@ -1949,21 +1943,40 @@ class Database(object, metaclass=Singleton):
                 log.warning("Unable to find valid target for task: %s", task_id)
                 return
 
-            new_task_id = add(
-                task_target,
-                task.timeout,
-                task.package,
-                task.options,
-                task.priority,
-                task.custom,
-                task.machine,
-                task.platform,
-                tags,
-                task.memory,
-                task.enforce_timeout,
-                task.clock,
-                tlp=task.tlp,
-            )
+            new_task_id = None
+            if task.category in ("file", "url"):
+                new_task_id = add(
+                    task_target,
+                    task.timeout,
+                    task.package,
+                    task.options,
+                    task.priority,
+                    task.custom,
+                    task.machine,
+                    task.platform,
+                    tags,
+                    task.memory,
+                    task.enforce_timeout,
+                    task.clock,
+                    tlp=task.tlp,
+                    route=task.route,
+                )
+            elif task.category in ("pcap", "static"):
+                new_task_id = add(
+                    task_target,
+                    task.timeout,
+                    task.package,
+                    task.options,
+                    task.priority,
+                    task.custom,
+                    task.machine,
+                    task.platform,
+                    tags,
+                    task.memory,
+                    task.enforce_timeout,
+                    task.clock,
+                    tlp=task.tlp,
+                )
 
             session.get(Task, task_id).custom = f"Recovery_{new_task_id}"
             try:
@@ -2104,7 +2117,8 @@ class Database(object, metaclass=Singleton):
             try:
                 # Can we remove "options(joinedload)" it is here due to next error
                 # sqlalchemy.orm.exc.DetachedInstanceError: Parent instance <Task at X> is not bound to a Session; lazy load operation of attribute 'tags' cannot proceed
-                search = session.query(Task).options(joinedload(Task.tags))
+                # ToDo this is inefficient but it fails if we don't join. Need to fix this
+                search = session.query(Task).options(joinedload(Task.guest), joinedload(Task.errors), joinedload(Task.tags))
                 if include_hashes:
                     search = search.join(Sample, Task.sample_id == Sample.id)
                 if status:
@@ -2115,9 +2129,9 @@ class Database(object, metaclass=Singleton):
                 if not_status:
                     search = search.filter(Task.status != not_status)
                 if category:
-                    search = search.filter(Task.category == category)
+                    search = search.filter(Task.category.in_([category] if isinstance(category, str) else category))
                 if details:
-                    search = search.options(joinedload("guest"), joinedload("errors"), joinedload("tags"))
+                    search = search.options(joinedload(Task.guest), joinedload(Task.errors), joinedload(Task.tags))
                 if sample_id is not None:
                     search = search.filter(Task.sample_id == sample_id)
                 if id_before is not None:
@@ -2240,7 +2254,7 @@ class Database(object, metaclass=Singleton):
                     unfiltered = unfiltered.filter_by(machine_id=mid)
                 if status:
                     unfiltered = unfiltered.filter_by(status=status)
-                tasks_count = unfiltered.count()
+                tasks_count = get_count(unfiltered)
                 return tasks_count
             except SQLAlchemyError as e:
                 log.debug("Database error counting tasks: %s", e)
@@ -2399,7 +2413,7 @@ class Database(object, metaclass=Singleton):
         with self.Session() as session:
             db_sample = (
                 session.query(Sample)
-                .options(joinedload("tasks"))
+                # .options(joinedload(Task.sample))
                 .filter(Sample.sha256 == sample_hash)
                 .filter(Task.id != task_id)
                 .filter(Sample.id == Task.sample_id)
@@ -2447,7 +2461,7 @@ class Database(object, metaclass=Singleton):
             session = self.Session()
             db_sample = (
                 session.query(Sample)
-                .options(joinedload("tasks"))
+                # .options(joinedload(Task.sample))
                 .filter(Task.id == task_id)
                 .filter(Sample.id == Task.sample_id)
                 .first()
@@ -2699,3 +2713,27 @@ class Database(object, metaclass=Singleton):
             )
             session.commit()
             session.close()
+
+    @classlock
+    def tasks_reprocess(self, task_id: int):
+        """common func for api and views"""
+        task = self.view_task(task_id)
+        if not task:
+            return True, "Task ID does not exist in the database", ""
+
+        if task.status not in {
+            # task status suitable for reprocessing
+            # allow reprocessing of tasks already processed (maybe detections changed)
+            TASK_REPORTED,
+            # allow reprocessing of tasks that were rescheduled
+            TASK_RECOVERED,
+            # allow reprocessing of tasks that previously failed the processing stage
+            TASK_FAILED_PROCESSING,
+            # allow reprocessing of tasks that previously failed the reporting stage
+            TASK_FAILED_REPORTING,
+            # TASK_COMPLETED,
+        }:
+            return True, f"Task ID {task_id} cannot be reprocessed in status {task.status}", task.status
+
+        self.set_status(task_id, TASK_COMPLETED)
+        return False, "", task.status

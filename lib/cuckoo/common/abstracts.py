@@ -22,6 +22,7 @@ import requests
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
+from lib.cuckoo.common.dictionary import Dictionary
 from lib.cuckoo.common.exceptions import (
     CuckooCriticalError,
     CuckooDependencyError,
@@ -30,7 +31,6 @@ from lib.cuckoo.common.exceptions import (
     CuckooReportError,
 )
 from lib.cuckoo.common.integrations.mitre import mitre_load
-from lib.cuckoo.common.objects import Dictionary
 from lib.cuckoo.common.path_utils import path_exists
 from lib.cuckoo.common.url_validate import url as url_validator
 from lib.cuckoo.common.utils import create_folder, get_memdump_path, load_categories
@@ -364,7 +364,9 @@ class LibVirtMachinery(Machinery):
             return
 
         if not HAVE_LIBVIRT:
-            raise CuckooDependencyError("Unable to import libvirt")
+            raise CuckooDependencyError(
+                "Unable to import libvirt. Ensure that you properly installed it by running: cd /opt/CAPEv2/ ; sudo -u cape poetry run extra/libvirt_installer.sh"
+            )
 
         super(LibVirtMachinery, self).__init__()
 

@@ -52,6 +52,65 @@ enable_trim = int(Config("web").general.enable_trim)
 active_analysis_count = 0
 
 
+class ScalingBoundedSemaphore(threading.Semaphore):
+    """Implements a dynamic bounded semaphore.
+
+    A bounded semaphore checks to make sure its current value doesn't exceed its
+    limit value. If it does, ValueError is raised. In most situations
+    semaphores are used to guard resources with limited capacity.
+
+    If the semaphore is released too many times it's a sign of a bug. If not
+    given, value defaults to 1.
+
+    Like regular semaphores, bounded semaphores manage a counter representing
+    the number of release() calls minus the number of acquire() calls, plus a
+    limit value. The acquire() method blocks if necessary until it can return
+    without making the counter negative. If not given, value defaults to 1.
+
+    In this version of semaphore there is an upper limit that its limit value
+    can never reach when it is changed. The idea behind this is that in machinery
+    documentation there is a limit of machines that can be available so there is
+    no point having it higher than that.
+    """
+
+    def __init__(self, value=1, upper_limit=1):
+        threading.Semaphore.__init__(self, value)
+        self._limit_value = value
+        self._upper_limit = upper_limit
+
+    def release(self):
+        """Release a semaphore, incrementing the internal counter by one.
+
+        When the counter is zero on entry and another thread is waiting for it
+        to become larger than zero again, wake up that thread.
+
+        If the number of releases exceeds the number of acquires,
+        raise a ValueError.
+
+        """
+        with self._cond:
+            if self._value > self._upper_limit:
+                raise ValueError("Semaphore released too many times")
+
+            if self._value >= self._limit_value:
+                self._value = self._limit_value
+                self._cond.notify()
+                return
+
+            self._value += 1
+            self._cond.notify()
+
+    def update_limit(self, value):
+        """Update the limit value for the semaphore
+
+        This limit value is the bounded limit, and proposed limit values
+        are validated against the upper limit.
+
+        """
+        if value < self._upper_limit:
+            self._limit_value = value
+
+
 class CuckooDeadMachine(Exception):
     """Exception thrown when a machine turns dead.
 
@@ -289,7 +348,7 @@ class AnalysisManager(threading.Thread):
         succeeded = False
         dead_machine = False
         self.socks5s = _load_socks5_operational()
-
+        aux = False
         # Initialize the analysis folders.
         if not self.init_storage():
             log.debug("Failed to initialize the analysis folder")
@@ -309,40 +368,41 @@ class AnalysisManager(threading.Thread):
         # Acquire analysis machine.
         try:
             self.acquire_machine()
-            self.db.set_task_vm(self.task.id, self.machine.label, self.machine.id)
+            guest_log = self.db.set_task_vm_and_guest_start(
+                self.task.id, self.machine.name, self.machine.label, self.machine.id, machinery.__class__.__name__
+            )
         # At this point we can tell the ResultServer about it.
         except CuckooOperationalError as e:
             machine_lock.release()
             log.error("Task #%s: Cannot acquire machine: %s", self.task.id, e, exc_info=True)
             return False
 
-        # Generate the analysis configuration file.
-        options = self.build_options()
-
-        try:
-            ResultServer().add_task(self.task, self.machine)
-        except Exception as e:
-            machinery.release(self.machine.label)
-            log.exception(e, exc_info=True)
-            self.errors.put(e)
-
-        aux = RunAuxiliary(task=self.task, machine=self.machine)
-
         try:
             unlocked = False
 
             # Mark the selected analysis machine in the database as started.
-            guest_log = self.db.guest_start(self.task.id, self.machine.name, self.machine.label, machinery.__class__.__name__)
             # Start the machine.
             machinery.start(self.machine.label)
-
-            # Enable network routing.
-            self.route_network()
 
             # By the time start returns it will have fully started the Virtual
             # Machine. We can now safely release the machine lock.
             machine_lock.release()
             unlocked = True
+
+            # Generate the analysis configuration file.
+            options = self.build_options()
+
+            try:
+                ResultServer().add_task(self.task, self.machine)
+            except Exception as e:
+                machinery.release(self.machine.label)
+                log.exception(e, exc_info=True)
+                self.errors.put(e)
+
+            aux = RunAuxiliary(task=self.task, machine=self.machine)
+
+            # Enable network routing.
+            self.route_network()
 
             aux.start()
 
@@ -359,12 +419,7 @@ class AnalysisManager(threading.Thread):
 
             self.db.guest_set_status(self.task.id, "stopping")
             succeeded = True
-        except CuckooMachineError as e:
-            if not unlocked:
-                machine_lock.release()
-            log.error(str(e), extra={"task_id": self.task.id}, exc_info=True)
-            dead_machine = True
-        except CuckooGuestCriticalTimeout as e:
+        except (CuckooMachineError, CuckooGuestCriticalTimeout) as e:
             if not unlocked:
                 machine_lock.release()
             log.error(str(e), extra={"task_id": self.task.id}, exc_info=True)
@@ -375,7 +430,8 @@ class AnalysisManager(threading.Thread):
             log.error(str(e), extra={"task_id": self.task.id}, exc_info=True)
         finally:
             # Stop Auxiliary modules.
-            aux.stop()
+            if aux:
+                aux.stop()
 
             # Take a memory dump of the machine before shutting it off.
             if self.cfg.cuckoo.memory_dump or self.task.memory:
@@ -413,8 +469,7 @@ class AnalysisManager(threading.Thread):
 
             if dead_machine:
                 # Remove the guest from the database, so that we can assign a
-                # new guest when the task is being analyzed with another
-                # machine.
+                # new guest when the task is being analyzed with another machine.
                 self.db.guest_remove(guest_log)
                 machinery.delete_machine(self.machine.name)
 
@@ -428,8 +483,7 @@ class AnalysisManager(threading.Thread):
                 raise CuckooDeadMachine()
 
             try:
-                # Release the analysis machine. But only if the machine has
-                # not turned dead yet.
+                # Release the analysis machine. But only if the machine has not turned dead yet.
                 machinery.release(self.machine.label)
 
             except CuckooMachineError as e:
@@ -472,8 +526,7 @@ class AnalysisManager(threading.Thread):
             if hasattr(os, "symlink"):
                 latest = os.path.join(CUCKOO_ROOT, "storage", "analyses", "latest")
 
-                # First we have to remove the existing symbolic link, then we
-                # have to create the new one.
+                # First we have to remove the existing symbolic link, then we have to create the new one.
                 # Deal with race conditions using a lock.
                 latest_symlink_lock.acquire()
                 try:
@@ -688,21 +741,6 @@ class Scheduler:
         if not self.categories_need_VM:
             return
 
-        max_vmstartup_count = self.cfg.cuckoo.max_vmstartup_count
-        if max_vmstartup_count:
-            # machine_lock = threading.Semaphore(max_vmstartup_count)
-            machine_lock = threading.BoundedSemaphore(max_vmstartup_count)
-        else:
-            machine_lock = threading.Lock()
-
-        log.info(
-            'Using "%s" machine manager with max_analysis_count=%d, max_machines_count=%d, and max_vmstartup_count=%d',
-            machinery_name,
-            self.cfg.cuckoo.max_analysis_count,
-            self.cfg.cuckoo.max_machines_count,
-            self.cfg.cuckoo.max_vmstartup_count,
-        )
-
         # Get registered class name. Only one machine manager is imported,
         # therefore there should be only one class in the list.
         plugin = list_plugins("machinery")[0]
@@ -726,6 +764,35 @@ class Scheduler:
             machinery.initialize(machinery_name)
         except CuckooMachineError as e:
             raise CuckooCriticalError(f"Error initializing machines: {e}")
+
+        # If the user wants to use the scaling bounded semaphore, check what machinery is specified, and then
+        # grab the required configuration key for setting the upper limit
+        if self.cfg.cuckoo.scaling_semaphore:
+            machinery_opts = machinery.options.get(machinery_name)
+            if machinery_name == "az":
+                machines_limit = machinery_opts.get("total_machines_limit")
+            elif machinery_name == "aws":
+                machines_limit = machinery_opts.get("dynamic_machines_limit")
+
+        # You set this value if you are using a machinery that is NOT auto-scaling
+        max_vmstartup_count = self.cfg.cuckoo.max_vmstartup_count
+        if max_vmstartup_count:
+            # The BoundedSemaphore is used to prevent CPU starvation when starting up multiple VMs
+            machine_lock = threading.BoundedSemaphore(value=max_vmstartup_count)
+        # You set this value if you are using a machinery that IS auto-scaling
+        elif self.cfg.cuckoo.scaling_semaphore and machines_limit:
+            # The ScalingBoundedSemaphore is used to keep feeding available machines from the pending tasks queue
+            machine_lock = ScalingBoundedSemaphore(value=len(machinery.machines()), upper_limit=machines_limit)
+        else:
+            machine_lock = threading.Lock()
+
+        log.info(
+            'Using "%s" machine manager with max_analysis_count=%d, max_machines_count=%d, and max_vmstartup_count=%d',
+            machinery_name,
+            self.cfg.cuckoo.max_analysis_count,
+            self.cfg.cuckoo.max_machines_count,
+            self.cfg.cuckoo.max_vmstartup_count,
+        )
 
         # At this point all the available machines should have been identified
         # and added to the list. If none were found, Cuckoo needs to abort the
@@ -788,10 +855,22 @@ class Scheduler:
         # Start the logger which grabs database information
         if self.cfg.cuckoo.periodic_log:
             self._thr_periodic_log()
+        # Update timer for semaphore limit value if enabled
+        if self.cfg.cuckoo.scaling_semaphore and not self.cfg.cuckoo.max_vmstartup_count:
+            # Note that this variable only exists under these conditions
+            scaling_semaphore_timer = time.time()
 
         # This loop runs forever.
         while self.running:
-            time.sleep(1)
+            # Update scaling bounded semaphore limit value, if enabled, based on the number of machines
+            if self.cfg.cuckoo.scaling_semaphore and not self.cfg.cuckoo.max_vmstartup_count:
+                # Every x seconds, update the semaphore limit. This requires a database call to machinery.availables(),
+                # hence waiting a bit between calls
+                if scaling_semaphore_timer + int(self.cfg.cuckoo.scaling_semaphore_update_timer) < time.time():
+                    machine_lock.update_limit(machinery.availables())
+                    # Note that this variable only exists under these conditions
+                    scaling_semaphore_timer = time.time()
+
             # Wait until the machine lock is not locked. This is only the case
             # when all machines are fully running, rather that about to start
             # or still busy starting. This way we won't have race conditions

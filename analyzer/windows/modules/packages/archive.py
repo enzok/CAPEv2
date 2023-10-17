@@ -18,7 +18,7 @@ from lib.common.abstracts import Package
 from lib.common.common import check_file_extension
 from lib.common.exceptions import CuckooPackageError
 from lib.common.hashing import hash_file
-from lib.common.parse_pe import is_pe_image
+from lib.common.parse_pe import choose_dll_export, is_pe_image
 from lib.common.results import upload_to_host
 from lib.common.zip_utils import extract_archive, get_file_names, winrar_extractor
 
@@ -38,12 +38,12 @@ class Archive(Package):
     def __init__(self, options={}, config=None):
         self.config = config
         self.options = options
-        self.options["disable_hook_content"] = 4
 
     PATHS = [
         ("SystemRoot", "system32", "cmd.exe"),
         ("SystemRoot", "system32", "wscript.exe"),
         ("SystemRoot", "system32", "rundll32.exe"),
+        ("SystemRoot", "system32", "regsvr32.exe"),
         ("SystemRoot", "sysnative", "WindowsPowerShell", "v1.0", "powershell.exe"),
         ("SystemRoot", "system32", "xpsrchvw.exe"),
         ("ProgramFiles", "7-Zip", "7z.exe"),
@@ -52,6 +52,9 @@ class Archive(Package):
         ("ProgramFiles", "Microsoft Office", "Office*", "WINWORD.EXE"),
         ("ProgramFiles", "Microsoft Office*", "root", "Office*", "WINWORD.EXE"),
         ("ProgramFiles", "Microsoft Office", "WORDVIEW.EXE"),
+        ("ProgramFiles", "Microsoft Office", "EXCEL.EXE"),
+        ("ProgramFiles", "Microsoft Office", "Office*", "EXCEL.EXE"),
+        ("ProgramFiles", "Microsoft Office*", "root", "Office*", "EXCEL.EXE"),
     ]
 
     def execute_interesting_file(self, root: str, file_name: str, file_path: str):
@@ -75,8 +78,12 @@ class Archive(Package):
                 with open(file_path, "rb") as f:
                     if not any(PE_indicator in f.read() for PE_indicator in PE_INDICATORS):
                         return
-            rundll32 = self.get_path_app_in_path("rundll32.exe")
-            function = self.options.get("function", "#1")
+            dll_export = choose_dll_export(file_path)
+            if dll_export == "DllRegisterServer":
+                rundll32 = self.get_path("regsvr32.exe")
+            else:
+                rundll32 = self.get_path_app_in_path("rundll32.exe")
+                function = self.options.get("function", "#1")
             arguments = self.options.get("arguments")
             dllloader = self.options.get("dllloader")
             dll_args = f'"{file_path}",{function}'
@@ -97,8 +104,11 @@ class Archive(Package):
                 word = self.get_path_glob("WINWORD.EXE")
             except CuckooPackageError:
                 word = self.get_path_glob("WORDVIEW.EXE")
-
             return self.execute(word, f'"{file_path}" /q', file_path)
+        elif file_name.lower().endswith(".xls"):
+            # Try getting excel
+            excel = self.get_path_glob("EXCEL.EXE")
+            return self.execute(excel, f'"{file_path}" /q', file_path)
         elif is_pe_image(file_path):
             file_path = check_file_extension(file_path, ".exe")
             return self.execute(file_path, self.options.get("arguments"), file_path)

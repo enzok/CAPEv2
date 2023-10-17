@@ -34,7 +34,15 @@ from lib.cuckoo.common.integrations.parse_wsf import WindowsScriptFile  # Encode
 # from lib.cuckoo.common.integrations.parse_elf import ELF
 from lib.cuckoo.common.load_extra_modules import file_extra_info_load_modules
 from lib.cuckoo.common.objects import File
-from lib.cuckoo.common.path_utils import path_exists, path_get_size, path_is_file, path_mkdir, path_read_file, path_write_file
+from lib.cuckoo.common.path_utils import (
+    path_delete,
+    path_exists,
+    path_get_size,
+    path_is_file,
+    path_mkdir,
+    path_read_file,
+    path_write_file,
+)
 from lib.cuckoo.common.utils import get_options, is_text_file
 
 try:
@@ -97,7 +105,7 @@ try:
     HAVE_BAT_DECODER = True
 except ImportError:
     HAVE_BAT_DECODER = False
-    print("OPTIONAL! Missed dependency: pip3 install -U git+https://github.com/DissectMalware/batch_deobfuscator")
+    print("OPTIONAL! Missed dependency: poetry run pip install -U git+https://github.com/DissectMalware/batch_deobfuscator")
 
 processing_conf = Config("processing")
 selfextract_conf = Config("selfextract")
@@ -218,10 +226,18 @@ def static_file_info(
             if floss_strings:
                 data_dictionary["floss"] = floss_strings
 
-        if HAVE_STRINGS:
+        if data_dictionary["data"]:
+            # Don't store "strings" for text files, but don't let the web frontend
+            # think that we want to look them up on-demand (i.e. display the
+            # "strings" button linking to an on_demand URL).
+            data_dictionary["strings"] = []
+        elif HAVE_STRINGS:
             strings = extract_strings(file_path, dedup=True)
-            if strings:
-                data_dictionary["strings"] = strings
+            data_dictionary["strings"] = strings
+        else:
+            # Don't store anything in data_dictionary["strings"] so that the frontend
+            # will display the "strings" button and allow them to be fetched on-demand.
+            pass
 
         # ToDo we need url support
         if HAVE_VIRUSTOTAL and processing_conf.virustotal.enabled:
@@ -418,6 +434,14 @@ def generic_file_extractors(
 
     futures = {}
     with pebble.ProcessPool(max_workers=int(selfextract_conf.general.max_workers)) as pool:
+        # Prefer custom modules over the built-in ones, since only 1 is allowed
+        # to be the extracted_files_tool.
+        if extra_info_modules:
+            for module in extra_info_modules:
+                func_timeout = int(getattr(module, "timeout", 60))
+                funcname = module.__name__.split(".")[-1]
+                futures[funcname] = pool.schedule(module.extract_details, args=args, kwargs=kwargs, timeout=func_timeout)
+
         for extraction_func in file_info_funcs:
             funcname = extraction_func.__name__.split(".")[-1]
             if (
@@ -428,12 +452,6 @@ def generic_file_extractors(
 
             func_timeout = int(getattr(selfextract_conf, funcname, {}).get("timeout", 60))
             futures[funcname] = pool.schedule(extraction_func, args=args, kwargs=kwargs, timeout=func_timeout)
-
-        if extra_info_modules:
-            for module in extra_info_modules:
-                func_timeout = int(getattr(module, "timeout", 60))
-                funcname = module.__name__.split(".")[-1]
-                futures[funcname] = pool.schedule(module.extract_details, args=args, kwargs=kwargs, timeout=func_timeout)
     pool.join()
 
     for funcname, future in futures.items():
@@ -647,20 +665,18 @@ def msi_extract(file: str, *, filetype: str, **kwargs) -> ExtractorReturnType:
             ]
         else:
             output = run_tool(
-                [
-                    "7z",
-                    "e",
-                    f"-o{tempdir}",
-                    "-y",
-                    file,
-                    "Binary.*",
-                ],
+                ["7z", "e", f"-o{tempdir}", "-y", file],
                 universal_newlines=True,
                 stderr=subprocess.PIPE,
             )
+            valid_msi_filetypes = ["PE32", "text", "Microsoft Cabinet archive"]
             for root, _, filenames in os.walk(tempdir):
                 for filename in filenames:
-                    os.rename(os.path.join(root, filename), os.path.join(root, filename.split("Binary.")[-1]))
+                    path = os.path.join(root, filename)
+                    if any([x in File(path).get_type() for x in valid_msi_filetypes]):
+                        os.rename(path, os.path.join(root, filename.split(".")[-1].strip("'").strip("!")))
+                    else:
+                        path_delete(path)
             extracted_files = collect_extracted_filenames(tempdir)
 
         ctx["extracted_files"] = extracted_files
