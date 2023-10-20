@@ -114,16 +114,20 @@ def mongo_insert_one(collection: str, doc):
 
 
 @graceful_auto_reconnect
-def mongo_find(collection: str, query, projection=False, sort=None, archive=False):
+def mongo_find(collection: str, query, projection=False, sort=None, archive=False, limit=None):
     if sort is None:
         sort = [("_id", -1)]
     db = results_db
     if archive:
         db = archive_db
+
+    find_by = functools.partial(getattr(db, collection).find, query, sort=sort)
     if projection:
-        result = getattr(db, collection).find(query, projection, sort=sort)
-    else:
-        result = getattr(db, collection).find(query, sort=sort)
+        find_by = functools.partial(find_by, projection=projection)
+    if limit:
+        find_by = functools.partial(find_by, limit=limit)
+
+    result = find_by()
     if result:
         for hook in hooks[mongo_find][collection]:
             result = hook(result)
