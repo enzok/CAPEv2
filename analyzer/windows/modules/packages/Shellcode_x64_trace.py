@@ -21,6 +21,8 @@ class Shellcode_x64(Package):
         self.options["base-on-alloc"] = "1"
         self.options["bp0"] = "zero"
         self.options["count"] = "100000"
+        self.options["depth"] = "1"
+
     def start(self, path):
         offset = self.options.get("offset")
         loaderpath = "bin\\loader_x64.exe"
