@@ -2274,6 +2274,8 @@ def vtupload(request, category, task_id, filename, dlfile):
             path = False
             if category in ("sample", "static"):
                 path = os.path.join(CUCKOO_ROOT, "storage", "binaries", dlfile)
+                if not _path_safe(path):
+                    folder_name = "selfextracted"
             elif category == "dropped":
                 folder_name = "files"
             elif category in ("CAPE", "procdump"):
