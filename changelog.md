@@ -1,3 +1,7 @@
+### [7.11.2023]
+* Monitor updates: Misc debugger tweaks
+* XWorm config extraction
+
 ### [3.11.2023]
 * Monitor updates:
     * New debugger actions: 'setsrc' & 'setdst' to set values pointed at by instruction operands
