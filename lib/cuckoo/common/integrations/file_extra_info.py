@@ -26,8 +26,6 @@ from lib.cuckoo.common.integrations.parse_dotnet import DotNETExecutable
 from lib.cuckoo.common.integrations.parse_java import Java
 from lib.cuckoo.common.integrations.parse_lnk import LnkShortcut
 from lib.cuckoo.common.integrations.parse_office import HAVE_OLETOOLS, Office
-
-# ToDo duplicates logging here
 from lib.cuckoo.common.integrations.parse_pdf import PDF
 from lib.cuckoo.common.integrations.parse_pe import HAVE_PEFILE, PortableExecutable
 from lib.cuckoo.common.integrations.parse_wsf import WindowsScriptFile  # EncodedScriptFile
@@ -743,13 +741,19 @@ def kixtart_extract(file: str, **_) -> ExtractorReturnType:
     return ctx
 
 
+UN_AUTOIT_NOTIF = False
+
+
 @time_tracker
 def UnAutoIt_extract(file: str, *, data_dictionary: dict, **_) -> ExtractorReturnType:
+    global UN_AUTOIT_NOTIF
     if all(block.get("name") not in ("AutoIT_Compiled", "AutoIT_Script") for block in data_dictionary.get("yara", {})):
         return
 
-    if not path_exists(unautoit_binary):
+    # this is useless to notify in each iteration
+    if not UN_AUTOIT_NOTIF and not path_exists(unautoit_binary):
         log.warning(f"Missing UnAutoIt binary: {unautoit_binary}. Download from - https://github.com/x0r19x91/UnAutoIt")
+        UN_AUTOIT_NOTIF = True
         return
 
     with extractor_ctx(file, "UnAutoIt", prefix="unautoit_") as ctx:
@@ -803,9 +807,14 @@ def SevenZip_unpack(file: str, *, filetype: str, data_dictionary: dict, options:
         return
 
     # Check for msix file since it's a zip
+    file_data = File(file).file_data
+    if not file_data:
+        log.debug("sevenzip: No file data")
+        return
+
     if (
         ".msix" in data_dictionary.get("name", "")
-        or all([pattern in File(file).file_data for pattern in (b"Registry.dat", b"AppxManifest.xml")])
+        or all([pattern in file_data for pattern in (b"Registry.dat", b"AppxManifest.xml")])
         or any("MSIX Windows app" in string for string in data_dictionary.get("trid", []))
     ):
         return
