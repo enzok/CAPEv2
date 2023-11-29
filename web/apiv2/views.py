@@ -2201,13 +2201,10 @@ def common_download_func(service, request):
         if opts:
             opt_apikey = opts.get("apikey", False)
 
-        if not (settings.VTDL_KEY or opt_apikey) or not settings.VTDL_PATH:
+        if not (settings.VTDL_KEY or opt_apikey):
             resp = {
                 "error": True,
-                "error_value": (
-                    "You specified VirusTotal but must edit the file and specify your VTDL_KEY variable and VTDL_PATH"
-                    " base directory"
-                ),
+                "error_value": ("You specified VirusTotal but must edit the file and specify your VTDL_KEY variable"),
             }
             return Response(resp)
 
