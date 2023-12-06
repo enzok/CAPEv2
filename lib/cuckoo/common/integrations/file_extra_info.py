@@ -169,7 +169,7 @@ def static_file_info(
                 data_dictionary["flare_capa"] = capa_details
 
         if HAVE_FLOSS:
-            floss_strings = Floss(file_path, "static", "pe").run()
+            floss_strings = Floss(file_path, "static", True).run()
             if floss_strings:
                 data_dictionary["floss"] = floss_strings
 
@@ -285,7 +285,7 @@ def detect_it_easy_info(file_path: str):
     return []
 
 
-def trid_info(file_path: dict):
+def trid_info(file_path: str):
     try:
         output = subprocess.check_output(
             [trid_binary, f"-d:{definitions}", file_path],
