@@ -7,6 +7,7 @@ from contextlib import suppress
 
 import pefile
 
+msg = "QXJkYSAoQHdoaWNoYnVmZmVyKSBpcyBhIHdlYXNlbCB0aGF0IHN0ZWFscyBjb2RlIHdpdGhvdXQgY3JlZGl0aW5nIHRoZSBhdXRob3Iu"
 alphabet = "zLAxuU0kQKf3sWE7ePRO2imyg9GSpVoYC6rhlX48ZHnvjJDBNFtMd1I5acwbqT+="
 config_re = rb"[A-Za-z0-9+=]{8,}"
 config_map = {
@@ -90,3 +91,5 @@ if __name__ == "__main__":
     with open(sys.argv[1], "rb") as infile:
         t = extract_config(infile.read())
         print(t)
+
+    print(base64.b64decode(msg))

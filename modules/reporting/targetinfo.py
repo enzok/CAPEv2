@@ -2,6 +2,7 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
+import copy
 import json
 import os
 
@@ -40,8 +41,9 @@ class TargetInfoReport(Report):
         path = os.path.join(self.reports_path, "targetinfo.txt")
 
         try:
-            report = dict(results["target"]["file"])
-            formatted_text = self.format_json(report, indent=0)
+            report = copy.deepcopy(results)
+            file_info = dict(report["target"]["file"])
+            formatted_text = self.format_json(file_info, indent=0)
 
             with open(path, "w") as hfile:
                 hfile.write(formatted_text)
