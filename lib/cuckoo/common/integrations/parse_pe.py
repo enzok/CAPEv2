@@ -332,7 +332,7 @@ class PortableExecutable:
                                     }
                                 )
             except pefile.PEFormatError as e:
-                log.error("get_resources error: %s", str(e))
+                log.debug("get_resources error: %s", str(e))
             except Exception as e:
                 log.error(e, exc_info=True)
                 continue
