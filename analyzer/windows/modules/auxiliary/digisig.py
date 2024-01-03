@@ -132,7 +132,7 @@ class DigiSig(Auxiliary):
             else:
                 self.json_data["error"] = True
                 errmsg = b" ".join(err.split(b":", 1)[1].split())
-                self.json_data["error_desc"] = errmsg.decode()
+                self.json_data["error_desc"] = errmsg.decode(errors="ignore")
                 if b"file format cannot be verified" in err:
                     log.debug("File format not recognized")
                 elif b"No signature found" not in err:
