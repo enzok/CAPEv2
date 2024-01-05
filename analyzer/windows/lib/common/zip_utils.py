@@ -1,3 +1,4 @@
+import hashlib
 import logging
 import os
 import shutil
@@ -11,10 +12,34 @@ except ImportError:
     import re
 
 from lib.common.exceptions import CuckooPackageError
+from lib.common.hashing import hash_file
+from lib.common.results import upload_to_host
 
 log = logging.getLogger(__name__)
 
 FILE_NAME_REGEX = re.compile("[\s]{2}((?:[a-zA-Z0-9\.\-,_\\\\]+( [a-zA-Z0-9\.\-,_\\\\]+)?)+)\\r")
+FILE_EXT_OF_INTEREST = [
+    ".bat",
+    ".cmd",
+    ".dat",
+    ".db",
+    ".dll",
+    ".doc",
+    ".exe",
+    ".html",
+    ".js",
+    ".jse",
+    ".lnk",
+    ".msi",
+    ".ps1",
+    ".scr",
+    ".temp",
+    ".tmp",
+    ".vbe",
+    ".vbs",
+    ".wsf",
+    ".xls",
+]
 
 
 def extract_archive(seven_zip_path, archive_path, extract_path, password="infected", try_multiple_passwords=False):
@@ -164,6 +189,7 @@ def extract_zip(zip_path, extract_path, password=b"infected", recursion_depth=1,
             try:
                 archive.extractall(path=extract_path, pwd=pword)
                 password_fail = False
+                break
             except BadZipfile as e:
                 raise CuckooPackageError("Invalid Zip file") from e
             except RuntimeError as e:
@@ -198,9 +224,6 @@ def extract_zip(zip_path, extract_path, password=b"infected", recursion_depth=1,
                                 )
                             except RuntimeError as run_err:
                                 log.error("Error extracting nested Zip file %s with details: %s", name, run_err)
-                # If password_fail is False, then we either do not need a password, or we have used the correct password
-                if not password_fail:
-                    break
 
         if password_fail:
             raise CuckooPackageError(f"Unable to extract password-protected Zip file with the password(s): {passwords}")
@@ -243,6 +266,33 @@ def winrar_extractor(winrar_binary, extract_path, archive_path):
     log.debug(p.stdout + p.stderr)
 
     return os.listdir(extract_path)
+
+
+def get_interesting_files(file_names):
+    """
+    Using a regular expression that matches interesting file extensions, return interesting files
+    """
+    interesting_files = []
+
+    for f in file_names:
+        if any(f.lower().endswith(file_ext) for file_ext in FILE_EXT_OF_INTEREST):
+            interesting_files.append(f)
+
+    return interesting_files
+
+
+def upload_extracted_files(root, files_at_root):
+    """
+    Upload each file that was extracted, for further analysis
+    """
+    for entry in files_at_root:
+        try:
+            file_path = os.path.join(root, entry)
+            log.info("Uploading {0} to host".format(file_path))
+            filename = f"files/{hash_file(hashlib.sha256, file_path)}"
+            upload_to_host(file_path, filename, metadata=Path(entry).name, duplicated=False)
+        except Exception as e:
+            log.warning(f"Couldn't upload file {Path(entry).name} to host {e}")
 
 
 def attempt_multiple_passwords(options: dict, password: str) -> bool:
