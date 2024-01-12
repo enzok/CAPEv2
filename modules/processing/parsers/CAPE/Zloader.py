@@ -76,8 +76,8 @@ def extract_config(filebuf):
                 conf_type = "2"
             elif "$decrypt_key_1" == item.identifier:
                 decrypt_key = item.instances[0].offset
-                size_s = 41
-                kva_s = 35
+                size_s = 12
+                kva_s = 6
 
     if conf_type == "1":
         va = struct.unpack("I", filebuf[decrypt_conf: decrypt_conf + 4])[0]
