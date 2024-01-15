@@ -105,14 +105,14 @@ def extract_config(filebuf):
         conf_data = filebuf[conf_offset: conf_offset + conf_size]
         raw = decrypt_rc4(key, conf_data)
         items = list(filter(None, raw.split(b"\x00\x00")))
-        end_config["Botnet name"] = items[0]
-        end_config["Campaign ID"] = items[1]
+        end_config["Botnet name"] = items[0].decode("utf-8")
+        end_config["Campaign ID"] = items[1].decode("utf-8")
         for item in items:
             item = item.lstrip(b"\x00")
             if item.startswith(b"http"):
-                end_config.setdefault("address", []).append(item)
+                end_config.setdefault("address", []).append(item.decode("utf-8"))
             elif b"PUBLIC KEY" in item:
-                end_config["Public key"] = item
+                end_config["Public key"] = item.decode("utf-8").replace("\n", "")
 
     return end_config
 
