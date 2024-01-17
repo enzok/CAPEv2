@@ -10,5 +10,5 @@ rule Zloader
 		$decrypt_conf_1 = {48 8d [5] [0-6] e8 [4] 48 [3-4] 48 [3-4] 48 [6] E8}
         $decrypt_key_1 = {66 89 C2 4? 8D 0D [3] 00 4? B? FC 03 00 00 E8 [4] 4? 83 C4 [1-2] C3}
     condition:
-        uint16(0) == 0x5A4D and any of them
+        uint16(0) == 0x5A4D and 2 of them
 }
