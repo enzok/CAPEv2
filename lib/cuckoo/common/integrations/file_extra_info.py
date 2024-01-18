@@ -25,8 +25,6 @@ from lib.cuckoo.common.integrations.parse_dotnet import DotNETExecutable
 from lib.cuckoo.common.integrations.parse_java import Java
 from lib.cuckoo.common.integrations.parse_lnk import LnkShortcut
 from lib.cuckoo.common.integrations.parse_office import HAVE_OLETOOLS, Office
-
-# ToDo duplicates logging here
 from lib.cuckoo.common.integrations.parse_pdf import PDF
 from lib.cuckoo.common.integrations.parse_pe import HAVE_PEFILE, PortableExecutable
 from lib.cuckoo.common.integrations.parse_wsf import WindowsScriptFile  # EncodedScriptFile
@@ -268,12 +266,19 @@ def detect_it_easy_info(file_path: str):
         if "detects" not in output:
             return []
 
+        if "Invalid signature" in output and "{" in output:
+            start = output.find("{")
+            if start != -1:
+                output = output[start:]
+
         strings = [sub["string"] for block in json.loads(output).get("detects", []) for sub in block.get("values", [])]
 
         if strings:
             return strings
+    except json.decoder.JSONDecodeError as e:
+        log.debug("DIE results are not in json format: %s", str(e))
     except Exception as e:
-        log.error("Trid error: %s", str(e))
+        log.error("DIE error: %s", str(e))
     return []
 
 
@@ -290,6 +295,8 @@ def trid_info(file_path: dict):
             "You need to configure your server to make TrID work properly. Run trid by hand on file as example to ensure that it works properly."
         )
         log.warning("sudo rm -f /usr/lib/locale/locale-archive && sudo locale-gen --no-archive")
+    except PermissionError:
+        log.error("You have permission error. FIX IT! sudo chown cape:cape /opt/CAPEv2/data/trid -R")
     except Exception as e:
         log.error("Trid error: %s", str(e))
 
@@ -462,6 +469,8 @@ def generic_file_extractors(
             timeout = err.args[0]
             log.debug("Function: %s took longer than %d seconds", funcname, timeout)
             continue
+        except TypeError as err:
+            log.debug("TypeError on getting results: %s", str(err))
         except Exception as err:
             log.exception("file_extra_info: %s", err)
             continue
@@ -487,7 +496,7 @@ def generic_file_extractors(
             old_tool_name = data_dictionary.get("extracted_files_tool")
             new_tool_name = extraction_result["tool_name"]
             if old_tool_name:
-                log.warning("Files already extracted from %s by %s. Also extracted with %s", file, old_tool_name, new_tool_name)
+                log.debug("Files already extracted from %s by %s. Also extracted with %s", file, old_tool_name, new_tool_name)
                 continue
             metadata = _extracted_files_metadata(
                 tempdir, destination_folder, files=extracted_files, duplicated=duplicated, results=results
@@ -501,6 +510,7 @@ def generic_file_extractors(
             )
         finally:
             if tempdir:
+                # ToDo doesn't work
                 shutil.rmtree(tempdir, ignore_errors=True)
 
 
@@ -731,13 +741,19 @@ def kixtart_extract(file: str, **_) -> ExtractorReturnType:
     return ctx
 
 
+UN_AUTOIT_NOTIF = False
+
+
 @time_tracker
 def UnAutoIt_extract(file: str, *, data_dictionary: dict, **_) -> ExtractorReturnType:
-    if all(block.get("name") != "AutoIT_Compiled" for block in data_dictionary.get("yara", {})):
+    global UN_AUTOIT_NOTIF
+    if all(block.get("name") not in ("AutoIT_Compiled", "AutoIT_Script") for block in data_dictionary.get("yara", {})):
         return
 
-    if not path_exists(unautoit_binary):
+    # this is useless to notify in each iteration
+    if not UN_AUTOIT_NOTIF and not path_exists(unautoit_binary):
         log.warning(f"Missing UnAutoIt binary: {unautoit_binary}. Download from - https://github.com/x0r19x91/UnAutoIt")
+        UN_AUTOIT_NOTIF = True
         return
 
     with extractor_ctx(file, "UnAutoIt", prefix="unautoit_") as ctx:
@@ -791,9 +807,14 @@ def SevenZip_unpack(file: str, *, filetype: str, data_dictionary: dict, options:
         return
 
     # Check for msix file since it's a zip
+    file_data = File(file).file_data
+    if not file_data:
+        log.debug("sevenzip: No file data")
+        return
+
     if (
         ".msix" in data_dictionary.get("name", "")
-        or all([pattern in File(file).file_data for pattern in (b"Registry.dat", b"AppxManifest.xml")])
+        or all([pattern in file_data for pattern in (b"Registry.dat", b"AppxManifest.xml")])
         or any("MSIX Windows app" in string for string in data_dictionary.get("trid", []))
     ):
         return
@@ -911,27 +932,18 @@ def office_one(file, **_) -> ExtractorReturnType:
 def msix_extract(file: str, *, data_dictionary: dict, **_) -> ExtractorReturnType:
     """Work on MSIX Package"""
 
-    if not all([pattern in File(file).file_data for pattern in (b"Registry.dat", b"AppxManifest.xml")]) or not any(
+    if not all([pattern in File(file).file_data for pattern in (b"Registry.dat", b"AppxManifest.xml")]) and not any(
         "MSIX Windows app" in string for string in data_dictionary.get("trid", [])
     ):
         return
 
     with extractor_ctx(file, "MSIX", prefix="msixdump_") as ctx:
         tempdir = ctx["tempdir"]
-        if HAVE_SFLOCK:
-            unpacked = unpack(file.encode())
-            for child in unpacked.children:
-                _ = path_write_file(os.path.join(tempdir, child.filename.decode()), child.contents)
-        else:
-            _ = run_tool(
-                [
-                    "unzip",
-                    file,
-                    f"-d {tempdir}",
-                ],
-                universal_newlines=True,
-                stderr=subprocess.PIPE,
-            )
+        _ = run_tool(
+            ["unzip", file, "-d", tempdir],
+            universal_newlines=True,
+            stderr=subprocess.PIPE,
+        )
         ctx["extracted_files"] = collect_extracted_filenames(tempdir)
 
     return ctx

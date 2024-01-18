@@ -557,7 +557,7 @@ Configuring the Internet connection in the Hosts (VMs) can become a tedious task
 
 Manually testing Internet connection
 ====================================
-You can manually test the Internet connection from inside the VMs without the need of performing any analysis. To do so, you have to use the `router_manager.py <https://github.com/kevoreilly/CAPEv2/blob/master/utils/router_manager.py>`_ utility. This utility allows you to enable or disable specific **routes** and debug them. It is a "Standalone script to debug VM problems that allows to enable routing on VM".
+You can manually test the Internet connection from inside the VMs without the need of performing any analysis. To do so, you have to use the . This utility allows you to enable or disable specific **routes** and debug them. It is a "Standalone script to debug VM problems that allows to enable routing on VM".
 
 First, **stop** the ``cape-rooter`` service with::
 
@@ -570,11 +570,11 @@ Assuming you already have any VM running, to test the internet connection using 
 
 The ``-e`` flag is used to enable a route and ``-d`` is used to disable it. You can read more about all the options the utility has by running:: 
 
-.. note:: The `--vm-name` parameters expects any ID from the ones in <machinery>.conf, not the label you named each VM with. To see the available options you can execute ``$ sudo python3 router_manager.py --show-vm-names``.
-
     $ sudo python3 router_manager.py -h
 
-Whenever you 
+.. note:: The `--vm-name` parameters expects any ID from the ones in <machinery>.conf, not the label you named each VM with. To see the available options you can execute ``$ sudo python3 router_manager.py --show-vm-names``.
+
+Whenever you use the `router_manager.py <https://github.com/kevoreilly/CAPEv2/blob/master/utils/router_manager.py>`_ utility to either enable or disable any given route, there are changes made to ``iptables`` are you should be able to see them take place.
 
 For instance, this is how it looks **BEFORE** enabling any route::
 
@@ -611,7 +611,7 @@ Debugging ``iptables`` rules
 
 Every single time the :ref:`rooter` brings up or down any route (assuming it works as expected) or you do so by using the `router_manager.py <https://github.com/kevoreilly/CAPEv2/blob/master/utils/router_manager.py>`_ utility, your iptables set of rules is modified in one way or another.
 
-To inspect the changes being made and verify them, you can use the ``watch`` utility preinstalled in the vast majority of *nix systems. For example, to view rules created by CAPE-rooter or the utility you can run the following command::
+To inspect the changes being made and verify them, you can use the ``watch`` utility preinstalled in the vast majority of \*nix systems. For example, to view rules created by CAPE-rooter or the utility you can run the following command::
 
     $ sudo watch -n 1 iptables -L -n -v
 

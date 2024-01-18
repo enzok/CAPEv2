@@ -342,7 +342,7 @@ class PortableExecutable:
                                     }
                                 )
             except pefile.PEFormatError as e:
-                log.error("get_resources error: %s", str(e))
+                log.debug("get_resources error: %s", str(e))
             except Exception as e:
                 log.error(e, exc_info=True)
                 continue
@@ -578,13 +578,16 @@ class PortableExecutable:
             idx = [entry.id for entry in pe.DIRECTORY_ENTRY_RESOURCE.entries]
             if pefile.RESOURCE_TYPE["RT_GROUP_ICON"] not in idx:
                 return None, None, None, None
-
-            rt_group_icon_idx = idx.index(pefile.RESOURCE_TYPE["RT_GROUP_ICON"])
-            rt_group_icon_dir = pe.DIRECTORY_ENTRY_RESOURCE.entries[rt_group_icon_idx]
-            entry = rt_group_icon_dir.directory.entries[0]
-            offset = entry.directory.entries[0].data.struct.OffsetToData
-            size = entry.directory.entries[0].data.struct.Size
-            peicon = PEGroupIconDir(pe.get_memory_mapped_image()[offset : offset + size])
+            try:
+                rt_group_icon_idx = idx.index(pefile.RESOURCE_TYPE["RT_GROUP_ICON"])
+                rt_group_icon_dir = pe.DIRECTORY_ENTRY_RESOURCE.entries[rt_group_icon_idx]
+                entry = rt_group_icon_dir.directory.entries[0]
+                offset = entry.directory.entries[0].data.struct.OffsetToData
+                size = entry.directory.entries[0].data.struct.Size
+                peicon = PEGroupIconDir(pe.get_memory_mapped_image()[offset : offset + size])
+            except Exception as e:
+                log.error(e)
+                return None, None, None, None
             bigwidth = 0
             bigheight = 0
             bigbpp = 0
@@ -757,7 +760,7 @@ class PortableExecutable:
                 certs = backend.load_der_pkcs7_certificates(signatures)
 
         except AttributeError:
-            log.error("Can't get PE signatures")
+            log.debug("Can't get PE signatures")
 
         for cert in certs:
             md5 = binascii.hexlify(cert.fingerprint(hashes.MD5())).decode()

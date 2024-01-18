@@ -18,11 +18,11 @@ PASSWD="SuperPuperSecret"
 # Only in case if you using distributed CAPE And MongoDB sharding.
 DIST_MASTER_IP="192.168.1.1"
 USER="cape"
-nginx_version=1.19.6
+# https://nginx.org/en/linux_packages.html
+nginx_version=1.25.3
 prometheus_version=2.20.1
 grafana_version=7.1.5
 node_exporter_version=1.0.1
-guacamole_version=1.5.2
 # if set to 1, enables snmpd and other various bits to support
 # monitoring via LibreNMS
 librenms_enable=0
@@ -52,7 +52,7 @@ librenms_megaraid_enable=0
 # disabling this will result in the web interface being disabled
 MONGO_ENABLE=1
 
-DIE_VERSION="3.08"
+DIE_VERSION="3.09"
 
 TOR_SOCKET_TIMEOUT="60"
 
@@ -340,13 +340,13 @@ function install_nginx() {
     fi
 
     # PCRE version 8.42
-    wget https://ftp.pcre.org/pub/pcre/pcre-8.42.tar.gz && tar xzvf pcre-8.42.tar.gz
+    wget https://ftp.exim.org/pub/pcre/pcre-8.45.tar.gz && tar xzvf pcre-8.45.tar.gz
 
     # zlib version 1.2.11
-    wget https://www.zlib.net/zlib-1.2.11.tar.gz && tar xzvf zlib-1.2.11.tar.gz
+    wget https://www.zlib.net/zlib-1.3.tar.gz && tar xzvf zlib-1.3.tar.gz
 
-    # OpenSSL version 1.1.0h
-    wget https://www.openssl.org/source/openssl-1.1.0h.tar.gz && tar xzvf openssl-1.1.0h.tar.gz
+    # OpenSSL version 3.2.0
+    wget https://www.openssl.org/source/openssl-3.2.0.tar.gz && tar xzvf openssl-3.2.0.tar.gz
 
     sudo add-apt-repository -y ppa:maxmind/ppa
     sudo apt update && sudo apt upgrade -y
@@ -374,14 +374,14 @@ function install_nginx() {
                 --http-proxy-temp-path=/var/lib/nginx/proxy \
                 --http-scgi-temp-path=/var/lib/nginx/scgi \
                 --http-uwsgi-temp-path=/var/lib/nginx/uwsgi \
-                --with-openssl=../openssl-1.1.0h \
+                --with-openssl=../openssl-3.2.0 \
                 --with-openssl-opt=enable-ec_nistp_64_gcc_128 \
                 --with-openssl-opt=no-nextprotoneg \
                 --with-openssl-opt=no-weak-ssl-ciphers \
                 --with-openssl-opt=no-ssl3 \
-                --with-pcre=../pcre-8.42 \
+                --with-pcre=../pcre-8.45 \
                 --with-pcre-jit \
-                --with-zlib=../zlib-1.2.11 \
+                --with-zlib=../zlib-1.3 \
                 --with-compat \
                 --with-file-aio \
                 --with-threads \
@@ -408,11 +408,19 @@ function install_nginx() {
                 --with-stream_ssl_preread_module \
                 --with-debug \
                 --with-cc-opt='-g -O2 -fPIE -fstack-protector-strong -Wformat -Werror=format-security -Wdate-time -D_FORTIFY_SOURCE=2' \
-                --with-ld-opt='-Wl,-Bsymbolic-functions -fPIE -pie -Wl,-z,relro -Wl,-z,now'
-                 #--with-http_v3_module \
+                --with-ld-opt='-Wl,-Bsymbolic-functions -fPIE -pie -Wl,-z,relro -Wl,-z,now' \
+                --with-http_v3_module
 
+
+    # checkinstall -D --pkgname="nginx-$nginx_version" --pkgversion="$nginx_version" --default
+    mkdir -p /tmp/nginx_builded/DEBIAN
     make -j"$(nproc)"
-    checkinstall -D --pkgname="nginx-$nginx_version" --pkgversion="$nginx_version" --default
+    echo -e "Package: nginx\nVersion: $nginx_version\nArchitecture: $ARCH\nMaintainer: $MAINTAINER\nDescription: nginx-$nginx_version" > /tmp/nginx_builded/DEBIAN/control
+    make -j"$(nproc)" install DESTDIR=/tmp/nginx_builded
+    dpkg-deb --build --root-owner-group /tmp/nginx_builded
+    dpkg -i --force-overwrite /tmp/nginx_builded.deb
+    rm /tmp/nginx_builded.deb
+
     sudo ln -s /usr/lib/nginx/modules /etc/nginx/modules
     sudo adduser --system --home /nonexistent --shell /bin/false --no-create-home --disabled-login --disabled-password --gecos "nginx user" --group nginx
 
@@ -593,9 +601,7 @@ EOF
 
 function redsocks2() {
     cd /tmp || return
-    sudo apt install -y git libevent-dev libreadline-dev zlib1g-dev libncurses5-dev
-    sudo apt install -y libssl1.0-dev 2>/dev/null
-    sudo apt install -y libssl-dev 2>/dev/null
+    sudo apt install -y git libevent-dev libreadline-dev zlib1g-dev libncurses5-dev libssl1.0-dev libssl-dev
     git clone https://github.com/semigodking/redsocks redsocks2 && cd redsocks2 || return
     DISABLE_SHADOWSOCKS=true make -j"$(nproc)" #ENABLE_STATIC=true
     sudo cp redsocks2 /usr/bin/
@@ -658,10 +664,10 @@ function install_suricata() {
         crontab -l | { cat; echo "15 * * * * /usr/bin/suricata-update --suricata /usr/bin/suricata --suricata-conf /etc/suricata/suricata.yaml -o /etc/suricata/rules/ && /usr/bin/suricatasc -c reload-rules /tmp/suricata-command.socket &>/dev/null"; } | crontab -
     fi
     if [ -d /usr/share/suricata/rules/ ]; then
-        cp "/usr/share/suricata/rules/*" "/etc/suricata/rules/"
+        cp "/usr/share/suricata/rules/"* "/etc/suricata/rules/"
     fi
     if [ -d /var/lib/suricata/rules/ ]; then
-        cp "/var/lib/suricata/rules/*" "/etc/suricata/rules/"
+        cp "/var/lib/suricata/rules/"* "/etc/suricata/rules/"
     fi
 
     # ToDo this is not the best solution but i don't have time now to investigate proper one
@@ -774,7 +780,7 @@ function install_mongo(){
 			MONGO_VERSION="4.4"
 		fi
 
-		sudo curl -fsSL "https://www.mongodb.org/static/pgp/server-${MONGO_VERSION}.asc" | sudo gpg --dearmor -o /etc/apt/keyrings/mongo.gpg --yes
+		sudo curl -fsSL "https://pgp.mongodb.com/server-${MONGO_VERSION}.asc" | sudo gpg --dearmor -o /etc/apt/keyrings/mongo.gpg --yes
 		echo "deb [signed-by=/etc/apt/keyrings/mongo.gpg arch=amd64] https://repo.mongodb.org/apt/ubuntu $(lsb_release -cs)/mongodb-org/${MONGO_VERSION} multiverse" > /etc/apt/sources.list.d/mongodb.list
 
 		apt update 2>/dev/null
@@ -887,7 +893,7 @@ function dependencies() {
     # deps
     apt install python3-pip build-essential libssl-dev libssl3 python3-dev cmake nfs-common -y
     apt install innoextract msitools iptables psmisc jq sqlite3 tmux net-tools checkinstall graphviz python3-pydot git numactl python3 python3-dev python3-pip libjpeg-dev zlib1g-dev -y
-    apt install upx-ucl wget zip unzip p7zip-full lzip rar unrar unace-nonfree cabextract geoip-database libgeoip-dev libjpeg-dev mono-utils ssdeep libfuzzy-dev exiftool -y
+    apt install zpaq upx-ucl wget zip unzip p7zip-full lzip rar unrar unace-nonfree cabextract geoip-database libgeoip-dev libjpeg-dev mono-utils ssdeep libfuzzy-dev exiftool -y
     apt install uthash-dev libconfig-dev libarchive-dev libtool autoconf automake privoxy software-properties-common wkhtmltopdf xvfb xfonts-100dpi tcpdump libcap2-bin -y
     apt install python3-pil subversion uwsgi uwsgi-plugin-python3 python3-pyelftools git curl -y
     apt install openvpn wireguard -y
@@ -1176,7 +1182,10 @@ function install_CAPE() {
     pip3 install poetry crudini
     CRYPTOGRAPHY_DONT_BUILD_RUST=1 sudo -u ${USER} bash -c 'export PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring; poetry install'
     sudo -u ${USER} bash -c 'export PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring; poetry run extra/libvirt_installer.sh'
+    #packages are needed for build options in extra/yara_installer.sh
+    apt install libjansson-dev libmagic1 libmagic-dev -y
     sudo -u ${USER} bash -c 'poetry run extra/yara_installer.sh'
+    sudo rm -r yara-python
 
     sudo usermod -aG kvm ${USER}
     sudo usermod -aG libvirt ${USER}
@@ -1192,9 +1201,8 @@ function install_CAPE() {
 
     chown ${USER}:${USER} -R "/opt/CAPEv2/"
 
-	# default is enabled, so we only need to disable it
-	if [ "$MONGO_ENABLE" -lt 1 ]; then
-		crudini --set conf/reporting.conf mongodb enabled no
+	if [ "$MONGO_ENABLE" -ge 1 ]; then
+		crudini --set conf/reporting.conf mongodb enabled yes
 	fi
 
 	if [ "$librenms_enable" -ge 1 ]; then
@@ -1283,6 +1291,8 @@ function install_guacamole() {
        mkdir /tmp/guac-build
     fi
     cd /tmp/guac-build || return
+
+    guacamole_version=$(curl -s https://downloads.apache.org/guacamole/|grep DIR|tail -1|cut -d">" -f 3| cut -d"/" -f 1)
 
     if [ ! -f "guacamole-server-"$guacamole_version".tar.gz" ] ; then
         wget https://downloads.apache.org/guacamole/"$guacamole_version"/source/guacamole-server-"$guacamole_version".tar.gz

@@ -36,7 +36,7 @@ from lib.cuckoo.common.colors import red
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.path_utils import path_delete, path_exists, path_mkdir
-from lib.cuckoo.common.utils import free_space_monitor
+from lib.cuckoo.common.utils import free_space_monitor, get_options
 from lib.cuckoo.core.database import TASK_COMPLETED, TASK_FAILED_PROCESSING, TASK_REPORTED, Database, Task
 from lib.cuckoo.core.plugins import RunProcessing, RunReporting, RunSignatures
 from lib.cuckoo.core.startup import ConsoleHandler, check_linux_dist, init_modules
@@ -102,10 +102,14 @@ def process(
 
     task_dict = task.to_dict() or {}
     task_id = task_dict.get("id") or 0
+    # cluster mode
+    main_task_id = False
+    if "main_task_id" in task_dict.get("options", ""):
+        main_task_id = get_options(task_dict["options"]).get("main_task_id", 0)
 
     # ToDo new logger here
     handlers = init_logging(tid=str(task_id), debug=debug)
-    set_formatter_fmt(task_id)
+    set_formatter_fmt(task_id, main_task_id)
     setproctitle(f"{original_proctitle} [Task {task_id}]")
     results = {"statistics": {"processing": [], "signatures": [], "reporting": []}}
     if memory_debugging:
@@ -159,16 +163,20 @@ def init_worker():
     signal.signal(signal.SIGINT, signal.SIG_IGN)
 
 
-def get_formatter_fmt(task_id=None):
-    task_info = f"[Task {task_id}] " if task_id is not None else ""
+def get_formatter_fmt(task_id=None, main_task_id=None):
+    task_info = f"[Task {task_id}" if task_id is not None else ""
+    if main_task_id:
+        task_info += f" ({main_task_id})"
+    if task_id or main_task_id:
+        task_info += "] "
     return f"%(asctime)s {task_info}[%(name)s] %(levelname)s: %(message)s"
 
 
 FORMATTER = logging.Formatter(get_formatter_fmt())
 
 
-def set_formatter_fmt(task_id=None):
-    FORMATTER._style._fmt = get_formatter_fmt(task_id)
+def set_formatter_fmt(task_id=None, main_task_id=None):
+    FORMATTER._style._fmt = get_formatter_fmt(task_id, main_task_id)
 
 
 def init_logging(tid=0, debug=False):
@@ -342,20 +350,16 @@ def autoprocess(
             pool.join()
 
 
-def _load_report(task_id: int, return_one: bool = False):
+def _load_report(task_id: int):
 
     if repconf.mongodb.enabled:
-        if return_one:
-            analysis = mongo_find_one("analysis", {"info.id": task_id}, sort=[("_id", -1)])
-            for process in analysis.get("behavior", {}).get("processes", []):
-                calls = [ObjectId(call) for call in process["calls"]]
-                process["calls"] = []
-                for call in mongo_find("calls", {"_id": {"$in": calls}}, sort=[("_id", 1)]) or []:
-                    process["calls"] += call["calls"]
-            return analysis
-
-        else:
-            return mongo_find("analysis", {"info.id": task_id})
+        analysis = mongo_find_one("analysis", {"info.id": task_id}, sort=[("_id", -1)])
+        for process in analysis.get("behavior", {}).get("processes", []):
+            calls = [ObjectId(call) for call in process["calls"]]
+            process["calls"] = []
+            for call in mongo_find("calls", {"_id": {"$in": calls}}, sort=[("_id", 1)]) or []:
+                process["calls"] += call["calls"]
+        return analysis
 
     if repconf.elasticsearchdb.enabled and not repconf.elasticsearchdb.searchonly:
         try:
@@ -365,10 +369,7 @@ def _load_report(task_id: int, return_one: bool = False):
                 .get("hits", [])
             )
             if analyses:
-                if return_one:
-                    return analyses[0]
-                else:
-                    return analyses
+                return analyses[0]
         except ESRequestError as e:
             print(e)
 
@@ -486,7 +487,7 @@ def main():
 
                 if args.signatures:
                     report = False
-                    results = _load_report(num, return_one=True)
+                    results = _load_report(num)
                     if not results:
                         # fallback to json
                         report = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(num), "reports", "report.json")

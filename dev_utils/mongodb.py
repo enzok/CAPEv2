@@ -71,6 +71,7 @@ def mongo_hook(mongo_funcs, collection):
         assert mongo_func in (
             mongo_insert_one,
             mongo_update_one,
+            mongo_find,
             mongo_find_one,
             mongo_delete_data,
         ), f"{mongo_func} can not have hooks applied"
@@ -108,12 +109,21 @@ def mongo_insert_one(collection: str, doc):
 
 
 @graceful_auto_reconnect
-def mongo_find(collection: str, query, projection=False, sort=None):
+def mongo_find(collection: str, query, projection=False, sort=None, limit=None):
     if sort is None:
         sort = [("_id", -1)]
+
+    find_by = functools.partial(getattr(results_db, collection).find, query, sort=sort)
     if projection:
-        return getattr(results_db, collection).find(query, projection, sort=sort)
-    return getattr(results_db, collection).find(query, sort=sort)
+        find_by = functools.partial(find_by, projection=projection)
+    if limit:
+        find_by = functools.partial(find_by, limit=limit)
+
+    result = find_by()
+    if result:
+        for hook in hooks[mongo_find][collection]:
+            result = hook(result)
+    return result
 
 
 @graceful_auto_reconnect

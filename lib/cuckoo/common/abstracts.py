@@ -4,6 +4,8 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 import datetime
+import inspect
+import io
 import logging
 import os
 import socket
@@ -11,6 +13,7 @@ import threading
 import time
 import timeit
 import xml.etree.ElementTree as ET
+from builtins import NotImplementedError
 from pathlib import Path
 from typing import Dict, List
 
@@ -18,6 +21,7 @@ try:
     import dns.resolver
 except ImportError:
     print("Missed dependency -> pip3 install dnspython")
+import PIL
 import requests
 
 from lib.cuckoo.common.config import Config
@@ -31,7 +35,7 @@ from lib.cuckoo.common.exceptions import (
     CuckooReportError,
 )
 from lib.cuckoo.common.integrations.mitre import mitre_load
-from lib.cuckoo.common.path_utils import path_exists
+from lib.cuckoo.common.path_utils import path_exists, path_mkdir
 from lib.cuckoo.common.url_validate import url as url_validator
 from lib.cuckoo.common.utils import create_folder, get_memdump_path, load_categories
 from lib.cuckoo.core.database import Database
@@ -195,17 +199,28 @@ class Machinery:
                 continue
 
     def _initialize_check(self):
-        """Runs checks against virtualization software when a machine manager
-        is initialized.
-        @note: in machine manager modules you may override or superclass
-               his method.
-        @raise CuckooMachineError: if a misconfiguration or a unkown vm state
-                                   is found.
+        """Runs checks against virtualization software when a machine manager is initialized.
+        @note: in machine manager modules you may override or superclass his method.
+        @raise CuckooMachineError: if a misconfiguration or a unkown vm state is found.
         """
         try:
             configured_vms = self._list()
         except NotImplementedError:
             return
+
+        # If machinery_screenshots are enabled, check the machinery supports it.
+        if cfg.cuckoo.machinery_screenshots:
+            # inspect function members available on the machinery class
+            cls_members = inspect.getmembers(self.__class__, predicate=inspect.isfunction)
+            for name, function in cls_members:
+                if name != Machinery.screenshot.__name__:
+                    continue
+                if Machinery.screenshot == function:
+                    msg = f"machinery {self.module_name} does not support machinery screenshots"
+                    raise CuckooCriticalError(msg)
+                break
+            else:
+                raise NotImplementedError(f"missing machinery method: {Machinery.screenshot.__name__}")
 
         for machine in self.machines():
             # If this machine is already in the "correct" state, then we
@@ -242,19 +257,24 @@ class Machinery:
             label=label, platform=platform, tags=tags, arch=arch, include_reserved=include_reserved, os_version=os_version
         )
 
-    def acquire(self, machine_id=None, platform=None, tags=None, arch=None, os_version=[]):
+    def acquire(self, machine_id=None, platform=None, tags=None, arch=None, os_version=[], need_scheduled=False):
         """Acquire a machine to start analysis.
         @param machine_id: machine ID.
         @param platform: machine platform.
         @param tags: machine tags
         @param arch: machine arch
+        @param os_version: tags to filter per OS version. Ex: winxp, win7, win10, win11
+        @param need_scheduled: should the result be filtered on 'scheduled' machine status        
         @return: machine or None.
         """
         if machine_id:
-            return self.db.lock_machine(label=machine_id)
+            return self.db.lock_machine(label=machine_id, need_scheduled=need_scheduled)
         elif platform:
-            return self.db.lock_machine(platform=platform, tags=tags, arch=arch, os_version=os_version)
-        return self.db.lock_machine(tags=tags, arch=arch, os_version=os_version)
+            return self.db.lock_machine(platform=platform, tags=tags, arch=arch, os_version=os_version, need_scheduled=need_scheduled)
+        return self.db.lock_machine(tags=tags, arch=arch, os_version=os_version, need_scheduled=need_scheduled)
+
+    def get_machines_scheduled(self):
+        return self.db.get_machines_scheduled()
 
     def release(self, label=None):
         """Release a machine.
@@ -267,6 +287,14 @@ class Machinery:
         @return: running virtual machines list.
         """
         return self.db.list_machines(locked=True)
+
+    def screenshot(self, label, path):
+        """Screenshot a running virtual machine.
+        @param label: machine name
+        @param path: where to store the screenshot
+        @raise NotImplementedError
+        """
+        raise NotImplementedError
 
     def shutdown(self):
         """Shutdown the machine manager. Kills all alive machines.
@@ -468,6 +496,34 @@ class LibVirtMachinery(Machinery):
 
         # Free handlers.
         self.vms = None
+
+    def screenshot(self, label, path):
+        """Screenshot a running virtual machine.
+        @param label: machine name
+        @param path: where to store the screenshot
+        """
+        conn = self._connect()
+        try:
+            vm = conn.lookupByName(label)
+        except libvirt.libvirtError as e:
+            raise CuckooMachineError(f"Error screenshotting virtual machine {label}: {e}") from e
+        stream0, screen = conn.newStream(), 0
+        # ignore the mime type returned by the call to screenshot()
+        _ = vm.screenshot(stream0, screen)
+
+        buffer = io.BytesIO()
+
+        def stream_handler(_, data, buffer):
+            buffer.write(data)
+
+        folder_name, _ = path.rsplit("/", 1)
+        if not path_exists(folder_name):
+            path_mkdir(folder_name, parent=True, exist_ok=True)
+
+        stream0.recvAll(stream_handler, buffer)
+        stream0.finish()
+        streamed_img = PIL.Image.open(buffer)
+        streamed_img.convert(mode="RGB").save(path)
 
     def dump_memory(self, label, path):
         """Takes a memory dump.

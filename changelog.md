@@ -1,3 +1,77 @@
+### [10.01.2024]
+* Monitor updates:
+    * Further process dump filter hardening
+    * Fix dotnet cache dumps
+
+### [05.01.2024]
+* Monitor updates: fix a couple of issues affecting detonation (see capemon repo for details)
+
+### [08.12.2023]
+* Monitor updates:
+    * Expand procdump config option to allow forced procdumps irrespective of code section changes (procdump=2)
+    * Improve dumping of images with missing section addresses (e.g. VMP)
+
+### [07.12.2023]
+* Monitor update: fix bug in dumping malformed PEs
+
+### [05.12.2023]
+* Monitor updates: 
+    * Process dump filter enhancements & fix
+    * Enhanced checks (parent process path) for service hookset assignment
+    * Misc fixes
+
+### [04.12.2023] IPinfo.io database integration
+* Introduce support for IPinfo.io database. You can download database [here](https://ipinfo.io/account/data-downloads).
+* To enable it:
+    * `conf/processing.conf` -> `network` -> `country_lookup = yes` and point `maxmind_database` to proper file.
+
+### [30.11.2023]
+* Monitor update: Fix bug affecting some process dumps
+
+### [29.11.2023] Unify download services
+* Virustotal config moved from `auxiliary.conf` to `web.conf` under `download_services`
+
+### [24.11.2023]
+* AsyncRAT config parser overhaul
+* Monitor update: Debugger tweaks
+
+### [17.11.2023]
+* Monitor update: Debugger fixes & enhancements (action target registers can be pointers when within [], e.g. action2=string:[esp])
+
+### [14.11.2023]
+* Monitor update: Small detonation fix
+* Formbook detonation & config tweaks
+
+### [7.11.2023]
+* Monitor updates: Misc debugger tweaks
+* XWorm config extraction
+
+### [3.11.2023]
+* Monitor updates:
+    * New debugger actions: 'setsrc' & 'setdst' to set values pointed at by instruction operands
+    * Improve filtering of uninteresting process dumps
+    * Misc fixes/improvements
+
+### [1.11.2023] ZPAQ Support
+* __ACTION REQUIRED__
+    * `sudo apt install zpaq`
+    * as cape user: `poetry install`
+
+### [20.10.2023]
+* Monitor fixes: address new issue affecting procdump and add check in compileMethod hook
+
+### [19.10.2023]
+* Monitor update:
+    * Unpacker: reduce/filter unwanted .NET payloads
+
+### [13.10.2023]
+* Formbook updates
+* Monitor updates:
+    * NtContinueEx hook
+    * Debugger action enhancements: setptr, patch, sleep, exit
+    * Software breakpoint handler enhancement
+    * Misc fixes/improvements
+
 ### [11.10.2023]
 * Formbook config extraction
 * Monitor updates:
@@ -778,10 +852,10 @@ db.createUser(
     * __REQUIRED ACTION:__ -> `poetry run pip install ujson -U`
 
 
-### [23-03-2021] API Suscription
+### [23-03-2021] API Subscription
 * Default 5/m, it can be changed using Django Admin in user profile. ratelimit is deprecated
 * This was done with huge help from those writeups
-    - [How to add susctiption based throtting to django](https://dev.to/mattschwartz/how-to-add-subscription-based-throttling-to-a-django-api-28j0)
+    - [How to add subscription based throtting to django](https://dev.to/mattschwartz/how-to-add-subscription-based-throttling-to-a-django-api-28j0)
     - [How to add custom fields to user profile](https://simpleisbetterthancomplex.com/tutorial/2016/11/23/how-to-add-user-profile-to-django-admin.html)
 
 * __REQUIRED ACTION:__ -> `cd web && python3 manage.py migrate`

@@ -33,6 +33,7 @@ AUTHOR = "sysopfb"
 
 
 def find_iv(img):
+    iv = b""
     temp = re.findall(rb"\x68...\x00.{1,10}\x68...\x00\x68...\x00\x68...\x00\x03\xc1", img)
     if temp != []:
         (addr,) = struct.unpack_from("<I", temp[0][1:])
@@ -141,16 +142,21 @@ def decoder(data):
     key = find_key(img)
     iv = find_iv(img)
     confs = find_conf(img)
-    if iv not in (b"", -1) and confs != []:
+    if iv and iv not in (b"", -1) and confs != []:
         for conf in confs:
-            dec = DES3.new(key, DES3.MODE_CBC, iv)
-            temp = dec.decrypt(conf)
-            temp = unpad(temp, 8)
-            urls.append(b"http://" + temp)
+            try:
+                dec = DES3.new(key, DES3.MODE_CBC, iv)
+                temp = dec.decrypt(conf)
+                temp = unpad(temp, 8)
+                urls.append(b"http://" + temp)
+            except ValueError:
+                # wrong padding
+                pass
     return urls
 
 
 def extract_config(filebuf):
+
     urls = decoder(filebuf)
     return {"address": [url.decode() for url in urls]}
 

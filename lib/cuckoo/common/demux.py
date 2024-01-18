@@ -15,6 +15,7 @@ from lib.cuckoo.common.quarantine import unquarantine
 from lib.cuckoo.common.trim_utils import trim_file, trimmed_path
 from lib.cuckoo.common.utils import get_options, get_platform, sanitize_filename
 
+sfFile = False
 sf_version = ""
 try:
     from sflock import __version__ as sf_version
@@ -25,7 +26,7 @@ try:
 
     HAS_SFLOCK = True
 except ImportError:
-    print("You must install sflock\nsudo apt-get install p7zip-full lzip rar unace-nonfree cabextract\npoetry install")
+    print("\n\n[!] Missde dependencies. Run: poetry install\n\n")
     HAS_SFLOCK = False
 
 if sf_version and int(sf_version.split(".")[-1]) < 42:
@@ -162,6 +163,8 @@ def is_valid_type(magic: str) -> bool:
 
 def is_valid_package(package: str) -> bool:
     # check if the file has a valid package type
+    if not package:
+        return False
     return any(ptype in package for ptype in VALID_PACKAGES)
 
 
@@ -174,6 +177,8 @@ def _sf_children(child: sfFile) -> bytes:
         or is_valid_package(child.package)
         or is_valid_type(child.magic)
         or (not ext and is_valid_type(child.magic))
+        # msix
+        or all([pattern in child.contents for pattern in (b"Registry.dat", b"AppxManifest.xml")])
     ):
         target_path = os.path.join(tmp_path, "cuckoo-sflock")
         if not path_exists(target_path):
@@ -231,13 +236,17 @@ def demux_sample(filename: bytes, package: str, options: str, use_sflock: bool =
     retlist = []
     # if a package was specified, trim if allowed and required
     if package:
-        if File(filename).get_size() <= web_cfg.general.max_sample_size or (
-            web_cfg.general.allow_ignore_size and "ignore_size_check" in options
-        ):
-            retlist.append((filename, platform))
+
+        if package in ("msix",):
+            retlist.append((filename, "windows"))
         else:
-            if web_cfg.general.enable_trim and trim_file(filename):
-                retlist.append((trimmed_path(filename), platform))
+            if File(filename).get_size() <= web_cfg.general.max_sample_size or (
+                web_cfg.general.allow_ignore_size and "ignore_size_check" in options
+            ):
+                retlist.append((filename, platform))
+            else:
+                if web_cfg.general.enable_trim and trim_file(filename):
+                    retlist.append((trimmed_path(filename), platform))
         return retlist
 
     # handle quarantine files

@@ -106,6 +106,7 @@ def install(enabled, force, rewrite, filepath: str = False, access_token=None, p
         "integrations": "lib/cuckoo/common/integrations",
         "mitre": "data/mitre",
         "yara": "data/yara",
+        "utils": "utils",
     }
 
     members = t.getmembers()
@@ -159,12 +160,15 @@ def install(enabled, force, rewrite, filepath: str = False, access_token=None, p
                 if not path_exists(os.path.dirname(filepath)):
                     path_mkdir(os.path.dirname(filepath))
 
-                print(f'File "{filepath}" {colors.green("installed")}')
-                open(filepath, "wb").write(t.extractfile(member).read())
+                try:
+                    with open(filepath, "wb") as f:
+                        f.write(t.extractfile(member).read())
+                    print(f'File "{filepath}" {colors.green("installed")}')
+                except PermissionError:
+                    print(colors.red(f"Fix permission on: {filepath}"))
 
 
 def main():
-
     parser = argparse.ArgumentParser()
     parser.add_argument("-a", "--all", help="Download everything", action="store_true", required=False)
     parser.add_argument("-cm", "--common", help="Download CAPE common modules", action="store_true", required=False)
@@ -203,6 +207,7 @@ def main():
     )
     parser.add_argument("--proxy", help="Proxy to use. Ex http://127.0.0.1:8080", action="store", required=False)
     parser.add_argument("-y", "--yara", help="Download YARA rules", action="store_true", required=False)
+    parser.add_argument("-ut", "--utils", help="Download community utilities", action="store_true", required=False)
     args = parser.parse_args()
 
     enabled = []
@@ -219,8 +224,9 @@ def main():
             "integrations",
             "mitre",
             "common",
+            "utils",
         ]
-        flare_capa()
+        flare_capa(args.proxy)
     else:
         if args.feeds:
             enabled.append("feeds")
@@ -245,6 +251,8 @@ def main():
             enabled.append("integrations")
         if args.mitre_offline:
             enabled.append("mitre")
+        if args.utils:
+            enabled.append("utils")
 
     if args.capa_rules:
         flare_capa(args.proxy)

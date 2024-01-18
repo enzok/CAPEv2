@@ -229,15 +229,16 @@ class CAPE(Processing):
                     with suppress(UnicodeDecodeError):
                         with open(file_info["path"], "r") as drop_open:
                             filedata = drop_open.read(buf_size + 1)
-                        filedata = wide2str(filedata)
-                        file_info["data"] = convert_to_printable_and_truncate(filedata, buf_size)
+                            filedata = wide2str(filedata)
+                            file_info["data"] = convert_to_printable_and_truncate(filedata, buf_size)
 
             self.results.setdefault("dropped", []).append(file_info)
         elif processing_conf.CAPE.procdump and category == "procdump":
             if any(texttype in file_info["type"] for texttype in texttypes):
-                with open(file_info["path"], "r") as drop_open:
-                    filedata = drop_open.read(buf_size + 1)
-                file_info["data"] = convert_to_printable_and_truncate(filedata, buf_size)
+                with suppress(UnicodeDecodeError):
+                    with open(file_info["path"], "r") as drop_open:
+                        filedata = drop_open.read(buf_size + 1)
+                        file_info["data"] = convert_to_printable_and_truncate(filedata, buf_size)
             if file_info.get("pid"):
                 _ = cape_name_from_yara(file_info, file_info["pid"], self.results)
 
@@ -249,9 +250,6 @@ class CAPE(Processing):
                 self.add_statistic_tmp("flare_capa", "time", pretime)
 
             self.results.setdefault(category, []).append(file_info)
-
-        # Get the file data
-        file_data = Path(file_info["path"]).read_bytes()
 
         # Process CAPE Yara hits
         # Prefilter extracted data + beauty is better than oneliner:
@@ -272,8 +270,12 @@ class CAPE(Processing):
                     )
                 )
 
-        for yara in file_info["cape_yara"]:
-            all_files.append((file_info["path"], file_data, yara))
+        # Get the file data
+        file_data = None
+        if path_exists(file_info["path"]):
+            file_data = Path(file_info["path"]).read_bytes()
+            for yara in file_info["cape_yara"]:
+                all_files.append((file_info["path"], file_data, yara))
 
         executed_config_parsers = collections.defaultdict(set)
         for tmp_path, tmp_data, hit in all_files:
@@ -300,11 +302,11 @@ class CAPE(Processing):
             if "config" in type_string.lower():
                 append_file = False
             cape_name = File.get_cape_name_from_cape_type(type_string)
-            if cape_name and cape_name not in executed_config_parsers:
+            if cape_name and cape_name not in executed_config_parsers and file_data:
                 tmp_config = static_config_parsers(cape_name, file_info["path"], file_data)
                 if tmp_config:
                     cape_names.add(cape_name)
-                    log.info("CAPE: config returned for: %s", cape_name)
+                    log.debug("CAPE: config returned for: %s", cape_name)
                     self.update_cape_configs(cape_name, tmp_config, file_info)
 
         self.link_configs_to_analysis()
@@ -382,13 +384,13 @@ class CAPE(Processing):
         # look for an existing config matching this cape_name; merge them if found
         for existing_config in self.cape["configs"]:
             if cape_name in existing_config:
-                log.warning("CAPE: data loss may occur, existing config found for: %s", cape_name)
+                log.debug("CAPE: data loss may occur, existing config found for: %s", cape_name)
                 existing_config[cape_name].update(config[cape_name])
                 config = existing_config
                 break
         else:
             # first time a config for this cape_name was seen
-            log.info("CAPE: new config found for: %s", cape_name)
+            log.debug("CAPE: new config found for: %s", cape_name)
             self.cape["configs"].append(config)
 
         # Link the config to the hashes it was generated from.
