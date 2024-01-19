@@ -98,8 +98,8 @@ def extract_config(filebuf):
     rdata_sections = [s for s in pe.sections if s.Name.find(b".rdata") != -1]
     if rdata_sections:
         rdata = rdata_sections[0].get_data()
-        items = (rdata.split(b"\x00"))
-        items = [item for item in items if item != b'']
+        items = rdata.split(b"\x00")
+        items = [item for item in items if item != b""]
         for item in items:
             with suppress(IndexError, UnicodeDecodeError, ValueError):
                 dec = decode_string(item, sbox).decode("utf8")
