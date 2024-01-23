@@ -329,6 +329,7 @@ class RunSignatures:
         self.task = task
         self.results = results
         self.ttps = []
+        self.mbcs = {}
         self.cfg_processing = processing_cfg
         self.analysis_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task["id"]))
 
@@ -593,6 +594,8 @@ class RunSignatures:
                                 for ttp in sig.ttps
                                 if {"ttp": ttp, "signature": sig.name} not in self.ttps
                             ]
+                        if hasattr(sig, "mbcs"):
+                            self.mbcs[sig.name] = sig.mbcs
 
         # Link this into the results already at this point, so non-evented signatures can use it
         self.results["signatures"] = matched
@@ -624,6 +627,8 @@ class RunSignatures:
                                 for ttp in signature.ttps
                                 if {"ttp": ttp, "signature": signature.name} not in self.ttps
                             ]
+                        if hasattr(signature, "mbcs"):
+                            self.mbcs[signature.name] = signature.mbcs
                         signature.matched = True
 
         for signature in self.signatures:
@@ -649,7 +654,7 @@ class RunSignatures:
             malscore = 0.0
 
         self.results["malscore"] = malscore
-        self.results["ttps"] = mapTTP(self.ttps)
+        self.results["ttps"] = mapTTP(self.ttps, self.mbcs)
 
         # Make a best effort detection of malware family name (can be updated later by re-processing the analysis)
         if (
