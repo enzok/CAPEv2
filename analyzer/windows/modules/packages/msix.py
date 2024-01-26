@@ -12,9 +12,8 @@ from lib.common.abstracts import Package
 from lib.common.common import check_file_extension
 from lib.common.exceptions import CuckooPackageError
 from lib.common.zip_utils import (
-    attempt_multiple_passwords,
-    extract_archive,
-    get_file_names,
+    extract_zip,
+    get_zip_file_names,
 )
 
 log = logging.getLogger(__name__)
@@ -23,7 +22,6 @@ class Msix(Package):
     """MSIX/MsixBundle analysis package."""
 
     PATHS = [
-        ("ProgramFiles", "7-Zip", "7z.exe"),
         ("SystemRoot", "sysnative", "WindowsPowerShell", "v*.0", "powershell.exe"),
         ("SystemRoot", "system32", "WindowsPowerShell", "v*.0", "powershell.exe"),
     ]
@@ -41,15 +39,12 @@ class Msix(Package):
         powershell = self.get_path_glob("PowerShell")
         path = check_file_extension(path, ".msix")
         orig_path = Path(path)
-        seven_zip_path = self.get_path_app_in_path("7z.exe")
-        password = self.options.get("password", "infected")
-        file_names = get_file_names(seven_zip_path, path)
+        file_names = get_zip_file_names(path)
         args = ""
 
         if len(file_names) and "config.json" in file_names:
-            try_multiple_passwords = attempt_multiple_passwords(self.options, password)
-            extract_archive(seven_zip_path, path, orig_path.parent, password, try_multiple_passwords)
-            log.info(f"Extracted {len(file_names)} files from {path} to {orig_path.parent}")
+            extract_zip(path, orig_path.parent)
+            log.debug(f"Extracted {len(file_names)} files from {path} to {orig_path.parent}")
 
         with suppress(Exception):
             config_path = str(orig_path.with_name("config.json"))
