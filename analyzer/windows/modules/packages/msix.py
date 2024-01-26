@@ -52,9 +52,7 @@ class Msix(Package):
             log.info(f"Extracted {len(file_names)} files from {path} to {orig_path.parent}")
 
         with suppress(Exception):
-        #try:
             config_path = str(orig_path.with_name("config.json"))
-            log.info(f"Config path: {config_path}")
             with open(config_path, "r") as config_file:
                 config_data = json.load(config_file)
                 script_paths = []
@@ -64,9 +62,7 @@ class Msix(Package):
                 if script_paths:
                     path = str(orig_path.with_name(script_paths[0]))
                     args = f'-NoProfile -ExecutionPolicy bypass -File "{path}"'
-                    log.info(f"MSIX contains script {path}")
-        #except Exception as e:
-        #    raise CuckooPackageError(f"Failed msix extraction: {e}")
+                    log.debug(f"msix file contains script {path}")
 
         if not args:
             ps_version = "5"
