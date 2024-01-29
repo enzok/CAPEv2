@@ -10,8 +10,8 @@ from pathlib import Path
 from lib.common.abstracts import Package
 from lib.common.common import check_file_extension
 from lib.common.zip_utils import extract_zip, get_zip_file_names
-
 log = logging.getLogger(__name__)
+
 
 class Msix(Package):
     """MSIX/MsixBundle analysis package."""
