@@ -1,7 +1,6 @@
-import contextlib
 import logging
-import mmap
 import os.path
+from pathlib import Path
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
@@ -13,6 +12,9 @@ HAVE_FLOSS = False
 try:
     HAVE_FLOSS = True
     import floss.main as fm
+    import floss.language.utils as fl_utils
+    import floss.language.go.extract as go_extract
+    import floss.language.rust.extract as rust_extract
 except ImportError:
     print("Missed dependency flare-floss: poetry run pip install -U flare-floss")
 
@@ -45,7 +47,8 @@ class Floss:
             return
 
         try:
-            if not fm.is_supported_file_type(self.file_path):
+            file_path = Path(self.file_path)
+            if not fm.is_supported_file_type(file_path):
                 if self.package == "Shellcode":
                     fileformat = "sc32"
                 elif self.package == "Shellcode_x64":
@@ -61,12 +64,25 @@ class Floss:
             results = {}
 
             if processing_cfg.floss.static_strings:
-                with open(self.file_path, "rb") as f:
-                    with contextlib.closing(mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ)) as buf:
-                        tmpres["static_strings"] = list(fm.extract_ascii_unicode_strings(buf, min_length))
+                static_strings = list(fm.get_static_strings(file_path, min_length))
+                tmpres["static_strings"] = static_strings
 
-            sigspath = fm.get_signatures(os.path.join(CUCKOO_ROOT, processing_cfg.floss.sigs_path))
-            vw = fm.load_vw(self.file_path, fileformat, sigspath, False)
+                lang_id, lang_version = fm.identify_language_and_version(file_path, static_strings)
+                if lang_id.value == fm.Language.GO.value:
+                    language_strings = go_extract.extract_go_strings(file_path, min_length)
+                    string_blob_strings = go_extract.get_static_strings_from_blob_range(file_path, static_strings)
+                    language_strings_missed = fl_utils.get_missed_strings(string_blob_strings, language_strings, min_length)
+                    tmpres["go_strings"].append(language_strings)
+                    tmpres["go_strings"].append(language_strings_missed)
+                elif lang_id.value == fm.Language.RUST.value:
+                    language_strings = rust_extract.extract_rust_strings(file_path, min_length)
+                    rdata_strings = rust_extract.get_static_strings_from_rdata(file_path, static_strings)
+                    language_strings_missed = fl_utils.get_missed_strings(rdata_strings, language_strings, min_length)
+                    tmpres["rust_strings"].append(language_strings)
+                    tmpres["rust_strings"].append(language_strings_missed)
+
+            sigspath = fm.get_signatures(Path(os.path.join(CUCKOO_ROOT, processing_cfg.floss.sigs_path)))
+            vw = fm.load_vw(file_path, fileformat, sigspath, False)
 
             try:
                 selected_functions = fm.select_functions(vw, None)

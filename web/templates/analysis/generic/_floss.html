@@ -36,6 +36,24 @@
             </div>
         {% endif %}
 
+        {% if file.floss.go_strings %}
+        <h4>GO Strings</h4>
+            <div class="well" style="font-family: monospace;">
+                {% for string in file.floss.go_strings %}
+                    <div>{{string}}</div>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        {% if file.floss.rust_strings %}
+        <h4>RUST Strings</h4>
+            <div class="well" style="font-family: monospace;">
+                {% for string in file.floss.rust_strings %}
+                    <div>{{string}}</div>
+                {% endfor %}
+            </div>
+        {% endif %}
+
         {% if file.floss.msg %}
         <div class="well" style="font-family: monospace;">
             <div>{{file.floss.msg}}</div>
