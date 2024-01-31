@@ -104,6 +104,7 @@ texttypes = [
     "Windows Registry text",
     "XML document text",
     "Unicode text",
+    "JSON data",
 ]
 
 
