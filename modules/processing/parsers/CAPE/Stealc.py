@@ -10,8 +10,8 @@ def extract_config(data):
                 domain = line
             if line.startswith("/") and line[-4] == ".":
                 uri = line
-         if domain and uri:
-             C2s = [f"{domain}{uri}"]
+        if domain and uri:
+            C2s = [f"{domain}{uri}"]
     except Exception:
         return
     config_dict["C2s"] = C2s
