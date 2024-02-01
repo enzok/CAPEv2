@@ -83,14 +83,7 @@ class Floss:
 
             sigspath = fm.get_signatures(Path(os.path.join(CUCKOO_ROOT, processing_cfg.floss.sigs_path)))
             vw = fm.load_vw(file_path, fileformat, sigspath, False)
-
-            try:
-                selected_functions = fm.select_functions(vw, None)
-            except ValueError as e:
-                # failed to find functions in workspace
-                print(e.args[0])
-                return
-
+            selected_functions = fm.select_functions(vw, None)
             decoding_function_features, library_functions = fm.find_decoding_function_features(
                 vw,
                 selected_functions,

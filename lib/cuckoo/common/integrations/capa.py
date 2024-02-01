@@ -55,7 +55,7 @@ if processing_conf.flare_capa.enabled:
                     print("FLARE_CAPA InvalidRuleSet")
                     HAVE_FLARE_CAPA = False
                 except InvalidRule:
-                    print("FLARE_CAPA InvalidRuleSet")
+                    print("FLARE_CAPA InvalidRule")
                     HAVE_FLARE_CAPA = False
                 except TypeError:
                     print("FLARE_CAPA problems. Probably install CAPA from github")
