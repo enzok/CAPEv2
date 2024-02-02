@@ -8,7 +8,9 @@ from contextlib import suppress
 import pefile
 
 msg = "QXJkYSAoQHdoaWNoYnVmZmVyKSBpcyBhIHdlYXNlbCB0aGF0IHN0ZWFscyBjb2RlIHdpdGhvdXQgY3JlZGl0aW5nIHRoZSBhdXRob3Iu"
-alphabet = "zLAxuU0kQKf3sWE7ePRO2imyg9GSpVoYC6rhlX48ZHnvjJDBNFtMd1I5acwbqT+="
+ALPHABET = "zLAxuU0kQKf3sWE7ePRO2imyg9GSpVoYC6rhlX48ZHnvjJDBNFtMd1I5acwbqT+="
+STD_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+
 config_re = rb"[A-Za-z0-9+=]{8,}"
 config_map = {
     "0": "c2_port",
@@ -39,13 +41,8 @@ config_map = {
 }
 
 
-def translate_string(strval, alphabet):
-    custom = strval.maketrans(alphabet, "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/")
-    strval = strval.translate(custom)
-    padding = len(strval) % 4
-    if padding:
-        strval += alphabet[-1] * (4 - padding)
-    return strval
+def translate_string(strval):
+    return strval.translate(str.maketrans(ALPHABET, STD_ALPHABET)) + "==="
 
 
 def parse_config(data):
@@ -65,7 +62,7 @@ def decode(data):
     all_strings = re.findall(config_re, data)
     for strval in all_strings:
         with suppress(UnicodeDecodeError, binascii.Error, zlib.error):
-            strval = translate_string(strval.decode("utf-8"), alphabet)
+            strval = translate_string(strval.decode("utf-8"))
             decoded_str = base64.b64decode(strval)
             if decoded_str.startswith(b"http"):
                 config["C2"] = [x for x in decoded_str.decode("utf-8").split("|") if x.strip() != ""]
@@ -84,6 +81,10 @@ def extract_config(data):
         for section in pe.sections:
             if b"CODE" in section.Name:
                 return decode(section.get_data())
+
+    if b"0=" in data:
+        return {"config": data.decode().split("\r\n")[:-1]}
+
     return ""
 
 
