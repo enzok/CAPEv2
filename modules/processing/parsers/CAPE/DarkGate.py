@@ -83,7 +83,13 @@ def extract_config(data):
                 return decode(section.get_data())
 
     if b"0=" in data:
-        return {"config": data.decode().split("\r\n")[:-1]}
+        config = {"Other": []}
+        for item in data.split(b"\r\n")[:-1]:
+            if b"0=" in item:
+                config["C2"] = [x for x in item[2:].decode("utf-8").split("|") if x.strip() != ""]
+            else:
+                config["Other"].append(item.decode("utf-8"))
+        return config
 
     return ""
 
