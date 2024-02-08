@@ -85,7 +85,7 @@ def extract_config(data):
     if b"0=" in data:
         config = {"Other": []}
         for item in data.split(b"\r\n")[:-1]:
-            if b"0=" in item:
+            if item.startswith(b"0="):
                 config["C2"] = [x for x in item[2:].decode("utf-8").split("|") if x.strip() != ""]
             else:
                 config["Other"].append(item.decode("utf-8"))
