@@ -12,7 +12,7 @@ ALPHABET = "zLAxuU0kQKf3sWE7ePRO2imyg9GSpVoYC6rhlX48ZHnvjJDBNFtMd1I5acwbqT+="
 STD_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
 
 config_re = rb"[A-Za-z0-9+=]{8,}"
-config_map = {
+config_map_1 = {
     "0": "c2_port",
     "1": "startup_persistence",
     "2": "rootkit",
@@ -40,17 +40,32 @@ config_map = {
     "28": "verify_process_name",
 }
 
+config_map_2 = {
+    "1": "startup_persistence",
+    "3": "check_display",
+    "4": "check_disk",
+    "5": "check_xeon",
+    "6": "check_display",
+    "7": "check_ram",
+    "11": "name",
+    "15": "port",
+    "18": "min_disk_size",
+    "19": "min_ram_size",
+    "27": "GUID_random_seed",
+    "tabla": "tabla",
+}
+
 
 def translate_string(strval):
     return strval.translate(str.maketrans(ALPHABET, STD_ALPHABET)) + "==="
 
 
-def parse_config(data):
+def parse_config(data, conf_map):
     config = {}
     for item in [x for x in data.decode("utf-8").split("\r\n") if x.strip() != ""]:
-        k, v = item.split("=")
+        k, v = item.split("=", 1)
         try:
-            config[config_map[k]] = v
+            config[conf_map[k]] = v
         except KeyError:
             config[f"unknown_{k}"] = v
 
@@ -67,11 +82,11 @@ def decode(data):
             if decoded_str.startswith(b"http"):
                 config["C2"] = [x for x in decoded_str.decode("utf-8").split("|") if x.strip() != ""]
             elif b"1=Yes" in decoded_str or b"1=No" in decoded_str:
-                config.update(parse_config(decoded_str))
+                config.update(parse_config(decoded_str, config_map_1))
             else:
                 decoded_str = zlib.decompress(decoded_str)
                 if b"1=Yes" in decoded_str or b"1=No" in decoded_str:
-                    config.update(parse_config(decoded_str))
+                    config.update(parse_config(decoded_str, config_map_1))
     return config
 
 
@@ -82,13 +97,13 @@ def extract_config(data):
             if b"CODE" in section.Name:
                 return decode(section.get_data())
 
-    if b"0=" in data:
-        config = {"Other": []}
+    if b"1=Yes" in data or b"1=No" in data:
+        config = {}
         for item in data.split(b"\r\n")[:-1]:
             if item.startswith(b"0="):
                 config["C2"] = [x for x in item[2:].decode("utf-8").split("|") if x.strip() != ""]
             else:
-                config["Other"].append(item.decode("utf-8"))
+                config.update(parse_config(item, config_map_2))
         return config
 
     return ""
