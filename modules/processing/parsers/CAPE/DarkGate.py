@@ -51,7 +51,8 @@ config_map_2 = {
     "15": "port",
     "18": "min_disk_size",
     "19": "min_ram_size",
-    "27": "GUID_random_seed",
+    "25": "campaign_id",
+    "27": "xor_key",
     "tabla": "tabla",
 }
 
