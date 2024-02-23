@@ -3,30 +3,32 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 import os
-import xml.etree.ElementTree
+import xml.etree.ElementTree as ET
 
 from lib.cuckoo.common.abstracts import Processing
-from lib.cuckoo.common.path_utils import path_exists
 
 
-class ProcmonLog(list):
+class ProcmonLog:
     """Yield each API call event to the parent handler."""
 
     def __init__(self, filepath):
-        list.__init__(self)
         self.filepath = filepath
 
-    def __next__(self):
-        iterator = xml.etree.ElementTree.iterparse(open(self.filepath, "rb"), events=["end"])
-        for _, element in iterator:
-            if element.tag != "event":
-                continue
+    def __iter__(self):
+        return self.parse_file()
 
-            yield {child.tag: child.text for child in element.getchildren()}
+    def parse_file(self):
+        with open(self.filepath, "r") as file:
+            iterator = ET.iterparse(file, events=["end"])
+            for _, element in iterator:
+                if element.tag != "event":
+                    continue
 
-    def __nonzero__(self):
-        # For documentation on this please refer to MonitorProcessLog.
-        return True
+                yield {child.tag: child.text for child in element}
+
+    def __bool__(self):
+        if not os.path.exists(self.filepath):
+            return
 
 
 class Procmon(Processing):
@@ -35,7 +37,4 @@ class Procmon(Processing):
     def run(self):
         self.key = "procmon"
         procmon_xml = os.path.join(self.analysis_path, "aux/procmon.xml")
-        if not path_exists(procmon_xml):
-            return
-
-        return ProcmonLog(procmon_xml)
+        return list(ProcmonLog(procmon_xml))
