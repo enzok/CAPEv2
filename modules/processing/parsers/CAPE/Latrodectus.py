@@ -16,14 +16,10 @@
 import logging
 import os
 import re
-import sys
+from contextlib import suppress
 
 import pefile
 import yara
-
-from contextlib import suppress
-
-sys.path.append(os.path.join(os.path.abspath(os.path.dirname(__file__)), ".."))
 
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 
@@ -46,34 +42,34 @@ def yara_scan(raw_data):
 
 def prng_seed(seed):
     sub_expr = (seed + 11865) << 31 | (seed + 11865) >> 1
-    expr1 = (sub_expr << 31 | sub_expr >> 1) << 30 & (2 ** 64 - 1)
-    sub_expr = (expr1 & 0xffffffff) | (expr1 >> 32)
-    expr2 = ((sub_expr ^ 0x151d) >> 30) | (4 * (sub_expr ^ 0x151d)) & (2 ** 32 - 1)
+    expr1 = (sub_expr << 31 | sub_expr >> 1) << 30 & (2**64 - 1)
+    sub_expr = (expr1 & 0xFFFFFFFF) | (expr1 >> 32)
+    expr2 = ((sub_expr ^ 0x151D) >> 30) | (4 * (sub_expr ^ 0x151D)) & (2**32 - 1)
 
-    return ((expr2 >> 31) | (2 * expr2)) & 0xffffffff
+    return ((expr2 >> 31) | (2 * expr2)) & 0xFFFFFFFF
 
 
 def decrypt_string(data, type):
-    seed = int.from_bytes(data[:4], "little") & 0xffffffff
-    length = (int.from_bytes(data[4:6], "little")) ^ (int.from_bytes(data[:2], "little")) & 0xffff
+    seed = int.from_bytes(data[:4], "little") & 0xFFFFFFFF
+    length = (int.from_bytes(data[4:6], "little")) ^ (int.from_bytes(data[:2], "little")) & 0xFFFF
     src = data[6:]
     result = bytearray()
 
     if type == 1:
         for i in range(length):
             seed = prng_seed(seed)
-            result.append((seed ^ src[i]) & 0xff)
+            result.append((seed ^ src[i]) & 0xFF)
     elif type == 2:
         for i in range(length):
             seed += 1
-            result.append((seed ^ src[i]) & 0xff)
+            result.append((seed ^ src[i]) & 0xFF)
     return result
 
 
 def fnv_hash(data):
-    decode = 0x811c9dc5
+    decode = 0x811C9DC5
     for key in data:
-        decode = 0x1000193 * (decode ^ key) & 0xffffffff
+        decode = 0x1000193 * (decode ^ key) & 0xFFFFFFFF
     return decode
 
 
@@ -83,14 +79,13 @@ def extract_config(filebuf):
 
     for hit in yara_hit:
         if hit.rule == "Latrodectus":
-            data = None
             try:
                 pe = pefile.PE(data=filebuf, fast_load=True)
                 data_sections = [s for s in pe.sections if s.Name.find(b".data") != -1]
                 if not data_sections:
                     return
                 data = data_sections[0].get_data()
-                hex_pattern = "".join([fr"{byte:02X}" for byte in data[:4]])
+                hex_pattern = "".join([rf"{byte:02X}" for byte in data[:4]])
                 regex = re.compile(hex_pattern.lower())
                 matches = regex.finditer(data.hex())
                 str_vals = []
@@ -116,6 +111,7 @@ def extract_config(filebuf):
                         break
                     else:
                         i += 1
+                campaign = ""
                 if ".exe" in str_vals[i + 2]:
                     campaign = str_vals[i + 1]
                 cfg = {
