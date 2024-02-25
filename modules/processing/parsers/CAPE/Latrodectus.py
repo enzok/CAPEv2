@@ -55,14 +55,12 @@ def decrypt_string(data, type):
     src = data[6:]
     result = bytearray()
 
-    if type == 1:
-        for i in range(length):
+    for i in range(length):
+        if type == 1:
             seed = prng_seed(seed)
-            result.append((seed ^ src[i]) & 0xFF)
-    elif type == 2:
-        for i in range(length):
+        elif type == 2:
             seed += 1
-            result.append((seed ^ src[i]) & 0xFF)
+        result.append((seed ^ src[i]) & 0xFF)
     return result
 
 
