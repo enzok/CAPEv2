@@ -205,6 +205,13 @@ auth_only = no
 rps = 1/s
 #rpm = 10/m
 
+# Pull a EVTX from a specific task
+[taskevtx]
+enabled = yes
+auth_only = no
+rps = 1/s
+#rpm = 10/m
+
 # Pull the dropped files from a specific task
 [taskdropped]
 enabled = yes
@@ -347,3 +354,7 @@ enabled = no
 auth_only = no
 rps = 1/s
 rpm = 4/m
+
+# Allow to request stop of the analysis inside of the VM
+[user_stop]
+enabled = no

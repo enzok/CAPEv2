@@ -67,6 +67,11 @@ ram_boost = no
 # https://capev2.readthedocs.io/en/latest/usage/patterns_replacement.html
 replace_patterns = no
 
+[strace]
+enabled = no
+# Toggle specific modules within the StraceAnalysis class
+processtree = no
+
 [debug]
 enabled = yes
 
@@ -78,6 +83,7 @@ yara = yes
 suricata = yes
 virustotal = no
 clamav = no
+thirdparty_yara = no
 
 # ... but this mechanism may still be switched on
 [procmemory]
