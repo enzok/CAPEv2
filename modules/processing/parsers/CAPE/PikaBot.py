@@ -1,19 +1,28 @@
 import base64
 import logging
-import os
 import re
 import struct
-import yara
 from contextlib import suppress
 from io import BytesIO
 
 import pefile
+import yara
 
-from lib.cuckoo.common.constants import CUCKOO_ROOT
+rule_source = """
+rule PikaBot
+{
+    meta:
+        author = "enzo"
+        description = "Pikabot config extraction"
+        packed = ""
+    strings:
+        $config = {C7 44 24 [3] 00 00 C7 44 24 [4] 00 89 [1-4] ?? E8 [4] 31 C0 C7 44 24 [3] 00 00 89 44 24 ?? C7 04 24 [4] E8}
+    condition:
+        uint16(0) == 0x5A4D and all of them
+}
+"""
 
-yara_path = os.path.join(CUCKOO_ROOT, "data", "yara", "CAPE", "PikaBot.yar")
-with open(yara_path, "r") as yara_rule:
-    yara_rules = yara.compile(source=yara_rule.read())
+yara_rules = yara.compile(source=rule_source)
 
 log = logging.getLogger(__name__)
 
@@ -155,15 +164,15 @@ def extract_config(filebuf):
                 for item in hit.strings:
                     if "$config" == item.identifier:
                         offset = item.instances[0].offset
-                        cfg_va = filebuf[offset + 12: offset + 16]
+                        cfg_va = filebuf[offset + 12 : offset + 16]
                 with suppress(Exception):
                     pe = pefile.PE(data=filebuf, fast_load=True)
                     cfg_offset = pe.get_offset_from_rva(struct.unpack("I", cfg_va)[0] - pe.OPTIONAL_HEADER.ImageBase)
-                    cfg_length = struct.unpack("H", filebuf[cfg_offset + 4: cfg_offset + 6])[0]
+                    cfg_length = struct.unpack("H", filebuf[offset + 4 : offset + 6])[0]
                     break
 
         if cfg_offset:
-            data = filebuf[cfg_offset: cfg_offset + cfg_length]
+            data = filebuf[cfg_offset : cfg_offset + cfg_length]
             with suppress(Exception):
                 config = get_config(data)
                 return config
