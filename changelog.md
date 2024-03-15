@@ -1,3 +1,9 @@
+### [15.03.2024]
+* Monitor update: Further unpacker refinement: Improve filter for unwanted .NET payloads to avoid missing interesting payloads
+
+### [14.03.2024]
+* Monitor update: Unpacker refinement for e.g. Shikata Ga Nai - thanks @para0x0dise
+
 ### [12.03.2024]
 * Monitor update: Initial IPv6 support - thanks @cccs-mog
 * Linux support details can be seen in this [Pull Request](https://github.com/kevoreilly/CAPEv2/pull/2001)
