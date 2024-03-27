@@ -1,7 +1,7 @@
 ## CAPE: Malware Configuration And Payload Extraction - [Documentation](https://capev2.readthedocs.io/en/latest/#)
 
 ### CAPE is a malware sandbox.
-A sandbox is used to execute malicious files in an isolated enviornment
+A sandbox is used to execute malicious files in an isolated environment
 whilst instrumenting their dynamic behaviour and collecting forensic artefacts.
 
 CAPE was derived from Cuckoo v1 which features the following core capabilities
@@ -45,7 +45,7 @@ created by Jurriaan Bremer.
 Around the same time, a fork called [Cuckoo-modified](https://github.com/spender-sandbox/cuckoo-modified)
 was created by Brad 'Spender' Spengler continuing development of the original
 monitor with significant improvements including 64-bit support and importantly
-introducting Microsoft's Visual Studio compiler.
+introducing Microsoft's Visual Studio compiler.
 
 During that same year development of a dynamic command-line configuration and payload
 extraction tool called CAPE was begun at Context Information Security by Kevin O'Reilly.
@@ -92,11 +92,11 @@ Malware can be classified in CAPE via three mechanisms:
 
 ![image](https://github.com/kevoreilly/CAPEv2/assets/22219888/a44f2f8a-10df-47cc-9690-5ef08f04ea6b)
 
-Parsing can be done using either of CAPE's, [RATDecoders](https://github.com/kevthehermit/RATDecoders), [DC3-MWCP](https://github.com/Defense-Cyber-Crime-Center/DC3-MWCP) or [MalDuck](https://github.com/CERT-Polska/malduck/tree/master/malduck/) framework.
+Parsing can be done using CAPE's own framework, alternatively the following frameworks are supported: [RATDecoders](https://github.com/kevthehermit/RATDecoders), [DC3-MWCP](https://github.com/Defense-Cyber-Crime-Center/DC3-MWCP) or [MalDuck](https://github.com/CERT-Polska/malduck/tree/master/malduck/)
 
 #### Special note about config parsing frameworks:
 * Due to the nature of malware, since it changes constantly when any new version is released, something might become broken!
-* We suggest using only pure Python with entry point `def config(data):` that will be called by `cape_utils.py` and 0 complications.
+* We suggest using CAPE's framework which is simply pure Python with entry point `def extract_config(data):` that will be called by `cape_utils.py` and 0 complications.
     * As a bonus, you can reuse your extractors in other projects.
 
 ### Automated Unpacking
@@ -118,14 +118,18 @@ CAPE can be programmed via YARA signature to unpack specific packers. For exampl
 
 ![image](https://github.com/kevoreilly/CAPEv2/assets/22219888/76b2c800-1d96-4ea5-ae86-c261b3946424)
 
-The `dump-on-api` option allows a module to be dumped when it calls a specific API function that can be specified in the web interface (e.g. dump-on-api=DnsQuery_A).
+The `dump-on-api` option allows a module to be dumped when it calls a specific API function that can be specified in the web interface (e.g. `dump-on-api=DnsQuery_A`).
 
 ### [Debugger](https://capev2.readthedocs.io/en/latest/usage/monitor.html)
 The debugger has allowed CAPE to continue to evolve beyond its original capabilities, which now include dynamic anti-evasion bypasses. Since modern malware commonly tries to evade analysis within sandboxes, for example by using timing traps for virtualisation or API hook detection, CAPE allows dynamic countermeasures to be developed combining debugger actions within Yara signatures to detect evasive malware as it detonates, and perform control-flow manipulation to force the sample to detonate fully or skip evasive actions.
 
+![image](https://github.com/kevoreilly/CAPEv2/assets/22219888/801fb4d3-2569-44aa-b40e-d3d5cc7d8bb3)
 ![image](https://github.com/kevoreilly/CAPEv2/assets/22219888/d76da82f-38b7-4cdf-ad9d-f16e8d2dfa66)
 
-Quick access to the debugger is made possible with the breakpoint options `bp0` through `bp3` accepting RVA or VA values to set breakpoints, whereupon a short instruction trace will be output, governed by `count` and `depth` options (e.g. bp0=0x1234,depth=1,count=100). To set a breakpoint at the module entry point, `ep` is used instead of an address (e.g. bp0=ep). Alternatively `break-on-return` allows for a breakpoint on the return address of a hooked API (e.g. break-on-return=NtGetContextThread). An optional `base-on-api` parameter allows the image base for RVA breakpoints to be set by API call (e.g. base-on-api=NtReadFile,bp0=0x2345).
+Quick access to the debugger is made possible with the submission options `bp0` through `bp3` accepting RVA or VA values to set breakpoints, whereupon a short instruction trace will be output, governed by `count` and `depth` options (e.g. `bp0=0x1234,depth=1,count=100`).
+![image](https://github.com/kevoreilly/CAPEv2/assets/22219888/6aa3d31e-cd52-4549-997f-734fb755f10b)
+
+To set a breakpoint at the module entry point, `ep` is used instead of an address (e.g. `bp0=ep`). Alternatively `break-on-return` allows for a breakpoint on the return address of a hooked API (e.g. `break-on-return=NtGetContextThread`). An optional `base-on-api` parameter allows the image base for RVA breakpoints to be set by API call (e.g. `base-on-api=NtReadFile,bp0=0x2345`).
 
 ![image](https://github.com/kevoreilly/CAPEv2/assets/22219888/3acfbde2-68e1-479d-a829-0c9142fb1be7)
 
@@ -150,7 +154,7 @@ A huge thank you to @D00m3dR4v3n for single-handedly porting CAPE to Python 3.
 ## Installation recommendations and scripts for optimal performance
 * __Only rooter should be executed as root__, the rest as __cape__ user. Running as root will mess with permissions.
 1. Become familiar with the [documentation](https://capev2.readthedocs.io/en/latest/) and __do read ALL__ config files inside of `conf` folder!
-2. For best compabitility we strongly suggest installing on [Ubuntu 22.04 LTS](https://ubuntu.com/#download)
+2. For best compabitility we strongly suggest installing on [Ubuntu 22.04 LTS](https://ubuntu.com/#download) and using Windows 10 21H2 as target.
 3. `kvm-qemu.sh` and `cape2.sh` __SHOULD BE__ executed from `tmux` session to prevent any OS problems if ``ssh`` connections breaks.
 4. [KVM](https://github.com/kevoreilly/CAPEv2/blob/master/installer/kvm-qemu.sh) is recommended as the hypervisor.
  * Replace `<username>` with a real pattern.
