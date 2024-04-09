@@ -19,7 +19,7 @@ rule Zloader_Reg_Check
         cape_options = "bp0=$reg_check_1+48,bp0=$reg_check_2+37,action0=seteax:1,count=0"
     strings:
         $reg_check_1 = {FF D0 83 F8 00 0F 94 C0 24 01 88 44 24 ?? 4? 8B [3] B? [9] E8 [4] 4? 89 F1 FF D0 8A [3] 24 01 0F B6 C0}
-   		$reg_check_2 = {B? [4] E8 [4] 8B [3] 89 C2 E8 [4] 4? [4] ff D0 8A [3] 24 01 0F B6 C0}
+   		$reg_check_2 = {B9 [4] E8 [4] 8B [3] 89 C2 E8 [4] 4? [4] ff D0 8A [3] 24 01 0F B6 C0}
     condition:
         uint16(0) == 0x5A4D and any of them
 }
