@@ -10,3 +10,15 @@ rule Zloader
     condition:
         uint16(0) == 0x5A4D and any of them
 }
+
+rule Zloader_Reg_Check
+{
+    meta:
+        author = "enzok"
+        description = "Zloader Registry Check Bypass"
+        cape_options = "bp0=$reg_check+48,action0=seteax:1,count=0"
+    strings:
+        $reg_check = {FF D0 83 F8 00 0F 94 C0 24 01 88 44 24 ?? 4? 8B [3] B? [9] E8 [4] 4? 89 F1 FF D0 8A [3] 24 01 0F B6 C0}
+    condition:
+        uint16(0) == 0x5A4D and any of them
+}
