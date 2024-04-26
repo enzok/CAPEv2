@@ -13,13 +13,14 @@ import pefile
 import socket
 import struct
 import yara
+from contextlib import suppress
 from Cryptodome.Hash import SHA256
 from Cryptodome.Cipher import AES, ARC4
 from Cryptodome.Util.Padding import unpad
 
 try:
     HAVE_BLZPACK = True
-    #from lib.cuckoo.common import blzpack
+    from lib.cuckoo.common import blzpack
 except OSError as e:
     print(f"Problem to import blzpack: {e}")
     HAVE_BLZPACK = False
@@ -268,29 +269,35 @@ def decrypt_data4(data):
 
     return decrypted_data
 
+
 def get_sha256_hash(data):
     sha256 = SHA256.new()
     sha256.update(data)
     return sha256.digest()
 
+
 def decrypt_aes_cbc(encrypted_data, key, iv):
-    cipher = AES.new(key, AES.MODE_CBC, iv)
-    decrypted_data = cipher.decrypt(encrypted_data)
-    return unpad(decrypted_data, AES.block_size)
+    decoded = ""
+    with (suppress(Exception)):
+        cipher = AES.new(key, AES.MODE_CBC, iv)
+        decrypted_data = cipher.decrypt(encrypted_data)
+        decoded = (decrypted_data, AES.block_size)
+
+    return decoded
+
 
 def get_ips(data):
     ip_addresses = []
     segments = data.split(b'\x00')
 
     for segment in segments:
-        try:
+        with suppress(Exception):
             (_, ip_int, port) = struct.unpack('!BIH', segment)
             ip_addr = str(ipaddress.ip_address(ip_int))
             ip_addresses.append(f"{ip_addr}:{port}")
-        except:
-            continue
 
     return ip_addresses
+
 
 def decrypt_strings(data, xor_key):
     decoded_strings = []
@@ -304,17 +311,16 @@ def decrypt_strings(data, xor_key):
         if decoded_byte != 0:
             current_string.append(decoded_byte)
         else:
-            try:
+            with suppress(Exception):
                 dec_str = current_string.decode("utf-8")
                 dec_str = f"{num - len(dec_str)}|{dec_str}"
                 decoded_strings.append(dec_str)
                 current_string.clear()
-            except:
-                continue
         key_index = (key_index + 1) % key_length
         num += 1
 
     return decoded_strings
+
 
 def extract_config(filebuf):
     end_config = {}
@@ -323,6 +329,10 @@ def extract_config(filebuf):
             pe = pefile.PE(data=filebuf, fast_load=False)
             matches = yara_rules.match(data=filebuf)
             if matches:
+                decrypt_offset = ""
+                c2decrypt = ""
+                confdecrypt = ""
+
                 for match in matches:
                     if match.rule != "QakBot5":
                         continue
@@ -333,7 +343,6 @@ def extract_config(filebuf):
                             confdecrypt = item.instances[0].offset
                         elif "$decrypt_str" == item.identifier:
                             decrypt_offset = item.instances[0].offset
-                            enc_strs_size = item.instances[0].offset + 45
 
                 if not (decrypt_offset and c2decrypt and confdecrypt):
                     return
@@ -375,6 +384,8 @@ def extract_config(filebuf):
                 confblob_size = pe.get_word_at_rva(confblob_size_rva)
                 confblob = pe.get_data(confblob_rva, confblob_size)
 
+                ip_list = []
+                config = ""
                 for val in decoded:
                     index, aes_pwd = val.split("|")
                     if index == c2blob_pwd_index:
