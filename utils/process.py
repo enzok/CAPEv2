@@ -32,14 +32,13 @@ log = logging.getLogger()
 sys.path.append(os.path.join(os.path.abspath(os.path.dirname(__file__)), ".."))
 from concurrent.futures import TimeoutError
 
-from lib.cuckoo.common.cleaners_utils import free_space_monitor
 from lib.cuckoo.common.colors import red
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.path_utils import path_delete, path_exists, path_mkdir
-from lib.cuckoo.common.utils import get_options
+from lib.cuckoo.common.utils import free_space_monitor, get_options
 from lib.cuckoo.core.database import TASK_COMPLETED, TASK_FAILED_PROCESSING, TASK_REPORTED, Database, Task
-from lib.cuckoo.core.plugins import RunProcessing, RunReporting, RunSignatures, import_plugin, list_plugins
+from lib.cuckoo.core.plugins import RunProcessing, RunReporting, RunSignatures
 from lib.cuckoo.core.startup import ConsoleHandler, check_linux_dist, init_modules
 
 cfg = Config()
@@ -87,15 +86,14 @@ def get_memory():
 
 
 def process(
-        target=None,
-        sample_sha256=None,
-        task=None,
-        report=False,
-        auto=False,
-        capeproc=False,
-        memory_debugging=False,
-        debug: bool = False,
-        reportname=None,
+    target=None,
+    sample_sha256=None,
+    task=None,
+    report=False,
+    auto=False,
+    capeproc=False,
+    memory_debugging=False,
+    debug: bool = False,
 ):
     # This is the results container. It's what will be used by all the
     # reporting modules to make it consumable by humans and machines.
@@ -111,7 +109,7 @@ def process(
         main_task_id = get_options(task_dict["options"]).get("main_task_id", 0)
 
     # ToDo new logger here
-    per_analysis_handler = init_per_analysis_logging(tid=str(task_id), debug=debug)
+    handlers = init_logging(tid=str(task_id), debug=debug)
     set_formatter_fmt(task_id, main_task_id)
     setproctitle(f"{original_proctitle} [Task {task_id}]")
     results = {"statistics": {"processing": [], "signatures": [], "reporting": []}}
@@ -137,33 +135,7 @@ def process(
         else:
             reprocess = report
 
-        if reportname:
-            # Check if report plugin loaded
-            loaded = False
-            for module in list_plugins(group="reporting") or []:
-                if module.__name__.lower() == reportname:
-                    loaded = True
-                    break
-
-            if not loaded:
-                try:
-                    # Load report plugin
-                    module = None
-                    import_plugin(f"modules.reporting.{reportname}")
-                    loaded = True
-                except Exception as e:
-                    log.info("Skipping report module: %s", reportname)
-
-            if loaded:
-                if not module:
-                    # Get report module updated report plugins list
-                    for module in list_plugins(group="reporting"):
-                        if module.__name__.lower() == reportname:
-                            break
-                RunReporting(task=task.to_dict(), results=results, reprocess=reprocess).process(module, override=True)
-        else:
-            RunReporting(task=task.to_dict(), results=results, reprocess=reprocess).run()
-
+        RunReporting(task=task.to_dict(), results=results, reprocess=reprocess).run()
         Database().set_status(task_id, TASK_REPORTED)
 
         if auto:
@@ -182,7 +154,10 @@ def process(
         for i, obj in enumerate(gc.garbage):
             log.info("(garbage) GC object #%d: type=%s", i, type(obj).__name__)
 
-    log.removeHandler(per_analysis_handler)
+    for handler in handlers:
+        if not handler:
+            continue
+        log.removeHandler(handler)
 
 
 def init_worker():
@@ -205,7 +180,7 @@ def set_formatter_fmt(task_id=None, main_task_id=None):
     FORMATTER._style._fmt = get_formatter_fmt(task_id, main_task_id)
 
 
-def init_logging(debug=False):
+def init_logging(tid=0, debug=False):
 
     # Pyattck creates root logger which we don't want. So we must use this dirty hack to remove it
     # If basicConfig was already called by something and had a StreamHandler added,
@@ -220,6 +195,7 @@ def init_logging(debug=False):
         - ch - console handler
         - slh - syslog handler
         - fh - file handle -> process.log
+        - fhpa - file handler per analysis
     """
 
     ch = ConsoleHandler()
@@ -227,6 +203,7 @@ def init_logging(debug=False):
     log.addHandler(ch)
 
     slh = False
+    fhpa = False
 
     if logconf.logger.syslog_process:
         slh = logging.handlers.SysLogHandler(address=logconf.logger.syslog_dev)
@@ -240,36 +217,12 @@ def init_logging(debug=False):
         path = os.path.join(CUCKOO_ROOT, "log", "process.log")
         if logconf.log_rotation.enabled:
             days = logconf.log_rotation.backup_count or 7
-            interval = logconf.log_rotation.interval
-            fh = logging.handlers.TimedRotatingFileHandler(path, when=interval, backupCount=int(days))
+            fh = logging.handlers.TimedRotatingFileHandler(path, when="midnight", backupCount=int(days))
         else:
             fh = logging.handlers.WatchedFileHandler(path)
 
         fh.setFormatter(FORMATTER)
         log.addHandler(fh)
-    except PermissionError:
-        sys.exit("Probably executed with wrong user, PermissionError to create/access log")
-
-    if debug:
-        log.setLevel(logging.DEBUG)
-    else:
-        log.setLevel(logging.INFO)
-
-    logging.getLogger("urllib3").setLevel(logging.WARNING)
-    return ch, fh, slh
-
-
-def init_per_analysis_logging(tid=0, debug=False):
-    """
-    Handlers:
-        - fhpa - file handler per analysis
-    """
-
-    fhpa = False
-
-    try:
-        if not path_exists(os.path.join(CUCKOO_ROOT, "log")):
-            path_mkdir(os.path.join(CUCKOO_ROOT, "log"))
 
         if logconf.logger.process_analysis_folder:
             path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(tid), "process.log")
@@ -289,14 +242,15 @@ def init_per_analysis_logging(tid=0, debug=False):
     else:
         log.setLevel(logging.INFO)
 
-    return fhpa
+    logging.getLogger("urllib3").setLevel(logging.WARNING)
+    return ch, fh, slh, fhpa
 
 
 def processing_finished(future):
     task_id = pending_future_map.get(future)
     try:
         _ = future.result()
-        log.info("Reports generation completed for Task #%d", task_id)
+        log.info("Reports generation completed")
     except TimeoutError as error:
         log.error("Processing Timeout %s. Function: %s", error, error.args[1])
         Database().set_status(task_id, TASK_FAILED_PROCESSING)
@@ -314,8 +268,7 @@ def processing_finished(future):
 
 
 def autoprocess(
-        parallel=1, failed_processing=False, maxtasksperchild=7, memory_debugging=False, processing_timeout=300,
-        debug: bool = False
+    parallel=1, failed_processing=False, maxtasksperchild=7, memory_debugging=False, processing_timeout=300, debug: bool = False
 ):
     maxcount = cfg.cuckoo.max_analysis_count
     count = 0
@@ -342,8 +295,7 @@ def autoprocess(
                     time.sleep(5)
                     continue
                 if failed_processing:
-                    tasks = db.list_tasks(status=TASK_FAILED_PROCESSING, limit=parallel,
-                                          order_by=Task.completed_on.asc())
+                    tasks = db.list_tasks(status=TASK_FAILED_PROCESSING, limit=parallel, order_by=Task.completed_on.asc())
                 else:
                     tasks = db.list_tasks(status=TASK_COMPLETED, limit=parallel, order_by=Task.completed_on.asc())
                 added = False
@@ -400,6 +352,7 @@ def autoprocess(
 
 
 def _load_report(task_id: int):
+
     if repconf.mongodb.enabled:
         analysis = mongo_find_one("analysis", {"info.id": task_id}, sort=[("_id", -1)])
         for process in analysis.get("behavior", {}).get("processes", []):
@@ -412,8 +365,7 @@ def _load_report(task_id: int):
     if repconf.elasticsearchdb.enabled and not repconf.elasticsearchdb.searchonly:
         try:
             analyses = (
-                es.search(index=get_analysis_index(), query=get_query_by_info_id(task_id),
-                          sort={"info.id": {"order": "desc"}})
+                es.search(index=get_analysis_index(), query=get_query_by_info_id(task_id), sort={"info.id": {"order": "desc"}})
                 .get("hits", {})
                 .get("hits", [])
             )
@@ -451,21 +403,17 @@ def main():
         type=parse_id,
         help="ID of the analysis to process (auto for continuous processing of unprocessed tasks). Can be 1 or 1-10 or 1,3,5,7",
     )
-    parser.add_argument("-c", "--caperesubmit", help="Allow CAPE resubmit processing.", action="store_true",
-                        required=False)
+    parser.add_argument("-c", "--caperesubmit", help="Allow CAPE resubmit processing.", action="store_true", required=False)
     parser.add_argument("-d", "--debug", help="Display debug messages", action="store_true", required=False)
     parser.add_argument("-r", "--report", help="Re-generate report", action="store_true", required=False)
     parser.add_argument(
-        "-p", "--parallel", help="Number of parallel threads to use (auto mode only).", type=int, required=False,
-        default=1
+        "-p", "--parallel", help="Number of parallel threads to use (auto mode only).", type=int, required=False, default=1
     )
     parser.add_argument(
-        "-fp", "--failed-processing", help="reprocess failed processing", action="store_true", required=False,
-        default=False
+        "-fp", "--failed-processing", help="reprocess failed processing", action="store_true", required=False, default=False
     )
     parser.add_argument(
-        "-mc", "--maxtasksperchild", help="Max children tasks per worker", action="store", type=int, required=False,
-        default=7
+        "-mc", "--maxtasksperchild", help="Max children tasks per worker", action="store", type=int, required=False, default=7
     )
     parser.add_argument(
         "-md",
@@ -509,17 +457,7 @@ def main():
         default=False,
         required=False,
     )
-    testing_args.add_argument(
-        "-rn",
-        "--report-name",
-        help="Specify the name of a single report to generate",
-        action="store",
-        default=False,
-        required=False,
-    )
     args = parser.parse_args()
-
-    handlers = init_logging(debug=args.debug)
 
     init_modules()
     if args.id == "auto":
@@ -583,15 +521,9 @@ def main():
                         capeproc=args.caperesubmit,
                         memory_debugging=args.memory_debugging,
                         debug=args.debug,
-                        reportname=args.report_name,
                     )
                 log.debug("Finished processing task")
                 set_formatter_fmt()
-
-    for handler in handlers:
-        if not handler:
-            continue
-        log.removeHandler(handler)
 
 
 if __name__ == "__main__":
