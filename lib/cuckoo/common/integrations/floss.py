@@ -1,4 +1,6 @@
+import contextlib
 import logging
+import mmap
 import os.path
 from pathlib import Path
 
@@ -15,6 +17,7 @@ try:
     import floss.language.utils as fl_utils
     import floss.language.go.extract as go_extract
     import floss.language.rust.extract as rust_extract
+    from floss.strings import extract_ascii_unicode_strings
 except ImportError:
     print("Missed dependency flare-floss: poetry run pip install -U flare-floss")
 
@@ -64,8 +67,10 @@ class Floss:
             results = {}
 
             if processing_cfg.floss.static_strings:
-                static_strings = list(fm.get_static_strings(file_path, min_length))
-                tmpres["static_strings"] = static_strings
+                with open(self.file_path, "rb") as f:
+                    with contextlib.closing(mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ)) as buf:
+                        static_strings = list(extract_ascii_unicode_strings(buf, min_length))
+                        tmpres["static_strings"] = static_strings
 
                 lang_id, lang_version = fm.identify_language_and_version(file_path, static_strings)
                 if lang_id.value == fm.Language.GO.value:
