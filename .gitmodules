@@ -1,3 +1,4 @@
-[submodule "tests/data"]
+
+[submodule "enzo_data"]
 	path = tests/data
 	url = https://github.com/enzok/CAPE-TestFiles.git
