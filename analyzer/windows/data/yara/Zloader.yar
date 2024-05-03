@@ -22,5 +22,5 @@ rule Zloader_2024
         $reg_2 = {B9 [4] E8 [4] 8B [3] 89 C2 E8 [4] 4? [4] ff D0 8A [3] 24 01 0F B6 C0}
         $name_1 = {56 5? 5? 4? 81 EC [4] C7 44 24 ?? 00 00 00 00 4? 8D 0D [4] E8 [4] 4? 89 [3] 4? 83 [3] 00 75}
     condition:
-        uint16(0) == 0x5A4D and any of them
+        uint16(0) == 0x5A4D and 2 of them
 }
