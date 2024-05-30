@@ -1808,7 +1808,7 @@ def tasks_procmemory(request, task_id, pid="all"):
         if USE_SEVENZIP:
             zip_path = os.path.join(analysis_dir, "procdumps.zip")
             try:
-                subprocess.check_call(["/usr/bin/7z", f"-p{settings.ZIP_PWD}", "a", zip_path, srcdir])
+                subprocess.check_call(["/usr/bin/7z", f"-p{settings.ZIP_PWD.decode()}", "a", zip_path, srcdir])
             except subprocess.CalledProcessError:
                 resp = {"error": True, "error_value": "error compressing file"}
                 return Response(resp)
@@ -1831,7 +1831,7 @@ def tasks_procmemory(request, task_id, pid="all"):
             if USE_SEVENZIP:
                 zip_path = os.path.join(analysis_dir, f"{task_id}-{pid}_dmp.zip")
                 try:
-                    subprocess.check_call([SEVENZIP_PATH, f"-p{settings.ZIP_PWD}", "a", zip_path, filepath])
+                    subprocess.check_call([SEVENZIP_PATH, f"-p{settings.ZIP_PWD.decode()}", "a", zip_path, filepath])
                 except subprocess.CalledProcessError:
                     resp = {"error": True, "error_value": "error compressing file"}
                     return Response(resp)
@@ -1931,7 +1931,7 @@ def file(request, stype, value):
 
             if USE_SEVENZIP:
                 try:
-                    subprocess.check_call([SEVENZIP_PATH, f"-p{settings.ZIP_PWD}", "a", zip_path, sample])
+                    subprocess.check_call([SEVENZIP_PATH, f"-p{settings.ZIP_PWD.decode()}", "a", zip_path, sample])
                 except subprocess.CalledProcessError:
                     resp = {"error": True, "error_value": "error compressing file"}
                     return Response(resp)
