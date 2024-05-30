@@ -1569,7 +1569,7 @@ if __name__ == "__main__":
 
     if args.enable_clean:
         cron_cleaner(args.clean_hours)
-        sys.exit()
+        # sys.exit()
 
     if args.force_reported:
         with main_db.session.begin():

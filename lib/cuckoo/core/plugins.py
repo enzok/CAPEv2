@@ -240,6 +240,16 @@ class RunProcessing:
                 if task_info.route == "inetsim":
                     options["inetsim_ip"] = routing_cfg.inetsim.server
 
+        # Check if the module is platform specific, such as strace, to prevent
+        # break processing.
+        try:
+            platform = self.task.get("platform", "")
+            if options.platform and options.platform != platform:
+                return None
+        except Exception as e:
+            log.debug("Platform not found: %s", e)
+            return
+
         # Give it path to the analysis results.
         current.set_path(self.analysis_path)
         # Give it the analysis task object.
