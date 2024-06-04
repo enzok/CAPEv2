@@ -2354,7 +2354,6 @@ class _Database:
         errors = self.session.query(Error).filter_by(task_id=task_id).all()
         return errors
 
-    @classlock
     def reprocess(self, task_id):
         """Reprocess a task.
         @param task_id: ID of the task to reprocess.
@@ -2364,20 +2363,18 @@ class _Database:
         if not task:
             return None
 
-        with self.Session() as session:
-            if self.cfg.cuckoo.process_results:
-                return None
-            else:
-                session.query(Task).get(task_id).status = TASK_COMPLETED
-            try:
-                session.commit()
-            except SQLAlchemyError as e:
-                log.debug("Database error reprocessing task: {0}".format(e))
-                session.rollback()
-                return False
+        if self.cfg.cuckoo.process_results:
+            return None
+        else:
+            self.session.query(Task).get(task_id).status = TASK_COMPLETED
+        try:
+           self.session.commit()
+        except SQLAlchemyError as e:
+           log.debug("Database error reprocessing task: {0}".format(e))
+           self.session.rollback()
+           return False
         return True
 
-    @classlock
     def get_source_url(self, sample_id=False):
         """
         Retrieve url from where sample was downloaded
