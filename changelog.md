@@ -1,3 +1,9 @@
+### [12.06.2024]
+* Monitor update: Unpacker enhancement: capture modified mapped images
+
+### [10.06.2024]
+* Monitor update: Fix for 64-bit Firefox
+
 ### [04.06.2024]
 * Monitor update: New hooks (GetAddrInfoExW, CLSIDFromProgIDEx), 64-bit hooking fixes
 
