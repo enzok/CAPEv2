@@ -34,7 +34,6 @@ from lib.cuckoo.common.utils import (
     generate_fake_name,
     get_ip_address,
     get_options,
-    get_platform,
     get_user_filename,
     sanitize_filename,
     store_temp_file,
@@ -560,6 +559,7 @@ def recon(
     tags_tasks,
     route,
     cape,
+    category=None,
 ):
     if not isinstance(filename, str):
         filename = bytes2str(filename)
@@ -579,6 +579,9 @@ def recon(
             # custom packages should be added to lib/cuckoo/core/database.py -> sandbox_packages list
             if "package" in parsed_options:
                 package = parsed_options["package"]
+
+            if "category" in parsed_options:
+                category = parsed_options["category"]
 
     if "name" in lowered_filename:
         orig_options += ",timeout=400,enforce_timeout=1,procmemdump=1,procdump=1"
@@ -604,6 +607,7 @@ def recon(
         enforce_timeout,
         package,
         tags,
+        category,
     )
 
 
@@ -787,6 +791,7 @@ def download_file(**kwargs):
         enforce_timeout,
         package,
         tags,
+        category,
     ) = recon(
         kwargs["path"],
         kwargs["options"],
@@ -813,7 +818,7 @@ def download_file(**kwargs):
         kwargs["task_machines"] = [None]
 
     if DYNAMIC_PLATFORM_DETERMINATION:
-        platform = get_platform(magic_type)
+        platform = File(kwargs["path"]).get_platform()
     if platform == "linux" and not linux_enabled and "Python" not in magic_type:
         return "error", {"error": "Linux binaries analysis isn't enabled"}
 
@@ -863,6 +868,7 @@ def download_file(**kwargs):
             username=username,
             source_url=kwargs.get("source_url", False),
             # parent_id=kwargs.get("parent_id"),
+            category=category,
         )
 
         try:
