@@ -33,7 +33,7 @@ from lib.cuckoo.common.exceptions import (
 from lib.cuckoo.common.integrations.parse_pe import PortableExecutable
 from lib.cuckoo.common.objects import PCAP, URL, File, Static
 from lib.cuckoo.common.path_utils import path_delete, path_exists
-from lib.cuckoo.common.utils import create_folder
+from lib.cuckoo.common.utils import bytes2str, create_folder, get_options
 
 try:
     from sqlalchemy import (
@@ -1342,6 +1342,92 @@ class _Database:
 
         return package, tmp_package
 
+    # Submission hooks to manipulate arguments of tasks execution
+    def recon(
+        self,
+        filename,
+        orig_options,
+        timeout=0,
+        enforce_timeout=False,
+        package="",
+        tags=None,
+        static=False,
+        priority=1,
+        machine="",
+        platform="",
+        custom="",
+        memory=False,
+        clock=None,
+        unique=False,
+        referrer=None,
+        tlp=None,
+        tags_tasks=False,
+        route=None,
+        cape=False,
+        category=None,
+    ):
+
+        # Get file filetype to ensure self extracting archives run longer
+        if not isinstance(filename, str):
+            filename = bytes2str(filename)
+
+        lowered_filename = filename.lower()
+
+        # sfx = File(filename).is_sfx()
+
+        if "malware_name" in lowered_filename:
+            orig_options += "<options_here>"
+        # if sfx:
+        #    orig_options += ",timeout=500,enforce_timeout=1,procmemdump=1,procdump=1"
+        #    timeout = 500
+        #    enforce_timeout = True
+
+        if web_conf.general.yara_recon:
+            hits = File(filename).get_yara("binaries")
+            for hit in hits:
+                cape_name = hit["meta"].get("cape_type", "")
+                if not cape_name.endswith(("Crypter", "Packer", "Obfuscator", "Loader", "Payload")):
+                    continue
+
+                orig_options_parsed = get_options(orig_options)
+                parsed_options = get_options(hit["meta"].get("cape_options", ""))
+                if "tags" in parsed_options:
+                    tags = "," + parsed_options["tags"] if tags else parsed_options["tags"]
+                    del parsed_options["tags"]
+                # custom packages should be added to lib/cuckoo/core/database.py -> sandbox_packages list
+                if "package" in parsed_options:
+                    package = parsed_options["package"]
+                    del parsed_options["package"]
+
+                if "category" in parsed_options:
+                    category = parsed_options["category"]
+                    del parsed_options["category"]
+
+                orig_options_parsed.update(parsed_options)
+                orig_options = ",".join([f"{k}={v}" for k, v in orig_options_parsed.items()])
+
+        return (
+            static,
+            priority,
+            machine,
+            platform,
+            custom,
+            memory,
+            clock,
+            unique,
+            referrer,
+            tlp,
+            tags_tasks,
+            route,
+            cape,
+            orig_options,
+            timeout,
+            enforce_timeout,
+            package,
+            tags,
+            category,
+        )
+
     def demux_sample_and_add_to_db(
         self,
         file_path,
@@ -1385,10 +1471,38 @@ class _Database:
         if not isinstance(file_path, bytes):
             file_path = file_path.encode()
 
+        (
+            static,
+            priority,
+            machine,
+            platform,
+            custom,
+            memory,
+            clock,
+            unique,
+            referrer,
+            tlp,
+            tags_tasks,
+            route,
+            cape,
+            options,
+            timeout,
+            enforce_timeout,
+            package,
+            tags,
+            category,
+        ) = self.recon(file_path, options)
+
         if category == "static":
             # force change of category
             task_ids += self.add_static(
-                file_path=file_path, priority=priority, tlp=tlp, user_id=user_id, username=username, options=options
+                file_path=file_path,
+                priority=priority,
+                tlp=tlp,
+                user_id=user_id,
+                username=username,
+                options=options,
+                package=package,
             )
             return task_ids, details
 
