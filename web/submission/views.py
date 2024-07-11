@@ -118,9 +118,9 @@ def force_int(value):
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def index(request, task_id=None, resubmit_hash=None):
     remote_console = False
-    submitter = []
-    if request.META["HTTP_X_REMOTE_USER"] and web_conf.submitter.enabled:
-        submitter = request.META["HTTP_X_REMOTE_USER"]
+    submitter = ""
+    if web_conf.submitter.enabled:
+        submitter = request.user.username
     if request.method == "POST":
         (
             static,
@@ -673,7 +673,6 @@ def remote_session(request, task_id):
         return render(request, "error.html", {"error": "The specified task doesn't seem to exist."})
 
     machine_status = False
-    label = ""
     session_data = ""
 
     if task.status == "running":

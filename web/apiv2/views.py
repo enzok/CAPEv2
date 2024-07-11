@@ -1037,7 +1037,7 @@ def tasks_delete(request, task_id, status=False):
     example: 1 or 1,2,3,4 or 1-4
 
     """
-    if not (apiconf.taskdelete.get("enabled")):
+    if not (apiconf.taskdelete.get("enabled") or request.user.is_staff):
         resp = {"error": True, "error_value": "Task Deletion API is Disabled"}
         return Response(resp)
 
