@@ -8,6 +8,7 @@ import shlex
 import shutil
 import signal
 import subprocess
+from contextlib import suppress
 from pathlib import Path
 from typing import DefaultDict, List, Optional, Set, Union
 
@@ -45,7 +46,7 @@ from lib.cuckoo.common.path_utils import (
 from lib.cuckoo.common.utils import get_options, is_text_file
 
 try:
-    from sflock import unpack, magic
+    from sflock import unpack
 
     HAVE_SFLOCK = True
 except ImportError:
@@ -68,6 +69,12 @@ try:
     from modules.signatures.recon_checkip import dns_indicators
 except ImportError:
     dns_indicators = ()
+
+HAVE_DIE = False
+with suppress(ImportError):
+    import die
+
+    HAVE_DIE = True
 
 
 HAVE_FLARE_CAPA = False
@@ -229,7 +236,7 @@ def static_file_info(
         if processing_conf.trid.enabled:
             data_dictionary["trid"] = trid_info(file_path)
 
-        if processing_conf.die.enabled:
+        if processing_conf.die.enabled and HAVE_DIE:
             data_dictionary["die"] = detect_it_easy_info(file_path)
 
         if HAVE_FLOSS and processing_conf.floss.enabled:
@@ -271,20 +278,20 @@ def detect_it_easy_info(file_path: str):
         return []
 
     try:
-        output = subprocess.check_output(
-            [processing_conf.die.binary, "-j", file_path],
-            stderr=subprocess.STDOUT,
-            universal_newlines=True,
-        )
-        if "detects" not in output:
+        try:
+            result_json = die.scan_file(file_path, die.ScanFlags.RESULT_AS_JSON, str(die.database_path / "db"))
+        except Exception as e:
+            log.error("DIE error: %s", str(e))
+
+        if "detects" not in result_json:
             return []
 
-        if "Invalid signature" in output and "{" in output:
-            start = output.find("{")
+        if "Invalid signature" in result_json and "{" in result_json:
+            start = result_json.find("{")
             if start != -1:
-                output = output[start:]
+                result_json = result_json[start:]
 
-        strings = [sub["string"] for block in json.loads(output).get("detects", []) for sub in block.get("values", [])]
+        strings = [sub["string"] for block in json.loads(result_json).get("detects", []) for sub in block.get("values", [])]
 
         if strings:
             return strings
