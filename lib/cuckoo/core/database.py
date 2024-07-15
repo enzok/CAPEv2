@@ -1491,7 +1491,26 @@ class _Database:
             package,
             tags,
             category,
-        ) = self.recon(file_path, options)
+        ) = self.recon(
+            file_path,
+            options,
+            timeout=timeout,
+            enforce_timeout=enforce_timeout,
+            package=package,
+            tags=tags,
+            static=static,
+            priority=priority,
+            machine=machine,
+            platform=platform,
+            custom=custom,
+            memory=memory,
+            clock=clock,
+            tlp=tlp,
+            tags_tasks=tags_tasks,
+            route=route,
+            cape=cape,
+            category=category,
+        )
 
         if category == "static":
             # force change of category
