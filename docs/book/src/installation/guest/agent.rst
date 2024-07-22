@@ -50,6 +50,8 @@ agent not being able to work as intended.
 Windows 10+
 ===========
 
+.. note:: Using the scheduler as documented below is not **strictly necessary**. It is sufficient to take a snapshot with the agent running.
+
 To start the script at boot, you will need to set the agent to be run
 as a scheduler task. Dropping it in
 ``C:\ProgramData\Microsoft\Windows\Start Menu\Programs\StartUp`` will
