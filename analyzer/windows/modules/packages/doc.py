@@ -1,6 +1,7 @@
 # Copyright (C) 2010-2015 Cuckoo Foundation.
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
+import os
 
 from lib.common.abstracts import Package
 from lib.common.common import check_file_extension
@@ -11,7 +12,9 @@ from lib.common.exceptions import CuckooPackageError
 class DOC(Package):
     """Word analysis package."""
 
-    default_curdir = MSOFFICE_TRUSTED_PATH
+    for trusted_path in MSOFFICE_TRUSTED_PATH:
+       if os.path.exists(trusted_path):
+           default_curdir = trusted_path
 
     def __init__(self, options=None, config=None):
         if options is None:
