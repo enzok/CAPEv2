@@ -19,6 +19,7 @@ class DOC2016(Package):
         self.options = options
 
     PATHS = [
+        ("ProgramFiles", "Microsoft Office", "Office*", "WINWORD.EXE"),
         ("ProgramFiles", "Microsoft Office*", "root", "Office16", "WINWORD.EXE"),
     ]
     summary = "Opens a document file with WINWORD.EXE."
