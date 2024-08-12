@@ -71,3 +71,8 @@ bpf = not arp
 
 [tracee]
 enabled = no
+
+[QemuScreenshots]
+# Enable or disable the use of QEMU as screenshot capture [yes/no].
+# screenshots_linux and screenshots_windows must be disabled
+enabled = no
