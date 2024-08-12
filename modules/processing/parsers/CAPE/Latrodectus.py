@@ -57,9 +57,9 @@ def decrypt_string(data, type):
 
     for i in range(length):
         if type == 1:
-            seed = prng_seed(seed)
-        elif type == 2:
             seed += 1
+        elif type == 2:
+            seed = prng_seed(seed)
         result.append((seed ^ src[i]) & 0xFF)
     return result
 
@@ -73,10 +73,18 @@ def fnv_hash(data):
 
 def extract_config(filebuf):
     yara_hit = yara_scan(filebuf)
-    cfg = {}
 
     for hit in yara_hit:
-        if hit.rule == "Latrodectus":
+        if "Latrodectus" in hit.rule:
+            cfg = {}
+            version = ""
+            for item in hit.strings:
+                for instance in item.instances:
+                    if "$version" in item.identifier and not version:
+                        data = instance.matched_data[::-1]
+                        major = int.from_bytes(data[3:4], byteorder="big")
+                        minor = int.from_bytes(data[11:12], byteorder="big")
+                        version = f"{major}.{minor}"
             try:
                 pe = pefile.PE(data=filebuf, fast_load=True)
                 data_sections = [s for s in pe.sections if s.Name.find(b".data") != -1]
@@ -89,33 +97,35 @@ def extract_config(filebuf):
                 str_vals = []
                 c2 = []
                 campaign = ""
+                rc4_key = ""
 
                 for match in matches:
                     str_val = ""
                     i = match.start() // 2
                     with suppress(Exception):
-                        str_val = decrypt_string(data[i:], 1).decode("utf-8").replace("\00", "")
+                        str_val = decrypt_string(data[i:], 1).decode("ascii").replace("\00", "")
                     if not str_val:
                         with suppress(Exception):
-                            str_val = decrypt_string(data[i:], 2).decode("utf-8").replace("\00", "")
+                            str_val = decrypt_string(data[i:], 2).decode("ascii").replace("\00", "")
                     if str_val:
                         if "http" in str_val:
                             c2.append(str_val)
                         else:
                             str_vals.append(str_val)
 
-                i = 0
-                for val in str_vals:
+                for i in range(len(str_vals) - 1):
+                    val = str_vals[i]
                     if "/files/" in val:
                         campaign = str_vals[i + 1]
-                        break
-                    else:
-                        i += 1
+                    elif "ERROR" in val:
+                        rc4_key = str_vals[i + 1]
 
                 cfg = {
                     "C2": c2,
                     "Group name": campaign,
                     "Campaign ID": fnv_hash(campaign.encode()),
+                    "Version": version,
+                    "RC4 key": rc4_key,
                     "Strings": str_vals,
                 }
             except Exception as e:
