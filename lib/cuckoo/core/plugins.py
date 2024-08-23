@@ -695,7 +695,7 @@ class RunReporting:
 
     def __init__(self, task, results, reprocess=False):
         """@param task: analysis task id.
-        @param results: results results from analysis.
+        @param results: results from analysis.
         @param reprocess: reprocess task.
         """
         self.task = task
