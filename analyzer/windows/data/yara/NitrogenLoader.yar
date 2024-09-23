@@ -19,7 +19,7 @@ rule NitrogenLoader
     meta:
         author = "enzok"
         description = "NitrogenLoader AES and IV"
-        cape_options = "bp0=$keyiv0+8,action0=dump:ecx::64,bp1=$keyiv0*-4,action1=dump:ecx::32,count=0,typestring=NitrogenLoader Data"
+        cape_options = "bp0=$keyiv0+8,action0=dump:ecx::64,bp1=$keyiv0*-4,action1=dump:ecx::32,no-log=2
 
     strings:
         $keyiv0 = {48 8B 8C 24 [4] E8 [3] 00 4? 89 84 24 [4] 4? 8B 84 24 [4] 4? 89 84 24 [4] 4? 8B 8C 24 [4] E8 [3] 00}
