@@ -588,7 +588,7 @@ class File:
                         {
                             "name": match.rule,
                             "meta": match.meta,
-                            "strings": list(set(strings)),
+                            "strings": strings,
                             "addresses": addresses,
                         }
                     )
