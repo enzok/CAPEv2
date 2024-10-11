@@ -660,6 +660,7 @@ def index(request, task_id=None, resubmit_hash=None):
             tasks_count = 0
         if tasks_count > 0:
             data = {
+                "title": "Submission",
                 "tasks": details["task_ids"],
                 "tasks_count": tasks_count,
                 "errors": details["errors"],
@@ -668,7 +669,12 @@ def index(request, task_id=None, resubmit_hash=None):
             }
             return render(request, "submission/complete.html", data)
         else:
-            return render(request, "error.html", {"error": "Error adding task(s) to CAPE's database.", "errors": details["errors"]})
+            err_data = {
+                "error": "Error adding task(s) to CAPE's database.",
+                "errors": details["errors"],
+                "title": "Submission Failure",
+            }
+            return render(request, "error.html", err_data)
     else:
         enabledconf = {}
         enabledconf["vt"] = settings.VTDL_ENABLED
@@ -768,6 +774,7 @@ def index(request, task_id=None, resubmit_hash=None):
             request,
             "submission/index.html",
             {
+                "title": "Submit",
                 "packages": sorted(packages, key=lambda i: i["name"].lower()),
                 "machines": machines,
                 "vpns": vpns_data,
@@ -800,7 +807,14 @@ def status(request, task_id):
     if status == "completed":
         status = "processing"
 
-    response = {"completed": completed, "status": status, "task_id": task_id, "session_data": ""}
+    response = {
+        "title": "Task Status",
+        "completed": completed,
+        "status": status,
+        "task_id": task_id,
+        "session_data": "",
+        "target": task.sample.sha256 if task.sample.sha256 else task.target,
+    }
     if settings.REMOTE_SESSION:
         machine = db.view_machine_by_label(task.machine)
         if machine:
