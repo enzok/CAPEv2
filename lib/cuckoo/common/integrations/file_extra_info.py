@@ -830,6 +830,9 @@ def SevenZip_unpack(file: str, *, filetype: str, data_dictionary: dict, options:
     ):
         return
 
+    if all([pattern in file_data for pattern in (b"AndroidManifest.xml", b"classes.dex")]):
+        return
+
     password = ""
     # Only for real 7zip, breaks others
     password = options.get("password", "infected")

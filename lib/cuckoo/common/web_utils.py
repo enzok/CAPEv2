@@ -769,7 +769,7 @@ def download_file(**kwargs):
     if not onesuccess:
         return "error", {"error": f"Provided hash not found on {kwargs['service']}"}
 
-    return "ok", kwargs["task_ids"]
+    return "ok", kwargs["task_ids"], extra_details.get("erros", [])
 
 
 def save_script_to_storage(task_ids, kwargs):
