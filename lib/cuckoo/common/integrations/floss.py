@@ -52,9 +52,9 @@ class Floss:
         try:
             file_path = Path(self.file_path)
             if not fm.is_supported_file_type(file_path):
-                if self.package == "Shellcode":
+                if self.package == "shellcode":
                     fileformat = "sc32"
-                elif self.package == "Shellcode_x64":
+                elif self.package == "shellcode_x64":
                     fileformat = "sc64"
                 else:
                     return results
