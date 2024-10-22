@@ -80,7 +80,7 @@ def extract_config(data: bytes) -> dict:
                     urls.append(url)
             elif decoded_string.count("\\") > 1:
                 directories.append(decoded_string)
-            elif re.match(r"[a-zA-Z0-9]{6,}", decoded_string):
+            elif re.match(r"^(?![A-Z]{6,}$)[a-zA-Z0-9\-=]{6,}$", decoded_string):
                 campaign = decoded_string
 
         result = {"urls": urls, "directories": directories, "campaign": campaign}

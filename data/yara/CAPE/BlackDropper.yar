@@ -2,7 +2,9 @@ rule BlackDropper
 {
     meta:
         author = "enzok"
-        description = "BlackDropper Dropper"
+        description = "BlackDropper"
+        cape_type = "BlackDropper Payload"
+        hash = "f8026ae3237bdd885e5fcaceb86bcab4087d8857e50ba472ca79ce44c12bc257"
     strings:
         $string1 = "BlackDropperCPP"
 		$string2 = "Builder.dll"
