@@ -40,6 +40,7 @@ ALLOWED_HOSTS = ["*"]
 
 MONGO_ARCHIVE = cfg.mongodb.get("archive", False)
 MONGO_ARCHIVE_DB = cfg.mongodb.get("archive_db", "cuckoo_archive")
+MITMDUMP_ENABLED = aux_cfg.Mitmdump.get("enabled", False)
 SETTINGS_EXPORT.append("MONGO_ARCHIVE")
 
 SOCIALACCOUNT_PROVIDERS = {

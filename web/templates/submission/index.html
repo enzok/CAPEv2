@@ -702,6 +702,13 @@ $(document).ready( function() {
                                     <input type="checkbox" name="oldloader" /> Thread-based monitor injection <span class="text-muted"><small>(Cuckoo-style)</small></span>
                                 </label>
                             </div>
+                            {% if config.mitmdump %}
+                            <div class="form-check">
+                                <label>
+                                    <input type="checkbox" name="mitmdump" /> Enable mitmdump, creates a HAR file
+                                </label>
+                            </div>
+                            {% endif %}
                             {% if config.posproc %}
                             <div class="form-check">
                                 <label>

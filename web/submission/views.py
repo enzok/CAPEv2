@@ -701,6 +701,7 @@ def index(request, task_id=None, resubmit_hash=None):
         enabledconf["amsidump"] = web_conf.amsidump.enabled
         enabledconf["pre_script"] = web_conf.pre_script.enabled
         enabledconf["during_script"] = web_conf.during_script.enabled
+        enabledconf["mitmdump"] = settings.MITMDUMP_ENABLED
 
         all_vms_tags = load_vms_tags()
 
