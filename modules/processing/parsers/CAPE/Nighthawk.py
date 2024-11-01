@@ -1,10 +1,10 @@
 import gzip
 import itertools
 import json
+import re
 import struct
 
 import pefile
-import regex as re
 from Cryptodome.Cipher import AES
 
 DESCRIPTION = "NightHawk C2 DLL configuration parser."

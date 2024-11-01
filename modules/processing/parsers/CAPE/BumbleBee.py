@@ -2,11 +2,11 @@
 # 2024 updates by @enzok
 #
 import logging
+import re
 import traceback
 from contextlib import suppress
 
 import pefile
-import regex as re
 import yara
 from Cryptodome.Cipher import ARC4
 

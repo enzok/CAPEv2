@@ -7,6 +7,7 @@
 import errno
 import logging
 import os
+import re
 import sys
 from io import StringIO
 from subprocess import Popen
@@ -21,10 +22,6 @@ try:
 except ImportError:
     print("Optional! Missed regex dependency: poetry run pip install networkx[default,extra]")
 
-try:
-    import regex as re
-except ImportError:
-    print("Optional! Missed regex dependency: poetry run pip install regex")
 
 log = logging.getLogger(__name__)
 
