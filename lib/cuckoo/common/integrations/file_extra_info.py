@@ -216,7 +216,7 @@ def static_file_info(
                 file_path, selfextract_conf.procyon.binary, selfextract_conf.procyon.deobfuscator_jar,
                 selfextract_conf.procyon.deobfuscator_conf
             ).run()
-    elif file_path.endswith(".rdp"):
+    elif file_path.endswith(".rdp") or data_dictionary.get("name", {}).endswith(".rdp"):
         data_dictionary["rdp"] = parse_rdp_file(file_path)
 
     # It's possible to fool libmagic into thinking our 2007+ file is a zip.
