@@ -717,6 +717,7 @@ class RunReporting:
         self.analysis_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task["id"]))
         self.cfg = reporting_cfg
         self.reprocess = reprocess
+        self.reporting_errors = 0
 
     def process(self, module, override=False):
         """Run a single reporting module.
@@ -768,14 +769,18 @@ class RunReporting:
 
         except CuckooDependencyError as e:
             log.warning('The reporting module "%s" has missing dependencies: %s', current.__class__.__name__, e)
+            self.reporting_errors += 1
         except CuckooReportError as e:
             log.warning('The reporting module "%s" returned the following error: %s', current.__class__.__name__, e)
+            self.reporting_errors += 1
         except Exception as e:
             log.exception('Failed to run the reporting module "%s": %s', current.__class__.__name__, e)
+            self.reporting_errors += 1
 
     def run(self):
         """Generates all reports.
-        @raise CuckooReportError: if a report module fails.
+
+        @return a count of the reporting module errors.
         """
         # In every reporting module you can specify a numeric value that
         # represents at which position that module should be executed among
@@ -793,6 +798,7 @@ class RunReporting:
                 self.process(module)
         else:
             log.info("No reporting modules loaded")
+        return self.reporting_errors
 
 
 class GetFeeds:
