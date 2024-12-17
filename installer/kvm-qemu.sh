@@ -597,7 +597,7 @@ EOH
 
     cd ..
     # Remove the $libvirt_version directory to permission errors when runing
-    # cd /opt/CAPEv2/ ; sudo -u cape poetry run extra/poetry_libvirt_installer.sh later
+    # cd /opt/CAPEv2/ ; sudo -u cape /etc/poetry/bin/poetry run extra/poetry_libvirt_installer.sh later
     rm -r libvirt-python-$libvirt_version
 
     if [ "$OS" = "Linux" ]; then
@@ -665,7 +665,7 @@ function install_virt_manager() {
     # moved out as some 20.04 doesn't have this libs %)
     aptitude install -f -y python3-ntlm-auth libpython3-stdlib libbrlapi-dev libgirepository1.0-dev python3-testresources
     apt-get -y -o Dpkg::Options::="--force-overwrite" install ovmf
-    pip3 install tqdm requests six urllib3 ipaddr ipaddress idna dbus-python certifi lxml cryptography pyOpenSSL chardet asn1crypto pycairo PySocks PyGObject pylint pytest
+    PIP_BREAK_SYSTEM_PACKAGES=1 pip3 install tqdm requests six urllib3 ipaddr ipaddress idna dbus-python certifi lxml cryptography pyOpenSSL chardet asn1crypto pycairo PySocks PyGObject pylint pytest
 
     # not available in 22.04
     if [ $(lsb_release -sc) != "jammy" ]; then
@@ -816,6 +816,7 @@ function replace_seabios_clues_public() {
     _sed_aux "s/04\/01\/2014/$src_bios_table_date2/g" src/fw/biostables.c 'change seabios date 2'
     _sed_aux "s/01\/01\/2011/$src_fw_smbios_date/g" src/fw/smbios.c 'change seabios date 3'
     _sed_aux 's/"SeaBios"/"AMIBios"/g' src/fw/biostables.c 'change seabios to amibios'
+    _sed_aux 's/"SeaBIOS"/"AMIBios"/g' src/fw/biostables.c 'change seabios to amibios'
 
     FILES=(
         src/hw/blockcmd.c
