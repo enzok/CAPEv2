@@ -12,12 +12,13 @@ processing_cfg = Config("processing")
 
 HAVE_FLOSS = False
 try:
-    HAVE_FLOSS = True
     import floss.main as fm
     import floss.language.utils as fl_utils
     import floss.language.go.extract as go_extract
     import floss.language.rust.extract as rust_extract
     from floss.strings import extract_ascii_unicode_strings
+
+    HAVE_FLOSS = True
 except ImportError:
     print("Missed dependency flare-floss: poetry run pip install -U flare-floss")
 
