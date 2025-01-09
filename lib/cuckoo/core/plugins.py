@@ -716,13 +716,12 @@ class RunReporting:
 
         # remove unwanted/duplicate information from reporting
         for process in results["behavior"]["processes"]:
-            try:
-                process["calls"].begin_reporting()
-                # required to convert object to list
-                process["calls"] = list(process["calls"])
-            except Exception as e:
-                log.debug("Error removing duplicate calls from behavior results: %s", e)
-                pass
+            # Reprocessing and Behavior set from json file
+            if isinstance(process["calls"], list):
+                break
+            process["calls"].begin_reporting()
+            # required to convert object to list
+            process["calls"] = list(process["calls"])
 
         self.results = results
         self.analysis_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task["id"]))
