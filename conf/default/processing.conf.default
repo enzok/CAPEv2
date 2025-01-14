@@ -340,3 +340,8 @@ sigs_path = data/flare-signatures
 
 [html_scraper]
 enabled = no
+
+[mandiant_intel]
+enabled = no
+api_access =
+api_secret =
