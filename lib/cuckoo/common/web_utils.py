@@ -1299,8 +1299,22 @@ def _malwarebazaar_dl(hash):
     if len(hash) not in _bazaar_map:
         return False
 
+    authkey = web_cfg.download_services.bazaarkey
+    if not authkey:
+        logging.error("Bazaar auth key is missing")
+        return
+
+    headers = {
+        "Auth-Key": authkey,
+    }
+
+    data = {
+        "query": "get_file",
+        _bazaar_map[len(hash)]: hash,
+    }
+
     try:
-        data = requests.post("https://mb-api.abuse.ch/api/v1/", data={"query": "get_file", _bazaar_map[len(hash)]: hash})
+        data = requests.post("https://mb-api.abuse.ch/api/v1/", headers=headers, data=data)
         if data.ok and b"file_not_found" not in data.content:
             try:
                 with pyzipper.AESZipFile(io.BytesIO(data.content)) as zf:

@@ -225,6 +225,7 @@ virustotal = no
 # here is a Intelligence API key, not a Public API key
 vtkey =
 malwarebazaar = no
+bazaarkey =
 
 [yara_detail]
 enabled = no
