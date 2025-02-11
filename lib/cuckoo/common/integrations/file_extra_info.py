@@ -207,18 +207,18 @@ def static_file_info(
     elif (package == "lnk" or "MS Windows shortcut" in data_dictionary["type"]) and integration_conf.general.lnk:
         data_dictionary["lnk"] = LnkShortcut(file_path).run()
     elif (any(java_type in data_dictionary["type"].lower() for java_type in ("java jar", "java archive"))
-          or file_path.endswith(".jar")) and selfextract_conf.general.java:
-        if selfextract_conf.procyon.binary and not path_exists(selfextract_conf.procyon.binary):
+          or file_path.endswith(".jar")) and integration_conf.general.java:
+        if integration_conf.procyon.binary and not path_exists(integration_conf.procyon.binary):
             log.error("procyon_path specified in processing.conf but the file does not exist")
-        elif selfextract_conf.procyon.deobfuscator_jar and not Path(selfextract_conf.procyon.deobfuscator_jar).exists():
+        elif integration_conf.procyon.deobfuscator_jar and not Path(integration_conf.procyon.deobfuscator_jar).exists():
             log.error("deobfuscator_path specified in processing.conf but the file does not exist")
-        elif selfextract_conf.procyon.deobfuscator_conf and not Path(
-                selfextract_conf.procyon.deobfuscator_conf).exists():
+        elif integration_conf.procyon.deobfuscator_conf and not Path(
+                integration_conf.procyon.deobfuscator_conf).exists():
             log.error("deobfuscator_conf_path specified in processing.conf but the file does not exist")
         else:
             data_dictionary["java"] = Java(
-                file_path, selfextract_conf.procyon.binary, selfextract_conf.procyon.deobfuscator_jar,
-                selfextract_conf.procyon.deobfuscator_conf
+                file_path, integration_conf.procyon.binary, integration_conf.procyon.deobfuscator_jar,
+                integration_conf.procyon.deobfuscator_conf
             ).run()
     elif file_path.endswith(".rdp") or data_dictionary.get("name", {}).endswith(".rdp"):
         data_dictionary["rdp"] = parse_rdp_file(file_path)
