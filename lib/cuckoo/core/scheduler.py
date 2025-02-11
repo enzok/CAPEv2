@@ -8,6 +8,7 @@ import logging
 import os
 import queue
 import signal
+import sys
 import threading
 import time
 from collections import defaultdict
@@ -250,12 +251,7 @@ class Scheduler:
         # Resolve the full base path to the analysis folder, just in
         # case somebody decides to make a symbolic link out of it.
         dir_path = os.path.join(CUCKOO_ROOT, "storage", "analyses")
-        need_space, space_available = free_space_monitor(dir_path, return_value=True, analysis=True)
-        if need_space:
-            log.error(
-                "Not enough free disk space! (Only %d MB!). You can change limits it in cuckoo.conf -> freespace", space_available
-            )
-        return need_space
+        free_space_monitor(dir_path, analysis=True)
 
     @contextlib.contextmanager
     def loop_signals(self):
@@ -283,6 +279,8 @@ class Scheduler:
         elif sig == signal.SIGUSR1:
             log.info("received signal '%s', pausing new detonations, running detonations will continue until completion", sig.name)
             self.loop_state = LoopState.PAUSED
+            if self.cfg.cuckoo.ignore_signals:
+                sys.exit()
         elif sig == signal.SIGUSR2:
             log.info("received signal '%s', resuming detonations", sig.name)
             self.loop_state = LoopState.RUNNING
@@ -319,6 +317,8 @@ class Scheduler:
     def stop(self):
         """Set loop state to stopping."""
         self.loop_state = LoopState.STOPPING
+        if self.cfg.cuckoo.ignore_signals:
+            sys.exit()
 
     def thr_periodic_log(self, oneshot=False):
         # Ordinarily, this is the entry-point for a child thread. The oneshot parameter makes
