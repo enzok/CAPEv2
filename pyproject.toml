@@ -134,6 +134,7 @@ DJANGO_SETTINGS_MODULE = "web.settings"
 pythonpath = [".", "web"]
 testpaths = ["tests", "agent"]
 norecursedirs = "tests/zip_compound"
+asyncio_mode = "auto"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
@@ -150,7 +151,7 @@ select = [
 	"F",       # pyflakes
 	"E",       # pycodestyle errors
 	"W",       # pycodestyle warnings
-	"I",       # isort
+	# "I",       # isort
 	# "N",       # pep8-naming
 	"G",       # flake8-logging-format
 ]

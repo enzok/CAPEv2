@@ -1,3 +1,15 @@
+
+### [1.03.2025] VirusTotal and MalwareBazaar
+* We have moved VirusTotal and MalwareBazaar to generic downloader so you can enable then in `integrations.conf`
+    * Downlod service allows you to set order + simplifies adding another services
+    * For `API` use `tasks/create/download_services/` instead of `tasks/create/vtdl/`. Example of data: `data={"hashes":"hash1,hash2"}`
+
+### [28.02.2025]
+* Monitor updates:
+    * NtCreateSection hook: add file path (from handle) to logging (thanks @scccccccccc)
+    * NtCreateSection LdrpCallInitRoutine hook: add coverage-module breakpoint setting, fix 64-bit address logging
+    * Trace: improve logging of conditional jump target addresses, on by default)
+
 ### [27.02.2025]
 * Monitor update: Improve handling of bogus VirtualSize values in PE section table during dumping (e.g. e4f4afa1b85113656d4788a4f48fa5263b31b922d3e345093e082486193b0275)
 
