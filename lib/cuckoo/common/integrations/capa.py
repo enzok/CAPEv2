@@ -14,19 +14,12 @@ from lib.cuckoo.common.path_utils import path_exists, path_object
 
 log = logging.getLogger(__name__)
 
-processing_conf = Config("processing")
 reporting_conf = Config("reporting")
-
-
-"""
-from lib.cuckoo.common.integrations.capa import flare_capa_details, HAVE_FLARE_CAPA
-path = "storage/binaries/8c4111e5ec6ec033ea32e7d40f3c36e16ad50146240dacfc3de6cf8df19e6531"
-details = flare_capa_details(path, "static", on_demand=True)
-"""
+integrations_conf = Config("integrations")
 
 rules = False
 HAVE_FLARE_CAPA = False
-if processing_conf.flare_capa.enabled or reporting_conf.flare_capa_summary.enabled:
+if integrations_conf.flare_capa.enabled:
     try:
         # from platform import python_version
 
@@ -256,11 +249,12 @@ def flare_capa_details(
     capa_output = {}
     if (
         HAVE_FLARE_CAPA
-        and processing_conf.flare_capa.enabled
-        and processing_conf.flare_capa.get(category, False)
-        and not processing_conf.flare_capa.on_demand
+        and integrations_conf.flare_capa.enabled
+        and integrations_conf.flare_capa.get(category, False)
+        and not integrations_conf.flare_capa.on_demand
         or on_demand
     ):
+        # ToDo check if PE file in TYPE
         try:
             file_path_object = path_object(file_path)
             # extract features and find capabilities
@@ -272,7 +266,7 @@ def flare_capa_details(
                 try:
                     extractor = capa.features.extractors.cape.extractor.CapeExtractor.from_report(results)
                 except ValidationError as e:
-                    log.exception("CAPA ValidationError %s", e)
+                    log.debug("CAPA ValidationError %s", e)
                     return {}
             else:
                 log.error("CAPA: Missed results probably")
@@ -300,3 +294,9 @@ def flare_capa_details(
             log.exception(e)
 
     return capa_output
+
+
+if __name__ == "__main__":
+    import sys
+    from lib.cuckoo.common.integrations.capa import flare_capa_details, HAVE_FLARE_CAPA
+    details = flare_capa_details(sys.argv[1], "static", on_demand=True)

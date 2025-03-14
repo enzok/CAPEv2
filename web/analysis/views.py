@@ -81,12 +81,13 @@ TASK_LIMIT = 25
 
 processing_cfg = Config("processing")
 reporting_cfg = Config("reporting")
+integrations_cfg = Config("integrations")
 web_cfg = Config("web")
 
 try:
     # On demand features
     HAVE_FLARE_CAPA = False
-    if processing_cfg.flare_capa.on_demand:
+    if integrations_cfg.flare_capa.on_demand:
         from lib.cuckoo.common.integrations.capa import HAVE_FLARE_CAPA, flare_capa_details
 except (NameError, ImportError):
     print("Can't import FLARE-CAPA")
@@ -124,7 +125,7 @@ else:
     HAVE_BINGRAPH = False
 
 HAVE_FLOSS = False
-if processing_cfg.floss.on_demand:
+if integrations_cfg.floss.on_demand:
     from lib.cuckoo.common.integrations.floss import HAVE_FLOSS, Floss
 
 USE_SEVENZIP = False
@@ -978,12 +979,12 @@ def filtered_chunk(request, task_id, pid, category, apilist, caller, tid):
         apis[:] = [s.strip().lower() for s in apis if len(s.strip())]
 
         # Populate dict, fetching data from all calls and selecting only appropriate category/APIs.
-        for call in process["calls"]:
+        for call in process.get("calls", []):
             if enabledconf["mongodb"]:
                 chunk = mongo_find_one("calls", {"_id": call})
             if es_as_db:
                 chunk = es.search(index=get_calls_index(), body={"query": {"match": {"_id": call}}})["hits"]["hits"][0]["_source"]
-            for call in chunk["calls"]:
+            for call in chunk.get("calls", []):
                 # filter by call or tid
                 if caller != "null" or tid != "0":
                     if caller in ("null", call["caller"]) and tid in ("0", call["thread_id"]):
@@ -2588,6 +2589,7 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
 
     details = False
     if service == "flare_capa" and HAVE_FLARE_CAPA:
+        # ToDo check if PE
         details = flare_capa_details(path, category.lower(), on_demand=True)
         if not details:
             details = {"msg": "No results"}
