@@ -1327,6 +1327,21 @@ Cmnd_Alias CAPE_SERVICES = /usr/bin/systemctl restart cape-rooter, /usr/bin/syst
 ${USER} ALL=(ALL) NOPASSWD:CAPE_SERVICES
 EOF
 fi
+if [ ! -f /etc/sudoers.d/ip_netns ]; then
+    cat >> /etc/sudoers.d/ip_netns << EOF
+${USER} ALL=NOPASSWD: /usr/sbin/ip netns exec * /usr/bin/sudo -u cape *
+EOF
+fi
+if [ ! -f /opt/mitmproxy/mitmdump_wrapper.sh ]; then
+    mkdir -p /opt/mitmproxy/
+    cat >> /opt/mitmproxy/mitmdump_wrapper.sh << EOF
+#!/bin/bash
+echo $$ > mitmdump.pid
+# exec full args
+exec $@
+EOF
+    chmod +x /opt/mitmproxy/mitmdump_wrapper.sh
+fi
 }
 
 function install_systemd() {
