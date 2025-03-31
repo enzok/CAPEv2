@@ -10,6 +10,7 @@ lnk = no
 windows_script = no
 elf = no
 hwp = no
+dropped = no
 
 # Number of workers for pool to run them in parallel
 max_workers = 6

@@ -280,6 +280,9 @@ def static_file_info(
             if mandiant_intel_details:
                 data_dictionary["mandiant_intel"] = mandiant_intel_details
 
+    if not integration_conf.general.dropped:
+        return
+
     generic_file_extractors(
         file_path,
         destination_folder,
