@@ -89,6 +89,7 @@ repconf = Config("reporting")
 web_conf = Config("web")
 routing_conf = Config("routing")
 reporting_conf = Config("reporting")
+dist_conf = Config("distributed")
 
 zlib_compresion = False
 if repconf.compression.enabled:
@@ -120,6 +121,18 @@ if repconf.elasticsearchdb.enabled and not repconf.elasticsearchdb.searchonly:
 
     es_as_db = True
     es = elastic_handler
+
+
+DIST_ENABLED = False
+if dist_conf.distributed.enabled:
+    from lib.cuckoo.common.dist_db import create_session
+    from lib.cuckoo.common.dist_db import Task as DTask
+
+    dist_session = create_session(
+        dist_conf.distributed.db,
+        echo=False,
+    )
+    DIST_ENABLED = True
 
 db: _Database = Database()
 
@@ -228,6 +241,9 @@ def tasks_create_static(request):
     resp["data"]["task_ids"] = task_ids
     if extra_details and "config" in extra_details:
         resp["data"]["config"] = extra_details["config"]
+    if extra_details.get("errors"):
+        resp["errors"].extend(extra_details["errors"])
+
     callback = apiconf.filecreate.get("status")
     if task_ids:
         if len(task_ids) == 1:
@@ -243,6 +259,7 @@ def tasks_create_static(request):
                     resp["url"].append("{0}/submit/status/{1}".format(apiconf.api.get("url"), tid))
             else:
                 resp = {"error": True, "error_value": "Error adding task to database"}
+
     return Response(resp)
 
 
@@ -356,6 +373,7 @@ def tasks_create_file(request):
             if tmp_path:
                 details["path"] = tmp_path
                 details["content"] = content
+
                 status, tasks_details = download_file(**details)
                 if status == "error":
                     details["errors"].append({os.path.basename(tmp_path).decode(): tasks_details})
@@ -1154,6 +1172,10 @@ def tasks_report(request, task_id, report_format="json", make_zip=False):
     if check["error"]:
         return Response(check)
 
+    if check.get("tlp", "") in ("red", "Red"):
+        return Response({"error": True, "error_value": "Task has a TLP of RED"})
+
+
     rtid = check.get("rtid", 0)
     if rtid:
         task_id = rtid
@@ -1179,6 +1201,7 @@ def tasks_report(request, task_id, report_format="json", make_zip=False):
         "metadata": "report.metadata.xml",
         "litereport": "lite.json",
         "targetinfo": "targetinfo.txt",
+        "parti": "report.parti",
     }
 
     report_formats = {
@@ -1231,6 +1254,9 @@ def tasks_report(request, task_id, report_format="json", make_zip=False):
             elif report_format.startswith("targetinfo"):
                 content = "text/plain"
                 ext = "txt"
+            elif report_format == "parti":
+                ext = "parti"
+                content = "application/zip"
             fname = "%s_report.%s" % (task_id, ext)
 
             if make_zip:
@@ -1315,6 +1341,10 @@ def tasks_iocs(request, task_id, detail=None):
     check = validate_task(task_id)
     if check["error"]:
         return Response(check)
+
+    if check.get("tlp", "") in ("red", "Red"):
+        return Response({"error": True, "error_value": "Task has a TLP of RED"})
+
 
     rtid = check.get("rtid", 0)
     if rtid:
@@ -1546,6 +1576,10 @@ def tasks_screenshot(request, task_id, screenshot="all"):
     if check["error"]:
         return Response(check)
 
+    if check.get("tlp", "") in ("red", "Red"):
+        return Response({"error": True, "error_value": "Task has a TLP of RED"})
+
+
     rtid = check.get("rtid", 0)
     if rtid:
         task_id = rtid
@@ -1595,6 +1629,10 @@ def tasks_pcap(request, task_id):
     if check["error"]:
         return Response(check)
 
+    if check.get("tlp", "") in ("red", "Red"):
+        return Response({"error": True, "error_value": "Task has a TLP of RED"})
+
+
     rtid = check.get("rtid", 0)
     if rtid:
         task_id = rtid
@@ -1625,6 +1663,10 @@ def tasks_evtx(request, task_id):
     if check["error"]:
         return Response(check)
 
+    if check.get("tlp", "") in ("red", "Red"):
+        return Response({"error": True, "error_value": "Task has a TLP of RED"})
+
+
     rtid = check.get("rtid", 0)
     if rtid:
         task_id = rtid
@@ -1650,15 +1692,12 @@ def tasks_mitmdump(request, task_id):
     if not apiconf.mitmdump.get("enabled"):
         resp = {"error": True, "error_value": "Mitmdump HAR download API is disabled"}
         return Response(resp)
-
     check = validate_task(task_id)
     if check["error"]:
         return Response(check)
-
     rtid = check.get("rtid", 0)
     if rtid:
         task_id = rtid
-
     harfile = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, "mitmdump", "dump.har")
     if not os.path.normpath(harfile).startswith(ANALYSIS_BASE_PATH):
         return render(request, "error.html", {"error": f"File not found: {os.path.basename(harfile)}"})
@@ -1668,7 +1707,6 @@ def tasks_mitmdump(request, task_id):
         resp["Content-Length"] = os.path.getsize(harfile)
         resp["Content-Disposition"] = "attachment; filename=" + fname
         return resp
-
     else:
         resp = {"error": True, "error_value": "HAR file does not exist"}
         return Response(resp)
@@ -1684,6 +1722,10 @@ def tasks_dropped(request, task_id):
     check = validate_task(task_id)
     if check["error"]:
         return Response(check)
+
+    if check.get("tlp", "") in ("red", "Red"):
+        return Response({"error": True, "error_value": "Task has a TLP of RED"})
+
 
     rtid = check.get("rtid", 0)
     if rtid:
@@ -1731,6 +1773,10 @@ def tasks_surifile(request, task_id):
     check = validate_task(task_id)
     if check["error"]:
         return Response(check)
+
+    if check.get("tlp", "") in ("red", "Red"):
+        return Response({"error": True, "error_value": "Task has a TLP of RED"})
+
 
     rtid = check.get("rtid", 0)
     if rtid:
@@ -1842,6 +1888,10 @@ def tasks_procmemory(request, task_id, pid="all"):
     if check["error"]:
         return Response(check)
 
+    if check.get("tlp", "") in ("red", "Red"):
+        return Response({"error": True, "error_value": "Task has a TLP of RED"})
+
+
     rtid = check.get("rtid", 0)
     if rtid:
         task_id = rtid
@@ -1915,6 +1965,10 @@ def tasks_fullmemory(request, task_id):
     check = validate_task(task_id)
     if check["error"]:
         return Response(check)
+
+    if check.get("tlp", "") in ("red", "Red"):
+        return Response({"error": True, "error_value": "Task has a TLP of RED"})
+
 
     rtid = check.get("rtid", 0)
     if rtid:
@@ -2160,6 +2214,10 @@ def tasks_payloadfiles(request, task_id):
     if check["error"]:
         return Response(check)
 
+    if check.get("tlp", "") in ("red", "Red"):
+        return Response({"error": True, "error_value": "Task has a TLP of RED"})
+
+
     rtid = check.get("rtid", 0)
     if rtid:
         task_id = rtid
@@ -2193,6 +2251,10 @@ def tasks_procdumpfiles(request, task_id):
     if check["error"]:
         return Response(check)
 
+    if check.get("tlp", "") in ("red", "Red"):
+        return Response({"error": True, "error_value": "Task has a TLP of RED"})
+
+
     rtid = check.get("rtid", 0)
     if rtid:
         task_id = rtid
@@ -2225,6 +2287,10 @@ def tasks_config(request, task_id, cape_name=False):
 
     if check["error"]:
         return Response(check)
+
+    if check.get("tlp", "") in ("red", "Red"):
+        return Response({"error": True, "error_value": "Task has a TLP of RED"})
+
 
     rtid = check.get("rtid", 0)
     if rtid:
@@ -2354,7 +2420,6 @@ def tasks_download_services(request):
     if opts:
         opt_apikey = opts.get("apikey", False)
 
-
     for vm in db.list_machines():
         vm_list.append(vm.label)
     if machine.lower() == "all":
@@ -2473,3 +2538,49 @@ def tasks_file_stream(request, task_id):
         log.exception(ex)
         resp = {"error": True, "error_value": f"Requests exception: {ex}"}
     return Response(resp)
+
+
+@csrf_exempt
+@api_view(["GET"])
+def dist_tasks_reported(request):
+    # List finished tasks here
+    if not DIST_ENABLED:
+        return Response(
+            {
+                "Error": True,
+                "error_value": "Distributed CAPE is not enabled",
+            }
+        )
+    """
+
+        Add new API endpoint in CAPE to query the tasks that are reported and ready to be retrieved
+        Add new API endpoint in CAPE to set "task.notificated = True" for a specific task
+
+        yeah we could script that go and fetch reported tasks.
+        can you currently list tasks that are finished but waiting to be retrieved in the api?
+        e.g. in the notification_loop() in dist.py, where it queries tasks that need to be sent to the callback url it does this:
+
+        if there was an pi endpoint that exposed that, and another that allowed us to set notificated on the task when we'd finished processing it, then we wouldnt need the callback anymore
+    """
+    # change to with session as
+    dist_db = dist_session()
+    ready = []
+    tasks = dist_db.query(DTask).filter_by(finished=True, retrieved=True, notificated=False).order_by(DTask.id.desc()).all()
+    for task in tasks or []:
+        ready.append(task.main_task_id)
+    dist_db.close()
+    return Response({"Tasks": ready})
+
+
+@csrf_exempt
+@api_view(["GET"])
+def dist_tasks_notification(request, task_id: int):
+    dist_db = dist_session()
+    tasks = dist_db.query(DTask).filter_by(main_task_id=task_id).order_by(DTask.id.desc()).all()
+    if not tasks:
+        return Response({"error": True, "error_value": f"No tasks found with main_task_id: {task_id}"})
+    for task in tasks:
+        # main_db.set_status(task.main_task_id, TASK_REPORTED)
+        # log.debug("reporting main_task_id: {}".format(task.main_task_id))
+        task.notificated = True
+
