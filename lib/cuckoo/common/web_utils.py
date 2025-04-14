@@ -927,6 +927,8 @@ def download_file(**kwargs):
         platform = File(kwargs["path"]).get_platform()
     if platform == "linux" and not linux_enabled and "Python" not in magic_type:
         return "error", {"error": "Linux binaries analysis isn't enabled"}
+    if platform == "darwin":
+        platform = "windows"
 
     if machine.lower() == "all":
         kwargs["task_machines"] = [vm.label for vm in db.list_machines(platform=platform)]
@@ -1838,7 +1840,7 @@ def perform_archive_search(term, value, search_limit=False):
         return None
 
     if term == "payloads" and len(value) in (32, 40, 64, 128):
-        search_term_map[term] = "CAPE.payloads." + hash_len.get(len(value))
+        search_term_map[term] = "CAPE.payloads." + hashes.get(len(value))
 
     elif term == "configs":
         # check if family name is string only maybe?
