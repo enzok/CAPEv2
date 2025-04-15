@@ -891,7 +891,11 @@ def SevenZip_unpack(file: str, *, filetype: str, data_dictionary: dict, options:
     password = options.get("password", "infected")
     if any(
         "7-zip Installer data" in string for string in data_dictionary.get("die", [])
-    ) or "Zip archive data" in data_dictionary.get("type", ""):
+    ) or (
+        "Zip archive data" in data_dictionary.get("type", "")
+    ) or (
+        "7-zip archive data" in data_dictionary.get("type", "")
+    ):
         tool = "SevenZip"
         prefix = "SevenZip_"
         password = options.get("password", "infected")
