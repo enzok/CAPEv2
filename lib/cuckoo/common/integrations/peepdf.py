@@ -49,10 +49,14 @@ def _set_base_uri(pdf):
                 if elem:
                     elem = _get_obj_val(pdf, version, elem)
                 if elem:
+                    if not hasattr(elem, "getElementByName"):
+                        return
                     elem = elem.getElementByName("/URI")
                 if elem:
                     elem = _get_obj_val(pdf, version, elem)
                 if elem:
+                    if not hasattr(elem, "getElementByName"):
+                        return
                     elem = elem.getElementByName("/Base")
                 if elem:
                     elem = _get_obj_val(pdf, version, elem)
