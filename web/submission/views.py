@@ -360,10 +360,6 @@ def index(request, task_id=None, resubmit_hash=None):
         if request.POST.get("job_category"):
             job_category = request.POST.get("job_category")
 
-        # amsidump is enabled by default in the monitor for Win10+
-        if web_conf.amsidump.enabled and not request.POST.get("amsidump"):
-            options += "amsidump=0,"
-
         if request.POST.get("posproc"):
             options += "posproc=1,"
 
