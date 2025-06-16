@@ -15,7 +15,7 @@ greenlet = "3.0.3"
 Pebble = "5.1.0"
 # pymisp = "2.4.144"
 cryptography = ">=44.0.1"
-requests = {version = "2.32.2", extras = ["security", "socks"]}
+requests = {version = "2.32.4", extras = ["security", "socks"]}
 # pyOpenSSL = "24.0.0"
 pefile = "*"
 tldextract = ">=5.1.2"
@@ -89,7 +89,7 @@ gunicorn = "^23.0.0"
 channels = "^3.0.5"
 setproctitle = "1.3.2"
 
-CAPE-parsers = "*"
+CAPE-parsers = ">=0.1.36"
 maco = "1.1.8"
 
 [tool.poetry.extras]
