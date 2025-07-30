@@ -5,6 +5,7 @@
 import sys
 from ctypes import (
     POINTER,
+    WINFUNCTYPE,
     Structure,
     Union,
     c_bool,
@@ -17,20 +18,18 @@ from ctypes import (
     c_ushort,
     c_void_p,
     c_wchar_p,
+    windll,
+    c_ulong,
+    c_long,
 )
 
-if sys.platform == "win32":
-    from ctypes import WINFUNCTYPE, windll
-
-    NTDLL = windll.ntdll
-    KERNEL32 = windll.kernel32
-    ADVAPI32 = windll.advapi32
-    USER32 = windll.user32
-    SHELL32 = windll.shell32
-    PDH = windll.pdh
-    PSAPI = windll.psapi
-    EnumWindowsProc = WINFUNCTYPE(c_bool, POINTER(c_int), POINTER(c_int))
-    EnumChildProc = WINFUNCTYPE(c_bool, POINTER(c_int), POINTER(c_int))
+NTDLL = windll.ntdll
+KERNEL32 = windll.kernel32
+ADVAPI32 = windll.advapi32
+USER32 = windll.user32
+SHELL32 = windll.shell32
+PDH = windll.pdh
+PSAPI = windll.psapi
 
 BYTE = c_ubyte
 USHORT = c_ushort
@@ -47,7 +46,7 @@ HANDLE = c_void_p
 PVOID = c_void_p
 LPVOID = c_void_p
 UINT_PTR = c_void_p
-ULONG_PTR = c_void_p
+ULONG_PTR = c_ulonglong
 SIZE_T = c_void_p
 HMODULE = c_void_p
 PWCHAR = c_wchar_p
@@ -96,7 +95,7 @@ PIPE_UNLIMITED_INSTANCES = 0x000000FF
 PIPE_TYPE_BYTE = 0x00000000
 PIPE_READMODE_BYTE = 0x00000000
 FILE_FLAG_WRITE_THROUGH = 0x80000000
-INVALID_HANDLE_VALUE = 0xFFFFFFFF
+INVALID_HANDLE_VALUE = -1
 ERROR_BROKEN_PIPE = 0x0000006D
 ERROR_MORE_DATA = 0x000000EA
 ERROR_PIPE_CONNECTED = 0x00000217
@@ -191,11 +190,11 @@ class PROCESSENTRY32(Structure):
         ("dwSize", DWORD),
         ("cntUsage", DWORD),
         ("th32ProcessID", DWORD),
-        ("th32DefaultHeapID", DWORD),
+        ("th32DefaultHeapID", POINTER(ULONG)),
         ("th32ModuleID", DWORD),
         ("cntThreads", DWORD),
         ("th32ParentProcessID", DWORD),
-        ("pcPriClassBase", DWORD),
+        ("pcPriClassBase", LONG),
         ("dwFlags", DWORD),
         ("sz_exeFile", c_char * 260),
     ]
@@ -273,7 +272,6 @@ class UNICODE_STRING(Structure):
 
 
 class SECURITY_DESCRIPTOR(Structure):
-    _pack_ = 1
     _fields_ = [
         ("Revision", BYTE),
         ("Sbz1", BYTE),
@@ -286,7 +284,6 @@ class SECURITY_DESCRIPTOR(Structure):
 
 
 class SECURITY_ATTRIBUTES(Structure):
-    _pack_ = 1
     _fields_ = [
         ("nLength", DWORD),
         ("lpSecurityDescriptor", PVOID),
@@ -295,7 +292,6 @@ class SECURITY_ATTRIBUTES(Structure):
 
 
 class SYSTEMTIME(Structure):
-    _pack_ = 1
     _fields_ = [
         ("wYear", WORD),
         ("wMonth", WORD),
@@ -327,3 +323,18 @@ class PDH_FMT_COUNTERVALUE(Structure):
         ("CStatus", DWORD),
         ("doubleValue", DOUBLE),
     ]
+
+
+class PROCESS_BASIC_INFORMATION(Structure):
+    _fields_ = [
+        ("ExitStatus", c_long),
+        ("PebBaseAddress", c_void_p),
+        ("AffinityMask", ULONG_PTR),
+        ("BasePriority", c_long),
+        ("UniqueProcessId", ULONG_PTR),
+        ("InheritedFromUniqueProcessId", ULONG_PTR),
+    ]
+
+
+EnumWindowsProc = WINFUNCTYPE(c_bool, POINTER(c_int), POINTER(c_int))
+EnumChildProc = WINFUNCTYPE(c_bool, POINTER(c_int), POINTER(c_int))

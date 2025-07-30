@@ -13,7 +13,8 @@ import sys
 import urllib.error
 import urllib.parse
 import urllib.request
-from ctypes import byref, c_buffer, c_int, c_ulong, create_string_buffer, sizeof, windll, ArgumentError
+from ctypes import POINTER, byref, c_buffer, c_int, c_ulong, create_string_buffer, c_void_p, sizeof, windll, ArgumentError
+from ctypes.wintypes import DWORD, HANDLE, BOOL
 from pathlib import Path
 from shutil import copy
 
@@ -23,42 +24,38 @@ from lib.common.defines import (
     EVENT_MODIFY_STATE,
     GENERIC_READ,
     GENERIC_WRITE,
+    KERNEL32,
     MAX_PATH,
+    NTDLL,
     OPEN_EXISTING,
     PROCESS_ALL_ACCESS,
+    PROCESS_BASIC_INFORMATION,
     PROCESS_INFORMATION,
     PROCESS_QUERY_LIMITED_INFORMATION,
     PROCESSENTRY32,
+    PSAPI,
     STARTUPINFO,
     STILL_ACTIVE,
     SYSTEM_INFO,
     TH32CS_SNAPPROCESS,
     THREAD_ALL_ACCESS,
-    ULONG_PTR,
 )
 
-if sys.platform == "win32":
-    from lib.common.constants import (
-        CAPEMON32_NAME,
-        CAPEMON64_NAME,
-        LOADER32_NAME,
-        LOADER64_NAME,
-        LOGSERVER_PREFIX,
-        PATHS,
-        PIPE,
-        SHUTDOWN_MUTEX,
-        TERMINATE_EVENT,
-        TTD32_NAME,
-        TTD64_NAME,
-        SIDELOADER32_NAME,
-        SIDELOADER64_NAME,
-    )
-    from lib.common.defines import (
-        KERNEL32,
-        NTDLL,
-        PSAPI,
-    )
-    from lib.core.log import LogServer
+from lib.common.constants import (
+    CAPEMON32_NAME,
+    CAPEMON64_NAME,
+    LOADER32_NAME,
+    LOADER64_NAME,
+    LOGSERVER_PREFIX,
+    PATHS,
+    PIPE,
+    SHUTDOWN_MUTEX,
+    TERMINATE_EVENT,
+    TTD32_NAME,
+    TTD64_NAME,
+    SIDELOADER32_NAME,
+    SIDELOADER64_NAME,
+)
 
 from lib.common.constants import OPT_CURDIR, OPT_EXECUTIONDIR
 from lib.common.errors import get_error_string
@@ -66,13 +63,14 @@ from lib.common.rand import random_string
 from lib.common.results import upload_to_host
 from lib.core.compound import create_custom_folders
 from lib.core.config import Config
+from lib.core.log import LogServer
 
 # CSIDL constants
 CSIDL_WINDOWS = 0x0024
 CSIDL_SYSTEM = 0x0025
 CSIDL_SYSTEMX86 = 0x0029
 CSIDL_PROGRAM_FILES = 0x0026
-CSIDL_PROGRAM_FILESX86 = 0x002a
+CSIDL_PROGRAM_FILESX86 = 0x002A
 
 IOCTL_PID = 0x222008
 IOCTL_CUCKOO_PATH = 0x22200C
@@ -81,6 +79,14 @@ PATH_KERNEL_DRIVER = "\\\\.\\DriverSSDT"
 LOGSERVER_POOL = {}
 
 log = logging.getLogger(__name__)
+
+# Define function return types
+KERNEL32.GetCurrentProcess.restype = HANDLE
+KERNEL32.OpenProcess.restype = HANDLE
+KERNEL32.OpenProcess.argtypes = [DWORD, BOOL, DWORD]
+KERNEL32.OpenThread.restype = HANDLE
+KERNEL32.OpenThread.argtypes = [DWORD, BOOL, DWORD]
+KERNEL32.GetLastError.restype = DWORD
 
 
 def is_os_64bit():
@@ -141,9 +147,9 @@ class Process:
         self.config = config
         self.options = options
         self.pid = pid
-        self.h_process = h_process
+        self.h_process = HANDLE(h_process)
         self.thread_id = thread_id
-        self.h_thread = h_thread
+        self.h_thread = HANDLE(h_thread)
         self.suspended = suspended
         self.system_info = SYSTEM_INFO()
         self.critical = False
@@ -233,19 +239,18 @@ class Process:
         if not self.h_process:
             self.open()
 
-        pbi = create_string_buffer(530)
-        size = c_int()
+        pbi = create_string_buffer(1024)
+        size = c_ulong()
 
         # Set return value to signed 32bit integer.
         NTDLL.NtQueryInformationProcess.restype = c_int
 
         ret = NTDLL.NtQueryInformationProcess(self.h_process, 27, byref(pbi), sizeof(pbi), byref(size))
 
-        if NT_SUCCESS(ret) and size.value > 8:
+        if NT_SUCCESS(ret) and size.value > 16:
             try:
-                fbuf = pbi.raw[8:]
-                fbuf = fbuf[: fbuf.find(b"\0\0") + 1]
-                return fbuf.decode("utf16", errors="ignore")
+                fbuf = pbi.raw[16 : size.value]
+                return fbuf.decode("utf16", errors="ignore").rstrip("\x00")
             except Exception as e:
                 log.info(e)
 
@@ -294,16 +299,22 @@ class Process:
         if not self.h_process:
             self.open()
 
-        pbi = (ULONG_PTR * 6)()
+        pbi = PROCESS_BASIC_INFORMATION()
         size = c_ulong()
 
         # Set return value to signed 32bit integer.
         NTDLL.NtQueryInformationProcess.restype = c_int
-
+        NTDLL.NtQueryInformationProcess.argtypes = [
+            HANDLE,
+            c_int,
+            c_void_p,
+            c_ulong,
+            POINTER(c_ulong),
+        ]
         ret = NTDLL.NtQueryInformationProcess(self.h_process, 0, byref(pbi), sizeof(pbi), byref(size))
 
         if NT_SUCCESS(ret) and size.value == sizeof(pbi):
-            return pbi[5]
+            return pbi.InheritedFromUniqueProcessId
 
         return None
 

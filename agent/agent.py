@@ -36,14 +36,7 @@ except ImportError:
 if sys.version_info[:2] < (3, 6):
     sys.exit("You are running an incompatible version of Python, please use >= 3.6")
 
-# You must run x86 version not x64
-# The analysis process interacts with low-level Windows libraries that need a
-# x86 Python to be running.
-# (see https://github.com/kevoreilly/CAPEv2/issues/1680)
-if sys.maxsize > 2**32 and sys.platform == "win32":
-    sys.exit("You should install python3 x86! not x64")
-
-AGENT_VERSION = "0.20"
+AGENT_VERSION = "0.21"
 AGENT_FEATURES = [
     "execpy",
     "execute",
@@ -54,19 +47,18 @@ AGENT_FEATURES = [
 ]
 BASE_64_ENCODING = "base64"
 
-if sys.platform == "win32":
-    AGENT_FEATURES.append("mutex")
-    AGENT_FEATURES.append("browser_extension")
-    MUTEX_TIMEOUT_MS = 500
-    from ctypes import WinError, windll
+AGENT_FEATURES.append("mutex")
+AGENT_FEATURES.append("browser_extension")
+MUTEX_TIMEOUT_MS = 500
+from ctypes import WinError, windll
 
-    kernel32 = windll.kernel32
-    SYNCHRONIZE = 0x100000
-    ERROR_FILE_NOT_FOUND = 0x2
-    WAIT_ABANDONED = 0x00000080
-    WAIT_OBJECT_0 = 0x0
-    WAIT_TIMEOUT = 0x102
-    WAIT_FAILED = 0xFFFFFFFF
+kernel32 = windll.kernel32
+SYNCHRONIZE = 0x100000
+ERROR_FILE_NOT_FOUND = 0x2
+WAIT_ABANDONED = 0x00000080
+WAIT_OBJECT_0 = 0x0
+WAIT_TIMEOUT = 0x102
+WAIT_FAILED = 0xFFFFFFFF
 
 
 class Status(enum.IntEnum):

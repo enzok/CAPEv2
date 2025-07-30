@@ -125,7 +125,7 @@ class LogServer:
 
         if h_pipe == INVALID_HANDLE_VALUE:
             log.warning("Unable to create log server pipe")
-            return False
+            return
 
         logserver = LogServerThread(h_pipe, result_ip, result_port)
         logserver.daemon = True
