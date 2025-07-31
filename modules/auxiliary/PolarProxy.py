@@ -125,8 +125,8 @@ class PolarProxyThread(Thread):
             json.dump(ruleset_json, fh, indent=2)
 
     def run(self):
-        if "polarproxy=" not in self.task.options:
-            log.info("Exiting polarproxy. No parameter received.")
+        if "polarproxy=0" not in self.task.options:
+            log.info("Polarproxy disabled.")
             return
 
         if self.do_run:
