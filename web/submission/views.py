@@ -279,10 +279,6 @@ def index(request, task_id=None, resubmit_hash=None):
             memory,
             clock,
             enforce_timeout,
-            shrike_url,
-            shrike_msg,
-            shrike_sid,
-            shrike_refer,
             unique,
             referrer,
             tlp,
@@ -610,10 +606,6 @@ def index(request, task_id=None, resubmit_hash=None):
                         memory=memory,
                         enforce_timeout=enforce_timeout,
                         clock=clock,
-                        shrike_url=shrike_url,
-                        shrike_msg=shrike_msg,
-                        shrike_sid=shrike_sid,
-                        shrike_refer=shrike_refer,
                         route=route,
                         cape=cape,
                         tags_tasks=tags_tasks,
@@ -820,7 +812,7 @@ def remote_session(request, task_id):
     session_data = ""
 
     if task.status == "running":
-        machine = db.view_machine(task.machine)
+        machine = db.view_machine_by_label(task.machine)
         if not machine:
             return render(request, "error.html", {"error": "Machine is not set for this task."})
         guest_ip = machine.ip

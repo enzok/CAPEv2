@@ -231,22 +231,6 @@
                         <td>Custom data</td>
                     </tr>
                     <tr>
-                        <td><code>shrikemsg:</code></td>
-                        <td>Shrike Suri Alert MSG</td>
-                    </tr>
-                    <tr>
-                        <td><code>shrikesid:</code></td>
-                        <td>Shrike Suri Alert Sid (exact int)</td>
-                    </tr>
-                    <tr>
-                        <td><code>shrikeurl:</code></td>
-                        <td>Shrike url before mangling</td>
-                    </tr>
-                    <tr>
-                        <td><code>shrikerefer:</code></td>
-                        <td>Shrike Referrer</td>
-                    </tr>
-                    <tr>
                         <td><code>comment:</code></td>
                         <td>Search for Analysis Comments</td>
                     </tr>
@@ -327,9 +311,7 @@
                     {% if config.expanded_dashboard %}
                     <th width="4%">PCAP</th>
                     <th width="5%">ClamAV</th>
-                    {% endif %}
-                    {% if config.display_shrike %}
-                    <th width="5%">Shrike</th>
+                    <th width="10%">Custom</th>
                     {% endif %}
                     <th width="7%" style="text-align: right;">Status</th>
                 </tr>
@@ -478,19 +460,16 @@
                             {% endif %}
                             </span>
                         </td>
-                        {% if config.display_shrike %}
                         <td>
-                            {% if analysis.shrike_msg %}
-                                 {% if analysis.status == "reported" %}
-                                     <a href="{% url "shrike" analysis.id %}" target="_blank"><span class="mono">{{analysis.shrike_msg}}</span></a>
-                                 {% else %}
-                                     <span class="mono">{{analysis.shrike_msg}}</span>
-                                 {% endif %}
+                            <span class="mono">
+                            {% if analysis.custom %}
+                                {{analysis.custom}}
                             {% else %}
-                                 <span class="mono">None</span>
+                                None
                             {% endif %}
+                            </span>
                         </td>
-                       {% endif %}
+                        {% endif %}
                         <td style="text-align: right;">
                             {% if analysis.status == "pending" %}
                                 <span class="text-muted">pending</span>
