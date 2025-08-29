@@ -531,8 +531,6 @@ class Task(Base):
     # The Task is linked to one specific parent/child association event
     association: Mapped[Optional["SampleAssociation"]] = relationship(back_populates="task", cascade="all, delete-orphan")
 
-    username = Column(String(256), nullable=True)
-
     __table_args__ = (
         Index("category_index", "category"),
         Index("status_index", "status"),
@@ -1176,7 +1174,6 @@ class _Database:
         cape=False,
         tags_tasks=False,
         user_id=0,
-        username=False,
     ):
         """Add a task to database.
         @param obj: object to add (File or URL).
@@ -1199,7 +1196,6 @@ class _Database:
         @param cape: CAPE options
         @param tags_tasks: Task tags so users can tag their jobs
         @param user_id: Link task to user if auth enabled
-        @param username: username for custom auth
         @return: cursor or None.
         """
         # Convert empty strings and None values to a valid int
@@ -1304,8 +1300,6 @@ class _Database:
             )
             self.session.add(association)
 
-        task.username = username
-
         # Use a nested transaction so that we can return an ID.
         with self.session.begin_nested():
             self.session.add(task)
@@ -1334,7 +1328,6 @@ class _Database:
         tags_tasks=False,
         user_id=0,
         parent_sample=None,
-        username=False,
     ):
         """Add a task to database from file path.
         @param file_path: sample path.
@@ -1357,7 +1350,6 @@ class _Database:
         @param tags_tasks: Task tags so users can tag their jobs
         @user_id: Allow link task to user if auth enabled
         @parent_sample: Sample object, if archive
-        @username: username from custom auth
         @return: cursor or None.
         """
         if not file_path or not path_exists(file_path):
@@ -1392,7 +1384,6 @@ class _Database:
             tags_tasks=tags_tasks,
             user_id=user_id,
             parent_sample=parent_sample,
-            username=username,
         )
 
     def _identify_aux_func(self, file: bytes, package: str, check_shellcode: bool = True) -> tuple:
@@ -1527,7 +1518,6 @@ class _Database:
         route=None,
         cape=False,
         user_id=0,
-        username=False,
         category=None,
     ):
         """
@@ -1590,7 +1580,6 @@ class _Database:
                 priority=priority,
                 tlp=tlp,
                 user_id=user_id,
-                username=username,
                 options=options,
                 package=package,
             )
@@ -1629,7 +1618,6 @@ class _Database:
                     priority=priority,
                     tlp=tlp,
                     user_id=user_id,
-                    username=username,
                     options=options,
                     package=package,
                     parent_sample=parent_sample,
@@ -1646,7 +1634,7 @@ class _Database:
                         config = static_extraction(file)
                 if config or only_extraction:
                     task_ids += self.add_static(
-                        file_path=file, priority=priority, tlp=tlp, user_id=user_id, username=username, options=options, parent_sample=parent_sample,
+                        file_path=file, priority=priority, tlp=tlp, user_id=user_id, options=options, parent_sample=parent_sample,
                     )
 
             if not config and not only_extraction:
@@ -1696,7 +1684,6 @@ class _Database:
                     cape=cape,
                     user_id=user_id,
                     parent_sample=parent_sample,
-                    username=username,
                 )
                 package = None
             if task_id:
@@ -1725,7 +1712,6 @@ class _Database:
         clock=None,
         tlp=None,
         user_id=0,
-        username=False,
     ):
         return self.add(
             PCAP(file_path.decode()),
@@ -1742,7 +1728,6 @@ class _Database:
             clock=clock,
             tlp=tlp,
             user_id=user_id,
-            username=username,
         )
 
     def add_static(
@@ -1763,7 +1748,6 @@ class _Database:
         static=True,
         user_id=0,
         parent_sample=None,
-        username=False,
     ):
         extracted_files, demux_error_msgs = demux_sample(file_path, package, options)
 
@@ -1800,7 +1784,6 @@ class _Database:
                 static=static,
                 parent_sample=parent_sample,
                 user_id=user_id,
-                username=username,
             )
             if task_id:
                 task_ids.append(task_id)
@@ -1826,7 +1809,6 @@ class _Database:
         cape=False,
         tags_tasks=False,
         user_id=0,
-        username=False,
     ):
         """Add a task to database from url.
         @param url: url.
@@ -1845,7 +1827,6 @@ class _Database:
         @param cape: CAPE options
         @param tags_tasks: Task tags so users can tag their jobs
         @param user_id: Link task to user
-        @param username: username for custom auth
         @return: cursor or None.
         """
 
@@ -1875,7 +1856,6 @@ class _Database:
             cape=cape,
             tags_tasks=tags_tasks,
             user_id=user_id,
-            username=username,
         )
 
     def reschedule(self, task_id):
