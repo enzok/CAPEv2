@@ -19,7 +19,6 @@ urlpatterns = [
     re_path(r"^remove/(?P<task_id>\d+)/$", views.remove, name="remove"),
     re_path(r"^signature-calls/(?P<task_id>\d+)/$", views.signature_calls, name="signature-calls"),
     re_path(r"^reschedule/(?P<task_id>\d+)/$", views.reschedule, name="reschedule"),
-    re_path(r"^reprocess/(?P<task_id>\d+)/$", views.reprocess, name="reprocess"),
     re_path(r"^chunk/(?P<task_id>\d+)/(?P<pid>\d+)/(?P<pagenum>\d+)/$", views.chunk, name="chunk"),
     re_path(
         r"^filtered/(?P<task_id>\d+)/(?P<pid>\d+)/(?P<category>\w+)/(?P<apilist>[!]?[A-Za-z_0-9,%]*)/(?P<caller>\w+)/(?P<tid>\w+)/$",
@@ -39,7 +38,7 @@ urlpatterns = [
         views.procdump,
         name="procdump",
     ),
-    re_path(r"^reprocess/(?P<task_id>\d+)/$", views.reprocess_task, name="reprocess_tasks"),
+    re_path(r"^reprocess/(?P<task_id>\d+)/$", views.reprocess_task, name="reprocess_task"),
     re_path(r"^(?P<task_id>\d+)/pcapstream/(?P<conntuple>[.,\w]+)/$", views.pcapstream, name="pcapstream"),
     re_path(r"^(?P<task_id>\d+)/comments/$", views.comments, name="comments"),
     re_path(

@@ -2466,23 +2466,6 @@ def reschedule(request, task_id):
 
 
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
-def reprocess(request, task_id):
-    task = db.view_task(task_id)
-
-    if not task:
-        resp = {"error": "Task ID does not exist in the database"}
-        return render(request, "error.html", resp)
-
-    if db.reprocess(task_id):
-        resp = {"message": "Task ID {} has been submitted for processing".format(task_id)}
-    else:
-        resp = {"error": "An error occured while trying to reprocess Task ID {0}".format(task_id)}
-        return render(request, "error.html", resp)
-
-    return render(request, "success_simple.html", resp)
-
-
-@conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def statistics_data(request, days=7):
     if days.isdigit():
         try:
