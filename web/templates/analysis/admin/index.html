@@ -6,9 +6,6 @@
             <td>{{analysis.info.id}}
                 <a class="btn btn-secondary btn-sm" href="{% url "remove" analysis.info.id %}" data-bs-toggle="tooltip" title="Delete task"><i class="fas fa-trash-alt"></i></a>
                 <a class="btn btn-secondary btn-sm" href="{% url "reschedule" analysis.info.id %}" data-bs-toggle="tooltip" title="Reschedule"><span class="fas fa-sync"></span> File</a>
-                {% if settings.REPROCESS_TASKS %}
-                    <a class="btn btn-secondary btn-sm" href="{% url "reprocess_task" analysis.info.id %}" data-bs-toggle="tooltip" title="Reprocess"><span class="fas fa-sync"</span> Process</a>
-                {% endif %}
             </td>
         </tr>
         {% if config.mongodb %}
