@@ -199,3 +199,95 @@ def collect_file_dicts(report) -> itertools.chain:
     if report.get("suricata", {}).get("files", []):
         file_dicts.append(list(filter(None, [file_info.get("file_info", []) for file_info in report.get("suricata", {}).get("files", [])])))
     return itertools.chain.from_iterable(file_dicts)
+
+
+# --------- Configs normalization helpers ---------
+
+CONFIGS_COLL = "configs"
+
+
+def _collect_leaf_values(node, out_set: set[str]) -> None:
+    """Recursively collect leaf values from dicts/lists into out_set as strings."""
+    if node is None:
+        return
+    if isinstance(node, dict):
+        for v in node.values():
+            _collect_leaf_values(v, out_set)
+    elif isinstance(node, (list, tuple, set)):
+        for v in node:
+            _collect_leaf_values(v, out_set)
+    else:
+        sval = str(node)
+        if sval and len(sval) >= 2:  # avoid trivial tokens
+            out_set.add(sval)
+
+
+def collect_config_values(report: dict) -> set[str]:
+    """
+    Extract all leaf values from CAPE.configs.
+    Schema looks like: [{family1: {...}}, {family2: {...}}, ...]
+    Returns a deduped set of strings.
+    """
+    values: set[str] = set()
+    cape = report.get("CAPE", {})
+    cfgs = cape.get("configs", [])
+    if not isinstance(cfgs, list):
+        return values
+    for entry in cfgs:
+        if not isinstance(entry, dict):
+            continue
+        for _, cfgdict in entry.items():
+            if isinstance(cfgdict, dict):
+                _collect_leaf_values(cfgdict, values)
+    return values
+
+
+@mongo_hook((mongo_insert_one, mongo_update_one), "analysis")
+def normalize_configs(report):
+    """Extract unique config values from CAPE.configs and insert into CONFIGS_COLL."""
+    task_id = report.get("info", {}).get("id")
+    if not task_id:
+        return report
+
+    values = collect_config_values(report)
+    if not values:
+        return report
+
+    # Prepare bulk upserts (one per value)
+    requests = [
+        UpdateOne(
+            {"task_id": int(task_id), "value": val},
+            {"$setOnInsert": {"task_id": int(task_id), "value": val}},
+            upsert=True,
+        )
+        for val in values
+    ]
+
+    try:
+        if requests:
+            mongo_bulk_write(CONFIGS_COLL, requests, ordered=False)
+    except errors.BulkWriteError as exc:
+        log.debug("Bulk write error in normalize_configs: %s", exc.details)
+
+    return report
+
+
+@mongo_hook(mongo_delete_data, "analysis")
+def remove_configs_on_delete(task_ids):
+    """Remove all configs tied to deleted task(s)."""
+    if isinstance(task_ids, int):
+        task_ids = [task_ids]
+    if task_ids:
+        mongo_delete_many(CONFIGS_COLL, {"task_id": {"$in": task_ids}})
+
+
+@mongo_hook(mongo_delete_data_range, "analysis")
+def remove_configs_on_delete_range(*, range_start: int = 0, range_end: int = 0):
+    """Remove all configs tied to deleted tasks in the given range."""
+    task_id_query = {}
+    if range_start > 0:
+        task_id_query["$gte"] = range_start
+    if range_end > 0:
+        task_id_query["$lt"] = range_end
+    if task_id_query:
+        mongo_delete_many(CONFIGS_COLL, {"task_id": task_id_query})
