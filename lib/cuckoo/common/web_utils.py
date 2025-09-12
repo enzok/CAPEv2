@@ -1204,6 +1204,7 @@ search_term_map = {
     "type": "target.file.type",
     "file": "behavior.summary.files",
     "command": "behavior.summary.executed_commands",
+    "configs": "CAPE.configs",
     "resolvedapi": "behavior.summary.resolved_apis",
     "key": "behavior.summary.keys",
     "mutex": "behavior.summary.mutexes",
