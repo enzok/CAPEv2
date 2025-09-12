@@ -1307,6 +1307,42 @@ normalized_int_terms = (
 )
 
 
+def build_configs_query(value: str, search_limit: int):
+    """
+    Build a MongoDB query for configs search.
+    - Exact match if no wildcards are present.
+    - Regex match if '*' or '?' are present (supports escaping).
+    """
+    if "*" not in value and "?" not in value:
+        config_docs = list(
+            mongo_find(
+                "configs",
+                {"value": value},
+                {"task_id": 1, "_id": 0},
+                limit=search_limit,
+            )
+        )
+    else:
+        safe_val = value.replace(r"\*", "__LIT_STAR__").replace(r"\?", "__LIT_QMARK__")
+        safe_val = re.escape(safe_val)
+        safe_val = safe_val.replace(r"\*", ".*").replace(r"\?", ".")
+        safe_val = safe_val.replace("__LIT_STAR__", r"\*").replace("__LIT_QMARK__", r"\?")
+        config_docs = list(
+            mongo_find(
+                "configs",
+                {"value": {"$regex": f"^{safe_val}$", "$options": "i"}},
+                {"task_id": 1, "_id": 0},
+                limit=search_limit,
+            )
+        )
+
+    if not config_docs:
+        return []
+
+    ids = sorted({doc["task_id"] for doc in config_docs}, reverse=True)[:search_limit]
+    return {"info.id": {"$in": ids}}
+
+
 def perform_search(
     term: str, value: str, search_limit: int = 0, user_id: int = 0, privs: bool = False, web: bool = True, projection: dict = None
 ):
@@ -1392,11 +1428,6 @@ def perform_search(
     if not search_limit:
         search_limit = web_cfg.general.get("search_limit", 50)
 
-    elif term == "configs":
-        # check if family name is string only maybe?
-        search_term_map[term] = f"CAPE.configs.{value}"
-        query_val = {"$exists": True}
-
     if repconf.mongodb.enabled and query_val:
         if term in hash_searches:
             # The file details are uniq, and we store 1 to many. So where hash type is uniq, IDs are list
@@ -1404,8 +1435,11 @@ def perform_search(
             if not file_docs:
                 return []
             ids = sorted(list(set(file_docs[0]["_task_ids"])), reverse=True)[:search_limit]
-            term = "ids"
             mongo_search_query = {"info.id": {"$in": ids}}
+        elif term == "configs":
+            mongo_search_query = build_configs_query(value, search_limit)
+            if not mongo_search_query:
+                return []
         elif isinstance(search_term_map[term], str):
             mongo_search_query = {search_term_map[term]: query_val}
         elif isinstance(search_term_map[term], list):
