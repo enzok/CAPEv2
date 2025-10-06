@@ -1,3 +1,9 @@
+### [06.10.2025]
+* Monitor update: Improve debugger breakpoint protection, fixes instruction counting anti-debug detection in CheckPoint ShowStopper (thanks @cccs-mog)
+
+### [03.10.2025]
+* Monitor update: Fix issue with hook_restore config setting being ignored (fixes #2715 - thanks @federicofantini)
+
 ### [23.09.2025]
 * Monitor updates:
     * unhook: attempt restoration of detected hook modifications
