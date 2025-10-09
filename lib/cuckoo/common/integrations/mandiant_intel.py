@@ -115,14 +115,16 @@ class MandiantAPIClient:
         return {"actor": actors, "malware": malwares}
 
 
-def mandiant_lookup(category: str, target: str, results: dict = {}):
+def mandiant_lookup(category: str, target: str, results=None):
+    if results is None:
+        return None
+
     if not integragrations_conf.mandiant_intel.enabled:
-        return results
+        return None
 
     mandiant_intel = {}
 
     if category == "file":
-        sha256 = False
         if not path_exists(target) and len(target) != 64:
             return {"error": True, "msg": "File doesn't exist"}
 
@@ -145,9 +147,7 @@ if __name__ == "__main__":
     import sys
 
     indicator = sys.argv[1]
-
     client = MandiantAPIClient()
-
     if client.get_new_token():
         result = client.search(indicator)
         if result:
