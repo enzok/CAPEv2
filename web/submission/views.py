@@ -21,6 +21,8 @@ sys.path.append(settings.CUCKOO_PATH)
 from uuid import NAMESPACE_DNS, uuid3
 
 from lib.cuckoo.common.config import Config
+from lib.cuckoo.common.integrations.wildclient import WildFireClient
+from lib.cuckoo.common.integrations.zscalerclient import ZscalerClient
 from lib.cuckoo.common.path_utils import path_delete, path_exists, path_mkdir
 from lib.cuckoo.common.saztopcap import saz_to_pcap
 from lib.cuckoo.common.utils import get_options, get_user_filename, sanitize_filename, store_temp_file
@@ -47,6 +49,7 @@ distconf = Config("distributed")
 processing = Config("processing")
 aux_conf = Config("auxiliary")
 web_conf = Config("web")
+integrations_conf = Config("integrations")
 
 db = Database()
 
@@ -508,7 +511,7 @@ def index(request, task_id=None, resubmit_hash=None):
                 details["content"] = content
                 status, tasks_details = download_file(**details)
                 if status == "error":
-                    details["errors"].append({os.path.basename(filename): tasks_details})
+                    details["errors"].append({os.path.basename(path): tasks_details})
                 else:
                     details["task_ids"] = tasks_details.get("task_ids")
                     if tasks_details.get("errors"):
@@ -518,6 +521,22 @@ def index(request, task_id=None, resubmit_hash=None):
                         if records:
                             for record in records or []:
                                 existent_tasks.setdefault(record["target"]["file"]["sha256"], []).append(record)
+
+                    if  request.POST.get("wildfire", False) and integrations_conf.wildfire.enabled:
+                        try:
+                            wclient = WildFireClient()
+                            status = wclient.submit_file(path)
+                            details["wildfire_status"] = status
+                        except Exception as e:
+                            print("WildFire submission failed: %s", e)
+
+                    if  request.POST.get("zscaler", False) and integrations_conf.zscaler.enabled:
+                        try:
+                            zclient = ZscalerClient()
+                            status = zclient.submit_file(path)
+                            details["zscaler_status"] = status
+                        except Exception as e:
+                            print("Zscaler submission failed: %s", e)
 
         elif task_category == "sample":
             details["service"] = "WebGUI"
@@ -550,6 +569,22 @@ def index(request, task_id=None, resubmit_hash=None):
                             for record in records:
                                 if record.get("target").get("file", {}).get("sha256"):
                                     existent_tasks.setdefault(record["target"]["file"]["sha256"], []).append(record)
+
+                    if request.POST.get("wildfire", False) and integrations_conf.wildfire.enabled:
+                        try:
+                            wclient = WildFireClient()
+                            status = wclient.submit_file(path)
+                            details["wildfire_status"] = status
+                        except Exception as e:
+                            print("WildFire submission failed: %s", e)
+
+                    if request.POST.get("zscaler", False) and integrations_conf.zscaler.enabled:
+                        try:
+                            zclient = ZscalerClient()
+                            status = zclient.submit_file(path)
+                            details["zscaler_status"] = status
+                        except Exception as e:
+                            print("Zscaler submission failed: %s", e)
 
         elif task_category == "static":
             for content, path, sha256 in list_of_tasks:
@@ -616,6 +651,14 @@ def index(request, task_id=None, resubmit_hash=None):
                     )
                     details["task_ids"].append(task_id)
 
+                    if request.POST.get("wildfire", False) and integrations_conf.wildfire.enabled:
+                        try:
+                            wclient = WildFireClient()
+                            status = wclient.submit_url(url)
+                            details["wildfire_status"] = status
+                        except Exception as e:
+                            print("WildFire submission failed: %s", e)
+
         elif task_category == "dlnexec":
             for content, path, sha256 in list_of_tasks:
                 details["path"] = path
@@ -664,7 +707,6 @@ def index(request, task_id=None, resubmit_hash=None):
         enabledconf["tags"] = False
         enabledconf["dist_master_storage_only"] = distconf.distributed.master_storage_only
         enabledconf["linux_on_gui"] = web_conf.linux.enabled
-        enabledconf["posproc"] = aux_conf.posproc.get("enabled")
         enabledconf["tlp"] = web_conf.tlp.enabled
         enabledconf["timeout"] = cfg.timeouts.default
         enabledconf["amsidump"] = web_conf.amsidump.enabled
@@ -673,6 +715,9 @@ def index(request, task_id=None, resubmit_hash=None):
         enabledconf["downloading_service"] = bool(downloader_services.downloaders)
         enabledconf["interactive_desktop"] = web_conf.guacamole.enabled
         enabledconf["mitmdump"] = settings.MITMDUMP_ENABLED
+        enabledconf["posproc"] = aux_conf.posproc.get("enabled")
+        enabledconf["wildfire"] = integrations_conf.wildfire.enabled
+        enabledconf["zscaler"] = integrations_conf.zscaler.enabled
 
         all_vms_tags = load_vms_tags()
 

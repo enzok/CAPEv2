@@ -725,6 +725,20 @@ $(document).ready( function() {
                                     </label>
                                 </div>
                                 {% endif %}
+                                {% if config.wildfire%}
+                                <div class="form-check">
+                                    <label>
+                                        <input type="checkbox" name="wildfire" /> Submit to WildFire sandbox for analysis
+                                    </label>
+                                </div>
+                                {% endif %}
+                                {% if config.zscaler%}
+                                <div class="form-check">
+                                    <label>
+                                        <input type="checkbox" name="zscaler" /> Submit to Zscaler sandbox for analysis
+                                    </label>
+                                </div>
+                                {% endif %}
                             </div>
                         </div>
                     </div>

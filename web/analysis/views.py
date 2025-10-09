@@ -20,7 +20,7 @@ from wsgiref.util import FileWrapper
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import BadRequest, PermissionDenied
-from django.http import HttpResponse, HttpResponseRedirect, StreamingHttpResponse
+from django.http import FileResponse, HttpResponse, HttpResponseRedirect, FileResponse, StreamingHttpResponse
 from django.shortcuts import redirect, render
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST, require_safe
@@ -134,6 +134,18 @@ USE_SEVENZIP = False
 if reporting_cfg.compression.compressiontool == "7zip":
     USE_SEVENZIP = True
     SEVENZIP_PATH = reporting_cfg.compression.sevenzippath.strip() or "/usr/bin/7z"
+
+HAVE_WILDFIRE = False
+if integrations_cfg.wildfire.enabled:
+    from lib.cuckoo.common.integrations.wildclient import wf_dl_pcap, wf_dl_report, wf_change_verdict
+
+    HAVE_WILDFIRE = True
+
+HAVE_ZSCALER = False
+if integrations_cfg.zscaler.enabled:
+    from lib.cuckoo.common.integrations.zscalerclient import zscaler_dl_report
+
+    HAVE_ZSCALER = True
 
 # Used for displaying enabled config options in Django UI
 enabledconf = {}
@@ -2857,3 +2869,50 @@ def archive_search(request, searched=""):
         )
     else:
         return render(request, "analysis/archive_search.html", {"analyses": None, "term": None, "error": None})
+
+
+@conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
+def wildfire_verdict(request, task_id:str, sha256: str):
+    if wf_change_verdict(sha256):
+        doc = mongo_find_one("analysis", {"info.id": int(task_id)}, {"_id": 1, "target.file.wildfire": 1})
+        if doc:
+            mongo_update_one("analysis", {"_id": ObjectId(doc["_id"])}, {"$set": {"target.file.wildfire": "malware"}})
+            return redirect("report", task_id=task_id)
+
+    return render(request, "error.html", {"error": f"Failed to change update Wildfire verdict."})
+
+
+@conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
+def wildfire_report(request, sha256: str):
+    file_name = f"{sha256}.pdf"
+    cd = "application/octet-stream"
+    report_data = wf_dl_report(sha256)
+    if not report_data:
+        return render(request, "error.html", {"error": f"{report_data}"})
+
+    bio = BytesIO(report_data)
+    return FileResponse(bio, as_attachment=True, filename=file_name, content_type=cd)
+
+
+@conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
+def wildfire_pcap(request, sha256: str):
+    file_name = f"{sha256}.pcap"
+    cd = "application/octet-stream"
+    pcap_data = wf_dl_pcap(sha256)
+    if not pcap_data:
+        return render(request, "error.html", {"error": "No pcap data available."})
+
+    bio = BytesIO(pcap_data)
+    return FileResponse(bio, as_attachment=True, filename=file_name, content_type=cd)
+
+
+@conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
+def zscaler_report(request, sha256: str):
+    file_name = f"{sha256}.pdf"
+    cd = "application/octet-stream"
+    report_data = zscaler_dl_report(sha256)
+    if not report_data:
+        return render(request, "error.html", {"error": f"{report_data}"})
+
+    bio = BytesIO(report_data)
+    return FileResponse(bio, as_attachment=True, filename=file_name, content_type=cd)

@@ -9,6 +9,7 @@ import shlex
 import shutil
 import signal
 import subprocess
+from contextlib import suppress
 
 from pathlib import Path
 from typing import Any, DefaultDict, List, Optional, Set, Union
@@ -150,6 +151,18 @@ if integration_conf.mandiant_intel.enabled:
 
     HAVE_MANDIANT_INTEL = True
 
+HAVE_WILDFIRE = False
+if integration_conf.wildfire.enabled:
+    from lib.cuckoo.common.integrations.wildclient import wf_lookup
+
+    HAVE_WILDFIRE = True
+
+HAVE_ZSCALER = False
+if integration_conf.zscaler.enabled:
+    from lib.cuckoo.common.integrations.zscalerclient import zscaler_lookup
+
+    HAVE_ZSCALER = True
+
 exclude_startswith = ("parti_",)
 excluded_extensions = (".parti",)
 tools_folder = os.path.join(cfg.cuckoo.get("tmppath", "/tmp"), "cape-external")
@@ -282,6 +295,20 @@ def static_file_info(
             mandiant_intel_details = mandiant_lookup("file", file_path, results)
             if mandiant_intel_details:
                 data_dictionary["mandiant_intel"] = mandiant_intel_details
+
+        if HAVE_WILDFIRE and processing_conf.wildfire.enabled:
+            sha256 = File(file_path).get_sha256()
+            with suppress(Exception):
+                verdict = wf_lookup(sha256)
+                if verdict:
+                    data_dictionary["wildfire"] = verdict
+
+        if HAVE_ZSCALER and processing_conf.zscaler.enabled:
+            sha256 = File(file_path).get_sha256()
+            with suppress(Exception):
+                zscaler_details = zscaler_lookup(sha256)
+                if zscaler_details:
+                    data_dictionary["zscaler"] = zscaler_details
 
     if options_dict.get("extractions", "") == "off":
         return

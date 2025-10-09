@@ -1,0 +1,21 @@
+{% load verdict_tags %}
+<section id="static_wildfire">
+    {% if file.wildfire %}
+      <div class="card-body">
+        <div class="d-flex align-items-center flex-wrap ml-3">
+          <div class="{{ file.wildfire|verdict_alert_class }} d-inline-block py-1 px-2 mr-3 mb-0">
+            <strong>
+              {{ file.wildfire }}
+            </strong>
+          </div>
+          <div class="btn-group btn-group-sm" role="group" aria-label="WildFire actions">
+            {% if file.wildfire|lower == 'benign_benign' %}
+              <a class="btn btn-secondary btn-sm mr-2" href="{% url "wf_verdict" id file.sha256 %}">Mark Malicious</a>
+            {% endif %}
+            <a class="btn btn-secondary btn-sm mr-2" href="{% url "wf_report" file.sha256 %}">Download Report</a>
+            <a class="btn btn-secondary btn-sm" href="{% url "wf_pcap" file.sha256 %}">Download pcap</a>
+          </div>
+        </div>
+      </div>
+    {% endif %}
+</section>
