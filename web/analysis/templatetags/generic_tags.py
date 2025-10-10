@@ -28,26 +28,35 @@ def proctreetolist(tree):
             newnode["name"] = node["name"]
             if "module_path" in node:
                 newnode["module_path"] = node["module_path"]
+
             if "environ" in node and "CommandLine" in node["environ"]:
-                cmdline = node["environ"]["CommandLine"]
-                if cmdline.startswith('"'):
-                    splitcmdline = cmdline[cmdline[1:].index('"') + 2 :].split()
-                    argv0 = cmdline[: cmdline[1:].index('"') + 1].lower()
-                    if node["module_path"].lower() in argv0:
-                        cmdline = " ".join(splitcmdline).strip()
-                    else:
-                        cmdline = node["environ"]["CommandLine"]
-                elif cmdline:
-                    splitcmdline = cmdline.split()
-                    if splitcmdline:
-                        argv0 = splitcmdline[0].lower()
+                cmdline = node.get("environ", {}).get("CommandLine", "") or ""
+                if cmdline.startswith('"') and cmdline.find('"', 1) == -1:
+                    cmdline = cmdline[1:]
+
+                try:
+                    if cmdline.startswith('"'):
+                        splitcmdline = cmdline[cmdline[1:].index('"') + 2 :].split()
+                        argv0 = cmdline[: cmdline[1:].index('"') + 1].lower()
                         if node["module_path"].lower() in argv0:
-                            cmdline = " ".join(splitcmdline[1:]).strip()
+                            cmdline = " ".join(splitcmdline).strip()
                         else:
-                            cmdline = node["environ"]["CommandLine"]
-                if len(cmdline) >= 200 + 15:
-                    cmdline = cmdline[:200] + " ...(truncated)"
-                newnode["commandline"] = convert_to_printable(cmdline)
+                            cmdline = node.get("environ", {}).get("CommandLine", "")
+                    elif cmdline:
+                        splitcmdline = cmdline.split()
+                        if splitcmdline:
+                            argv0 = splitcmdline[0].lower()
+                            if node["module_path"].lower() in argv0:
+                                cmdline = " ".join(splitcmdline[1:]).strip()
+                            else:
+                                cmdline = node["environ"]["CommandLine"]
+                    if len(cmdline) >= 200 + 15:
+                        cmdline = cmdline[:200] + " ...(truncated)"
+
+                    newnode["commandline"] = convert_to_printable(cmdline)
+                except Exception as e:
+                    print(f"Proctreetolist error: {e}")
+
             outlist.append(newnode)
         if is_special:
             continue
