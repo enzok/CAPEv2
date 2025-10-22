@@ -45,7 +45,7 @@ class Java:
                 tmp_conf = os.path.join(tmpdir, b"config.yml")
                 cf = Path(self.deobfuscator_conf)
                 confdata = f"input: {ijar_file.decode()}\noutput: {ojar_file.decode()}\n"
-                confdata += Path(self.deobfuscator_conf).read_text()
+                confdata += cf.read_text()
                 _ = Path(tmp_conf.decode()).write_text(confdata)
 
                 p = Popen(["java", "-jar", self.deobfuscator_jar, "--config", tmp_conf], stdout=PIPE)
