@@ -4,6 +4,7 @@
 
 import base64
 import codecs
+import logging
 import os
 
 from lib.cuckoo.common.abstracts import Report
@@ -23,6 +24,8 @@ try:
     HAVE_JINJA2 = True
 except ImportError:
     HAVE_JINJA2 = False
+
+log = logging.getLogger(__name__)
 
 
 class ReportHTML(Report):
@@ -61,6 +64,42 @@ class ReportHTML(Report):
         else:
             results["shots"] = []
 
+        bingraph_path = os.path.join(self.analysis_path, "bingraph")
+        if path_exists(bingraph_path):
+            if "graphs" not in results:
+                results["graphs"] = {}
+
+            bingraph_dict_content = {}
+            for file_name in os.listdir(bingraph_path):
+                file_path = os.path.join(bingraph_path, file_name)
+                sha256 = os.path.basename(file_path).split("-", 1)[0]
+                with codecs.open(file_path, "r", encoding="utf-8") as f:
+                    bingraph_dict_content[sha256] = f.read()
+
+        if bingraph_dict_content:
+                results["graphs"]["bingraph"] = {"enabled": True, "content": bingraph_dict_content}
+
+        debugger_path = os.path.join(self.analysis_path, "debugger")
+        debugger = {}
+        if path_exists(debugger_path):
+            try:
+                for log_file in sorted(os.listdir(debugger_path)):
+                    if not log_file.endswith(".log"):
+                        continue
+
+                    log_path = os.path.join(debugger_path, log_file)
+                    if not os.path.isfile(log_path):
+                        continue
+
+                    try:
+                        pid = log_file.strip(".log")
+                        with open(log_path, "r") as f:
+                            debugger[pid] = f.read()
+                    except (ValueError, TypeError):
+                        log.warning("Could not parse PID from debugger log file: %s", log_file)
+            except Exception as e:
+                log.warning("Could not read debugger logs for HTML report: %s", e)
+
         env = Environment(autoescape=True)
         env.filters.update(
             {
@@ -80,17 +119,24 @@ class ReportHTML(Report):
 
         try:
             tpl = env.get_template("report.html")
-            html = tpl.render({"results": results, "summary_report": False})
+            html = tpl.render(
+                {
+                    "results": results,
+                    "summary_report": False,
+                    "graphs": results.get("graphs", {}),
+                    "debugger": debugger,
+                }
+            )
         except UndefinedError as e:
-            raise CuckooReportError(f"Failed to generate summary HTML report: {e}")
+            raise CuckooReportError("Failed to generate summary HTML report: %s", e)
         except TemplateNotFound as e:
-            raise CuckooReportError(f"Failed to generate summary HTML report: {e} on {e.name}")
+            raise CuckooReportError("Failed to generate summary HTML report: %s on %s", e, e.name)
         except (TemplateSyntaxError, TemplateAssertionError) as e:
-            raise CuckooReportError(f"Failed to generate summary HTML report: {e} on {e.name}, line {e.lineno}")
+            raise CuckooReportError("Failed to generate summary HTML report: %s on %s, line %s", e, e.name, e.lineno)
         try:
             with codecs.open(os.path.join(self.reports_path, "report.html"), "w", encoding="utf-8") as report:
                 report.write(html)
         except (TypeError, IOError) as e:
-            raise CuckooReportError(f"Failed to write HTML report: {e}")
+            raise CuckooReportError("Failed to write HTML report: %s", e)
 
         return True
