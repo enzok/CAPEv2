@@ -777,8 +777,6 @@ class Pcap:
                     offset = file.tell()
                     continue
 
-                self._add_hosts(connection)
-
                 if ip.p == dpkt.ip.IP_PROTO_TCP:
                     tcp = ip.data
                     if not isinstance(tcp, dpkt.tcp.TCP):
@@ -789,6 +787,10 @@ class Pcap:
 
                     connection["sport"] = tcp.sport
                     connection["dport"] = tcp.dport
+
+                    if tcp.flags & dpkt.tcp.TH_SYN and tcp.flags & dpkt.tcp.TH_ACK:
+                        connection["src"], connection["dst"] = connection["dst"], connection["src"]
+                        connection["sport"], connection["dport"] = connection["dport"], connection["sport"]
 
                     if tcp.data:
                         self._tcp_dissect(connection, tcp.data, ts)
@@ -840,6 +842,7 @@ class Pcap:
                     self._icmp_dissect(connection, icmp)
 
                 offset = file.tell()
+                self._add_hosts(connection)
             except AttributeError:
                 continue
             except dpkt.dpkt.NeedData:
