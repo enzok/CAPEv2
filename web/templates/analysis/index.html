@@ -226,6 +226,7 @@
                                 {% endif %}
                             </td>
                             {% endif %}
+                            {% if config.display_clamav %}
                             <td>
                                 {% if analysis.clamav %}
                                     {{analysis.clamav}}
@@ -233,6 +234,7 @@
                                     -
                                 {% endif %}
                             </td>
+                            {% endif %}
                             <td class="text-end">
                                 {% if analysis.status == "pending" %}
                                     <span class="badge bg-secondary">pending</span>
@@ -432,6 +434,7 @@
                                 {% endif %}
                             </td>
                             {% endif %}
+                            {% if config.display_clamav %}
                             <td>
                                 {% if analysis.clamav %}
                                     {{analysis.clamav}}
@@ -439,6 +442,7 @@
                                     -
                                 {% endif %}
                             </td>
+                            {% endif %}
                             <td class="text-end">
                                 {% if analysis.status == "pending" %}
                                     <span class="badge bg-secondary">pending</span>
@@ -664,6 +668,7 @@
                                 {% endif %}
                             </td>
                             {% endif %}
+                            {% if config.display_clamav %}
                             <td>
                                 {% if analysis.clamav %}
                                     {{analysis.clamav}}
@@ -671,6 +676,7 @@
                                     -
                                 {% endif %}
                             </td>
+                            {% endif %}
                             <td class="text-end">
                                 {% if analysis.status == "pending" %}
                                     <span class="badge bg-secondary">pending</span>
