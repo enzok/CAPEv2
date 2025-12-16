@@ -126,10 +126,10 @@
                     <thead class="thead-dark">
                     <tr>
                         <th width="5%" class="border-top-0">ID</th>
-                        <th width="10%" class="border-top-0">Timestamp</th>
-                        <th width="8%" class="border-top-0">Package</th>
-                        <th width="27%" class="border-top-0">Filename</th>
-                        <th width="27%" class="border-top-0">Target</th>
+                        <th width="11%" class="border-top-0">Timestamp</th>
+                        <th width="7%" class="border-top-0">Package</th>
+                        <th width="25%" class="border-top-0">Filename</th>
+                        <th width="18%" class="border-top-0">Target</th>
                         <th width="9%" class="border-top-0">Detections</th>
                         {% if config.moloch %}
                         <th width="5%" class="border-top-0">Moloch</th>
@@ -147,9 +147,10 @@
                         <th width="5%" class="border-top-0">MalScore</th>
                         {% endif %}
                         {% if config.expanded_dashboard %}
-                        <th width="4%" class="border-top-0">PCAP</th>
-                        <th width="5%" class="border-top-0">ClamAV</th>
-                        <th width="10%" class="border-top-0">Custom</th>
+                        <th width="5%" class="border-top-0">PCAP</th>
+                        {% if config.display_clamav %}
+                            <th width="6%" class="border-top-0">ClamAV</th>
+                        {% endif %}
                         {% endif %}
                         <th width="7%" class="border-top-0 text-end">Status</th>
                     </tr>
@@ -162,9 +163,9 @@
                             </td>
                             <td>
                             {% if analysis.status == "reported" %}
-                                {{analysis.completed_on|date:"Y-m-d H:i"}}
+                                {{analysis.completed_on"}}
                             {% else %}
-                                <span class="text-muted small">{{analysis.added_on|date:"Y-m-d H:i"}} (added)</span>
+                                <span class="text-muted small">{{analysis.added_on}} (added)</span>
                             {% endif %}
                             </td>
                             <td>
@@ -177,7 +178,7 @@
                                 <span class="text-muted">-</span>
                             {% endif %}
                             </td>
-                            <td class="text-truncate text-monospace small" title="{% if analysis.category == 'url' %}{{analysis.target}}{% else %}{{analysis.sample.md5}}{% endif %}">
+                            <td class="text-truncate text-monospace" title="{% if analysis.category == 'url' %}{{analysis.target}}{% else %}{{analysis.sample.md5}}{% endif %}">
                                 {% if analysis.status == "reported" %}
                                     <a href="{% url "report" analysis.id %}" class="text-light">
                                     {% if analysis.category == "url" %}
@@ -241,11 +242,11 @@
                             {% endif %}
                             {% if config.suricata %}
                             <td>
-                                <span class="small">
+                                <span class="text-monospace">
                                 {% if analysis.suri_alert_cnt %}
                                 <a href="{% url "surialert" analysis.id %}" target="_blank" class="text-danger font-weight-bold">{{analysis.suri_alert_cnt}}</a><!--
                                 {% else %}
-                                <span class="text-muted">0</span><!--
+                                <span class="text-muted">-</span><!--
                                 {% endif %}
                                 --></span>
                             </td>
@@ -274,15 +275,6 @@
                             {% if config.expanded_dashboard %}
                             <td>
                                 <span class="small">
-                                    {% if analysis.detections %}
-                                    {{analysis.detections}}
-                                    {% else %}
-                                    <span class="text-muted">None</span>
-                                    {% endif %}
-                                </span>
-                            </td>
-                            <td>
-                                <span class="small">
                                 {% if analysis.pcap_sha256 %}
                                 <a href="{% url "file" "pcap" analysis.id analysis.pcap_sha256 %}" target="_blank" class="text-info"><i class="fas fa-download"></i></a>
                                 {% else %}
@@ -290,7 +282,8 @@
                                 {% endif %}
                                 </span>
                             </td>
-                            <td>
+                            {% if config.display_clamav %}
+                                <td>
                                 <span class="small">
                                 {% if analysis.clamav %}
                                     {{analysis.clamav}}
@@ -298,16 +291,8 @@
                                     <span class="text-muted">-</span>
                                 {% endif %}
                                 </span>
-                            </td>
-                            <td>
-                                <span class="small">
-                                {% if analysis.custom %}
-                                    {{analysis.custom}}
-                                {% else %}
-                                    <span class="text-muted">-</span>
-                                {% endif %}
-                                </span>
-                            </td>
+                                </td>
+                            {% endif %}
                             {% endif %}
                             <td class="text-end">
                                 {% if analysis.status == "pending" %}
