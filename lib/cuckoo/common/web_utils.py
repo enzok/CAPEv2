@@ -1380,6 +1380,7 @@ def perform_search(
 
     retval = None
     query_val = False
+    mongo_search_query = None
     search_limit = web_cfg.general.get("search_limit", 50) if web else 0
     if term in normalized_lower_terms:
         query_val = value.lower()
@@ -1476,9 +1477,9 @@ def perform_search(
         if "target.file.sha256" in projection:
             projection = dict(**projection)
             projection[f"target.file.{FILE_REF_KEY}"] = 1
-        if not retval:
-            if term in search_term_map_repetetive_blocks:
-                mongo_search_query = {"$or": [{path: condition} for path, condition in mongo_search_query.items()]}
+        if term in search_term_map_repetetive_blocks:
+            mongo_search_query = {"$or": [{path: condition} for path, condition in mongo_search_query.items()]}
+        if not retval and mongo_search_query:
             retval = list(mongo_find("analysis", mongo_search_query, projection, limit=search_limit))
         for doc in retval:
             target_file = doc.get("target", {}).get("file", {})
