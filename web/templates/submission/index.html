@@ -79,7 +79,7 @@
                             <div class="tab-pane fade show active" id="resubmit" role="tabpanel">
                                 <div class="form-group">
                                     <label for="form_resubmission" class="sr-only">Hash</label>
-                                    <input type="text" class="form-control bg-secondary text-white border-0" id="form_resubmission" name="hash" value="{{resubmit}}" readonly />
+                                    <input type="text" class="form-control bg-dark text-white border-0" id="form_resubmission" name="hash" value="{{resubmit}}" readonly />
                                 </div>
                             </div>
                         {% else %}
@@ -95,7 +95,7 @@
                             {% if config.downloading_service %}
                             <div class="tab-pane fade" id="downloading_service" role="tabpanel">
                                 <div class="form-group">
-                                    <input type="text" class="form-control bg-secondary text-white border-0" id="form_downloading_service" name="hashes" placeholder="Enter comma separated hashes or just a hash" />
+                                    <input type="text" class="form-control bg-dark text-white border-0" id="form_downloading_service" name="hashes" placeholder="Enter comma separated hashes or just a hash" />
                                 </div>
                             </div>
                             {% endif %}
@@ -103,7 +103,7 @@
                             <!-- URL -->
                             <div class="tab-pane fade" id="url" role="tabpanel">
                                 <div class="form-group">
-                                    <input type="text" class="form-control bg-secondary text-white border-0" id="form_url" name="url" placeholder="Enter URL to analyze" />
+                                    <input type="text" class="form-control bg-dark text-white border-0" id="form_url" name="url" placeholder="Enter URL to analyze" />
                                 </div>
                             </div>
 
@@ -111,7 +111,7 @@
                             {% if config.dlnexec %}
                             <div class="tab-pane fade" id="dlurl" role="tabpanel">
                                 <div class="form-group">
-                                    <input type="text" class="form-control bg-secondary text-white border-0" id="form_dlnexec" name="dlnexec" placeholder="Enter URL to download sample from" />
+                                    <input type="text" class="form-control bg-dark text-white border-0" id="form_dlnexec" name="dlnexec" placeholder="Enter URL to download sample from" />
                                 </div>
                             </div>
                             {% endif %}
@@ -165,7 +165,7 @@
                                 {% if resubmit %}
                                 <div class="form-group">
                                     <label for="form_job_category" class="text-white-50">Task Category</label>
-                                    <select class="form-control bg-secondary text-white border-0" id="form_job_category" name="job_category">
+                                    <select class="form-control bg-dark text-white border-0" id="form_job_category" name="job_category">
                                         <option value="hash" checked>Resubmit</option>
                                         <option value="sample">Files</option>
                                         <option value="static">Static analysis</option>
@@ -179,7 +179,7 @@
 
                                 <div class="form-group">
                                     <label for="form_package" class="text-white-50">Analysis Package</label>
-                                    <select class="form-control bg-secondary text-white border-0" id="form_package" name="package">
+                                    <select class="form-control bg-dark text-white border-0" id="form_package" name="package">
                                         <option value="" title="">Detect Automatically</option>
                                         {% for package in packages %}
                                         <option value="{{package.value}}" title="{{ package.description }}">{{package.name}} - {{ package.summary }}</option>
@@ -191,7 +191,7 @@
                                 {% if not config.dist_master_storage_only %}
                                 <div class="form-group">
                                     <label for="form_machine" class="text-white-50">Machine</label>
-                                    <select class="form-control bg-secondary text-white border-0" id="form_machine" name="machine">
+                                    <select class="form-control bg-dark text-white border-0" id="form_machine" name="machine">
                                         {% for id,label in machines %}
                                         <option value="{{id}}">{{label}}</option>
                                         {% endfor %}
@@ -203,13 +203,13 @@
                                 <div class="form-group">
                                     <label for="form_tags" class="text-white-50">Machine Tags</label>
                                     <div class="input-group">
-                                        <input type="text" class="form-control bg-secondary text-white border-0" id="form_tags" name="tags" placeholder="tag1,tag2" />
+                                        <input type="text" class="form-control bg-dark text-white border-0" id="form_tags" name="tags" placeholder="tag1,tag2" />
                                         <div class="input-group-append">
                                             <button class="btn btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#tagshelp"><i class="fas fa-question"></i></button>
                                         </div>
                                     </div>
                                     <div id="tagshelp" class="collapse mt-2">
-                                        <div class="card card-body bg-secondary p-2">
+                                        <div class="card card-body bg-dark p-2">
                                             <small>Available tags: {% for tag in tags %}<code>{{tag}}</code> {% endfor %}</small>
                                         </div>
                                     </div>
@@ -218,7 +218,7 @@
 
                                 <div class="form-group">
                                     <label for="form_route" class="text-white-50">Network Routing</label>
-                                    <select class="form-control bg-secondary text-white border-0" id="form_route" name="route">
+                                    <select class="form-control bg-dark text-white border-0" id="form_route" name="route">
                                         {% if internet != "none" %}
                                             <option value="internet"{% if route == "internet" %} selected{% endif %}>Internet (dirty line, {{ internet }})</option>
                                         {% endif %}}
@@ -252,13 +252,13 @@
 
                                 <div class="form-group">
                                     <label for="form_timeout" class="text-white-50">Timeout (seconds)</label>
-                                    <input type="number" class="form-control bg-secondary text-white border-0" id="form_timeout" name="timeout" value="{{config.timeout}}" />
+                                    <input type="number" class="form-control bg-dark text-white border-0" id="form_timeout" name="timeout" value="{{config.timeout}}" />
                                 </div>
 
                                 {% if config.linux_on_gui %}
                                 <div class="form-group">
                                     <label for="form_lin_options" class="text-white-50">Linux Options</label>
-                                    <input type="text" class="form-control bg-secondary text-white border-0" id="form_lin_options" name="lin_options" placeholder="option1=val1,option2=val2" />
+                                    <input type="text" class="form-control bg-dark text-white border-0" id="form_lin_options" name="lin_options" placeholder="option1=val1,option2=val2" />
                                 </div>
                                 {% endif %}
                             </div>
@@ -267,13 +267,13 @@
                             <div class="form-group">
                                 <label for="form_options" class="text-white-50">Custom Options</label>
                                 <div class="input-group">
-                                    <input type="text" class="form-control bg-secondary text-white border-0" id="form_options" name="options" placeholder="option1=val1,option2=val2" />
+                                    <input type="text" class="form-control bg-dark text-white border-0" id="form_options" name="options" placeholder="option1=val1,option2=val2" />
                                     <div class="input-group-append">
                                         <button class="btn btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#optionwindowshelp"><i class="fas fa-question"></i></button>
                                     </div>
                                 </div>
                                  <div id="optionwindowshelp" class="collapse mt-2">
-                                    <div class="card card-body bg-secondary p-2">
+                                    <div class="card card-body bg-dark p-2">
                                         <small>Common options: <code>free=1</code> (no monitor), <code>full-logs=1</code>, <code>norefer=1</code>. See docs for full list.</small>
                                     </div>
                                 </div>
@@ -282,7 +282,7 @@
                             <div class="form-row">
                                 <div class="form-group col-md-6">
                                     <label for="form_priority" class="text-white-50">Priority</label>
-                                    <select class="form-control bg-secondary text-white border-0" id="form_priority" name="priority">
+                                    <select class="form-control bg-dark text-white border-0" id="form_priority" name="priority">
                                         <option value="1">Low</option>
                                         <option value="2" selected>Medium</option>
                                         <option value="3">High</option>
@@ -291,7 +291,7 @@
                                 {% if config.tlp %}
                                 <div class="form-group col-md-6">
                                     <label for="form_tlp" class="text-white-50">TLP</label>
-                                    <select class="form-control bg-secondary text-white border-0" id="form_tlp" name="tlp">
+                                    <select class="form-control bg-dark text-white border-0" id="form_tlp" name="tlp">
                                         <option value="" selected>White</option>
                                         <option value="Green">Green</option>
                                         <option value="Amber">Amber</option>
@@ -305,11 +305,11 @@
                                 <div class="form-row">
                                     <div class="form-group col-md-6">
                                         <label for="clock" class="text-white-50">Clock</label>
-                                        <input type="text" class="form-control bg-secondary text-white border-0" id="clock" name="clock" placeholder="MM-DD-YYYY HH:mm:00" />
+                                        <input type="text" class="form-control bg-dark text-white border-0" id="clock" name="clock" placeholder="MM-DD-YYYY HH:mm:00" />
                                     </div>
                                     <div class="form-group col-md-6">
                                         <label for="form_tags_tasks" class="text-white-50">Task Tags</label>
-                                        <input type="text" class="form-control bg-secondary text-white border-0" id="form_tags_tasks" name="tags_tasks" />
+                                        <input type="text" class="form-control bg-dark text-white border-0" id="form_tags_tasks" name="tags_tasks" />
                                     </div>
                                 </div>
 
@@ -335,7 +335,7 @@
 
                                 <div class="form-group">
                                     <label for="form_custom" class="text-white-50">Custom Field</label>
-                                    <input type="text" class="form-control bg-secondary text-white border-0" id="form_custom" name="custom" />
+                                    <input type="text" class="form-control bg-dark text-white border-0" id="form_custom" name="custom" />
                                 </div>
 
                                 <!-- Extended Checkboxes -->

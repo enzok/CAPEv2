@@ -6,7 +6,7 @@
             <div class="card-body">
                 <form class="form-inline justify-content-center" role="form" action="{% url "search" %}" method="get">
                     <div class="input-group w-50">
-                        <input type="text" class="form-control bg-secondary text-white border-secondary" id="form_search" name="search" placeholder="Search term as regex..." aria-label="Search">
+                        <input type="text" class="form-control bg-dark text-white border-secondary" id="form_search" name="search" placeholder="Search term as regex..." aria-label="Search">
 
                             <button class="btn btn-primary" type="submit"><i class="fas fa-search"></i> Search</button>
                         </div>
@@ -119,7 +119,7 @@
         <div class="card bg-dark shadow-sm border-secondary mb-4">
             <div class="card-header border-secondary bg-transparent d-flex justify-content-between align-items-center">
                 <h5 class="mb-0 text-white"><i class="fas fa-list me-2"></i> Search Results</h5>
-                <span class="badge bg-secondary">{{analyses|length}} items</span>
+                <span class="badge bg-dark">{{analyses|length}} items</span>
             </div>
             <div class="table-responsive">
                 <table class="table table-dark table-hover table-striped mb-0" style="table-layout: fixed;">
@@ -254,7 +254,7 @@
                             {% if config.virustotal %}
                             <td>
                                 {% if analysis.virustotal_summary %}
-                                    <a href="{% url "antivirus" analysis.id %}" target="_blank" class="badge bg-secondary">{{analysis.virustotal_summary}}</a>
+                                    <a href="{% url "antivirus" analysis.id %}" target="_blank" class="badge bg-dark">{{analysis.virustotal_summary}}</a>
                                 {% else %}
                                       <span class="text-white-50 small">-</span>
                                 {% endif %}
@@ -296,7 +296,7 @@
                             {% endif %}
                             <td class="text-end">
                                 {% if analysis.status == "pending" %}
-                                    <span class="badge bg-secondary">pending</span>
+                                    <span class="badge bg-dark">pending</span>
                                 {% elif analysis.status == "running" %}
                                     <span class="badge bg-warning">running</span>
                                 {% elif analysis.status == "completed" %}

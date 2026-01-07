@@ -9,7 +9,7 @@
                 {% for shot in analysis.shots %}
                     <div class="m-2">
                         <a data-lightbox="screenshot" href="{% url "file_nl" "screenshot" analysis.info.id shot %}" data-title="Screenshot {{shot}}">
-                            <img class="img-thumbnail bg-secondary border-dark" src="{% url "file_nl" "screenshot" analysis.info.id shot %}" style="height: 150px; object-fit: cover;" alt="Screenshot {{shot}}" />
+                            <img class="img-thumbnail bg-dark border-dark" src="{% url "file_nl" "screenshot" analysis.info.id shot %}" style="height: 150px; object-fit: cover;" alt="Screenshot {{shot}}" />
                         </a>
                     </div>
                 {% endfor %}

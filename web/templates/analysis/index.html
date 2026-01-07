@@ -59,7 +59,7 @@
         <div class="card bg-dark shadow-sm border-secondary">
             <div class="card-header border-secondary bg-transparent d-flex justify-content-between align-items-center">
                  <h5 class="mb-0 text-white"><i class="fas fa-clock me-2 text-white-50"></i> Recent Files</h5>
-                 <span class="badge bg-secondary">{{files|length}} items</span>
+                 <span class="badge bg-dark">{{files|length}} items</span>
             </div>
             {% if files %}
             <div class="table-responsive">
@@ -208,7 +208,7 @@
                             {% if config.virustotal %}
                             <td>
                                 {% if analysis.virustotal_summary %}
-                                    <a href="{% url "antivirus" analysis.id %}" target="_blank" class="badge bg-secondary">{{analysis.virustotal_summary}}</a>
+                                    <a href="{% url "antivirus" analysis.id %}" target="_blank" class="badge bg-dark">{{analysis.virustotal_summary}}</a>
                                 {% else %}
                                     -
                                 {% endif %}
@@ -237,7 +237,7 @@
                             {% endif %}
                             <td class="text-end">
                                 {% if analysis.status == "pending" %}
-                                    <span class="badge bg-secondary">pending</span>
+                                    <span class="badge bg-dark">pending</span>
                                 {% elif analysis.status == "running" %}
                                     <span class="badge bg-warning">running</span>
                                 {% elif analysis.status == "distributed" %}
@@ -315,7 +315,7 @@
         <div class="card bg-dark shadow-sm border-secondary">
             <div class="card-header border-secondary bg-transparent d-flex justify-content-between align-items-center">
                 <h5 class="mb-0 text-white"><i class="fas fa-file-code me-2 text-white-50"></i> Recent Static Analysis</h5>
-                <span class="badge bg-secondary">{{static|length}} items</span>
+                <span class="badge bg-dark">{{static|length}} items</span>
             </div>
             {% if static %}
             <div class="table-responsive">
@@ -416,7 +416,7 @@
                             {% if config.virustotal %}
                             <td>
                                 {% if analysis.virustotal_summary %}
-                                    <a href="{% url "antivirus" analysis.id %}" target="_blank" class="badge bg-secondary">{{analysis.virustotal_summary}}</a>
+                                    <a href="{% url "antivirus" analysis.id %}" target="_blank" class="badge bg-dark">{{analysis.virustotal_summary}}</a>
                                 {% else %}
                                     -
                                 {% endif %}
@@ -445,7 +445,7 @@
                             {% endif %}
                             <td class="text-end">
                                 {% if analysis.status == "pending" %}
-                                    <span class="badge bg-secondary">pending</span>
+                                    <span class="badge bg-dark">pending</span>
                                 {% elif analysis.status == "running" %}
                                     <span class="badge bg-warning">running</span>
                                 {% elif analysis.status == "distributed" %}
@@ -523,7 +523,7 @@
         <div class="card bg-dark shadow-sm border-secondary">
             <div class="card-header border-secondary bg-transparent d-flex justify-content-between align-items-center">
                 <h5 class="mb-0 text-white"><i class="fas fa-globe me-2 text-white-50"></i> Recent URLs</h5>
-                <span class="badge bg-secondary">{{urls|length}} items</span>
+                <span class="badge bg-dark">{{urls|length}} items</span>
             </div>
             {% if urls %}
             <div class="table-responsive">
@@ -649,7 +649,7 @@
                             {% if config.virustotal %}
                             <td>
                                 {% if analysis.virustotal_summary %}
-                                    <a href="{% url "antivirus" analysis.id %}" target="_blank" class="badge bg-secondary">{{analysis.virustotal_summary}}</a>
+                                    <a href="{% url "antivirus" analysis.id %}" target="_blank" class="badge bg-dark">{{analysis.virustotal_summary}}</a>
                                 {% else %}
                                     -
                                 {% endif %}
@@ -678,7 +678,7 @@
                             {% endif %}
                             <td class="text-end">
                                 {% if analysis.status == "pending" %}
-                                    <span class="badge bg-secondary">pending</span>
+                                    <span class="badge bg-dark">pending</span>
                                 {% elif analysis.status == "running" %}
                                     <span class="badge bg-warning">running</span>
                                 {% elif analysis.status == "completed" %}
@@ -750,7 +750,7 @@
     <div class="card bg-dark shadow-sm border-secondary">
         <div class="card-header border-secondary bg-transparent d-flex justify-content-between align-items-center">
             <h5 class="mb-0 text-white"><i class="fas fa-network-wired me-2 text-white-50"></i> Recent PCAPs</h5>
-            <span class="badge bg-secondary">{{pcaps|length}} items</span>
+            <span class="badge bg-dark">{{pcaps|length}} items</span>
         </div>
         {% if pcaps %}
         <div class="table-responsive">
@@ -880,7 +880,7 @@
                         {% endif %}
                         <td class="text-end">
                             {% if analysis.status == "pending" %}
-                                <span class="badge bg-secondary">pending</span>
+                                <span class="badge bg-dark">pending</span>
                             {% elif analysis.status == "running" %}
                                 <span class="badge bg-warning">running</span>
                             {% elif analysis.status == "completed" %}

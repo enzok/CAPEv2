@@ -23,7 +23,7 @@
             {% elif analysis.malstatus == "Clean" %}
                 <span class="badge bg-success p-2">{{analysis.malstatus}}</span>
             {% else %}
-                <span class="badge bg-secondary p-2">{{analysis.malstatus}}</span>
+                <span class="badge bg-dark p-2">{{analysis.malstatus}}</span>
             {% endif %}
         </div>
     {% endif %}
@@ -119,8 +119,8 @@
 
     {% if analysis.info.options %}
         <div id="options_collapse" class="collapse mb-3">
-            <div class="card card-body bg-secondary text-white">
-                <h6 class="card-title">Options</h6>
+            <div class="card card-body bg-dark text-white border-secondary">
+                <h6 class="card-title text-white-50">Options</h6>
                 <pre class="mb-0 text-light small">{% for key, val in analysis.info.options.items %}{{ key }}={{ val }}<br>{% endfor %}</pre>
             </div>
         </div>
@@ -178,7 +178,7 @@
                     <tbody>
                         <tr>
                             <td>{{analysis.info.machine.name}}</td>
-                            <td><span class="badge bg-secondary">{{analysis.info.machine.label}}</span></td>
+                            <td><span class="badge bg-dark">{{analysis.info.machine.label}}</span></td>
                             <td>{{analysis.info.machine.manager}}</td>
                             <td class="text-nowrap">{{analysis.info.machine.started_on}}</td>
                             <td class="text-nowrap">{{analysis.info.machine.shutdown_on}}</td>

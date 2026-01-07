@@ -86,7 +86,7 @@
             {% for day, block in statistics.tasks.items %}
                 <tr>
                     <th scope="row" class="text-light">{{day}}</th>
-                    <td class="text-end"><span class="badge bg-secondary">{{block.added}}</span></td>
+                    <td class="text-end"><span class="badge bg-dark">{{block.added}}</span></td>
                     <td class="text-end"><span class="badge bg-success">{{block.reported}}</span></td>
                     <td class="text-end"><span class="badge bg-danger">{{block.failed}}</span></td>
                 </tr>
@@ -245,7 +245,7 @@
         <div class="row">
             {% for day, block in statistics.distributed_tasks.items %}
             <div class="col-md-3 mb-3">
-                <div class="card bg-secondary text-white h-100 border-0">
+                <div class="card bg-dark text-white h-100 border-0">
                     <div class="card-header font-weight-bold">{{day}}</div>
                     <ul class="list-group list-group-flush text-dark">
                         {% for name, tasks in block.items %}

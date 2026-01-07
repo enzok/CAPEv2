@@ -223,7 +223,7 @@
                     {% for sign in sub_file.cape_yara %}
                         <li>
                             <a href="/analysis/search/capeyara:{{sign.name}}" class="text-info font-weight-bold">{{sign.name}}</a>
-                            {% if sign.meta.cape_type %} <span class="badge bg-secondary">{{sign.meta.cape_type}}</span>{% endif %}
+                            {% if sign.meta.cape_type %} <span class="badge bg-dark">{{sign.meta.cape_type}}</span>{% endif %}
                         </li>
                     {% endfor %}
                     </ul>
@@ -347,7 +347,7 @@
 
     {% if sub_file.strings %}
         <div class="collapse mb-3" id="strings_{{sub_file.sha256}}">
-            <div class="card bg-secondary text-white">
+            <div class="card bg-dark text-white">
                 <div class="card-header"><h6 class="mb-0">Strings</h6></div>
                 <div class="card-body" style="max-height: 400px; overflow-y: auto;">
                     {{sub_file.strings|safe}}
@@ -358,7 +358,7 @@
 
     {% if sub_file.dotnet_strings %}
         <div class="collapse mb-3" id="dotnet_strings_{{file.sha256}}">
-            <div class="card bg-secondary text-white">
+            <div class="card bg-dark text-white">
                 <div class="card-header"><h6 class="mb-0">.NET Strings</h6></div>
                 <div class="card-body" style="max-height: 400px; overflow-y: auto;">
                     {% for string in sub_file.dotnet_strings %}<div>{{string|safe}}</div>{% endfor %}
@@ -369,7 +369,7 @@
 
     {% if sub_file.data %}
         <div class="collapse mb-3" id="text_{{sub_file.sha256}}">
-            <div class="card bg-secondary text-white">
+            <div class="card bg-dark text-white">
                 <div class="card-header"><h6 class="mb-0">Extracted Text</h6></div>
                 <div class="card-body">
                     <pre class="mb-0 text-light small">{{sub_file.data|escape}}</pre>
@@ -380,7 +380,7 @@
 
     {% if sub_file.decoded_files %}
         <div class="collapse mb-3" id="decoded_files_{{sub_file.sha256}}">
-            <div class="card bg-secondary text-white">
+            <div class="card bg-dark text-white">
                 <div class="card-header"><h6 class="mb-0">Decoded File Content</h6></div>
                 <div class="card-body">
                     <pre class="mb-0 text-light small">{{sub_file.decoded_files|escape}}</pre>

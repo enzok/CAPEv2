@@ -1,0 +1,7 @@
+/* Remove default underline, add on hover (exclude buttons if needed) */
+a:not(.btn, [class*="btn"]) {
+    text-decoration: none !important;
+}
+a:not(.btn, [class*="btn"]):hover {
+    text-decoration: underline !important;
+}
