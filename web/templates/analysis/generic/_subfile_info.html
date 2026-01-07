@@ -200,8 +200,8 @@
                     {% for sign in sub_file.yara %}
                         <li>
                             <a href="/analysis/search/yaraname:{{sign.name}}" class="text-warning font-weight-bold">{{sign.name}}</a>
-                            <span class="text-muted">- {{sign.meta.description}}</span>
-                            {% if sign.meta.author %} <small class="text-muted">({{sign.meta.author}})</small>{% endif %}
+                            <span class="text-white-50">- {{sign.meta.description}}</span>
+                            {% if sign.meta.author %} <small class="text-white-50">({{sign.meta.author}})</small>{% endif %}
                         </li>
                     {% endfor %}
                     </ul>
@@ -259,7 +259,7 @@
     {% if not sub_file.dropdir %}
     <div class="card-footer bg-dark border-secondary">
         <div class="d-flex flex-wrap justify-content-start align-items-center">
-            <span class="me-3 text-muted mb-2">Tools:</span>
+            <span class="me-3 text-white-50 mb-2">Tools:</span>
             
             {% if sub_file.pe %}<a class="btn btn-sm btn-outline-info me-2 mb-2" data-bs-toggle="collapse" href="#pe_{{sub_file.sha256}}">PE</a>{% endif %}
             {% if sub_file.dotnet %}<a class="btn btn-sm btn-outline-info me-2 mb-2" data-bs-toggle="collapse" href="#dotnet_{{sub_file.sha256}}">.NET</a>{% endif %}

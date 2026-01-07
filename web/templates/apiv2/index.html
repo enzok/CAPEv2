@@ -3,7 +3,7 @@
 
 <div class="card bg-dark shadow-sm border-secondary mb-4">
     <div class="card-header border-secondary bg-transparent d-flex justify-content-between align-items-center">
-        <h3 class="mb-0 text-white"><i class="fas fa-server me-2 text-muted"></i>API Documentation</h3>
+        <h3 class="mb-0 text-white"><i class="fas fa-server me-2 text-white-50"></i>API Documentation</h3>
         <a href="https://capev2.readthedocs.io/en/latest/usage/api.html#current-rest-api" class="btn btn-sm btn-outline-info" target="_blank">
             <i class="fas fa-external-link-alt me-1"></i> Authentication Guide
         </a>
@@ -33,7 +33,7 @@
                 {% endif %}
             </td>
             <td>
-              <ul class="list-unstyled mb-0 small text-muted">
+              <ul class="list-unstyled mb-0 small text-white-50">
                 <li>RPS: <span class="text-light">{{ config.filecreate.rps }}</span></li>
                 <li>RPM: <span class="text-light">{{ config.filecreate.rpm }}</span></li>
               </ul>
@@ -64,7 +64,7 @@
                 {% endif %}
             </td>
             <td>
-              <ul class="list-unstyled mb-0 small text-muted">
+              <ul class="list-unstyled mb-0 small text-white-50">
                 <li>RPS: <span class="text-light">{{ config.downloading_services.rps }}</span></li>
                 <li>RPM: <span class="text-light">{{ config.downloading_services.rpm }}</span></li>
               </ul>
@@ -90,7 +90,7 @@
                 {% endif %}
             </td>
             <td>
-              <ul class="list-unstyled mb-0 small text-muted">
+              <ul class="list-unstyled mb-0 small text-white-50">
                 <li>RPS: <span class="text-light">{{ config.urlcreate.rps }}</span></li>
                 <li>RPM: <span class="text-light">{{ config.urlcreate.rpm }}</span></li>
               </ul>
@@ -115,7 +115,7 @@
                 {% endif %}
             </td>
             <td>
-              <ul class="list-unstyled mb-0 small text-muted">
+              <ul class="list-unstyled mb-0 small text-white-50">
                 <li>RPS: <span class="text-light">{{ config.dlnexeccreate.rps }}</span></li>
                 <li>RPM: <span class="text-light">{{ config.dlnexeccreate.rpm }}</span></li>
               </ul>
@@ -140,7 +140,7 @@
                 {% endif %}
             </td>
             <td>
-              <ul class="list-unstyled mb-0 small text-muted">
+              <ul class="list-unstyled mb-0 small text-white-50">
                 <li>RPS: <span class="text-light">{{ config.staticextraction.rps }}</span></li>
                 <li>RPM: <span class="text-light">{{ config.staticextraction.rpm }}</span></li>
               </ul>
@@ -164,7 +164,7 @@
                     <span class="badge bg-danger">No</span>
                     {% endif %}
                 </td>
-                <td><ul class="list-unstyled mb-0 small text-muted"><li>RPS: <span class="text-light">{{ config.fileview.rps }}</span></li><li>RPM: <span class="text-light">{{ config.fileview.rpm }}</span></li></ul></td>
+                <td><ul class="list-unstyled mb-0 small text-white-50"><li>RPS: <span class="text-light">{{ config.fileview.rps }}</span></li><li>RPM: <span class="text-light">{{ config.fileview.rpm }}</span></li></ul></td>
                 <td>View information about a specific sample that's in CAPE's database. Return object will be JSON.</td>
                 <td class="text-center"><button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#fileview">View <i class="fas fa-chevron-down ms-1"></i></button></td>
             </tr>
@@ -187,7 +187,7 @@ curl {{ config.api.url }}/apiv2/files/view/id/[sample id]/</pre>
                 {% endif %}
             </td>
             <td>
-              <ul class="list-unstyled mb-0 small text-muted">
+              <ul class="list-unstyled mb-0 small text-white-50">
                 <li>RPS: <span class="text-light">{{ config.tasksearch.rps }}</span></li>
                 <li>RPM: <span class="text-light">{{ config.tasksearch.rpm }}</span></li>
               </ul>
@@ -214,7 +214,7 @@ curl {{ config.api.url }}/apiv2/tasks/search/sha256/[sha256 hash]/</pre>
                 {% endif %}
             </td>
             <td>
-              <ul class="list-unstyled mb-0 small text-muted">
+              <ul class="list-unstyled mb-0 small text-white-50">
                 <li>RPS: <span class="text-light">{{ config.extendedtasksearch.rps }}</span></li>
                 <li>RPM: <span class="text-light">{{ config.extendedtasksearch.rpm }}</span></li>
               </ul>
@@ -273,7 +273,7 @@ curl {{ config.api.url }}/apiv2/tasks/search/sha256/[sha256 hash]/</pre>
                 {% endif %}
             </td>
             <td>
-              <ul class="list-unstyled mb-0 small text-muted">
+              <ul class="list-unstyled mb-0 small text-white-50">
                 <li>RPS: <span class="text-light">{{ config.tasklist.rps }}</span></li>
                 <li>RPM: <span class="text-light">{{ config.tasklist.rpm }}</span></li>
               </ul>
@@ -301,7 +301,7 @@ curl {{ config.api.url }}/apiv2/tasks/list/[limit]/[offset]/ (specify a limit of
                 {% endif %}
             </td>
             <td>
-              <ul class="list-unstyled mb-0 small text-muted">
+              <ul class="list-unstyled mb-0 small text-white-50">
                 <li>RPS: <span class="text-light">{{ config.taskview.rps }}</span></li>
                 <li>RPM: <span class="text-light">{{ config.taskview.rpm }}</span></li>
               </ul>
@@ -326,7 +326,7 @@ curl {{ config.api.url }}/apiv2/tasks/list/[limit]/[offset]/ (specify a limit of
                 {% endif %}
             </td>
             <td>
-              <ul class="list-unstyled mb-0 small text-muted">
+              <ul class="list-unstyled mb-0 small text-white-50">
                 <li>RPS: <span class="text-light">{{ config.taskresched.rps }}</span></li>
                 <li>RPM: <span class="text-light">{{ config.taskresched.rpm }}</span></li>
               </ul>
@@ -351,7 +351,7 @@ curl {{ config.api.url }}/apiv2/tasks/list/[limit]/[offset]/ (specify a limit of
                   {% endif %}
               </td>
               <td>
-                  <ul class="list-unstyled mb-0 small text-muted">
+                  <ul class="list-unstyled mb-0 small text-white-50">
                       <li>RPS: <span class="text-light">{{ config.taskreprocess.rps }}</span></li>
                       <li>RPM: <span class="text-light">{{ config.taskreprocess.rpm }}</span></li>
                   </ul>
@@ -376,7 +376,7 @@ curl {{ config.api.url }}/apiv2/tasks/list/[limit]/[offset]/ (specify a limit of
                 {% endif %}
             </td>
             <td>
-              <ul class="list-unstyled mb-0 small text-muted">
+              <ul class="list-unstyled mb-0 small text-white-50">
                 <li>RPS: <span class="text-light">{{ config.taskdelete.rps }}</span></li>
                 <li>RPM: <span class="text-light">{{ config.taskdelete.rpm }}</span></li>
               </ul>
@@ -404,7 +404,7 @@ curl {{ config.api.url }}/apiv2/tasks/delete/[start_task_id]-[end_task_id]/[stat
                 {% endif %}
             </td>
             <td>
-              <ul class="list-unstyled mb-0 small text-muted">
+              <ul class="list-unstyled mb-0 small text-white-50">
                 <li>RPS: <span class="text-light">{{ config.taskstatus.rps }}</span></li>
                 <li>RPM: <span class="text-light">{{ config.taskstatus.rpm }}</span></li>
               </ul>

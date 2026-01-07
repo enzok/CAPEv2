@@ -58,7 +58,7 @@
 
         <div class="card bg-dark shadow-sm border-secondary">
             <div class="card-header border-secondary bg-transparent d-flex justify-content-between align-items-center">
-                 <h5 class="mb-0 text-white"><i class="fas fa-clock me-2 text-muted"></i> Recent Files</h5>
+                 <h5 class="mb-0 text-white"><i class="fas fa-clock me-2 text-white-50"></i> Recent Files</h5>
                  <span class="badge bg-secondary">{{files|length}} items</span>
             </div>
             {% if files %}
@@ -111,14 +111,14 @@
                                 {% elif analysis.status in "running,completed,distributed" %}
                                 <a href="{% url "submission_status" analysis.id %}" class="text-warning font-weight-bold">{{analysis.id}}</a>
                                 {% else %}
-                                <span class="text-muted">{{analysis.id}}</span>
+                                <span class="text-white-50">{{analysis.id}}</span>
                                 {% endif %}
                             </td>
                             <td>
                             {% if analysis.status in "reported,recovered" %}
                                 {{analysis.completed_on}}
                             {% else %}
-                                <span class="text-muted small">{{analysis.added_on}} (added)</span>
+                                <span class="text-white-50 small">{{analysis.added_on}} (added)</span>
                             {% endif %}
                             </td>
                             <td>
@@ -173,7 +173,7 @@
                                 {% if analysis.f_mlist_cnt %}
                                 <span class="badge bg-warning">{{analysis.f_mlist_cnt}}</span>
                                 {% else %}
-                                <span class="text-muted">-</span>
+                                <span class="text-white-50">-</span>
                                 {% endif %}
                             </td>
                             {% endif %}
@@ -183,23 +183,23 @@
                                 {% if analysis.suri_alert_cnt %}
                                 <a href="{% url "surialert" analysis.id %}" target="_blank" class="text-danger font-weight-bold">{{analysis.suri_alert_cnt}}</a><!--
                                 {% else %}
-                                <span class="text-muted">-</span><!--
+                                <span class="text-white-50">-</span><!--
                                 {% endif %}
                                 {% if config.expanded_dashboard %}
                                     {% if analysis.suri_http_cnt %}
                                     -->/<a href="{% url "surihttp" analysis.id %}" target="_blank" class="text-info">{{analysis.suri_http_cnt}}</a><!--
                                     {% else %}
-                                    -->/<span class="text-muted">-</span><!--
+                                    -->/<span class="text-white-50">-</span><!--
                                     {% endif %}
                                     {% if analysis.suri_tls_cnt %}
                                     -->/<a href="{% url "suritls" analysis.id %}" target="_blank" class="text-info">{{analysis.suri_tls_cnt}}</a><!--
                                     {% else %}
-                                    -->/<span class="text-muted">-</span><!--
+                                    -->/<span class="text-white-50">-</span><!--
                                     {% endif %}
                                     {% if analysis.suri_file_cnt %}
                                     -->/<a href="{% url "surifiles" analysis.id %}" target="_blank" class="text-info">{{analysis.suri_file_cnt}}</a><!--
                                     {% else %}
-                                    -->/<span class="text-muted">-</span><!--
+                                    -->/<span class="text-white-50">-</span><!--
                                     {% endif %}
                                 {% endif %}
                                 --></span>
@@ -260,7 +260,7 @@
                 </table>
             </div>
             {% else %}
-            <div class="card-body text-center text-muted py-5">
+            <div class="card-body text-center text-white-50 py-5">
                 <i class="fas fa-folder-open fa-3x mb-3"></i>
                 <p>No files to display on this page.</p>
             </div>
@@ -314,7 +314,7 @@
     {% endif %}
         <div class="card bg-dark shadow-sm border-secondary">
             <div class="card-header border-secondary bg-transparent d-flex justify-content-between align-items-center">
-                <h5 class="mb-0 text-white"><i class="fas fa-file-code me-2 text-muted"></i> Recent Static Analysis</h5>
+                <h5 class="mb-0 text-white"><i class="fas fa-file-code me-2 text-white-50"></i> Recent Static Analysis</h5>
                 <span class="badge bg-secondary">{{static|length}} items</span>
             </div>
             {% if static %}
