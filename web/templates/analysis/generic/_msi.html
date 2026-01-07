@@ -23,12 +23,12 @@
                                 {% if column_name == "Type" %}
                                     {{ row.Type }}
                                     {% if row.Enrich.basic_type %}
-                                        <br><small class="text-muted">{{ row.Enrich.basic_type }}</small>
+                                        <br><small class="text-white-50">{{ row.Enrich.basic_type }}</small>
                                     {% endif %}
                                 {% elif column_name == "Source" %}
                                     {{ row.Source }}
                                     {% if row.Enrich.source %}
-                                        <br><small class="text-muted">{{ row.Enrich.source }}</small>
+                                        <br><small class="text-white-50">{{ row.Enrich.source }}</small>
                                     {% endif %}
                                 {% else %}
                                     {{ row|getkey:column_name }}

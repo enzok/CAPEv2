@@ -268,7 +268,7 @@
                                         {{analysis.malscore|floatformat:1}}
                                     </span>
                                 {% else %}
-                                    <span class="text-muted small">-</span>
+                                    <span class="text-white-50 small">-</span>
                                 {% endif %}
                             </td>
                             {% endif %}
@@ -278,7 +278,7 @@
                                 {% if analysis.pcap_sha256 %}
                                 <a href="{% url "file" "pcap" analysis.id analysis.pcap_sha256 %}" target="_blank" class="text-info"><i class="fas fa-download"></i></a>
                                 {% else %}
-                                <span class="text-muted">-</span>
+                                <span class="text-white-50">-</span>
                                 {% endif %}
                                 </span>
                             </td>
@@ -288,7 +288,7 @@
                                 {% if analysis.clamav %}
                                     {{analysis.clamav}}
                                 {% else %}
-                                    <span class="text-muted">-</span>
+                                    <span class="text-white-50">-</span>
                                 {% endif %}
                                 </span>
                                 </td>

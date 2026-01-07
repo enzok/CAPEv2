@@ -140,35 +140,35 @@ $(function () {
                         <div class="card card-body bg-secondary text-white">
                             {% if summary.resolved_apis %}
                                 <ul class="list-unstyled mb-0">{% for api in summary.resolved_apis %}<li>{{api}}</li>{% endfor %}</ul>
-                            {% else %}<span class="text-muted">No similarities found.</span>{% endif %}
+                            {% else %}<span class="text-white-50">No similarities found.</span>{% endif %}
                         </div>
                     </div>
                     <div class="tab-pane fade" id="summary_compare_executed_commands">
                         <div class="card card-body bg-secondary text-white">
                             {% if summary.executed_commands %}
                                 <ul class="list-unstyled mb-0">{% for cmd in summary.executed_commands %}<li>{{cmd}}</li>{% endfor %}</ul>
-                            {% else %}<span class="text-muted">No similarities found.</span>{% endif %}
+                            {% else %}<span class="text-white-50">No similarities found.</span>{% endif %}
                         </div>
                     </div>
                     <div class="tab-pane fade" id="summary_compare_mutexes">
                         <div class="card card-body bg-secondary text-white">
                             {% if summary.mutexes %}
                                 <ul class="list-unstyled mb-0">{% for mutex in summary.mutexes %}<li>{{mutex}}</li>{% endfor %}</ul>
-                            {% else %}<span class="text-muted">No similarities found.</span>{% endif %}
+                            {% else %}<span class="text-white-50">No similarities found.</span>{% endif %}
                         </div>
                     </div>
                     <div class="tab-pane fade" id="summary_compare_created_services">
                         <div class="card card-body bg-secondary text-white">
                             {% if summary.created_services %}
                                 <ul class="list-unstyled mb-0">{% for service in summary.created_services %}<li>{{service}}</li>{% endfor %}</ul>
-                            {% else %}<span class="text-muted">No similarities found.</span>{% endif %}
+                            {% else %}<span class="text-white-50">No similarities found.</span>{% endif %}
                         </div>
                     </div>
                     <div class="tab-pane fade" id="summary_compare_started_services">
                         <div class="card card-body bg-secondary text-white">
                             {% if summary.started_services %}
                                 <ul class="list-unstyled mb-0">{% for service in summary.started_services %}<li>{{service}}</li>{% endfor %}</ul>
-                            {% else %}<span class="text-muted">No similarities found.</span>{% endif %}
+                            {% else %}<span class="text-white-50">No similarities found.</span>{% endif %}
                         </div>
                     </div>
                 </div>

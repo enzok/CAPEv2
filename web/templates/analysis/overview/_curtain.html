@@ -80,7 +80,7 @@ __date__    = "29NOV2017"
                         </div>
                         {% endfor %}
                     {% else %}
-                        <p class="text-muted">No altered events found.</p>
+                        <p class="text-white-50">No altered events found.</p>
                     {% endif %}
                 </div>
 
@@ -100,7 +100,7 @@ __date__    = "29NOV2017"
                                     {% for event,message in entry.items %}
                                         <div class="mb-2">
                                             <strong class="text-danger">Event: {{ event }}</strong>
-                                            <p class="mb-0 small text-muted">{{ message|linebreaksbr }}</p>
+                                            <p class="mb-0 small text-white-50">{{ message|linebreaksbr }}</p>
                                         </div>
                                     {% endfor %}
                                 {% endfor %}
@@ -108,7 +108,7 @@ __date__    = "29NOV2017"
                         </div>
                         {% endfor %}
                     {% else %}
-                        <p class="text-muted">No filtered events found.</p>
+                        <p class="text-white-50">No filtered events found.</p>
                     {% endif %}
                 </div>
             </div>
