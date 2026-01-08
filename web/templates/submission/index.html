@@ -161,9 +161,9 @@
                                 {% if resubmit %}
                                 <div class="mb-3">
                                     <label for="form_job_category" class="text-white-50">Task Category</label>
-                                    <select class="form-control bg-dark text-white border-secondary" id="form_job_category"
+                                    <select class="form-select bg-dark text-white border-secondary" id="form_job_category"
                                             name="job_category">
-                                        <option value="hash" checked>Resubmit</option>
+                                        <option value="hash" selected>Resubmit</option>
                                         <option value="sample">Files</option>
                                         <option value="static">Static analysis</option>
                                         <option value="pcap">Pcap</option>
@@ -176,7 +176,7 @@
 
                                 <div class="mb-3">
                                     <label for="form_package" class="text-white-50">Analysis Package</label>
-                                    <select class="form-control bg-dark text-white border-secondary" id="form_package"
+                                    <select class="form-select bg-dark text-white border-secondary" id="form_package"
                                             name="package">
                                         <option value="" title="">Detect Automatically</option>
                                         {% for package in packages %}
@@ -191,7 +191,7 @@
                                 {% if not config.dist_master_storage_only %}
                                 <div class="mb-3">
                                     <label for="form_machine" class="text-white-50">Machine</label>
-                                    <select class="form-control bg-dark text-white border-secondary" id="form_machine"
+                                    <select class="form-select bg-dark text-white border-secondary" id="form_machine"
                                             name="machine">
                                         {% for id,label in machines %}
                                         <option value="{{id}}">{{label}}</option>
@@ -219,7 +219,7 @@
 
                                 <div class="mb-3">
                                     <label for="form_route" class="text-white-50">Network Routing</label>
-                                    <select class="form-control bg-dark text-white border-secondary" id="form_route" name="route">
+                                    <select class="form-select bg-dark text-white border-secondary" id="form_route" name="route">
                                         {% if internet != "none" %}
                                         <option value="internet" {% if route == "internet" %} selected{% endif %}>Internet (dirty line, {{ internet }})</option>
                                         {% endif %}
@@ -293,7 +293,7 @@
                             <div class="row g-3">
                                 <div class="col-md-6">
                                     <label for="form_priority" class="text-white-50">Priority</label>
-                                    <select class="form-control bg-dark text-white border-secondary" id="form_priority"
+                                    <select class="form-select bg-dark text-white border-secondary" id="form_priority"
                                             name="priority">
                                         <option value="1">Low</option>
                                         <option value="2" selected>Medium</option>
@@ -303,7 +303,7 @@
                                 {% if config.tlp %}
                                 <div class="col-md-6">
                                     <label for="form_tlp" class="text-white-50">TLP</label>
-                                    <select class="form-control bg-dark text-white border-secondary" id="form_tlp" name="tlp">
+                                    <select class="form-select bg-dark text-white border-secondary" id="form_tlp" name="tlp">
                                         <option value="" selected>White</option>
                                         <option value="Green">Green</option>
                                         <option value="Amber">Amber</option>
@@ -314,7 +314,7 @@
                             </div>
 
                             <div id="non-pcap-2">
-                                <div class="row g-3">
+                                <div class="row g-3 mt-1">
                                     <div class="col-md-6">
                                         <label for="clock" class="text-white-50">Clock</label>
                                         <input type="text" class="form-control bg-dark text-white border-secondary" id="clock"
@@ -328,7 +328,7 @@
                                 </div>
 
                                 {% if config.pre_script %}
-                                <div class="mb-3">
+                                <div class="mb-3 mt-3">
                                     <label class="text-white-50">Pre-Execution Script</label>
                                     <input type="file" class="form-control bg-dark text-white border-secondary" id="preScript"
                                            name="pre_script">
@@ -484,11 +484,13 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="text-center mt-4">
-                            <button type="submit" class="btn btn-primary btn-lg px-5 shadow"><i class="fas fa-microscope me-2"></i>Analyze
-                            </button>
-                        </div>
+                    </div>
+                    <div class="text-center mt-4">
+                        <button type="submit" class="btn btn-primary btn-lg px-5 shadow"><i class="fas fa-microscope me-2"></i>Analyze
+                        </button>
+                    </div>
                 </form>
+
             </div>
         </div>
     </div>
