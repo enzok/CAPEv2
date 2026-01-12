@@ -1465,10 +1465,17 @@ def perform_search(
             mongo_search_query = build_configs_query(value, search_limit)
             if not mongo_search_query:
                 return []
+
         elif isinstance(search_term_map[term], str):
             mongo_search_query = {search_term_map[term]: query_val}
+            if not mongo_search_query:
+                return []
+
         elif isinstance(search_term_map[term], list):
             mongo_search_query = {search_term:query_val for search_term in search_term_map[term]}
+            if not mongo_search_query:
+                return []
+
         else:
             print(f"Unknown search {term}:{value}")
             return []
@@ -1479,7 +1486,7 @@ def perform_search(
         if "target.file.sha256" in projection:
             projection = dict(**projection)
             projection[f"target.file.{FILE_REF_KEY}"] = 1
-        if term in search_term_map_repetetive_blocks:
+        if term in search_term_map_repetetive_blocks and mongo_search_query:
             mongo_search_query = {"$or": [{path: condition} for path, condition in mongo_search_query.items()]}
         if not retval and mongo_search_query:
             retval = list(mongo_find("analysis", mongo_search_query, projection, limit=search_limit))
