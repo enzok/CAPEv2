@@ -1459,6 +1459,8 @@ def perform_search(
                 {"$project": perform_search_filters},
             ]
             retval = list(mongo_aggregate(FILES_COLL, pipeline))
+            if not retval:
+                return []
         elif term == "configs":
             mongo_search_query = build_configs_query(value, search_limit)
             if not mongo_search_query:
