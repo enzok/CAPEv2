@@ -1459,25 +1459,17 @@ def perform_search(
                 {"$project": perform_search_filters},
             ]
             retval = list(mongo_aggregate(FILES_COLL, pipeline))
-            if not retval:
-                return []
         elif term == "configs":
             mongo_search_query = build_configs_query(value, search_limit)
-            if not mongo_search_query:
-                return []
-
         elif isinstance(search_term_map[term], str):
             mongo_search_query = {search_term_map[term]: query_val}
-            if not mongo_search_query:
-                return []
-
         elif isinstance(search_term_map[term], list):
             mongo_search_query = {search_term:query_val for search_term in search_term_map[term]}
-            if not mongo_search_query:
-                return []
-
         else:
             print(f"Unknown search {term}:{value}")
+            return []
+
+        if not retval and not mongo_search_query:
             return []
 
         # Allow to overwrite perform_search_filters for custom results
@@ -1494,6 +1486,7 @@ def perform_search(
             target_file = doc.get("target", {}).get("file", {})
             if FILE_REF_KEY in target_file and "sha256" not in target_file:
                 target_file["sha256"] = target_file.pop(FILE_REF_KEY)
+
         return retval
 
     if es_as_db:
