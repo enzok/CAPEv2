@@ -100,14 +100,6 @@
                         </td>
                         {% endif %}
                     </tr>
-                </tbody>
-            </table>
-        </div>
-                                <span class="badge bg-success">{{analysis.malscore|floatformat:1}}</span>
-                            {% endif %}
-                        </td>
-                        {% endif %}
-                    </tr>
                     {% if reports_exist %}
                         <tr>
                             {% if config.jsondump and reports_exist.json or config.reporthtml and reports_exist.html or config.reporthtmlsummary and reports_exist.htmlsummary or config.reportpdf and reports_exist.pdf or config.maec41 and reports_exist.maec or config.maec5 and reports_exist.maec5 or config.mmdef and reports_exist.metadata or config.misp and reports_exist.misp or config.litereport and reports_exist.litereport or config.cents and reports_exist.cents %}
