@@ -39,36 +39,38 @@ class ReportHTML(Report):
         if not HAVE_JINJA2:
             raise CuckooReportError("Failed to generate HTML report: Jinja2 Python library is not installed")
 
-        shots_path = os.path.join(self.analysis_path, "shots")
-        if path_exists(shots_path) and self.options.screenshots:
-            shots = []
-            counter = 1
-            for shot_name in os.listdir(shots_path):
-                if not shot_name.endswith((".jpg", ".png")):
-                    continue
+        try:
+            shots_path = os.path.join(self.analysis_path, "shots")
+            if path_exists(shots_path) and self.options.screenshots:
+                shots = []
+                counter = 1
+                for shot_name in os.listdir(shots_path):
+                    if not shot_name.endswith((".jpg", ".png")):
+                        continue
 
-                shot_path = os.path.join(shots_path, shot_name)
+                    shot_path = os.path.join(shots_path, shot_name)
 
-                if os.path.getsize(shot_path) == 0:
-                    continue
+                    if os.path.getsize(shot_path) == 0:
+                        continue
 
-                shot = {}
-                shot["id"] = os.path.splitext(File(shot_path).get_name())[0]
-                with open(shot_path, "rb") as f:
-                    shot["data"] = base64.b64encode(f.read()).decode()
-                shots.append(shot)
+                    shot = {}
+                    shot["id"] = os.path.splitext(File(shot_path).get_name())[0]
+                    with open(shot_path, "rb") as f:
+                        shot["data"] = base64.b64encode(f.read()).decode()
+                    shots.append(shot)
 
-                counter += 1
+                    counter += 1
 
-            shots.sort(key=lambda shot: shot["id"])
-            results["shots"] = shots
-        else:
-            results["shots"] = []
+                shots.sort(key=lambda shot: shot["id"])
+                results["shots"] = shots
+            else:
+                results["shots"] = []
 
-        bingraph_path = os.path.join(self.analysis_path, "bingraph")
-        if path_exists(bingraph_path):
-            if "graphs" not in results:
-                results["graphs"] = {}
+            bingraph_dict_content = {}
+            bingraph_path = os.path.join(self.analysis_path, "bingraph")
+            if path_exists(bingraph_path):
+                if "graphs" not in results:
+                    results["graphs"] = {}
 
             bingraph_dict_content = {}
             for file_name in os.listdir(bingraph_path):
@@ -77,67 +79,63 @@ class ReportHTML(Report):
                 with codecs.open(file_path, "r", encoding="utf-8") as f:
                     bingraph_dict_content[sha256] = f.read()
 
-        if bingraph_dict_content:
-                results["graphs"]["bingraph"] = {"enabled": True, "content": bingraph_dict_content}
+            if bingraph_dict_content:
+                    results["graphs"]["bingraph"] = {"enabled": True, "content": bingraph_dict_content}
 
-        debugger_path = os.path.join(self.analysis_path, "debugger")
-        debugger = {}
-        if path_exists(debugger_path):
-            try:
-                for log_file in sorted(os.listdir(debugger_path)):
-                    if not log_file.endswith(".log"):
-                        continue
+            debugger_path = os.path.join(self.analysis_path, "debugger")
+            debugger = {}
+            if path_exists(debugger_path):
+                try:
+                    for log_file in sorted(os.listdir(debugger_path)):
+                        if not log_file.endswith(".log"):
+                            continue
 
-                    log_path = os.path.join(debugger_path, log_file)
-                    if not os.path.isfile(log_path):
-                        continue
+                        log_path = os.path.join(debugger_path, log_file)
+                        if not os.path.isfile(log_path):
+                            continue
 
-                    try:
-                        pid = log_file.strip(".log")
-                        with open(log_path, "r") as f:
-                            debugger[pid] = f.read()
-                    except (ValueError, TypeError):
-                        log.warning("Could not parse PID from debugger log file: %s", log_file)
-            except Exception as e:
-                log.warning("Could not read debugger logs for HTML report: %s", e)
+                        try:
+                            pid = log_file.strip(".log")
+                            with open(log_path, "r") as f:
+                                debugger[pid] = f.read()
+                        except (ValueError, TypeError):
+                            log.warning("Could not parse PID from debugger log file: %s", log_file)
+                except Exception as e:
+                    log.warning("Could not read debugger logs for HTML report: %s", e)
 
-        env = Environment(autoescape=True)
-        env.filters.update(
-            {
-                "getkey": getkey,
-                "str2list": str2list,
-                "dict2list": dict2list,
-                "parentfixup": parentfixup,
-                "malware_config": malware_config,
-                "flare_capa_capability": flare_capa_capabilities,
-                "flare_capa_attck": flare_capa_attck,
-                "flare_capa_mbc": flare_capa_mbc,
-                "datefmt": datefmt,
-            }
-        )
-        env.loader = FileSystemLoader(os.path.join(CUCKOO_ROOT, "data", "html"))
-        results["local_conf"] = self.options
-
-        try:
-            tpl = env.get_template("report.html")
-            html = tpl.render(
+            env = Environment(autoescape=True)
+            env.filters.update(
                 {
-                    "results": results,
-                    "summary_report": False,
-                    "graphs": results.get("graphs", {}),
-                    "debugger": debugger,
+                    "getkey": getkey,
+                    "str2list": str2list,
+                    "dict2list": dict2list,
+                    "parentfixup": parentfixup,
+                    "malware_config": malware_config,
+                    "flare_capa_capability": flare_capa_capabilities,
+                    "flare_capa_attck": flare_capa_attck,
+                    "flare_capa_mbc": flare_capa_mbc,
+                    "datefmt": datefmt,
                 }
             )
-        except UndefinedError as e:
-            raise CuckooReportError("Failed to generate summary HTML report: %s", e)
-        except TemplateNotFound as e:
-            raise CuckooReportError("Failed to generate summary HTML report: %s on %s", e, e.name)
-        except (TemplateSyntaxError, TemplateAssertionError) as e:
-            raise CuckooReportError("Failed to generate summary HTML report: %s on %s, line %s", e, e.name, e.lineno)
-        try:
-            with codecs.open(os.path.join(self.reports_path, "report.html"), "w", encoding="utf-8") as report:
-                report.write(html)
-        except (TypeError, IOError) as e:
-            raise CuckooReportError("Failed to write HTML report: %s", e)
+            env.loader = FileSystemLoader(os.path.join(CUCKOO_ROOT, "data", "html"))
+            results["local_conf"] = self.options
+
+            try:
+                tpl = env.get_template("report.html")
+                html = tpl.render(
+                    {
+                        "results": results,
+                        "summary_report": False,
+                        "graphs": results.get("graphs", {}),
+                        "debugger": debugger,
+                    }
+                )
+                with codecs.open(os.path.join(self.reports_path, "report.html"), "w", encoding="utf-8") as report:
+                    report.write(html)
+            except Exception as e:
+                log.exception("Failed to generate HTML report: %s", e)
+
+        except Exception as e:
+            log.exception("Failed to generate HTML report: %s", e)
 
         return True

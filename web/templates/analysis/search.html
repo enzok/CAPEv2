@@ -4,8 +4,8 @@
     <div class="col-md-12">
         <div class="card bg-dark shadow-sm border-secondary">
             <div class="card-body">
-                <form class="form-inline justify-content-center" role="form" action="{% url "search" %}" method="get">
-                    <div class="input-group w-50">
+                <form role="form" action="{% url "search" %}" method="get">
+                    <div class="input-group w-50 mx-auto">
                         <input type="text" class="form-control bg-dark text-white border-secondary" id="form_search" name="search" placeholder="Search term as regex..." aria-label="Search">
                         <button class="btn btn-primary" type="submit"><i class="fas fa-search"></i> Search</button>
                     </div>
@@ -176,7 +176,7 @@
                                 <span class="text-white-50">-</span>
                             {% endif %}
                             </td>
-                            <td class="text-truncate font-monospace" title="{% if analysis.category == 'url' %}{{analysis.target}}{% else %}{{analysis.sample.md5}}{% endif %}">
+                            <td class="text-truncate font-monospace small" title="{% if analysis.category == 'url' %}{{analysis.target}}{% else %}{{analysis.sample.md5}}{% endif %}">
                                 {% if analysis.status == "reported" %}
                                     <a href="{% url "report" analysis.id %}" class="text-light">
                                     {% if analysis.category == "url" %}
@@ -240,7 +240,7 @@
                             {% endif %}
                             {% if config.suricata %}
                             <td>
-                                <span class="font-monospace">
+                                <span class="small">
                                 {% if analysis.suri_alert_cnt %}
                                 <a href="{% url "surialert" analysis.id %}" target="_blank" class="text-danger font-weight-bold">{{analysis.suri_alert_cnt}}</a><!--
                                 {% else %}

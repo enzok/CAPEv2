@@ -73,7 +73,7 @@ $(function() {
     </div>
 {% endif %}
 
-<ul class="nav nav-tabs flex-sm-row flex-sm-nowrap">
+<ul class="nav nav-tabs">
     <li class="nav-item"><a class="nav-link active" href="#overview" data-bs-toggle="tab">Quick Overview</a></li>
     {% if analysis.info.machine.platform == "linux" %}
         <li class="nav-item"><a class="nav-link" href="#strace" data-bs-toggle="tabajax" data-url="/analysis/load_files/{{analysis.info.id}}/strace/" data-bs-toggle="tab">Behavioral Analysis</a></li>

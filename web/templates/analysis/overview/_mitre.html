@@ -1,3 +1,4 @@
+{% if analysis.mitre_attck %}
 <div class="card bg-dark border-secondary mb-3">
     <div class="card-header border-secondary" id="headingMitre">
         <h5 class="mb-0">
@@ -26,7 +27,7 @@
                                     <li class="mb-3">
                                         <a href="https://attack.mitre.org/techniques/{{ttp.t_id}}/" title="{{ttp.description}}" class="text-warning font-weight-bold" target="_blank">
                                             {{ttp.t_id}}
-                                        </a> 
+                                        </a>
                                         - <span class="text-light">{{ ttp.ttp_name }}</span>
                                         <ul class="mt-1 text-white-50 small">
                                         {% for signature in ttp.signature %}
@@ -44,3 +45,4 @@
         </div>
     </div>
 </div>
+{% endif %}
