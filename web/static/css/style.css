@@ -420,3 +420,30 @@ a:not(.btn, [class*="btn"]):hover {
 .form-control[type="file"]::file-selector-button:hover{
   background-color: #3f474e;
 }
+
+/* Mid-gray form controls for Darkly */
+:root {
+  --form-bg: #5c5c5c;                 /* ← adjust here (try #4f4f4f to #5c5c5c) */
+  --form-border: #666;
+  --form-text: #fff;
+  --form-placeholder: rgba(255,255,255,.55);
+}
+
+.form-control,
+.form-select {
+  background-color: var(--form-bg) !important;
+  color: var(--form-text) !important;
+  border-color: var(--form-border) !important;
+}
+
+.form-control::placeholder {
+  color: var(--form-placeholder) !important;
+}
+
+.form-control:focus,
+.form-select:focus {
+  background-color: var(--form-bg) !important;
+  border-color: #00bc8c !important;        /* Darkly success color */
+  box-shadow: 0 0 0 .25rem rgba(0,188,140,.25);
+}
+
