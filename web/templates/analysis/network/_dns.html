@@ -10,6 +10,7 @@
                         <th>Name</th>
                         <th>Response</th>
                         <th>Post-Analysis Lookup</th>
+                        <th>Process Name (PID)</th>
                     </tr>
                     {% for p in network.dns %}
                         <tr>
@@ -53,6 +54,12 @@
                                 {% endif %}
                                 {% endif %}
                             </td>
+                            <td>
+                                {% if p.process_name %}
+                                    {{ p.process_name }}{% if p.process_id %} ({{ p.process_id }}){% endif %}
+                                {% else %}
+                                    -
+                                {% endif %}
                         </tr>
                     {% endfor %}
                 </table>
