@@ -278,6 +278,7 @@ class NetworkProcessMap(Processing):
     No separate network_process_map output is produced.
     """
 
+    key = "network_process_map"
     order = 5
 
     def _load_behavior(self):
