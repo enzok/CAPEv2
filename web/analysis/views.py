@@ -24,6 +24,7 @@ from django.http import FileResponse, HttpResponse, HttpResponseRedirect, FileRe
 from django.shortcuts import redirect, render
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST, require_safe
+from django.urls import reverse
 from rest_framework.decorators import api_view
 
 from modules.auxiliary.Mitmdump import mitmdump
@@ -2694,7 +2695,7 @@ def reprocess_tasks(request, task_id: int):
     if error:
         return render(request, "error.html", {"error": msg})
     else:
-        return HttpResponseRedirect(request.META.get("HTTP_REFERER", "/"))
+        return HttpResponseRedirect(reverse("analysis"))
 
 
 @require_safe
