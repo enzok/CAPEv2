@@ -53,16 +53,6 @@ a:hover {
     color: #EE1B2F
 }
 
-.badge.bg-warning, .badge.bg-info {
-    color: #000 !important;
-}
-
-a.badge:hover, .badge a:hover {
-    color: inherit !important;
-    text-decoration: none;
-    opacity: 0.8;
-}
-
 .btn-link {
     color: red
 }
