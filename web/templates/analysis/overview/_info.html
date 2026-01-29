@@ -31,7 +31,7 @@
     <!-- Analysis Details Card -->
     <div class="card bg-dark border-secondary mb-3">
         <div class="card-header border-secondary d-flex justify-content-between align-items-center">
-            <h5 class="mb-0 text-white"><i class="fas fa-info-circle me-2 text-primary"></i> Analysis Details</h5>
+            <h5 class="mb-0 text-white"><i class="fas fa-info-circle me-2 text-info"></i> Analysis Details</h5>
             {% if settings.REPROCESS_TASKS %}
                 <a class="btn btn-sm btn-outline-secondary text-secondary" href="{% url "reprocess_tasks" id %}" data-bs-toggle="tooltip" title="Reprocess Task">
                     <i class="fas fa-redo"></i>
@@ -52,7 +52,7 @@
                         <th>Duration</th>
                         {% if analysis.info.options %}<th>Options</th>{% endif %}
                         {% if user.is_staff and analysis.distributed %}<th>Distributed</th>{% endif %}
-                        <th>Logs</th>
+                        {% if analysis.debug.log or analysis.process_log %}<th>Logs</th>{% endif %}
                         {% if analysis.debug.pre_script_log %}<th>Pre Script</th>{% endif %}
                         {% if analysis.debug.during_script_log %}<th>During Script</th>{% endif %}
                         {% if config.malscore and analysis.malscore %}<th>MalScore</th>{% endif %}
@@ -69,19 +69,23 @@
                         <td class="text-nowrap">{{analysis.info.ended}}</td>
                         <td>{{analysis.info.duration}}s</td>
                         {% if analysis.info.options %}
-                            <td><button class="btn btn-sm btn-info" type="button" data-bs-toggle="collapse" data-bs-target="#options_collapse">View</button></td>
+                            <td><button class="btn btn-sm btn-outline-info" type="button" data-bs-toggle="collapse" data-bs-target="#options_collapse">View</button></td>
                         {% endif %}
                         {% if user.is_staff and analysis.distributed %}
                             <td>{{analysis.distributed.name}} <small class="text-white-50">({{analysis.distributed.task_id}})</small></td>
                         {% endif %}
+                        {% if analysis.debug.log or analysis.process_log %}
                         <td>
                             <div class="btn-group btn-group-sm">
+                                {% if analysis.debug.log %}
                                 <button class="btn btn-outline-info" type="button" data-bs-toggle="collapse" data-bs-target="#info-log">Analysis</button>
+                                {% endif %}
                                 {% if analysis.process_log %}
                                 <button class="btn btn-outline-info" type="button" data-bs-toggle="collapse" data-bs-target="#process-log">Process</button>
                                 {% endif %}
                             </div>
                         </td>
+                        {% endif %}
                         {% if analysis.debug.pre_script_log %}
                             <td><button class="btn btn-sm btn-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#info-pre-script-log">View</button></td>
                         {% endif %}

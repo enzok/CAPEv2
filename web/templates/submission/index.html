@@ -79,7 +79,7 @@
                         <!-- File Upload -->
                         <div class="tab-pane fade show active" id="file" role="tabpanel">
                             <input type="file" class="form-control border-secondary" id="sampleFile"
-                                name="sample" multiple>
+                                name="sample" multiple />
                         </div>
 
                         <!-- Download Service -->
@@ -114,13 +114,13 @@
                         <!-- PCAP -->
                         <div class="tab-pane fade" id="pcap" role="tabpanel">
                             <input type="file" class="form-control border-secondary" id="pcapFile"
-                                name="pcap" multiple>
+                                name="pcap" multiple />
                         </div>
 
                         <!-- Static -->
                         <div class="tab-pane fade" id="static" role="tabpanel">
                             <input type="file" class="form-control border-secondary" id="staticFile"
-                                name="static" multiple>
+                                name="static" multiple />
 
                         </div>
                         {% endif %}
@@ -181,9 +181,7 @@
                                         name="package">
                                         <option value="" title="">Detect Automatically</option>
                                         {% for package in packages %}
-                                        <option value="{{package.value}}" title="{{ package.description }}">{{package.name}} - {{
-                                            package.summary }}
-                                        </option>
+                                        <option value="{{package.value}}" title="{{ package.description }}">{{package.name}} - {{package.summary}}</option>
                                         {% endfor %}
                                     </select>
                                     <small id="package_description" class="form-text text-white-50"></small>
@@ -209,7 +207,7 @@
                                             id="form_tags" name="tags" placeholder="tag1,tag2" />
                                         <button class="btn btn-outline-info" type="button"
                                             data-bs-toggle="collapse" data-bs-target="#tagshelp"><i
-                                                class="fas fa-question"></i></button>
+                                                class="fas fa-info-circle"></i></button>
                                     </div>
                                     <div id="tagshelp" class="collapse mt-2">
                                         <div class="card card-body p-2">
@@ -288,7 +286,7 @@
                                 <div class="input-group">
                                     <input type="text" class="form-control border-secondary"
                                         id="form_options" name="options" placeholder="option1=val1,option2=val2" />
-                                    <button class="btn btn-outline-info" type="button" data-bs-toggle="collapse" data-bs-target="#optionwindowshelp"><i class="fas fa-question"></i></button>
+                                    <button class="btn btn-outline-info" type="button" data-bs-toggle="collapse" data-bs-target="#optionwindowshelp"><i class="fas fa-info-circle"></i></button>
                                 </div>
                                 <div id="optionwindowshelp" class="collapse mt-2">
                                     <div class="card card-body bg-dark p-2 border-secondary">

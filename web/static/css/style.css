@@ -335,6 +335,16 @@ pre {
     color: black;
 }
 
+.badge.bg-warning, .badge.bg-info {
+    color: #000 !important;
+}
+
+a.badge:hover, .badge a:hover {
+    color: inherit !important;
+    text-decoration: none;
+    opacity: 0.8;
+}
+
 .btn-cat-filesystem { background-color: #ffe3c5; color: black; border-color: #ffe3c5; }
 .btn-cat-filesystem:hover { color: black; }
 .btn-cat-registry { background-color: #ffc5c5; color: black; border-color: #ffc5c5; }
@@ -443,7 +453,7 @@ a:not(.btn, [class*="btn"]):hover {
 .form-control:focus,
 .form-select:focus {
   background-color: var(--form-bg) !important;
-  border-color: #00bc8c !important;        /* Darkly success color */
-  box-shadow: 0 0 0 .25rem rgba(0,188,140,.25);
+  border-color: #007ABCFF !important;        /* Darkly success color */
+  box-shadow: 0 0 0 .25rem rgba(0, 38, 60, 0.25);
 }
 
