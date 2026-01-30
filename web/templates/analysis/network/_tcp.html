@@ -5,38 +5,41 @@
             <div class="card-header border-secondary">
                 <h5 class="mb-0 text-white"><i class="fas fa-network-wired me-2 text-info"></i>TCP Connections</h5>
             </div>
-
             {% if network.tcp %}
                 <div class="card-body">
-                    <table class="table table-dark table-striped table-bordered" style="width: 100%;margin-left: auto;margin-right: auto;">
-                        <tr>
-                            <th>Source</th>
-                            <th>Source Port</th>
-                            <th>Destination</th>
-                            <th>Destination Port</th>
-                            <th>Process Name (PID)</th>
-                        </tr>
-                        {% for p in network.tcp %}
-                            <tr class="connrow" data="{{p.src}},{{p.sport}},{{p.dst}},{{p.dport}},tcp">
-                                <td>{{p.src}}</td>
-                                <td>{{p.sport}}</td>
-                                <td>{{p.dst}}
-                                    {% if network.iplookups %}
-                                        {{ network.iplookups|get_item:p.dst }}
-                                    {% endif %}
-                                    </td>
-                                <td>{{p.dport}}</td>
-                                <td>
-                                    {% if p.process_name %}
-                                        {{ p.process_name }}{% if p.process_id %} ({{ p.process_id }}){% endif %}
-                                    {% else %}
-                                        -
-                                    {% endif %}
-                                </td>
-                            </tr>
-                        {% endfor %}
-                    </table>
-                    <div class="stream"></div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <table class="table table-dark table-striped table-bordered" style="width: 100%;margin-left: auto;margin-right: auto;">
+                                <tr>
+                                    <th>Source</th>
+                                    <th>Source Port</th>
+                                    <th>Destination</th>
+                                    <th>Destination Port</th>
+                                    <th>Process Name (PID)</th>
+                                </tr>
+                                {% for p in network.tcp %}
+                                    <tr class="connrow" data="{{p.src}},{{p.sport}},{{p.dst}},{{p.dport}},tcp">
+                                        <td>{{p.src}}</td>
+                                        <td>{{p.sport}}</td>
+                                        <td>{{p.dst}}
+                                            {% if network.iplookups %}
+                                                {{ network.iplookups|get_item:p.dst }}
+                                            {% endif %}
+                                            </td>
+                                        <td>{{p.dport}}</td>
+                                        <td>
+                                            {% if p.process_name %}
+                                                {{ p.process_name }}{% if p.process_id %} ({{ p.process_id }}){% endif %}
+                                            {% else %}
+                                                -
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </table>
+                        </div>
+                        <div class="stream"></div>
+                    </div>
                 </div>
             {% else %}
                 <div class="card-body">
