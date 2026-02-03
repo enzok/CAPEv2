@@ -311,6 +311,7 @@ SETTINGS_EXPORT = [
     "WEB_AUTHENTICATION",
     "WEB_OAUTH",
     "ZIPPED_DOWNLOAD_ALL",
+    "NETWORK_PROC_MAP",
 ]
 
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
