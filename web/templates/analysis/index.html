@@ -135,6 +135,8 @@
                                 <a href="{% url "report" analysis.id %}" class="text-light">{{analysis.filename}}</a>
                                 {% elif analysis.status in "running,completed,distributed" %}
                                 <a href="{% url "submission_status" analysis.id %}" class="text-warning">{{analysis.filename}}</a>
+                                {% elif analysis.status == "failed_processing" %}
+                                <a href="{% url "failed_processing" analysis.id %}" class="text-danger">{{analysis.filename}}</a>
                                 {% else %}
                                 {{analysis.filename}}
                                 {% endif %}
@@ -146,6 +148,8 @@
                                     <a href="{% url "report" analysis.id %}" class="text-light text-monospace">{{analysis.sample.md5}}</a>
                                     {% elif analysis.status in "running,completed,distributed" %}
                                     <a href="{% url "submission_status" analysis.id %}" class="text-warning text-monospace">{{analysis.sample.md5}}</a>
+                                    {% elif analysis.status == "failed_processing" %}
+                                    <a href="{% url "failed_processing" analysis.id %}" class="text-danger text-monospace">{{analysis.sample.md5}}</a>
                                     {% else %}
                                     <span class="text-monospace">{{analysis.sample.md5}}</span>
                                     {% endif %}
@@ -157,6 +161,8 @@
                                     {% elif analysis.status in "running,completed,distributed" %}
                                     <a href="{% url "submission_status" analysis.id %}"
                                         class="text-warning text-monospace">{{analysis.sample.sha256}}</a>
+                                    {% elif analysis.status == "failed_processing" %}
+                                    <a href="{% url "failed_processing" analysis.id %}" class="text-danger text-monospace">{{analysis.sample.sha256}}</a>
                                     {% else %}
                                     <span class="text-monospace">{{analysis.sample.sha256}}</span>
                                     {% endif %}
@@ -405,6 +411,8 @@
                                     <a href="{% url "report" analysis.id %}" class="text-light text-monospace">{{analysis.sample.md5}}</a>
                                     {% elif analysis.status in "running,completed,distributed" %}
                                     <a href="{% url "submission_status" analysis.id %}" class="text-warning text-monospace">{{analysis.sample.md5}}</a>
+                                    {% elif analysis.status == "failed_processing" %}
+                                    <a href="{% url "failed_processing" analysis.id %}" class="text-danger text-monospace">{{analysis.sample.md5}}</a>
                                     {% else %}
                                     <span class="text-monospace">{{analysis.sample.md5}}</span>
                                     {% endif %}
@@ -415,6 +423,8 @@
                                     <a href="{% url "report" analysis.id %}" class="text-light text-monospace">{{analysis.sample.sha256}}</a>
                                     {% elif analysis.status in "running,completed,distributed" %}
                                     <a href="{% url "submission_status" analysis.id %}" class="text-warning text-monospace">{{analysis.sample.sha256}}</a>
+                                    {% elif analysis.status == "failed_processing" %}
+                                    <a href="{% url "failed_processing" analysis.id %}" class="text-danger text-monospace">{{analysis.sample.sha256}}</a>
                                     {% else %}
                                     <span class="text-monospace">{{analysis.sample.sha256}}</span>
                                     {% endif %}
@@ -647,6 +657,8 @@
                                 {% elif analysis.status in "running,completed,distributed" %}
                                 <a href="{% url "submission_status" analysis.id %}"
                                     class="text-warning">{{analysis.target}}</a>
+                                {% elif analysis.status == "failed_processing" %}
+                                <a href="{% url "failed_processing" analysis.id %}" class="text-danger">{{analysis.target}}</a>
                                 {% else %}
                                 {{analysis.target}}
                                 {% endif %}
@@ -874,6 +886,8 @@
                                     {% elif analysis.status in "running,completed,distributed" %}
                                     <a href="{% url "submission_status" analysis.id %}"
                                         class="text-warning text-monospace">{{analysis.sample.md5}}</a>
+                                    {% elif analysis.status == "failed_processing" %}
+                                    <a href="{% url "failed_processing" analysis.id %}" class="text-danger text-monospace">{{analysis.sample.md5}}</a>
                                     {% else %}
                                     <span class="text-monospace">{{analysis.sample.md5}}</span>
                                     {% endif %}
@@ -885,6 +899,8 @@
                                     {% elif analysis.status in "running,completed,distributed" %}
                                     <a href="{% url "submission_status" analysis.id %}"
                                         class="text-warning text-monospace">{{analysis.sample.sha256}}</a>
+                                    {% elif analysis.status == "failed_processing" %}
+                                    <a href="{% url "failed_processing" analysis.id %}" class="text-danger text-monospace">{{analysis.sample.sha256}}</a>
                                     {% else %}
                                     <span class="text-monospace">{{analysis.sample.sha256}}</span>
                                     {% endif %}
