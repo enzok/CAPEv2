@@ -114,6 +114,8 @@
                                 <a href="{% url "report" analysis.id %}" class="text-white font-weight-bold">{{analysis.id}}</a>
                                 {% elif analysis.status in "running,completed,distributed" %}
                                 <a href="{% url "submission_status" analysis.id %}" class="text-warning font-weight-bold">{{analysis.id}}</a>
+                                {% elif analysis.status == "failed_processing" %}
+                                <a href="{% url "failed_processing" analysis.id %}" class="text-danger font-weight-bold">{{analysis.id}}</a>
                                 {% else %}
                                 <span class="text-white-50">{{analysis.id}}</span>
                                 {% endif %}
@@ -279,7 +281,7 @@
                                 {% elif analysis.status == "failed_processing" %}
                                 <span class="badge bg-danger">{{analysis.status}}</span>
                                 {% if settings.REPROCESS_FAILED_PROCESSING %}
-                                <a href="{% url "reprocess_tasks" analysis.id %}" class="btn btn-sm btn-outline-secondary text-secondary border-0 ms-1" title="Reprocess"><i class="fas fa-redo"></i></a>
+                                <a href="{% url "reprocess_tasks" analysis.id %}" class="btn btn-sm btn-outline-secondary border-0 ms-1" title="Reprocess"><i class="fas fa-redo"></i></a>
                                 {% endif %}
                                 {% else %}
                                 <span class="badge bg-danger">{{analysis.status}}</span>
@@ -510,7 +512,7 @@
                                 {% elif analysis.status == "failed_processing" %}
                                 <span class="badge bg-danger">{{analysis.status}}</span>
                                 {% if settings.REPROCESS_FAILED_PROCESSING %}
-                                <a href="{% url "reprocess_tasks" analysis.id %}" class="btn btn-sm btn-outline-secondary text-secondary border-0 ms-1" title="Reprocess"><i class="fas fa-redo"></i></a>
+                                <a href="{% url "reprocess_tasks" analysis.id %}" class="btn btn-sm btn-outline-secondary border-0 ms-1" title="Reprocess"><i class="fas fa-redo"></i></a>
                                 {% endif %}
                                 {% else %}
                                 <span class="badge bg-danger">{{analysis.status}}</span>
@@ -747,7 +749,7 @@
                                 {% elif analysis.status == "failed_processing" %}
                                 <span class="badge bg-danger">{{analysis.status}}</span>
                                 {% if settings.REPROCESS_FAILED_PROCESSING %}
-                                <a href="{% url "reprocess_tasks" analysis.id %}" class="btn btn-sm btn-outline-secondary text-secondary border-0 ms-1" title="Reprocess"><i class="fas fa-redo"></i></a>
+                                <a href="{% url "reprocess_tasks" analysis.id %}" class="btn btn-sm btn-outline-secondary border-0 ms-1" title="Reprocess"><i class="fas fa-redo"></i></a>
                                 {% endif %}
                                 {% else %}
                                 <span class="badge bg-danger">{{analysis.status}}</span>
@@ -977,7 +979,7 @@
                                 {% elif analysis.status == "failed_processing" %}
                                 <span class="badge bg-danger">{{analysis.status}}</span>
                                 {% if settings.REPROCESS_FAILED_PROCESSING %}
-                                <a href="{% url "reprocess_tasks" analysis.id %}" class="btn btn-sm btn-outline-secondary text-secondary border-0 ms-1" title="Reprocess"><i class="fas fa-redo"></i></a>
+                                <a href="{% url "reprocess_tasks" analysis.id %}" class="btn btn-sm btn-outline-secondary border-0 ms-1" title="Reprocess"><i class="fas fa-redo"></i></a>
                                 {% endif %}
                                 {% else %}
                                 <span class="badge bg-danger">{{analysis.status}}</span>

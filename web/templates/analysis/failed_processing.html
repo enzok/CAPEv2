@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container-fluid">
+    <div class="card bg-dark border-secondary">
+        <div class="card-header border-secondary d-flex justify-content-between align-items-center">
+            <h5 class="mb-0 text-white">
+                <i class="fas fa-exclamation-triangle text-danger me-2"></i>
+                Task {{ task.id }} Failed Processing
+            </h5>
+            {% if settings.REPROCESS_FAILED_PROCESSING %}
+            <a href="{% url 'reprocess_tasks' task.id %}" class="btn btn-primary">
+                <i class="fas fa-redo me-1"></i> Reprocess Task
+            </a>
+            {% endif %}
+        </div>
+        <div class="card-body">
+            <h6 class="text-white-50">Target: {{ task.target }}</h6>
+            <hr class="border-secondary">
+            <h5 class="text-white mb-3">Process Log</h5>
+            <div class="card bg-secondary">
+                <div class="card-body p-0">
+                    <pre class="p-3 text-white mb-0" style="max-height: 600px; overflow-y: auto; white-space: pre-wrap;">{{ process_log }}</pre>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

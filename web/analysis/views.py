@@ -2700,6 +2700,26 @@ def reprocess_tasks(request, task_id: int):
 
 @require_safe
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
+def failed_processing(request, task_id):
+    task = db.view_task(task_id)
+    if not task:
+        return render(request, "error.html", {"error": "Task not found"})
+
+    process_log_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "process.log")
+
+    log_content = "Process log file not found."
+    if path_exists(process_log_path):
+        log_content = path_read_file(process_log_path, mode="text")
+
+    return render(request, "analysis/failed_processing.html", {
+        "task": task,
+        "process_log": log_content,
+        "settings": settings,
+    })
+
+
+@require_safe
+@conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def archive_index(request, page=1):
     page = int(page)
     if page == 0:
