@@ -279,7 +279,7 @@
                                 {% elif analysis.status == "failed_processing" %}
                                 <span class="badge bg-danger">{{analysis.status}}</span>
                                 {% if settings.REPROCESS_FAILED_PROCESSING %}
-                                <a href="{% url "reprocess_tasks" analysis.id %}" class="btn btn-sm btn-outline-secondary border-0 ms-1" title="Reprocess"><i class="fas fa-redo"></i></a>
+                                <a href="{% url "reprocess_tasks" analysis.id %}" class="btn btn-sm btn-outline-secondary text-secondary border-0 ms-1" title="Reprocess"><i class="fas fa-redo"></i></a>
                                 {% endif %}
                                 {% else %}
                                 <span class="badge bg-danger">{{analysis.status}}</span>
@@ -510,7 +510,7 @@
                                 {% elif analysis.status == "failed_processing" %}
                                 <span class="badge bg-danger">{{analysis.status}}</span>
                                 {% if settings.REPROCESS_FAILED_PROCESSING %}
-                                <a href="{% url "reprocess_tasks" analysis.id %}" class="btn btn-sm btn-outline-secondary border-0 ms-1" title="Reprocess"><i class="fas fa-redo"></i></a>
+                                <a href="{% url "reprocess_tasks" analysis.id %}" class="btn btn-sm btn-outline-secondary text-secondary border-0 ms-1" title="Reprocess"><i class="fas fa-redo"></i></a>
                                 {% endif %}
                                 {% else %}
                                 <span class="badge bg-danger">{{analysis.status}}</span>
@@ -747,7 +747,7 @@
                                 {% elif analysis.status == "failed_processing" %}
                                 <span class="badge bg-danger">{{analysis.status}}</span>
                                 {% if settings.REPROCESS_FAILED_PROCESSING %}
-                                <a href="{% url "reprocess_tasks" analysis.id %}" class="btn btn-sm btn-outline-secondary border-0 ms-1" title="Reprocess"><i class="fas fa-redo"></i></a>
+                                <a href="{% url "reprocess_tasks" analysis.id %}" class="btn btn-sm btn-outline-secondary text-secondary border-0 ms-1" title="Reprocess"><i class="fas fa-redo"></i></a>
                                 {% endif %}
                                 {% else %}
                                 <span class="badge bg-danger">{{analysis.status}}</span>
@@ -977,7 +977,7 @@
                                 {% elif analysis.status == "failed_processing" %}
                                 <span class="badge bg-danger">{{analysis.status}}</span>
                                 {% if settings.REPROCESS_FAILED_PROCESSING %}
-                                <a href="{% url "reprocess_tasks" analysis.id %}" class="btn btn-sm btn-outline-secondary border-0 ms-1" title="Reprocess"><i class="fas fa-redo"></i></a>
+                                <a href="{% url "reprocess_tasks" analysis.id %}" class="btn btn-sm btn-outline-secondary text-secondary border-0 ms-1" title="Reprocess"><i class="fas fa-redo"></i></a>
                                 {% endif %}
                                 {% else %}
                                 <span class="badge bg-danger">{{analysis.status}}</span>
