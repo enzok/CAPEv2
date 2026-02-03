@@ -21,16 +21,17 @@ body {
 }
 
 a {
-    color: white
+    color: white;
 }
 
-.navbar-collapse.in {
+/* Bootstrap 5: collapse uses .show (not .in) */
+.navbar-collapse.show {
     display: block !important;
 }
 
 .alert-primary, .alert-info
 {
-    background-color: #1c1c1c
+    background-color: #1c1c1c;
 }
 
 .alert-info code {
@@ -41,32 +42,28 @@ a {
     padding: .5rem 1rem;
 }
 
-element.style {
-    font-size: 14px;
-}
-
 .card-body {
     padding: 1.0rem;
 }
 
 a:hover {
-    color: #EE1B2F
+    color: #EE1B2F;
 }
 
 .btn-link {
-    color: red
+    color: red;
 }
 
 .btn-link:hover {
-    color: #EE1B2F
+    color: #EE1B2F;
 }
 
 .page-link {
-    background-color: #444
+    background-color: #444;
 }
 
 .page-link:hover {
-    background-color: #EE1B2F
+    background-color: #EE1B2F;
 }
 
 .page-link-active {
@@ -74,18 +71,19 @@ a:hover {
 }
 
 .text-success {
-    color: #62c462!important
+    color: #62c462!important;
 }
 
-.text-sucess:hover {
-    color: #62c462
+/* Fix typo: .text-sucess -> .text-success */
+.text-success:hover {
+    color: #62c462!important;
 }
 
 .page-item.active .page-link {
     z-index:3;
     color:#fff;
     background-color:#ee1b2f;
-    border-color:transparent
+    border-color:transparent;
 }
 
 footer {
@@ -350,7 +348,7 @@ pre {
 .btn-cat-crypto             { background-color: #f0f2c5; color: #000; border-color: #f0f2c5; }
 .btn-cat-all                { background-color: #198754; color: #000; border-color: #198754; }
 
-/* Hover + selected */
+/* Active state border colors (your current behavior) */
 .btn-cat-default.active,
 .btn-cat-default:active,
 .show > .btn-cat-default.dropdown-toggle {
@@ -483,9 +481,9 @@ pre {
   background-color: #3f474e;
 }
 
-/* Mid-gray form controls for Darkly */
+/* Mid-gray form controls */
 :root {
-  --form-bg: #5c5c5c;                 /* ← adjust here (try #4f4f4f to #5c5c5c) */
+  --form-bg: #5c5c5c;
   --form-border: #666;
   --form-text: #fff;
   --form-placeholder: rgba(255,255,255,.55);
@@ -505,7 +503,18 @@ pre {
 .form-control:focus,
 .form-select:focus {
   background-color: var(--form-bg) !important;
-  border-color: #007ABCFF !important;        /* Darkly success color */
+  border-color: #007ABCFF !important;
   box-shadow: 0 0 0 .25rem rgba(0, 38, 60, 0.25);
+}
+
+/* Global: no underlines anywhere in BS5 UI */
+a, a:hover, a:focus, a:active {
+    text-decoration: none !important;
+}
+
+/* Keep footer behavior only (if you want underline there) */
+footer a:hover,
+#footer-extra a:hover {
+    text-decoration: underline !important;
 }
 
