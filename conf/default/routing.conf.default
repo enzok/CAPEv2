@@ -131,6 +131,8 @@ interface = tun0
 # for existing names and IDs).
 rt_table = tun0
 
+type = VPN
+
 
 [socks5]
 # By default we disable socks5 support as it requires running utils/rooter.py as

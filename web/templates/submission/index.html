@@ -228,13 +228,10 @@
                                         {% endif %}
                                         {% if random_route %}
                                         {% if random_route.type == "SOCKS5" %}
-                                        <option value="{{ random_route.name }}" selected hidden>[RANDOM] {{
-                                            random_route.name }} -
-                                            {{ random_route.host }}:{{ random_route.port }} ({{ random_route.type }})
+                                        <option value="{{ random_route.name }}" selected hidden>[RANDOM] {{ random_route.name }} - {{ random_route.host }}:{{ random_route.port }} ({{ random_route.type }})
                                         </option>
                                         {% else %}
-                                        <option value="{{ vpn.name }}" selected hidden>[RANDOM] {{ vpn.description }}
-                                            ({{ vpn.interface }}, {{ vpn.type }})
+                                        <option value="{{ vpn.name }}" selected hidden>[RANDOM] {{ vpn.description }} ({{ vpn.interface }}, {{ vpn.type }})
                                         </option>
                                         {% endif %}
                                         {% endif %}
@@ -245,13 +242,11 @@
                                         <option value="tor">tor</option>
                                         {% endif %}
                                         {% for vpn in vpns %}
-                                        <option value="{{ vpn.name }}">{{ vpn.description }} ({{ vpn.interface }}, {{
-                                            vpn.type }})
+                                        <option value="{{ vpn.name }}">{{ vpn.description }} ({{ vpn.interface }}, {{ vpn.type }})
                                         </option>
                                         {% endfor %}
                                         {% for socks5 in socks5s %}
-                                        <option value="{{ socks5.name }}">{{ socks5.name }} - {{ socks5.host }}:{{
-                                            socks5.port }} ({{ socks5.type }})
+                                        <option value="{{ socks5.name }}">{{ socks5.name }} - {{ socks5.host }}:{{ socks5.port }} ({{ socks5.type }})
                                         </option>
                                         {% endfor %}
                                         {% if all_exitnodes %}
