@@ -99,6 +99,7 @@ class Screenshots(Auxiliary, Thread):
                 tmpio.seek(0)
 
                 if self.screenshots_qr and HAVE_CV2:
+                    log.info("Checking for QR code.")
                     url = handle_qr_codes(tmpio)
                     if url:
                         log.info("QR code detected with URL: %s", url)
