@@ -1250,7 +1250,7 @@ class NetworkMap:
         sock = _get_arg_any(args_map, "socket", "sock", "fd", "handle")
         ip = _norm_ip(_get_arg_any(args_map, "ip", "dst", "dstip", "ip_address", "address", "remote_ip", "server"))
         port = _get_arg_any(args_map, "port", "dport", "dstport", "remote_port", "server_port")
-        buf = _get_arg_any(args_map, "Buffer", "buffer", "buf", "data")
+        buf = _get_arg_any(args_map, "buffer", "buf", "data")
 
         if api in {"connect", "wsaconnect", "connectex", "sendto", "wsasendto", "recvfrom", "wsarecvfrom"}:
             p_int = _safe_int(port)
@@ -1268,7 +1268,7 @@ class NetworkMap:
                 _add_http_host(self.http_host_map, host, pinfo, sock=sock)
 
         if api in HTTP_HINT_APIS:
-            url = _get_arg_any(args_map, "URL", "url", "lpszUrl", "lpUrl", "uri", "pszUrl", "pUrl")
+            url = _get_arg_any(args_map, "url", "lpszurl", "lpurl", "uri", "pszurl", "purl")
             if isinstance(url, str) and url.strip():
                 u = _extract_first_url(url) or url.strip()
                 host = _host_from_url(u)

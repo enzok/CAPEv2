@@ -74,7 +74,7 @@ def _parse_behavior_ts(ts_str):
 
 def _get_call_args_dict(call):
     """Convert arguments list to a dictionary for O(1) access."""
-    return {a["name"]: a["value"] for a in call.get("arguments", []) if "name" in a}
+    return {a["name"].lower(): a["value"] for a in call.get("arguments", []) if "name" in a}
 
 
 def _extract_domain_from_call(call, args_map):
@@ -86,15 +86,14 @@ def _extract_domain_from_call(call, args_map):
         "nodename",
         "name",
         "domain",
-        "szName",
-        "pszName",
-        "lpName",
+        "szname",
+        "pszname",
+        "lpname",
         "query",
         "queryname",
         "dns_name",
-        "QueryName",
-        "lpstrName",
-        "pName",
+        "lpstrname",
+        "pname",
     ):
         v = args_map.get(name)
         if isinstance(v, str) and v.strip():
@@ -113,8 +112,8 @@ def _extract_domain_from_call(call, args_map):
 def _get_arg_any(args_map, *names):
     """Return the first matching argument value for any of the provided names."""
     for n in names:
-        if n in args_map:
-            return args_map[n]
+        if n.lower() in args_map:
+            return args_map[n.lower()]
     return None
 
 
@@ -186,6 +185,8 @@ def _http_host_from_buf(buf):
 
 def _safe_int(x):
     with suppress(Exception):
+        if isinstance(x, str) and x.lower().startswith("0x"):
+            return int(x, 16)
         return int(x)
     return None
 
@@ -241,17 +242,11 @@ def _extract_tls_server_name(call, args_map):
     """
     for name in (
         "sni",
-        "SNI",
-        "ServerName",
         "servername",
         "server_name",
-        "TargetName",
         "targetname",
-        "Host",
         "host",
         "hostname",
-        "Url",
-        "URL",
         "url",
     ):
         v = args_map.get(name)
