@@ -12,22 +12,27 @@ from collections import defaultdict
 from contextlib import suppress
 
 from lib.cuckoo.common.network_utils import (
+    _get_call_args_dict,
+    _get_arg_any,
+    _norm_ip,
+    _looks_like_http,
+    _http_host_from_buf,
+    _extract_first_url,
+    _host_from_url,
+    _add_http_host,
+    _extract_domain_from_call,
+    _extract_tls_server_name,
+    _parse_behavior_ts,
+    _norm_domain,
+    _safe_int,
     DNS_APIS,
     HTTP_HINT_APIS,
     TLS_HINT_APIS,
-    _add_http_host,
-    _extract_domain_from_call,
-    _extract_first_url,
-    _extract_tls_server_name,
-    _get_arg_any,
-    _get_call_args_dict,
-    _host_from_url,
-    _http_host_from_buf,
-    _looks_like_http,
-    _norm_domain,
-    _norm_ip,
-    _parse_behavior_ts,
-    _safe_int,
+    _get_call_ret_handle,
+    _winhttp_get_proc_state,
+    _call_ok,
+    winhttp_update_from_call,
+    winhttp_finalize_sessions_by_domain,
 )
 
 from lib.cuckoo.common.abstracts import Processing
@@ -1233,6 +1238,7 @@ class NetworkMap:
         self.endpoint_map = defaultdict(list)  # (ip, port) -> [pinfo]
         self.http_host_map = defaultdict(list)  # host -> [pinfo]
         self.dns_intents = defaultdict(list)  # domain -> [intent]
+        self._winhttp_state = {"processes": {}}
 
     def event_apicall(self, call, process):
         if call.get("category") != "network":
@@ -1305,6 +1311,14 @@ class NetworkMap:
                     }
                 )
 
+        # 4. WinHTTP rebuild (incremental)
+        if api.startswith("winhttp") and _call_ok(call):
+                with suppress(Exception):
+                    ret_h = _get_call_ret_handle(call)
+
+                pstate = _winhttp_get_proc_state(self._winhttp_state, process)
+                winhttp_update_from_call(pstate, api, args_map, ret_h)
+
     def run(self):
         # Sort DNS intents by timestamp
         for d in list(self.dns_intents.keys()):
@@ -1325,6 +1339,7 @@ class NetworkMap:
             "endpoint_map": endpoint_map_str,
             "http_host_map": self.http_host_map,
             "dns_intents": self.dns_intents,
+            "winhttp_sessions": winhttp_finalize_sessions_by_domain(self._winhttp_state),
         }
 
 

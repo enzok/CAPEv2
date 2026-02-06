@@ -1331,6 +1331,11 @@ class NetworkAnalysis(Processing):
         if not net_map:
             return
 
+        # WinHTTP session reconstruction from behavior logs (additive)
+        http_session_data = net_map.get("http_session_data")
+        if http_session_data:
+            network["http_session_data"] = http_session_data
+
         # 1. DNS
         dns_intents = net_map.get("dns_intents", {})
         existing_dns = {_norm_domain(d.get("request")) for d in network.get("dns", []) if d.get("request")}

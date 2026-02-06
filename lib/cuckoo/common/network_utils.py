@@ -3,6 +3,7 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 import datetime
+import re
 from contextlib import suppress
 from urllib.parse import urlparse
 
@@ -51,6 +52,9 @@ TLS_HINT_APIS = {
     "initializesecuritycontextexw",
     "acceptsecuritycontext",
 }
+
+
+_HEX_HANDLE_RE = re.compile(r"^(?:0x)?([0-9a-fA-F]+)$")
 
 
 def _norm_domain(d):
@@ -276,3 +280,280 @@ def _extract_tls_server_name(call, args_map):
                     return s
 
     return None
+
+
+def _parse_handle(v):
+    """Normalize handles into '0x...' lowercase. Return None if invalid/zero."""
+    if v is None:
+        return None
+    if isinstance(v, int):
+        if v <= 0:
+            return None
+        return "0x%x" % v
+    with suppress(Exception):
+        s = str(v).strip()
+        if not s:
+            return None
+        m = _HEX_HANDLE_RE.match(s)
+        if not m:
+            return None
+        n = int(m.group(1), 16)
+        if n <= 0:
+            return None
+        return "0x%x" % n
+    return None
+
+
+def _get_call_ret_handle(call):
+    return _parse_handle(call.get("return") or call.get("retval") or call.get("ret"))
+
+
+def _call_ok(call):
+    """
+    In your data, status is boolean.
+    Keep tolerant for other shapes.
+    """
+    v = call.get("status")
+    if isinstance(v, bool):
+        return v
+    if isinstance(v, str):
+        return v.lower() in ("success", "true", "1")
+    return True
+
+
+def _winhttp_get_proc_state(state, process):
+    pid = process.get("process_id")
+    pname = process.get("process_name", "") or ""
+    procs = state.setdefault("processes", {})
+    key = pid if pid is not None else (pname or "unknown")
+    pstate = procs.get(key)
+    if pstate is None:
+        pstate = {
+            "process_id": pid,
+            "process_name": pname,
+            "sessions": {},   # session_handle -> session dict
+            "connects": {},   # connect_handle -> connect dict
+            "requests": {},   # request_handle -> request dict
+        }
+        procs[key] = pstate
+    return pstate
+
+
+def winhttp_update_from_call(pstate, api_lc, args_map, ret_handle):
+    """
+    Update WinHTTP state from one call.
+    args_map keys are lowercased by _get_call_args_dict().
+    """
+    # WinHttpOpen -> session handle
+    if api_lc == "winhttpopen" and ret_handle:
+        sess = pstate["sessions"].get(ret_handle)
+        if sess is None:
+            sess = {
+                "handle": ret_handle,
+                "user_agent": "",
+                "access_type": "",
+                "proxy_name": "",
+                "proxy_bypass": "",
+                "flags": "",
+                "options": [],
+                "connections": [],  # list of connect objects
+            }
+            pstate["sessions"][ret_handle] = sess
+
+        ua = args_map.get("useragent")
+        if ua and not sess["user_agent"]:
+            sess["user_agent"] = str(ua)
+        if args_map.get("accesstype") is not None:
+            sess["access_type"] = str(args_map.get("accesstype"))
+        if args_map.get("proxyname") is not None:
+            sess["proxy_name"] = str(args_map.get("proxyname"))
+        if args_map.get("proxybypass") is not None:
+            sess["proxy_bypass"] = str(args_map.get("proxybypass"))
+        if args_map.get("flags") is not None:
+            sess["flags"] = str(args_map.get("flags"))
+        return
+
+    # WinHttpConnect -> connect handle (binds to session)
+    if api_lc == "winhttpconnect" and ret_handle:
+        sh = _parse_handle(args_map.get("sessionhandle"))
+        server = args_map.get("servername")
+        port = args_map.get("serverport")
+
+        conn = pstate["connects"].get(ret_handle)
+        if conn is None:
+            conn = {
+                "handle": ret_handle,
+                "session_handle": sh,
+                "server": str(server or ""),
+                "port": None,
+                "options": [],
+                "requests": [],  # list of request objects
+            }
+            pstate["connects"][ret_handle] = conn
+
+        if sh and not conn.get("session_handle"):
+            conn["session_handle"] = sh
+        if server and not conn.get("server"):
+            conn["server"] = str(server)
+        if conn.get("port") is None and port is not None:
+            with suppress(Exception):
+                conn["port"] = int(port)
+
+        if sh:
+            sess = pstate["sessions"].get(sh)
+            if sess is not None:
+                # ensure uniqueness by handle
+                for c in sess["connections"]:
+                    if isinstance(c, dict) and c.get("handle") == ret_handle:
+                        return
+                sess["connections"].append(conn)
+        return
+
+    # WinHttpOpenRequest -> request handle (binds to connect)
+    if api_lc == "winhttpopenrequest" and ret_handle:
+        ch = _parse_handle(args_map.get("internethandle"))
+        req = pstate["requests"].get(ret_handle)
+        if req is None:
+            req = {
+                "handle": ret_handle,
+                "connect_handle": ch,
+                "verb": str(args_map.get("verb") or ""),
+                "object": str(args_map.get("objectname") or ""),
+                "flags": str(args_map.get("flags") or ""),
+                "version": str(args_map.get("version") or ""),
+                "referrer": str(args_map.get("referrer") or ""),
+                "options": [],
+                "url": "",
+            }
+            pstate["requests"][ret_handle] = req
+        else:
+            if ch and not req.get("connect_handle"):
+                req["connect_handle"] = ch
+
+        if ch:
+            conn = pstate["connects"].get(ch)
+            if conn is not None:
+                for r in conn["requests"]:
+                    if isinstance(r, dict) and r.get("handle") == ret_handle:
+                        break
+                else:
+                    conn["requests"].append(req)
+
+                if conn.get("server") and req.get("object"):
+                    scheme = "https" if conn.get("port") == 443 else "http"
+                    req["url"] = "%s://%s%s" % (scheme, conn["server"], req["object"])
+        return
+
+    # WinHttpSetOption -> applies to session/connect/request by handle
+    if api_lc == "winhttpsetoption":
+        h = _parse_handle(args_map.get("internethandle"))
+        if not h:
+            return
+        opt_entry = {"option": str(args_map.get("option") or ""), "buffer": str(args_map.get("buffer") or "")}
+        if h in pstate["requests"]:
+            pstate["requests"][h]["options"].append(opt_entry)
+        elif h in pstate["connects"]:
+            pstate["connects"][h]["options"].append(opt_entry)
+        elif h in pstate["sessions"]:
+            pstate["sessions"][h]["options"].append(opt_entry)
+        return
+
+
+def winhttp_finalize_sessions_by_domain(state):
+    """
+    Slim, UI-ready WinHTTP reconstruction.
+
+    Returns per-process domain grouping with only:
+      - url (scheme derived: https if port == 443 else http)
+      - verb
+      - user_agent
+      - proxy info (access_type, proxy_name, proxy_bypass)
+
+    Shape:
+      [
+        {
+          "process_id": ..,
+          "process_name": ..,
+          "sessions_by_domain": {
+             "example.com": [ {"url":..,"verb":..,"user_agent":..,"proxy_name":..,"proxy_bypass":..,"access_type":..}, ... ]
+          }
+        }
+      ]
+    """
+    out = []
+    procs = (state or {}).get("processes") or {}
+
+    for _, p in procs.items():
+        sessions = (p.get("sessions") or {})
+        if not sessions:
+            continue
+
+        sessions_by_domain = {}
+
+        for s in sessions.values():
+            ua = s.get("user_agent") or ""
+            access_type = s.get("access_type") or ""
+            proxy_name = s.get("proxy_name") or ""
+            proxy_bypass = s.get("proxy_bypass") or ""
+
+            for c in s.get("connections") or []:
+                if not isinstance(c, dict):
+                    continue
+                server = c.get("server") or ""
+                dom = _norm_domain(server)
+                if not dom:
+                    continue
+
+                port = c.get("port")
+                scheme = "https" if port == 443 else "http"
+
+                for r in c.get("requests") or []:
+                    if not isinstance(r, dict):
+                        continue
+
+                    obj = r.get("object") or ""
+                    if not isinstance(obj, str):
+                        obj = str(obj)
+                    obj = obj.strip()
+                    if not obj:
+                        continue
+                    if not obj.startswith("/"):
+                        obj = "/" + obj
+
+                    verb = r.get("verb") or ""
+                    if not isinstance(verb, str):
+                        verb = str(verb)
+                    verb = verb.strip().upper() or "GET"
+
+                    url = "%s://%s%s" % (scheme, server, obj)
+
+                    entry = {
+                        "url": url,
+                        "verb": verb,
+                        "user_agent": ua,
+                        "access_type": access_type,
+                        "proxy_name": proxy_name,
+                        "proxy_bypass": proxy_bypass,
+                    }
+
+                    # dedupe per-domain on (url, verb, user_agent, proxy_name, proxy_bypass, access_type)
+                    lst = sessions_by_domain.setdefault(dom, [])
+                    key = (url, verb, ua, access_type, proxy_name, proxy_bypass)
+                    # small lists expected; linear scan is fine & avoids extra structures
+                    exists = False
+                    for e in lst:
+                        if (e.get("url"), e.get("verb"), e.get("user_agent"),
+                            e.get("access_type"), e.get("proxy_name"), e.get("proxy_bypass")) == key:
+                            exists = True
+                            break
+                    if not exists:
+                        lst.append(entry)
+
+        if sessions_by_domain:
+            out.append({
+                "process_id": p.get("process_id"),
+                "process_name": p.get("process_name", ""),
+                "sessions_by_domain": sessions_by_domain,
+            })
+
+    return out
