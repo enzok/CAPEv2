@@ -1322,7 +1322,7 @@ class NetworkAnalysis(Processing):
                     host["process_name"] = ", ".join(f"{name} ({pid})" for pid, name in procs.items())
                     host["process_id"] = None
 
-    def _merge_behavior_network(self, results):
+    def _merge_behavior_network(self, network):
         """
         Merge network events found in behavior logs but missing in PCAP.
         Marks them with source='behavior'.
@@ -1330,8 +1330,6 @@ class NetworkAnalysis(Processing):
         net_map = self._load_network_map()
         if not net_map:
             return
-
-        network = results.get("network", {})
 
         # 1. DNS
         dns_intents = net_map.get("dns_intents", {})

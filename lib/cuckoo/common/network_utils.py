@@ -38,6 +38,7 @@ HTTP_HINT_APIS = {
     "httpopenrequesta",
     "httpopenrequestw",
     "isvalidurl",
+    "winhttpgetproxyforurl",
 }
 
 
@@ -240,6 +241,12 @@ def _extract_tls_server_name(call, args_map):
     """
     Best-effort server name extraction for TLS/SChannel/SSPI.
     """
+    def _is_valid_domain_chars(s):
+        for c in s:
+            if not (c.isalnum() or c in ".-_"):
+                return False
+        return True
+
     for name in (
         "sni",
         "servername",
@@ -255,7 +262,7 @@ def _extract_tls_server_name(call, args_map):
             u = _extract_first_url(s)
             if u:
                 return _host_from_url(u) or s
-            if "." in s and " " not in s and len(s) < 260:
+            if "." in s and " " not in s and len(s) < 260 and _is_valid_domain_chars(s):
                 return s
 
     for v in args_map.values():
@@ -265,6 +272,7 @@ def _extract_tls_server_name(call, args_map):
                 u = _extract_first_url(s)
                 if u:
                     return _host_from_url(u) or s
-                return s
+                if _is_valid_domain_chars(s):
+                    return s
 
     return None
