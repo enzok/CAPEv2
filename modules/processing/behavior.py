@@ -32,7 +32,7 @@ from lib.cuckoo.common.network_utils import (
     _winhttp_get_proc_state,
     _call_ok,
     winhttp_update_from_call,
-    winhttp_finalize_sessions_by_domain,
+    winhttp_finalize_sessions,
 )
 
 from lib.cuckoo.common.abstracts import Processing
@@ -1339,7 +1339,7 @@ class NetworkMap:
             "endpoint_map": endpoint_map_str,
             "http_host_map": self.http_host_map,
             "dns_intents": self.dns_intents,
-            "winhttp_sessions": winhttp_finalize_sessions_by_domain(self._winhttp_state),
+            "winhttp_sessions": winhttp_finalize_sessions(self._winhttp_state),
         }
 
 

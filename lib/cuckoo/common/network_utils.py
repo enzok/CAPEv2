@@ -85,20 +85,20 @@ def _get_call_args_dict(call):
 def _extract_domain_from_call(call, args_map):
     # Check named arguments first
     for name in (
-        "hostname",
-        "host",
-        "node",
-        "nodename",
-        "name",
-        "domain",
-        "szname",
-        "pszname",
-        "lpname",
-        "query",
-        "queryname",
-        "dns_name",
-        "lpstrname",
-        "pname",
+            "hostname",
+            "host",
+            "node",
+            "nodename",
+            "name",
+            "domain",
+            "szname",
+            "pszname",
+            "lpname",
+            "query",
+            "queryname",
+            "dns_name",
+            "lpstrname",
+            "pname",
     ):
         v = args_map.get(name)
         if isinstance(v, str) and v.strip():
@@ -252,13 +252,13 @@ def _extract_tls_server_name(call, args_map):
         return True
 
     for name in (
-        "sni",
-        "servername",
-        "server_name",
-        "targetname",
-        "host",
-        "hostname",
-        "url",
+            "sni",
+            "servername",
+            "server_name",
+            "targetname",
+            "host",
+            "hostname",
+            "url",
     ):
         v = args_map.get(name)
         if isinstance(v, str) and v.strip():
@@ -459,7 +459,7 @@ def winhttp_update_from_call(pstate, api_lc, args_map, ret_handle):
         return
 
 
-def winhttp_finalize_sessions_by_domain(state):
+def winhttp_finalize_sessions(state):
     """
     Slim, UI-ready WinHTTP reconstruction.
 
@@ -474,7 +474,7 @@ def winhttp_finalize_sessions_by_domain(state):
         {
           "process_id": ..,
           "process_name": ..,
-          "sessions_by_domain": {
+          "sessions": {
              "example.com": [ {"url":..,"verb":..,"user_agent":..,"proxy_name":..,"proxy_bypass":..,"access_type":..}, ... ]
           }
         }
@@ -499,6 +499,7 @@ def winhttp_finalize_sessions_by_domain(state):
             for c in s.get("connections") or []:
                 if not isinstance(c, dict):
                     continue
+
                 server = c.get("server") or ""
                 dom = _norm_domain(server)
                 if not dom:
@@ -514,38 +515,41 @@ def winhttp_finalize_sessions_by_domain(state):
                     obj = r.get("object") or ""
                     if not isinstance(obj, str):
                         obj = str(obj)
+
                     obj = obj.strip()
                     if not obj:
                         continue
+
                     if not obj.startswith("/"):
                         obj = "/" + obj
 
                     verb = r.get("verb") or ""
                     if not isinstance(verb, str):
                         verb = str(verb)
+
                     verb = verb.strip().upper() or "GET"
-
-                    url = "%s://%s%s" % (scheme, server, obj)
-
+                    request = f"{verb} {obj} \r\nUser-Agent: {ua}\r\nHost: {dom}\r\n"
                     entry = {
-                        "url": url,
-                        "verb": verb,
+                        "uri": obj,
+                        "dport": port,
+                        "method": verb,
+                        "protocol": scheme,
                         "user_agent": ua,
+                        "request": request,
                         "access_type": access_type,
                         "proxy_name": proxy_name,
                         "proxy_bypass": proxy_bypass,
                     }
 
-                    # dedupe per-domain on (url, verb, user_agent, proxy_name, proxy_bypass, access_type)
                     lst = sessions_by_domain.setdefault(dom, [])
-                    key = (url, verb, ua, access_type, proxy_name, proxy_bypass)
-                    # small lists expected; linear scan is fine & avoids extra structures
+                    key = (obj, verb, ua, access_type, proxy_name, proxy_bypass)
                     exists = False
                     for e in lst:
-                        if (e.get("url"), e.get("verb"), e.get("user_agent"),
+                        if (e.get("uri"), e.get("method"), e.get("user_agent"),
                             e.get("access_type"), e.get("proxy_name"), e.get("proxy_bypass")) == key:
                             exists = True
                             break
+
                     if not exists:
                         lst.append(entry)
 
@@ -553,7 +557,7 @@ def winhttp_finalize_sessions_by_domain(state):
             out.append({
                 "process_id": p.get("process_id"),
                 "process_name": p.get("process_name", ""),
-                "sessions_by_domain": sessions_by_domain,
+                "sessions": sessions_by_domain,
             })
 
     return out
