@@ -11,6 +11,10 @@ import struct
 from collections import defaultdict
 from contextlib import suppress
 
+from lib.cuckoo.common.abstracts import Processing
+from lib.cuckoo.common.compressor import CuckooBsonCompressor
+from lib.cuckoo.common.config import Config
+from lib.cuckoo.common.netlog import BsonParser
 from lib.cuckoo.common.network_utils import (
     _get_call_args_dict,
     _get_arg_any,
@@ -34,11 +38,6 @@ from lib.cuckoo.common.network_utils import (
     winhttp_update_from_call,
     winhttp_finalize_sessions,
 )
-
-from lib.cuckoo.common.abstracts import Processing
-from lib.cuckoo.common.compressor import CuckooBsonCompressor
-from lib.cuckoo.common.config import Config
-from lib.cuckoo.common.netlog import BsonParser
 from lib.cuckoo.common.path_utils import path_exists
 from lib.cuckoo.common.replace_patterns_utils import _clean_path, check_deny_pattern
 from lib.cuckoo.common.utils import (
