@@ -23,7 +23,7 @@ from hashlib import md5, sha1, sha256
 from itertools import islice
 from json import loads
 from typing import Any, Dict, List, Optional
-from urllib.parse import urlunparse
+from urllib.parse import urlparse, urlunparse
 
 import cachetools.func
 import dns.resolver
@@ -589,9 +589,9 @@ class Pcap:
             entry = {"count": 1}
 
             if "host" in http.headers and re.match(
-                    r"^([A-Z0-9]|[A-Z0-9][A-Z0-9\-]{0,61}[A-Z0-9])(\.([A-Z0-9]|[A-Z0-9][A-Z0-9\-]{0,61}[A-Z0-9]))+(:[0-9]{1,5})?$",
-                    http.headers["host"],
-                    re.IGNORECASE,
+                r"^([A-Z0-9]|[A-Z0-9][A-Z0-9\-]{0,61}[A-Z0-9])(\.([A-Z0-9]|[A-Z0-9][A-Z0-9\-]{0,61}[A-Z0-9]))+(:[0-9]{1,5})?$",
+                http.headers["host"],
+                re.IGNORECASE,
             ):
                 entry["host"] = convert_to_printable(http.headers["host"])
             else:
@@ -800,8 +800,8 @@ class Pcap:
                         self._tcp_dissect(connection, tcp.data, ts)
                         src, sport, dst, dport = connection["src"], connection["sport"], connection["dst"], connection["dport"]
                         if not (
-                                (dst, dport, src, sport) in self.tcp_connections_seen
-                                or (src, sport, dst, dport) in self.tcp_connections_seen
+                            (dst, dport, src, sport) in self.tcp_connections_seen
+                            or (src, sport, dst, dport) in self.tcp_connections_seen
                         ):
                             self.tcp_connections.append((src, sport, dst, dport, offset, ts - first_ts))
                             self.tcp_connections_seen.add((src, sport, dst, dport))
@@ -832,8 +832,8 @@ class Pcap:
 
                     src, sport, dst, dport = connection["src"], connection["sport"], connection["dst"], connection["dport"]
                     if not (
-                            (dst, dport, src, sport) in self.udp_connections_seen
-                            or (src, sport, dst, dport) in self.udp_connections_seen
+                        (dst, dport, src, sport) in self.udp_connections_seen
+                        or (src, sport, dst, dport) in self.udp_connections_seen
                     ):
                         self.udp_connections.append((src, sport, dst, dport, offset, ts - first_ts))
                         self.udp_connections_seen.add((src, sport, dst, dport))
@@ -1420,16 +1420,84 @@ class NetworkAnalysis(Processing):
 
         # HTTP
         http_host_map = net_map.get("http_host_map", {})
-        existing_hosts = {h.get("host") for h in network.get("http", [])}
-        http_events = (network.get("http", []) or []) + (network.get("http_ex", []) or []) + (network.get("https_ex", []) or [])
-        existing_hosts = {_norm_domain(h.get("host")) for h in http_events if h.get("host")}
+        http_requests = net_map.get("http_requests", [])
+
+        existing_hosts = set()
+        existing_urls = set()
+        for h in (network.get("http", []) or []) + (network.get("http_ex", []) or []) + (network.get("https_ex", []) or []):
+            host = h.get("host")
+            if host:
+                existing_hosts.add(_norm_domain(host))
+                uri = h.get("uri", "/")
+                # Store simplistic URL representation for deduplication
+                existing_urls.add(f"{host}{uri}")
+
+        # Process full requests from behavior
+        for req in http_requests:
+            url = req.get("url")
+            if not url:
+                continue
+
+            # Parse URL to components
+            try:
+                parsed = urlparse(url)
+                if not parsed.netloc and not parsed.path:
+                    continue
+
+                host = parsed.netloc or req.get("host")
+                # Handle cases where URL might be just a domain or path
+                if not host and url and "." in url and "/" not in url:
+                    host = url
+
+                # Fallback host normalization
+                if not host and req.get("host"):
+                    host = req.get("host")
+
+                path = parsed.path
+                if parsed.query:
+                    path += f"?{parsed.query}"
+                if not path:
+                    path = "/"
+
+                # Check for duplicates
+                url_key = f"{host}{path}"
+                if url_key in existing_urls:
+                    continue
+
+                port = 80
+                if parsed.port:
+                    port = parsed.port
+                elif parsed.scheme == "https":
+                    port = 443
+
+                entry = {
+                    "host": host,
+                    "port": port,
+                    "uri": url,
+                    "path": path,
+                    "method": "GET",
+                    "source": "behavior",
+                    "process_id": req.get("process_id"),
+                    "process_name": req.get("process_name"),
+                    "first_seen": req.get("time"),
+                }
+                network.setdefault("http", []).append(entry)
+                if host:
+                    existing_hosts.add(_norm_domain(host))
+                existing_urls.add(url_key)
+
+            except Exception:
+                log.warning("Failed to parse behavior URL: %s", url)
+
+        # Process host-only map for remaining missing hosts
         for host, procs in http_host_map.items():
-            if host not in existing_hosts:
+            if _norm_domain(host) not in existing_hosts:
                 proc = procs[0] if procs else {}
                 entry = {
                     "host": host,
                     "port": 80,
-                    "uri": "/",
+                    "uri": f"http://{host}/",
+                    "path": "/",
                     "method": "GET",
                     "source": "behavior",
                     "process_id": proc.get("process_id"),
@@ -1520,9 +1588,9 @@ class NetworkAnalysis(Processing):
             for entry in f:
                 try:
                     for m in re.finditer(
-                            r"client_random:\s*(?P<client_random>[a-f0-9]+)\s*,\s*server_random:\s*(?P<server_random>[a-f0-9]+)\s*,\s*master_secret:\s*(?P<master_secret>[a-f0-9]+)\s*",
-                            entry,
-                            re.I,
+                        r"client_random:\s*(?P<client_random>[a-f0-9]+)\s*,\s*server_random:\s*(?P<server_random>[a-f0-9]+)\s*,\s*master_secret:\s*(?P<master_secret>[a-f0-9]+)\s*",
+                        entry,
+                        re.I,
                     ):
                         try:
                             client_random = binascii.a2b_hex(m.group("client_random").strip())

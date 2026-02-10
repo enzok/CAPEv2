@@ -16,6 +16,7 @@ DNS_APIS = {
     "gethostbynamew",
     "dnsquery_a",
     "dnsquery_w",
+    "dnsquery_utf8",
     "dnsqueryex",
     "dnsquery",
 }
@@ -26,20 +27,30 @@ HTTP_HINT_APIS = {
     "internetcrackurlw",
     "httpsendrequesta",
     "httpsendrequestw",
+    "httpsendrequestexa",
+    "httpsendrequestexw",
     "internetsendrequesta",
     "internetsendrequestw",
     "internetconnecta",
     "internetconnectw",
     "winhttpopenrequest",
     "winhttpsendrequest",
+    "winhttpgetproxyforurl",
     "winhttpconnect",
     "winhttpopen",
     "internetopenurla",
     "internetopenurlw",
     "httpopenrequesta",
     "httpopenrequestw",
+    "urldownloadtofilew",
+    "urldownloadtocachefilew",
+    "cryptretrieveobjectbyurlw",
+    "urlcanonicalizew",
+    "mkparsedisplayname",
+    "mkparsedisplaynameex",
+    "dsenumeratedomaintrustsw",
+    "wnetuseconnectionw",
     "isvalidurl",
-    "winhttpgetproxyforurl",
 }
 
 
@@ -99,6 +110,7 @@ def _extract_domain_from_call(call, args_map):
             "dns_name",
             "lpstrname",
             "pname",
+            "servername",
     ):
         v = args_map.get(name)
         if isinstance(v, str) and v.strip():

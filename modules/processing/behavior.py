@@ -26,6 +26,13 @@ from lib.cuckoo.common.network_utils import (
     _add_http_host,
     _extract_domain_from_call,
     _extract_tls_server_name,
+    _get_arg_any,
+    _get_call_args_dict,
+    _host_from_url,
+    _http_host_from_buf,
+    _looks_like_http,
+    _norm_domain,
+    _norm_ip,
     _parse_behavior_ts,
     _norm_domain,
     _safe_int,
@@ -1236,6 +1243,7 @@ class NetworkMap:
     def __init__(self):
         self.endpoint_map = defaultdict(list)  # (ip, port) -> [pinfo]
         self.http_host_map = defaultdict(list)  # host -> [pinfo]
+        self.http_requests = []  # url -> [pinfo]
         self.dns_intents = defaultdict(list)  # domain -> [intent]
         self._winhttp_state = {"processes": {}}
 
@@ -1281,6 +1289,17 @@ class NetworkMap:
                     host = _host_from_url(f"http://{u}")
                 if host:
                     _add_http_host(self.http_host_map, host, pinfo, sock=sock)
+
+                if u:
+                    self.http_requests.append(
+                        {
+                            "url": u,
+                            "host": host,
+                            "process_id": process.get("process_id"),
+                            "process_name": process.get("process_name"),
+                            "time": _parse_behavior_ts(call.get("timestamp")),
+                        }
+                    )
 
             if isinstance(buf, str):
                 u2 = _extract_first_url(buf)
@@ -1341,11 +1360,13 @@ class NetworkMap:
         for (ip, port), entries in self.endpoint_map.items():
             endpoint_map_str[f"{ip}:{port}"] = entries
 
+        self.http_requests.append(winhttp_finalize_sessions(self._winhttp_state))
+
         return {
             "endpoint_map": endpoint_map_str,
             "http_host_map": self.http_host_map,
             "dns_intents": self.dns_intents,
-            "winhttp_sessions": winhttp_finalize_sessions(self._winhttp_state),
+            "http_requests": self.http_requests,
         }
 
 
