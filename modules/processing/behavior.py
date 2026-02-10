@@ -1360,13 +1360,12 @@ class NetworkMap:
         for (ip, port), entries in self.endpoint_map.items():
             endpoint_map_str[f"{ip}:{port}"] = entries
 
-        self.http_requests.append(winhttp_finalize_sessions(self._winhttp_state))
-
         return {
             "endpoint_map": endpoint_map_str,
             "http_host_map": self.http_host_map,
             "dns_intents": self.dns_intents,
             "http_requests": self.http_requests,
+            "winhttp_sessions": winhttp_finalize_sessions(self._winhttp_state),
         }
 
 
