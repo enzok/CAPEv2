@@ -10,7 +10,7 @@ import subprocess
 from contextlib import suppress
 
 from pathlib import Path
-from typing import Any, DefaultDict, List, Optional, Set, Union
+from typing import Any, DefaultDict, List, Optional, Set
 
 import pebble
 
@@ -699,53 +699,6 @@ def de4dot_deobfuscate(file: str, *, filetype: str, **_) -> ExtractorReturnType:
             stderr=subprocess.PIPE,
         )
         ctx["extracted_files"] = collect_extracted_filenames(tempdir)
-
-    return ctx
-
-
-@time_tracker
-def msi_extract(file: str, *, filetype: str, **kwargs) -> ExtractorReturnType:
-    """Work on MSI Installers"""
-
-    if "MSI Installer" not in filetype:
-        return
-
-    # ToDo replace MsiExtract with pymsi
-    extracted_files = []
-    # sudo apt install msitools
-    with extractor_ctx(file, "MsiExtract", prefix="msidump_", folder=tools_folder) as ctx:
-        tempdir = ctx["tempdir"]
-        output = False
-        if not kwargs.get("tests"):
-            # msiextract in different way that 7z, we need to add subfolder support
-            output = run_tool(
-                [integration_conf.msi_extract.binary, file, "--directory", tempdir],
-                universal_newlines=True,
-                stderr=subprocess.PIPE,
-            )
-        if output:
-            extracted_files = [
-                extracted_file
-                for extracted_file in list(filter(None, output.split("\n")))
-                if path_is_file(os.path.join(tempdir, extracted_file))
-            ]
-        else:
-            output = run_tool(
-                [sevenzip_binary, "e", f"-o{tempdir}", "-y", file],
-                universal_newlines=True,
-                stderr=subprocess.PIPE,
-            )
-            valid_msi_filetypes = ["PE32", "text", "Microsoft Cabinet archive"]
-            for root, _, filenames in os.walk(tempdir):
-                for filename in filenames:
-                    path = os.path.join(root, filename)
-                    if any([x in File(path).get_type() for x in valid_msi_filetypes]):
-                        os.rename(path, os.path.join(root, filename.split(".")[-1].strip("'").strip("!")))
-                    else:
-                        path_delete(path)
-            extracted_files = collect_extracted_filenames(tempdir)
-
-        ctx["extracted_files"] = extracted_files
 
     return ctx
 
