@@ -1414,7 +1414,7 @@ class NetworkAnalysis(Processing):
                     "source": "behavior",
                     "process_id": proc.get("process_id"),
                     "process_name": proc.get("process_name"),
-                    "time": first_intent.get("ts_epoch"),
+                    "first_seen": first_intent.get("ts_epoch"),
                 }
                 network.setdefault("dns", []).append(entry)
 
