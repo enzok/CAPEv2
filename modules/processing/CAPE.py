@@ -315,7 +315,7 @@ class CAPE(Processing):
 
             self.results.setdefault("dropped", []).append(file_info)
         elif processing_conf.CAPE.procdump and category == "procdump":
-            if "type" in file_info and any(texttype in file_info["type"] for texttype in texttypes):
+            if any(texttype in file_info["type"] for texttype in texttypes):
                 with suppress(UnicodeDecodeError):
                     with open(file_info["path"], "r") as drop_open:
                         filedata = drop_open.read(buf_size + 1)
@@ -325,7 +325,7 @@ class CAPE(Processing):
                 _ = cape_name_from_yara(file_info, file_info["pid"], self.results)
 
             # ToDo https://github.com/mandiant/capa/issues/2620
-            if HAVE_FLARE_CAPA and "type" in file_info and ("PE32" in file_info["type"] or "MS-DOS executable" in file_info["type"]):
+            if HAVE_FLARE_CAPA and ("PE32" in file_info["type"] or "MS-DOS executable" in file_info["type"]):
                 pretime = timeit.default_timer()
                 capa_details = flare_capa_details(file_path, "procdump")
                 if capa_details:
@@ -372,8 +372,8 @@ class CAPE(Processing):
                     cape_names.add(cape_name)
             except Exception as e:
                 log.error("Cape type error: %s", str(e))
-            type_strings = file_info.get("type", "").split()
-            if "-bit" not in file_info.get("cape_type", ""):
+            type_strings = file_info["type"].split()
+            if "-bit" not in file_info["cape_type"]:
                 append_file = self._cape_type_string(type_strings, file_info, append_file)
 
             if cape_name and cape_name not in executed_config_parsers[tmp_path]:
@@ -407,7 +407,7 @@ class CAPE(Processing):
 
         if append_file:
             # ToDo https://github.com/mandiant/capa/issues/2620
-            if HAVE_FLARE_CAPA and category == "CAPE" and "type" in file_info and ("PE32" in file_info["type"] or "MS-DOS executable" in file_info["type"]):
+            if HAVE_FLARE_CAPA and category == "CAPE" and ("PE32" in file_info["type"] or "MS-DOS executable" in file_info["type"]):
                 pretime = timeit.default_timer()
                 capa_details = flare_capa_details(file_path, "cape")
                 if capa_details:
