@@ -134,7 +134,7 @@ class CAPE(Processing):
             file_info["module_path"] = _clean_path(metastrings[2], self.options.replace_patterns)
 
         if "pids" in metadata:
-            file_info["pid"] = metadata["pids"][0] if len(metadata["pids"]) == 1 else ",".join(metadata["pids"])
+            file_info["pid"] = metadata["pids"][0] if len(metadata["pids"]) == 1 else ",".join(str(p) for p in metadata["pids"])
 
         if metastrings and metastrings[0] and metastrings[0].isdigit():
             file_info["cape_type_code"] = int(metastrings[0])
