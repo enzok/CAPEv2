@@ -4,6 +4,7 @@
 
 import datetime
 import re
+from collections import defaultdict
 from contextlib import suppress
 from urllib.parse import urlparse
 
@@ -96,21 +97,21 @@ def _get_call_args_dict(call):
 def _extract_domain_from_call(call, args_map):
     # Check named arguments first
     for name in (
-            "hostname",
-            "host",
-            "node",
-            "nodename",
-            "name",
-            "domain",
-            "szname",
-            "pszname",
-            "lpname",
-            "query",
-            "queryname",
-            "dns_name",
-            "lpstrname",
-            "pname",
-            "servername",
+        "hostname",
+        "host",
+        "node",
+        "nodename",
+        "name",
+        "domain",
+        "szname",
+        "pszname",
+        "lpname",
+        "query",
+        "queryname",
+        "dns_name",
+        "lpstrname",
+        "pname",
+        "servername",
     ):
         v = args_map.get(name)
         if isinstance(v, str) and v.strip():
@@ -264,13 +265,13 @@ def _extract_tls_server_name(call, args_map):
         return True
 
     for name in (
-            "sni",
-            "servername",
-            "server_name",
-            "targetname",
-            "host",
-            "hostname",
-            "url",
+        "sni",
+        "servername",
+        "server_name",
+        "targetname",
+        "host",
+        "hostname",
+        "url",
     ):
         v = args_map.get(name)
         if isinstance(v, str) and v.strip():
@@ -473,24 +474,11 @@ def winhttp_update_from_call(pstate, api_lc, args_map, ret_handle):
 
 def winhttp_finalize_sessions(state):
     """
-    Slim, UI-ready WinHTTP reconstruction.
-
     Returns per-process domain grouping with only:
       - url (scheme derived: https if port == 443 else http)
       - verb
       - user_agent
       - proxy info (access_type, proxy_name, proxy_bypass)
-
-    Shape:
-      [
-        {
-          "process_id": ..,
-          "process_name": ..,
-          "sessions": {
-             "example.com": [ {"url":..,"verb":..,"user_agent":..,"proxy_name":..,"proxy_bypass":..,"access_type":..}, ... ]
-          }
-        }
-      ]
     """
     out = []
     procs = (state or {}).get("processes") or {}
@@ -501,6 +489,7 @@ def winhttp_finalize_sessions(state):
             continue
 
         sessions_by_domain = {}
+        sessions_by_domain_keys = defaultdict(set)
 
         for s in sessions.values():
             ua = s.get("user_agent") or ""
@@ -553,17 +542,10 @@ def winhttp_finalize_sessions(state):
                         "proxy_bypass": proxy_bypass,
                     }
 
-                    lst = sessions_by_domain.setdefault(dom, [])
                     key = (obj, verb, ua, access_type, proxy_name, proxy_bypass)
-                    exists = False
-                    for e in lst:
-                        if (e.get("uri"), e.get("method"), e.get("user_agent"),
-                            e.get("access_type"), e.get("proxy_name"), e.get("proxy_bypass")) == key:
-                            exists = True
-                            break
-
-                    if not exists:
-                        lst.append(entry)
+                    if key not in sessions_by_domain_keys[dom]:
+                        sessions_by_domain.setdefault(dom, []).append(entry)
+                        sessions_by_domain_keys[dom].add(key)
 
         if sessions_by_domain:
             out.append({

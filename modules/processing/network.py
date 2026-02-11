@@ -85,7 +85,6 @@ CUCKOO_ROOT = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..", "..
 sys.path.append(CUCKOO_ROOT)
 
 TLS_HANDSHAKE = 22
-PCAP_TYPE = None
 PCAP_BYTES_HTTPREPLAY_WARN_LIMIT = 30 * 1024 * 1024
 
 DOMAIN_FILTERS = (".*\\.windows\\.com$", ".*\\.in\\-addr\\.arpa$", ".*\\.ip6\\.arpa$")
@@ -1348,9 +1347,9 @@ class NetworkAnalysis(Processing):
         if winhttp_sessions:
             # Recompute current http host set (includes http/http_ex/https_ex)
             http_events = (
-                    (network.get("http", []) or []) +
-                    (network.get("http_ex", []) or []) +
-                    (network.get("https_ex", []) or [])
+                (network.get("http", []) or []) +
+                (network.get("http_ex", []) or []) +
+                (network.get("https_ex", []) or [])
             )
 
             existing_hosts = {

@@ -16,13 +16,7 @@ from lib.cuckoo.common.compressor import CuckooBsonCompressor
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.netlog import BsonParser
 from lib.cuckoo.common.network_utils import (
-    _get_call_args_dict,
-    _get_arg_any,
-    _norm_ip,
-    _looks_like_http,
-    _http_host_from_buf,
     _extract_first_url,
-    _host_from_url,
     _add_http_host,
     _extract_domain_from_call,
     _extract_tls_server_name,
@@ -31,7 +25,6 @@ from lib.cuckoo.common.network_utils import (
     _host_from_url,
     _http_host_from_buf,
     _looks_like_http,
-    _norm_domain,
     _norm_ip,
     _parse_behavior_ts,
     _norm_domain,
@@ -1338,11 +1331,12 @@ class NetworkMap:
 
         # 4. WinHTTP rebuild (incremental)
         if api.startswith("winhttp") and _call_ok(call):
-                with suppress(Exception):
-                    ret_h = _get_call_ret_handle(call)
+            ret_h = None
+            with suppress(Exception):
+                ret_h = _get_call_ret_handle(call)
 
-                pstate = _winhttp_get_proc_state(self._winhttp_state, process)
-                winhttp_update_from_call(pstate, api, args_map, ret_h)
+            pstate = _winhttp_get_proc_state(self._winhttp_state, process)
+            winhttp_update_from_call(pstate, api, args_map, ret_h)
 
     def run(self):
         # Sort DNS intents by timestamp
