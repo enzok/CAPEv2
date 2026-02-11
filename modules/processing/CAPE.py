@@ -205,45 +205,29 @@ class CAPE(Processing):
 
                     yara_match = db_file.get("yara_hash", "") == File.yara_rules_hash
                     options_match = db_file.get("options_hash", "") == options_hash
-
+                    file_info = db_file
+                    cached = True
                     if yara_match and options_match:
-                        file_info = db_file
-                        cached = True
                         run_static = False
-                        # Regenerate fields stripped by mongo_hooks
-                        if "type" not in file_info:
-                            file_info["type"] = f.get_type()
-
-                        if processing_conf.CAPE.pefile_store:
-                            # Populate internal pe object for self.results["pefiles"]
-                            f.get_type()
-                            pefile_object = f.pe
                     else:
-                        # Partial hit
-                        file_info = db_file
-                        cached = True  # We have the base object
-                        run_static = True  # But we need to re-run static/tools
+                        # We need to re-run static/tools
+                        run_static = True
 
-                        # Regenerate fields stripped by mongo_hooks
-                        if "type" not in file_info:
-                            file_info["type"] = f.get_type()
+                    if not yara_match:
+                        # Update YARA
+                        file_info["yara"] = f.get_yara()
+                        file_info["cape_yara"] = f.get_yara(category="CAPE")
+                        file_info["yara_hash"] = File.yara_rules_hash
 
-                        if processing_conf.CAPE.pefile_store:
-                            # Populate internal pe object for self.results["pefiles"]
-                            f.get_type()
-                            pefile_object = f.pe
+                    if "options_hash" not in file_info:
+                        file_info["options_hash"] = options_hash
+                    if "yara_hash" not in file_info:
+                        file_info["yara_hash"] = File.yara_rules_hash
 
-                        if "options_hash" not in file_info:
-                            file_info["options_hash"] = options_hash
-
-                        if "yara_hash" not in file_info:
-                            file_info["yara_hash"] = File.yara_rules_hash
-
-                        if not yara_match:
-                            # Update YARA
-                            file_info["yara"] = f.get_yara()
-                            file_info["cape_yara"] = f.get_yara(category="CAPE")
-                            file_info["yara_hash"] = File.yara_rules_hash
+                    if processing_conf.CAPE.pefile_store:
+                        # Populate internal pe object for self.results["pefiles"]
+                        f.get_type()
+                        pefile_object = f.pe
 
             except Exception as e:
                 log.exception(e)
@@ -253,6 +237,8 @@ class CAPE(Processing):
             file_info["yara_hash"] = File.yara_rules_hash
             run_static = True
 
+        if "type" not in file_info:
+            file_info["type"] = f.get_type()
         if "name" not in file_info:
             file_info["name"] = f.get_name()
         if "guest_paths" not in file_info:
