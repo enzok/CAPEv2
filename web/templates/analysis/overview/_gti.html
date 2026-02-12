@@ -1,4 +1,4 @@
-{% if analysis.virustotal.gti_data %}
+{% if analysis.target.file.virustotal.gti_data %}
 <div class="card bg-dark border-secondary mb-3">
     <div class="card-header border-secondary" id="headingGTI">
         <h5 class="mb-0">
@@ -20,7 +20,7 @@
                     </tr>
                 </thead>
                 <tbody>
-                    {% for family in analysis.virustotal.gti_data %}
+                    {% for family in analysis.target.file.virustotal.gti_data %}
                     <tr>
                         <td class="font-weight-bold text-warning">{{ family.name|title }}</td>
                         <td>{{ family.description|default:"-" }}</td>
