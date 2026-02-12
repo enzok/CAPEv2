@@ -34,9 +34,7 @@
                 <thead>
                     <tr>
                         {% for column_name in file.msi.columns %}
-                            <th style="width:
-                                {% if column_name == 'Target' %}40%{% elif column_name == 'ExtendedType' %}10%{% else %}15%{% endif %}
-                            ;">{{ column_name }}</th>
+                            <th style="width:{% if column_name == 'Target' %}40%{% elif column_name == 'ExtendedType' %}10%{% else %}15%{% endif %};">{{ column_name }}</th>
                         {% endfor %}
                     </tr>
                 </thead>
@@ -57,7 +55,7 @@
                                     {% endif %}
                                 {% else %}
                                     {{ row|getkey:column_name }}
-                                {{ row|getkey:column_name }}
+                                {% endif %}
                             </td>
                         {% endfor %}
                     </tr>
