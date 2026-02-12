@@ -311,7 +311,7 @@ def vt_lookup(category: str, target: str, results: dict = {}, on_demand: bool = 
                     if gti_data:
                         virustotal["gti_data"] = gti_data
                         for data in virustotal["gti_data"]:
-                            if "google" in data.get("origin", "") and data.get("name", ""):
+                            if "google" in data.get("origin", "").lower() and data.get("name", ""):
                                 add_family_detection(results, data["name"], "Google Threat Intelligence", virustotal["sha256"])
                                 break
 
