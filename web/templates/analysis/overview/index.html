@@ -145,6 +145,10 @@
     {% include "analysis/overview/_mitre.html" %}
 {% endif %}
 
+{% if analysis.virustotal.gti_data %}
+    {% include "analysis/overview/_gti.html" %}
+{% endif %}
+
 {% if analysis.statistics %}
     {% include "analysis/overview/_statistics.html" %}
 {% endif %}

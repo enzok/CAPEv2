@@ -1,0 +1,42 @@
+{% if analysis.virustotal.gti_data %}
+<div class="card bg-dark border-secondary mb-3">
+    <div class="card-header border-secondary" id="headingGTI">
+        <h5 class="mb-0">
+            <button class="btn btn-link btn-block text-start text-white text-decoration-none collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#gti_data" aria-expanded="false" aria-controls="gti_data">
+                <i class="fab fa-google me-2 text-primary"></i> Google Threat Intelligence
+                <i class="fas fa-chevron-down float-end mt-1"></i>
+            </button>
+        </h5>
+    </div>
+    <div id="gti_data" class="collapse" aria-labelledby="headingGTI">
+        <div class="table-responsive">
+            <table class="table table-dark table-bordered table-striped mb-0">
+                <thead>
+                    <tr>
+                        <th style="width: 15%;">Name</th>
+                        <th style="width: 40%;">Description</th>
+                        <th style="width: 30%;">Alternate Names</th>
+                        <th style="width: 15%;">Origin</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for family in analysis.virustotal.gti_data %}
+                    <tr>
+                        <td class="font-weight-bold text-warning">{{ family.name|title }}</td>
+                        <td>{{ family.description|default:"-" }}</td>
+                        <td>
+                            {% if family.alt_names %}
+                                {{ family.alt_names|join:", " }}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td>{{ family.origin|default:"-" }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
