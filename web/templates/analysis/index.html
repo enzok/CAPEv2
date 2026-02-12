@@ -170,10 +170,10 @@
                             </td>
                             <td>
                                 {% if analysis.detections|is_string %}
-                                <a href="/analysis/search/detections:{{analysis.detections}}"
+                                <a href="/analysis/search/detections:{{analysis.detections}}/"
                                     class="badge bg-danger">{{analysis.detections}}</a>
                                 {% elif analysis.detections|length == 1 %}
-                                <a href="/analysis/search/detections:{{analysis.detections.0.family}}"
+                                <a href="/analysis/search/detections:{{analysis.detections.0.family}}/"
                                     class="badge bg-danger">{{analysis.detections.0.family}}</a>
                                 {% elif analysis.detections|length > 1 %}
                                 <span class="badge bg-danger" data-bs-toggle="tooltip"
@@ -433,10 +433,10 @@
                             <td>
                                 <!--1 detection we show the name, more detection we show multi and add tooltip-->
                                 {% if analysis.detections|is_string %}
-                                <a href="/analysis/search/detections:{{analysis.detections}}"
+                                <a href="/analysis/search/detections:{{analysis.detections}}/"
                                     class="badge bg-danger">{{analysis.detections}}</a>
                                 {% elif analysis.detections|length == 1 %}
-                                <a href="/analysis/search/detections:{{analysis.detections.0.family}}"
+                                <a href="/analysis/search/detections:{{analysis.detections.0.family}}/"
                                     class="badge bg-danger" data-bs-toggle="tooltip"
                                     title="{{analysis.detections.0.details}}">{{analysis.detections.0.family}}</a>
                                 {% elif analysis.detections|length > 1 %}

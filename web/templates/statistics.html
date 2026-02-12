@@ -35,7 +35,7 @@
         <div class="d-flex flex-wrap justify-content-center align-items-center">
         {% for block in statistics.detections.items %}
             {% if block.family %}
-            <a href="/analysis/search/detections:{{block.family}}" class="btn btn-outline-secondary m-2 d-flex align-items-center text-light" style="border-color: #444;">
+            <a href="/analysis/search/detections:{{block.family}}/" class="btn btn-outline-secondary m-2 d-flex align-items-center text-light" style="border-color: #444;">
                 <span class="badge bg-danger me-2 p-2">{{block.total}}</span>
                 <span class="font-weight-bold" style="font-size: 1rem;">{{block.family}}</span>
             </a>
@@ -56,7 +56,7 @@
         <div class="d-flex flex-wrap justify-content-center align-items-center">
         {% for block in statistics.asns %}
             {% if block.asn %}
-            <a href="/analysis/search/asn:{{block.asn}}" class="btn btn-outline-secondary m-2 d-flex align-items-center text-light" style="border-color: #444;">
+            <a href="/analysis/search/asn:{{block.asn}}/" class="btn btn-outline-secondary m-2 d-flex align-items-center text-light" style="border-color: #444;">
                 <span class="badge bg-warning me-2 p-2">{{block.total}}</span>
                 <span class="font-weight-bold" style="font-size: 1rem;">{{block.asn}}</span>
             </a>

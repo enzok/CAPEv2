@@ -208,9 +208,9 @@
                             <td>
                                 {% if analysis.detections %}
                                     {% if analysis.detections|is_string %}
-                                        <a href="/analysis/search/detections:{{analysis.detections}}" class="badge bg-danger">{{analysis.detections}}</a>
+                                        <a href="/analysis/search/detections:{{analysis.detections}}/" class="badge bg-danger">{{analysis.detections}}</a>
                                     {% elif analysis.detections|length == 1 %}
-                                        <a href="/analysis/search/detections:{{analysis.detections.0.family}}" class="badge bg-danger">{{analysis.detections.0.family}}</a>
+                                        <a href="/analysis/search/detections:{{analysis.detections.0.family}}/" class="badge bg-danger">{{analysis.detections.0.family}}</a>
                                     {% elif analysis.detections|length > 1 %}
                                         <span class="badge bg-danger" data-bs-toggle="tooltip" title="{% for block in analysis.detections %}{% if block.family %}{{block.family}}&#013;{% endif %}{% endfor %}">Multiple ({{analysis.detections|length}})</span>
                                     {% endif %}

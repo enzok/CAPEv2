@@ -20,7 +20,7 @@
                 {% else %}
                     <a href="{% url "file" tab_name|add:"zip" id sub_file.sha256 %}" class="btn btn-outline-light" data-bs-toggle="tooltip" title="Download Archive"><i class="fas fa-file-archive"></i></a>
                 {% endif %}
-                <a href="/submit/resubmit/{{id}}/{{sub_file.sha256}}" class="btn btn-outline-light" data-bs-toggle="tooltip" title="Resubmit"><i class="fas fa-sync"></i></a>
+                <a href="/submit/resubmit/{{id}}/{{sub_file.sha256}}/" class="btn btn-outline-light" data-bs-toggle="tooltip" title="Resubmit"><i class="fas fa-sync"></i></a>
                 {% if config.vtupload and analysis.info.tlp != "Red" %}
                     <a href="{% url "vtupload" tab_name id sub_file.name sub_file.sha256 %}" class="btn btn-outline-danger" data-bs-toggle="tooltip" title="Upload to VirusTotal"><i class="fas fa-cloud-upload-alt"></i> VT</a>
                 {% endif %}
@@ -199,7 +199,7 @@
                     <ul class="list-unstyled mb-0">
                     {% for sign in sub_file.yara %}
                         <li>
-                            <a href="/analysis/search/yaraname:{{sign.name}}" class="text-warning font-weight-bold">{{sign.name}}</a>
+                            <a href="/analysis/search/yaraname:{{sign.name}}/" class="text-warning font-weight-bold">{{sign.name}}</a>
                             <span class="text-white-50">- {{sign.meta.description}}</span>
                             {% if sign.meta.author %} <small class="text-white-50">({{sign.meta.author}})</small>{% endif %}
                         </li>
@@ -222,7 +222,7 @@
                     <ul class="list-unstyled mb-0">
                     {% for sign in sub_file.cape_yara %}
                         <li>
-                            <a href="/analysis/search/capeyara:{{sign.name}}" class="text-info font-weight-bold">{{sign.name}}</a>
+                            <a href="/analysis/search/capeyara:{{sign.name}}/" class="text-info font-weight-bold">{{sign.name}}</a>
                             {% if sign.meta.cape_type %} <span class="badge bg-dark">{{sign.meta.cape_type}}</span>{% endif %}
                         </li>
                     {% endfor %}
