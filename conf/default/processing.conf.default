@@ -162,6 +162,8 @@ key = a0283a2c3d55728300d064874239b5346fb991317e8449fe43c902879d758088
 do_file_lookup = yes
 do_url_lookup = yes
 urlscrub = (^http:\/\/serw\.clicksor\.com\/redir\.php\?url=|&InjectedParam=.+$)
+enhanced = no
+x_tool = CAPE Sandbox
 
 # Since Suricata 8, socket mode is deprecated.
 [suricata]

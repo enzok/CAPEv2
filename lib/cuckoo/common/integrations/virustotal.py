@@ -36,8 +36,12 @@ do_url_lookup = processing_conf.virustotal.get("do_url_lookup", False)
 urlscrub = processing_conf.virustotal.urlscrub
 timeout = int(processing_conf.virustotal.timeout)
 remove_empty = processing_conf.virustotal.remove_empty
+enhanced = processing_conf.virustotal.get("enhanced", False)
+x_tool = processing_conf.virustotal.get("x_tool", "CAPE Sandbox")
 
 headers = {"x-apikey": key}
+if enhanced:
+    headers["x-tool"] = x_tool
 
 """
 from modules.processing.virustotal import vt_lookup
@@ -280,6 +284,39 @@ def vt_lookup(category: str, target: str, results: dict = {}, on_demand: bool = 
             add_family_detection(results, virustotal["detection"], "VirusTotal", virustotal["sha256"])
         if virustotal.get("positives", False) and virustotal.get("total", False):
             virustotal["summary"] = f"{virustotal['positives']}/{virustotal['total']}"
+
+        if enhanced and category == "file":
+            try:
+                mf_url = f"{url}/malware_families"
+                mf_r = requests.get(mf_url, headers=headers, verify=True, timeout=timeout)
+                if mf_r.ok:
+                    mf_data = mf_r.json().get("data", [])
+                    virustotal["gti_data"] = []
+                    gti_data = []
+                    for family in mf_data:
+                        attrs = family.get("attributes", {})
+                        name = attrs.get("name", "").lower()
+                        alt_names = [n.lower() for n in attrs.get("alt_names", [])]
+                        origin = attrs.get("origin", "")
+                        if name in alt_names:
+                            alt_names.remove(name)
+                        
+                        gti_data.append({
+                            "name": name,
+                            "description": attrs.get("description"),
+                            "alt_names": alt_names,
+                            "origin": origin
+                        })
+
+                    if gti_data:
+                        virustotal["gti_data"] = gti_data
+                        for data in virustotal["gti_data"]:
+                            if "google" in data.get("origin", "") and data.get("name", ""):
+                                add_family_detection(results, data["name"], "Google Threat Intelligence", virustotal["sha256"])
+                                break
+
+            except Exception as e:
+                log.error("VT: Failed to retrieve malware families: %s", e)
 
         return virustotal
     except requests.exceptions.RequestException as e:
