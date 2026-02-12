@@ -295,11 +295,11 @@ def vt_lookup(category: str, target: str, results: dict = {}, on_demand: bool = 
                     gti_data = []
                     for family in mf_data:
                         attrs = family.get("attributes", {})
-                        name = attrs.get("name", "").lower()
+                        name = attrs.get("name", "")
                         alt_names = [n.lower() for n in attrs.get("alt_names", [])]
                         origin = attrs.get("origin", "")
-                        if name in alt_names:
-                            alt_names.remove(name)
+                        if name.lower() in alt_names:
+                            alt_names.remove(name.lower())
                         
                         gti_data.append({
                             "name": name,
