@@ -295,25 +295,40 @@ def vt_lookup(category: str, target: str, results: dict = {}, on_demand: bool = 
                     gti_data = []
                     for family in mf_data:
                         attrs = family.get("attributes", {})
-                        name = attrs.get("name", "")
+                        name = attrs.get("name", "").lower()
                         alt_names = [n.lower() for n in attrs.get("alt_names", [])]
                         origin = attrs.get("origin", "")
-                        if name.lower() in alt_names:
-                            alt_names.remove(name.lower())
+                        if name in alt_names:
+                            alt_names.remove(name)
                         
                         gti_data.append({
                             "name": name,
                             "description": attrs.get("description"),
                             "alt_names": alt_names,
-                            "origin": origin
+                            "origin": origin,
                         })
 
                     if gti_data:
                         virustotal["gti_data"] = gti_data
-                        for data in virustotal["gti_data"]:
-                            if "google" in data.get("origin", "").lower() and data.get("name", ""):
-                                add_family_detection(results, data["name"], "Google Threat Intelligence", virustotal["sha256"])
+                        
+                        selected_family = None
+                        
+                        for data in gti_data:
+                            if "Google Threat Intelligence" in data.get("origin", ""):
+                                selected_family = data
                                 break
+                        
+                        if not selected_family:
+                            for data in gti_data:
+                                if "Partner" in data.get("origin", ""):
+                                    selected_family = data
+                                    break
+                        
+                        if not selected_family:
+                            selected_family = gti_data[0]
+                            
+                        if selected_family:
+                            add_family_detection(results, selected_family["name"], "Google Threat Intelligence", virustotal["sha256"])
 
             except Exception as e:
                 log.error("VT: Failed to retrieve malware families: %s", e)
