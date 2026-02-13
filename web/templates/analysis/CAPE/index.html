@@ -11,6 +11,9 @@
 
     {% for file in CAPE.payloads|dictsortreversed:"size" %}
         {% include "analysis/generic/_file_info.html" %}
+        {% with gti_data=file.virustotal.gti_data gti_id=file.sha256 %}
+            {% include "analysis/generic/_gti.html" %}
+        {% endwith %}
     {% endfor %}
 {% else %}
     <div class="alert alert-info text-center shadow-sm">
