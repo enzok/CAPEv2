@@ -22,12 +22,10 @@ from django.contrib.auth.decorators import login_required
 from django.core.exceptions import BadRequest, PermissionDenied
 from django.http import FileResponse, HttpResponse, HttpResponseRedirect, FileResponse, StreamingHttpResponse
 from django.shortcuts import redirect, render
+from django.urls import reverse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST, require_safe
-from django.urls import reverse
 from rest_framework.decorators import api_view
-
-from modules.auxiliary.Mitmdump import mitmdump
 
 sys.path.append(settings.CUCKOO_PATH)
 
@@ -38,7 +36,7 @@ from lib.cuckoo.common.constants import ANALYSIS_BASE_PATH, CUCKOO_ROOT
 from lib.cuckoo.common.path_utils import path_exists, path_get_size, path_mkdir, path_read_file, path_safe
 from lib.cuckoo.common.utils import delete_folder, yara_detected
 from lib.cuckoo.common.web_utils import category_all_files, my_rate_minutes, my_rate_seconds, perform_search, rateblock, statistics, perform_archive_search
-from lib.cuckoo.core.database import Database, TaskMixIn
+from lib.cuckoo.core.database import Database, TasksMixIn
 from lib.cuckoo.core.data.task import TASK_PENDING, Task
 from modules.reporting.report_doc import CHUNK_CALL_SIZE
 from analysis.templatetags.analysis_tags import malware_config
