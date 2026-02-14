@@ -40,6 +40,15 @@ remove_empty = processing_conf.virustotal.remove_empty
 enhanced = processing_conf.virustotal.get("enhanced", False)
 x_tool = processing_conf.virustotal.get("x_tool", "CAPE Sandbox")
 
+cache_default = processing_conf.virustotal.get("cache_default", False)
+VT_CACHE_MAP = {
+    "static": processing_conf.virustotal.get("cache_static", cache_default),
+    "file": processing_conf.virustotal.get("cache_file", cache_default),
+    "dropped": processing_conf.virustotal.get("cache_dropped", cache_default),
+    "cape": processing_conf.virustotal.get("cache_cape", cache_default),
+    "procdump": processing_conf.virustotal.get("cache_procdump", cache_default),
+}
+
 headers = {"x-apikey": key}
 if enhanced:
     headers["x-tool"] = x_tool
@@ -207,9 +216,7 @@ def vt_lookup(category: str, target: str, results: dict = {}, on_demand: bool = 
         sha256 = target if len(target) == 64 else File(target).get_sha256()
 
         if file_category:
-            cache_setting = processing_conf.virustotal.get(f"cache_{file_category.lower()}")
-            if cache_setting is None:
-                cache_setting = processing_conf.virustotal.get("cache_default", False)
+            cache_setting = VT_CACHE_MAP.get(file_category.lower(), cache_default)
 
             if cache_setting:
                 try:
