@@ -2694,7 +2694,7 @@ def reprocess_tasks(request, task_id: int):
     if error:
         return render(request, "error.html", {"error": msg})
     else:
-        return HttpResponseRedirect(reverse("analysis"))
+        return redirect("submission_status", task_id=task_id)
 
 
 @require_safe
