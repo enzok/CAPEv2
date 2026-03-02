@@ -308,9 +308,9 @@ def vt_lookup(category: str, target: str, results: dict = {}, on_demand: bool = 
                             "origin": origin,
                         })
 
-                    if gti_data:
+                    if gti_data and vt_response:
                         virustotal["gti_data"] = gti_data
-                        
+                        gti_verdict = vt_response.get("data", {}).get("attributes", {}).get("gti_assessment", {}).get("verdict", "")
                         selected_family = None
                         
                         for data in gti_data:
@@ -320,11 +320,11 @@ def vt_lookup(category: str, target: str, results: dict = {}, on_demand: bool = 
                         
                         if not selected_family:
                             for data in gti_data:
-                                if "Partner" in data.get("origin", ""):
+                                if "Partner" in data.get("origin", "") and "benign" not in gti_verdict.lower():
                                     selected_family = data
                                     break
                         
-                        if not selected_family:
+                        if not selected_family and "benign" not in gti_verdict.lower():
                             selected_family = gti_data[0]
                             
                         if selected_family:
