@@ -30,7 +30,7 @@ except ImportError:
 api_config = Config("api")
 
 # Configuration from Environment or Config File
-# Run with: CAPE_API_URL=http://127.0.0.1:8000/apiv2 CAPE_API_TOKEN=your_token python3 web/mcp_server.py
+# Run with: CAPE_API_URL=http://127.0.0.1:8000/apiv2 CAPE_API_TOKEN=your_token poetry run python mcp/server.py
 API_URL = os.environ.get("CAPE_API_URL")
 if not API_URL:
     # Try to get from api.conf [api] url
@@ -344,9 +344,46 @@ async def submit_static(
 
 # --- Task Management & Search ---
 
+def get_lean_cape_report(raw_cape_json):
+    """Filters a 50MB CAPE report down to a 500-token LLM payload."""
+    return {
+        "score": raw_cape_json.get("info", {}).get("score", 0),
+        "family": raw_cape_json.get("malfamily") or raw_cape_json.get("detections", {}).get("family") or "Unknown",
+        "extracted_configs": raw_cape_json.get("CAPE", []),
+        "high_severity_signatures": [
+            {"name": sig["name"], "desc": sig["description"]}
+            for sig in raw_cape_json.get("signatures", [])
+            if isinstance(sig, dict) and sig.get("severity", 0) >= 3
+        ],
+        "network": {
+            "domains": [d["domain"] for d in raw_cape_json.get("network", {}).get("domains", [])] if isinstance(raw_cape_json.get("network", {}).get("domains"), list) else [],
+            "http_uris": [h["uri"] for h in raw_cape_json.get("network", {}).get("http", [])] if isinstance(raw_cape_json.get("network", {}).get("http"), list) else [],
+        },
+        "indicators": {
+            "mutexes": raw_cape_json.get("behavior", {}).get("summary", {}).get("mutexes", []) if isinstance(raw_cape_json.get("behavior", {}).get("summary"), dict) else [],
+            "commands": raw_cape_json.get("behavior", {}).get("summary", {}).get("executed_commands", []) if isinstance(raw_cape_json.get("behavior", {}).get("summary"), dict) else []
+        }
+    }
+
+def _apply_lean_report(result):
+    if isinstance(result, dict):
+        if result.get("error") is False and "data" in result:
+            if isinstance(result["data"], list):
+                result["data"] = [get_lean_cape_report(item) for item in result["data"]]
+            elif isinstance(result["data"], dict):
+                result["data"] = get_lean_cape_report(result["data"])
+        elif "info" in result:
+             return get_lean_cape_report(result)
+    elif isinstance(result, list):
+        return [get_lean_cape_report(item) for item in result]
+    return result
+
 @mcp_tool("tasksearch")
-async def search_task(hash_value: str, token: str = "") -> str:
+async def search_task(hash_value: str, lean: bool = True, token: str = "") -> str:
     """Search for tasks by MD5, SHA1, or SHA256."""
+    if not re.match(r"^[a-fA-F0-9]+$", hash_value):
+        return json.dumps({"error": True, "message": "Invalid hash value provided. Only hexadecimal characters are allowed."}, indent=2)
+
     algo = "md5"
     if len(hash_value) == 40:
         algo = "sha1"
@@ -354,16 +391,22 @@ async def search_task(hash_value: str, token: str = "") -> str:
         algo = "sha256"
 
     result = await _request("GET", f"tasks/search/{algo}/{hash_value}/", token=token)
+    if lean:
+        result = _apply_lean_report(result)
     return json.dumps(result, indent=2)
 
 @mcp_tool("extendedtasksearch")
-async def extended_search(option: str, argument: str, token: str = "") -> str:
+async def extended_search(option: str, argument: str, lean: bool = True, token: str = "") -> str:
     """
     Search tasks using extended options.
     Options include: id, name, type, string, ssdeep, crc32, file, command, resolvedapi, key, mutex, domain, ip, signature, signame, etc.
     """
     data = {"option": option, "argument": argument}
+    if lean:
+        data["lean"] = True
     result = await _request("POST", "tasks/extendedsearch/", token=token, data=data)
+    if lean:
+        result = _apply_lean_report(result)
     return json.dumps(result, indent=2)
 
 @mcp_tool("extendedtasksearch")
@@ -430,7 +473,25 @@ async def get_statistics(days: int = 7, token: str = "") -> str:
 
 @mcp_tool("taskreport")
 async def get_task_report(task_id: int, format: str = "json", token: str = "") -> str:
-    """Get the analysis report for a task (json, lite, maec, metadata)."""
+    """Get the analysis report for a task (json, lite, maec, metadata, lean)."""
+    allowed_formats = {"json", "lite", "maec", "metadata", "lean"}
+    if format not in allowed_formats:
+        return json.dumps({"error": True, "message": f"Invalid format provided. Allowed formats: {', '.join(allowed_formats)}"}, indent=2)
+
+    if format == "lean":
+        data = {"option": "id", "argument": str(task_id), "lean": True}
+        result = await _request("POST", "tasks/extendedsearch/", token=token, data=data)
+
+        # Extract the single task report from the search results
+        if isinstance(result, dict) and not result.get("error") and isinstance(result.get("data"), list):
+            if len(result["data"]) > 0:
+                result["data"] = result["data"][0]
+            else:
+                result = {"error": True, "message": "Task report not found via lean search."}
+
+        result = _apply_lean_report(result)
+        return json.dumps(result, indent=2)
+
     result = await _request("GET", f"tasks/get/report/{task_id}/{format}/", token=token)
     return json.dumps(result, indent=2)
 
@@ -516,11 +577,15 @@ async def download_task_fullmemory(task_id: int, destination: str, token: str = 
 @mcp_tool("fileview")
 async def view_file(hash_value: str, hash_type: str = "sha256", token: str = "") -> str:
     """View information about a file in the database."""
+    if not re.match(r"^[a-fA-F0-9]+$", hash_value):
+        return json.dumps({"error": True, "message": "Invalid hash value provided. Only hexadecimal characters are allowed."}, indent=2)
     return await _request("GET", f"files/view/{hash_type}/{hash_value}/", token=token)
 
 @mcp_tool("sampledl")
 async def download_sample(hash_value: str, destination: str, hash_type: str = "sha256", token: str = "") -> str:
     """Download a sample from the database."""
+    if not re.match(r"^[a-fA-F0-9]+$", hash_value):
+        return json.dumps({"error": True, "message": "Invalid hash value provided. Only hexadecimal characters are allowed."}, indent=2)
     return await _download_file(f"files/get/{hash_type}/{hash_value}/", destination, f"{hash_value}.bin", token=token)
 
 @mcp_tool("machinelist")
