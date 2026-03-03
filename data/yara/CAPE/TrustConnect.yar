@@ -1,4 +1,4 @@
-rule TrustConnect_DotNet
+rule TrustConnect
 {
     meta:
         description = "TrustConnect Payload"
