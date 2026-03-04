@@ -8,14 +8,14 @@ rule DocConnect
 
     strings:
         $s1 = "DocConnect" ascii wide
-        $s2 = "NATIVE_DLL_SEARCH_DIRECTORIES" ascii wide case
+        $s2 = "NATIVE_DLL_SEARCH_DIRECTORIES" ascii wide
         $s3 = "Ready to Run disabled - no loaded PE image"
         $s4 = "D3DCompiler_47_cor3" ascii wide
         $s5 = "runtimeconfig.json" ascii wide
         $s6 = "<application>.deps.json" ascii wide
 
 
-        $dccfg = "DCCFG" ascii wide case
+        $dccfg = "DCCFG" ascii wide
 
 
     condition:
