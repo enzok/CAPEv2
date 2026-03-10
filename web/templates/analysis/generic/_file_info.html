@@ -1,4 +1,4 @@
-{% load key_tags %}
+{% load key_tags analysis_tags %}
 
 <div class="card bg-dark border-secondary mb-3">
     <div class="card-header border-secondary d-flex justify-content-between align-items-center">
@@ -295,6 +295,12 @@
                 {% endif %}
             {% endif %}
 
+            {% if config.goresolver %}
+                {% if file.goresolver %}
+                    <a class="btn btn-sm btn-outline-light me-2 mb-2" data-bs-toggle="collapse" href="#goresolver_{{file.sha256}}">GoResolver</a>
+                {% endif %}
+            {% endif %}
+
             {% if config.bingraph %}
                 {% if not graphs.bingraph.content|getkey:file.sha256 and on_demand.bingraph %}
                     <a class="btn btn-sm btn-secondary me-2 mb-2" href="{% url "on_demand" "bingraph" id tab_name file.sha256 %}">Extract: BinGraph</a>
@@ -435,6 +441,17 @@
         {% if file.office %} <div class="collapse mb-3" id="office_{{file.sha256}}"> {% include "analysis/generic/_office.html" %}</div>{% endif %}
         {% if file.office.XLMMacroDeobfuscator %} <div class="collapse mb-3" id="xlmmacro_{{file.sha256}}"> {% include "analysis/generic/_xlmmacro.html" %}</div>{% endif %}
         {% if file.floss %} <div class="collapse mb-3" id="floss_{{file.sha256}}"> {% include "analysis/generic/_floss.html" %}</div>{% endif %}
+
+        {% if file.goresolver %}
+            <div class="collapse mb-3" id="goresolver_{{file.sha256}}">
+                <div class="card bg-dark border-secondary text-white">
+                    <div class="card-header"><h6 class="mb-0 text-white-50">GoResolver</h6></div>
+                    <div class="card-body">
+                        {% malware_config file.goresolver %}
+                    </div>
+                </div>
+            </div>
+        {% endif %}
         {% if file.msi %} <div class="collapse mb-3" id="msi_{{file.sha256}}"> {% include "analysis/generic/_msi.html" %}</div></br>{% endif %}
 
         {% if graphs.bingraph.enabled and graphs.bingraph.content|getkey:file.sha256 %}
