@@ -49,6 +49,15 @@ VT_CACHE_MAP = {
     "procdump": processing_conf.virustotal.get("cache_procdump", cache_default),
 }
 
+cache_default = processing_conf.virustotal.get("cache_default", False)
+VT_CACHE_MAP = {
+    "static": processing_conf.virustotal.get("cache_static", cache_default),
+    "file": processing_conf.virustotal.get("cache_file", cache_default),
+    "dropped": processing_conf.virustotal.get("cache_dropped", cache_default),
+    "cape": processing_conf.virustotal.get("cache_cape", cache_default),
+    "procdump": processing_conf.virustotal.get("cache_procdump", cache_default),
+}
+
 headers = {"x-apikey": key}
 if enhanced:
     headers["x-tool"] = x_tool
