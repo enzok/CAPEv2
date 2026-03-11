@@ -2645,6 +2645,7 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
         details = Floss(path, package, on_demand=True).run()
         if not details:
             details = {"msg": "No results"}
+
     def _set_service_by_sha256(node, target_sha256, service_name, service_details):
         if isinstance(node, dict):
             if node.get("sha256") == target_sha256:
