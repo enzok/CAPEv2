@@ -219,6 +219,25 @@ def malware_config(obj, *args, **kwargs):
     def _print(lvl, s):
         result.write((lvl * "  ") + str(s))
 
+    def _max_scalar_length(items):
+        max_len = 0
+        for item in items:
+            if isinstance(item, (dict, list)):
+                return None
+            item_str = str(item)
+            if "\n" in item_str:
+                return None
+            max_len = max(max_len, len(item_str))
+        return max_len
+
+    def _looks_like_url(value):
+        if not isinstance(value, str):
+            return False
+        return value.startswith(("http://", "https://"))
+
+    def _is_url_list(items):
+        return bool(items) and all(_looks_like_url(item) for item in items)
+
     if isinstance(obj, dict):
         if obj:
             _print(0, "\n")
@@ -234,7 +253,19 @@ def malware_config(obj, *args, **kwargs):
         if obj:
             if len(obj) > 1:
                 _print(0, "\n")
-                _print(level + 0, '<ul style="margin: 0;columns: 4;">\n')
+                max_len = _max_scalar_length(obj)
+                if _is_url_list(obj):
+                    _print(
+                        level + 0,
+                        '<ul class="malware-config-list" data-force-single-col="1" style="margin: 0; --mc-cols: 1;">\n',
+                    )
+                elif max_len is None:
+                    _print(level + 0, '<ul class="malware-config-list" style="margin: 0; --mc-cols: 1;">\n')
+                else:
+                    _print(
+                        level + 0,
+                        f'<ul class="malware-config-list" data-max-len="{max_len}" style="margin: 0; --mc-cols: 1;">\n',
+                    )
                 for item in obj:
                     _print(level + 1, "<li>" + malware_config(item, level=level + 2) + "</li>\n")
                 _print(level + 0, "</ul>\n")
@@ -242,7 +273,12 @@ def malware_config(obj, *args, **kwargs):
             else:
                 result.write(malware_config(obj[0]))
     else:
-        result.write(escape(str(obj)))
+        value = str(obj)
+        escaped = escape(value)
+        if isinstance(obj, str) and value.startswith(("http://", "https://")):
+            result.write(f'<span class="malware-config-url">{escaped}</span>')
+        else:
+            result.write(escaped)
 
     ret_result = result.getvalue()
     result.close()

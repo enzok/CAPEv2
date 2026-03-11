@@ -215,11 +215,26 @@ pre {
     font-size: 87.5%;
 }
 
-/* Keep extracted malware config strings on one line in report view. */
 #malware-config td {
-    white-space: nowrap;
+    white-space: normal;
     word-wrap: normal;
     word-break: normal;
+    overflow-wrap: normal;
+}
+
+#malware-config ul.malware-config-list {
+    columns: var(--mc-cols, 1);
+    column-gap: 1rem;
+}
+
+#malware-config ul.malware-config-list > li {
+    break-inside: avoid;
+}
+
+#malware-config .malware-config-url {
+    white-space: normal;
+    word-break: normal;
+    overflow-wrap: normal;
 }
 
 .tcp-flow {
