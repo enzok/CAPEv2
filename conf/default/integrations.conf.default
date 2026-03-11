@@ -166,3 +166,8 @@ go_versions =
 libs =
 # Relative to CAPE root; used by gostrap sample generator in graph mode.
 storage_path = storage/goresolver
+
+# Lightweight Rust binary metadata/symbol enrichment.
+[rustresolver]
+enabled = no
+timeout = 180

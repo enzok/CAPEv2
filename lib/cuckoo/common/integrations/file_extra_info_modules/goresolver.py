@@ -1,4 +1,5 @@
 import logging
+import os
 from contextlib import suppress
 
 from lib.cuckoo.common.integrations.file_extra_info_modules import ExtractorReturnType, extractor_ctx, time_tracker
@@ -10,41 +11,89 @@ enabled = False
 timeout = 180
 
 
+def _contains_go_metadata_hint(text: str) -> bool:
+    if not text:
+        return False
+    lowered = text.lower()
+    go_hints = (
+        "golang",
+        "go executable",
+        "go buildid",
+        "go build id",
+        "go compiler",
+        "go language",
+    )
+    return any(hint in lowered for hint in go_hints)
+
+
 def _has_go_static_markers(filepath: str) -> bool:
     # Keep memory usage bounded while still catching common Go runtime markers.
-    markers = (b"Go buildinf:", b".gopclntab", b"runtime.main", b"runtime.gcenable")
+    markers = (
+        b"Go buildinf:",
+        b".gopclntab",
+        b".go.buildinfo",
+        b".note.go.buildid",
+        b"runtime.main",
+        b"runtime.gcenable",
+        b"runtime.schedinit",
+        b"runtime.buildVersion",
+        b"main.main",
+    )
     with suppress(Exception):
         with open(filepath, "rb") as f:
-            data = f.read(8 * 1024 * 1024)
-            return any(marker in data for marker in markers)
+            size = os.fstat(f.fileno()).st_size
+            if size <= 0:
+                return False
+
+            # Scan both head and tail so we still catch samples where marker-heavy
+            # sections are near the end of larger binaries.
+            scan_window = 24 * 1024 * 1024
+            head = f.read(min(size, scan_window))
+            if any(marker in head for marker in markers):
+                return True
+
+            if size > scan_window:
+                f.seek(max(0, size - scan_window))
+                tail = f.read(scan_window)
+                if any(marker in tail for marker in markers):
+                    return True
     return False
 
 
 def _looks_like_go(filetype: str, data_dictionary: dict, filepath: str) -> bool:
+    score = 0
     lowered_type = (filetype or "").lower()
-    if "golang" in lowered_type or "go executable" in lowered_type:
-        return True
+    if _contains_go_metadata_hint(lowered_type):
+        score += 2
 
     for candidate in data_dictionary.get("die", []) or []:
         text = str(candidate).lower()
-        if "golang" in text or "go " in text:
-            return True
+        if _contains_go_metadata_hint(text):
+            score += 2
+            break
 
     trid_value = data_dictionary.get("trid")
     if isinstance(trid_value, list):
         for item in trid_value:
-            if "golang" in str(item).lower():
-                return True
-    elif "golang" in str(trid_value).lower():
-        return True
+            if _contains_go_metadata_hint(str(item).lower()):
+                score += 2
+                break
+    elif _contains_go_metadata_hint(str(trid_value).lower()):
+        score += 2
 
     sections = data_dictionary.get("pe", {}).get("sections", []) or []
     for section in sections:
         section_name = str(section.get("name", "")).lower()
-        if ".gopclntab" in section_name or ".go.buildinfo" in section_name:
-            return True
+        if any(marker in section_name for marker in (".gopclntab", ".go.buildinfo", ".note.go.buildid", "__gosymtab", "__gopclntab")):
+            score += 3
+            break
 
-    return _has_go_static_markers(filepath)
+    # Some packed/obfuscated samples lose type/section clues but still retain
+    # runtime marker strings in bytes.
+    if _has_go_static_markers(filepath):
+        score += 3
+
+    return score >= 3
 
 
 @time_tracker
