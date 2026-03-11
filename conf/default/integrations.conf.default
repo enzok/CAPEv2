@@ -153,7 +153,6 @@ sigs_path = data/flare-signatures
 # Uses the goresolver Python library directly (no CLI subprocess).
 [goresolver]
 enabled = no
-on_demand = no
 # Use embedded symbol extraction.
 extract = yes
 # Use graph similarity matching (requires additional goresolver dependencies and toolchain).

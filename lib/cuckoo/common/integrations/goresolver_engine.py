@@ -97,10 +97,9 @@ def _check_graph_dependencies() -> Tuple[bool, str]:
 class GoResolver:
     """Resolve symbols and type information from Go binaries using GoResolver's Python API."""
 
-    def __init__(self, filepath: str, category: str = "", on_demand: bool = False):
+    def __init__(self, filepath: str, category: str = ""):
         self.file_path = filepath
         self.category = category
-        self.on_demand = on_demand
 
     def run(
         self,
