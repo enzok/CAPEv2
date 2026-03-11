@@ -47,14 +47,14 @@
                                                                 {% for subkey, subvalue in dict_item.items %}
                                                                     <tr>
                                                                         <td class="font-weight-bold text-info">{{ subkey }}</td>
-                                                                        <td class="text-break">{% malware_config subvalue %}</td>
+                                                                        <td>{% malware_config subvalue %}</td>
                                                                     </tr>
                                                                 {% endfor %}
                                                             {% endfor %}
                                                         {% else %}
                                                             <tr>
                                                                 <td class="font-weight-bold text-info">{{ key }}</td>
-                                                                <td class="text-break">{% malware_config value %}</td>
+                                                                <td>{% malware_config value %}</td>
                                                             </tr>
                                                         {% endif %}
                                                     {% endfor %}

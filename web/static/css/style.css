@@ -215,6 +215,13 @@ pre {
     font-size: 87.5%;
 }
 
+/* Keep extracted malware config strings on one line in report view. */
+#malware-config td {
+    white-space: nowrap;
+    word-wrap: normal;
+    word-break: normal;
+}
+
 .tcp-flow {
     list-style-type: none;
 }
@@ -604,4 +611,3 @@ footer a:hover,
 #footer-extra a:hover {
     text-decoration: underline !important;
 }
-
