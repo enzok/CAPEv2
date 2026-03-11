@@ -193,3 +193,6 @@ warn_unused_configs = true
 files = [
     "agent/**/*.py",
 ]
+
+[tool.uv]
+package = false
