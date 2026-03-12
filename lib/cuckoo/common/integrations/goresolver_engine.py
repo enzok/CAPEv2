@@ -134,10 +134,13 @@ class GoResolver:
         compare_report = None
         go_version = None
         graph_match_count = 0
+        saw_go_artifacts = False
 
         if use_extract:
             try:
                 symbols = sym_parser.extract(sample_bin)
+                if symbols is not None:
+                    saw_go_artifacts = True
                 for pc, symbol_name in symbols.items():
                     try:
                         symbol_tree.insert(pc, symbol_name, SymbolSource.EXTRACT)
@@ -150,6 +153,7 @@ class GoResolver:
             try:
                 moduledata = sym_parser.extract_moduledata(sample_bin)
                 if moduledata is not None:
+                    saw_go_artifacts = True
                     type_parser = GoTypeParser(sample_bin, moduledata)
                     type_parser.parse_types()
                     type_dict = type_parser.to_dict()
@@ -197,8 +201,27 @@ class GoResolver:
             except Exception as e:
                 log.debug("goresolver graph merge failed for %s: %s", self.file_path, e)
 
-        if not symbol_tree.to_dict() and not type_dict:
-            return None
+        symbols_dict = symbol_tree.to_dict()
+        if not symbols_dict and not type_dict:
+            if not saw_go_artifacts:
+                return None
+            log.debug("goresolver found Go artifacts but produced no symbols/types for %s", self.file_path)
+            return {
+                "sample": {},
+                "symbols": {},
+                "go_types_address": None,
+                "types": {},
+                "meta": {
+                    "symbol_count": 0,
+                    "type_count": 0,
+                    "go_version": go_version,
+                    "category": self.category,
+                    "graph_ran": use_graph,
+                    "graph_match_count": graph_match_count,
+                    "partial": True,
+                    "note": "Go metadata detected, but no symbols/types were recovered",
+                },
+            }
 
         report = json.loads(SymbolReport(Path(self.file_path), symbol_tree, gotypes_address, type_dict).to_json())
         symbols = report.get("Symbols", {}) or {}

@@ -104,18 +104,23 @@ def extract_details(file, *, data_dictionary, filetype="", **_) -> ExtractorRetu
     if not any(ftype in (filetype or "") for ftype in ("PE32", "MS-DOS executable", "ELF", "Mach-O")):
         return {}
 
-    if not _looks_like_go(filetype, data_dictionary, file):
-        return {}
+    heuristic_match = _looks_like_go(filetype, data_dictionary, file)
 
     from lib.cuckoo.common.integrations.goresolver_engine import GoResolver, HAVE_GORESOLVER
 
     if not HAVE_GORESOLVER:
         return {}
 
+    if not heuristic_match:
+        # False negatives happen on stripped/packed binaries; still probe resolver.
+        log.debug("goresolver heuristic miss for %s; probing resolver anyway", file)
+
     details = GoResolver(file, "files").run()
     if not details:
         return {}
 
+    details.setdefault("meta", {})
+    details["meta"]["heuristic_match"] = heuristic_match
     data_dictionary["goresolver"] = details
     with extractor_ctx(file, "goresolver", prefix="goresolver") as ctx:
         # Generic extractor flow merges this back into the current file dict.
