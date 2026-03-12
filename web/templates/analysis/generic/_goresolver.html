@@ -1,0 +1,136 @@
+<section id="goresolver_info" class="mb-2">
+    {% if goresolver %}
+    <div class="row g-2 mb-3">
+        <div class="col-md-3">
+            <div class="card bg-secondary bg-opacity-10 border-secondary h-100">
+                <div class="card-body py-2">
+                    <div class="small text-white-50">Symbols</div>
+                    <div class="h5 mb-0">{{ goresolver.meta.symbol_count|default:"0" }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-secondary bg-opacity-10 border-secondary h-100">
+                <div class="card-body py-2">
+                    <div class="small text-white-50">Types</div>
+                    <div class="h5 mb-0">{{ goresolver.meta.type_count|default:"0" }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-secondary bg-opacity-10 border-secondary h-100">
+                <div class="card-body py-2">
+                    <div class="small text-white-50">Graph Matches</div>
+                    <div class="h5 mb-0">{{ goresolver.meta.graph_match_count|default:"0" }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-secondary bg-opacity-10 border-secondary h-100">
+                <div class="card-body py-2">
+                    <div class="small text-white-50">Go Version</div>
+                    <div class="h6 mb-0">{{ goresolver.meta.go_version|default:"unknown" }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="mb-3">
+        <div class="small text-white-50 mb-1">Status</div>
+        {% if goresolver.meta.heuristic_match %}
+            <span class="badge bg-success me-1 mb-1">heuristic: matched</span>
+        {% else %}
+            <span class="badge bg-warning text-dark me-1 mb-1">heuristic: miss</span>
+        {% endif %}
+        {% if goresolver.meta.graph_ran %}
+            <span class="badge bg-info text-dark me-1 mb-1">graph: ran</span>
+        {% else %}
+            <span class="badge bg-secondary me-1 mb-1">graph: skipped</span>
+        {% endif %}
+        {% if goresolver.meta.partial %}
+            <span class="badge bg-warning text-dark me-1 mb-1">partial result</span>
+        {% endif %}
+        {% if goresolver.meta.category %}
+            <span class="badge bg-dark border border-secondary me-1 mb-1">category: {{ goresolver.meta.category }}</span>
+        {% endif %}
+    </div>
+
+    {% if goresolver.meta.note %}
+    <div class="alert alert-warning py-2 mb-3">
+        {{ goresolver.meta.note }}
+    </div>
+    {% endif %}
+
+    {% if goresolver.go_types_address %}
+    <div class="mb-2">
+        <div class="small text-white-50 mb-1">Go Types Address</div>
+        <code>{{ goresolver.go_types_address }}</code>
+    </div>
+    {% endif %}
+
+    {% if goresolver.sample %}
+    <div class="mb-3">
+        <div class="small text-white-50 mb-1">Sample Metadata</div>
+        <div class="card bg-dark text-white border-0">
+            <div class="card-body p-2" style="max-height: 160px; overflow-y: auto;">
+                {% for key, value in goresolver.sample.items %}
+                    <div class="small"><span class="text-white-50">{{ key }}:</span> {{ value }}</div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if goresolver.symbols %}
+    <div class="mb-3">
+        <div class="small text-white-50 mb-1">Resolved Symbols</div>
+        <div class="card bg-dark text-white border-0">
+            <div class="card-body p-2" style="max-height: 260px; overflow-y: auto;">
+                <table class="table table-sm table-dark table-striped mb-0">
+                    <thead>
+                        <tr>
+                            <th style="width: 30%;">Address</th>
+                            <th>Symbol</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for addr, symbol in goresolver.symbols.items %}
+                        <tr>
+                            <td><code>{{ addr }}</code></td>
+                            <td><code>{{ symbol }}</code></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if goresolver.types %}
+    <div class="mb-2">
+        <div class="small text-white-50 mb-1">Recovered Types</div>
+        <div class="card bg-dark text-white border-0">
+            <div class="card-body p-2" style="max-height: 260px; overflow-y: auto;">
+                <table class="table table-sm table-dark table-striped mb-0">
+                    <thead>
+                        <tr>
+                            <th style="width: 35%;">Type ID</th>
+                            <th>Definition</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for type_id, type_data in goresolver.types.items %}
+                        <tr>
+                            <td><code>{{ type_id }}</code></td>
+                            <td><code>{{ type_data }}</code></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    {% endif %}
+</section>

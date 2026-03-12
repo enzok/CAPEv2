@@ -428,7 +428,7 @@
             <div class="card bg-dark border-secondary text-white">
                 <div class="card-header"><h6 class="mb-0 text-white-50">GoResolver</h6></div>
                 <div class="card-body">
-                    {% malware_config sub_file.goresolver %}
+                    {% include "analysis/generic/_goresolver.html" with goresolver=sub_file.goresolver %}
                 </div>
             </div>
         </div>

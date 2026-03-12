@@ -3,12 +3,14 @@ import os
 from contextlib import suppress
 
 from lib.cuckoo.common.integrations.file_extra_info_modules import ExtractorReturnType, extractor_ctx, time_tracker
+from lib.cuckoo.common.config import Config
 
 log = logging.getLogger(__name__)
 
 # Enabled via [goresolver] in integrations.conf.
 enabled = False
-timeout = 180
+integration_conf = Config("integrations")
+timeout = int(getattr(getattr(integration_conf, "goresolver", {}), "timeout", 300) or 300)
 
 
 def _contains_go_metadata_hint(text: str) -> bool:
