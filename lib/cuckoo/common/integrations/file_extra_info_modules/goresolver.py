@@ -107,15 +107,17 @@ def extract_details(file, *, data_dictionary, filetype="", **_) -> ExtractorRetu
         return {}
 
     heuristic_match = _looks_like_go(filetype, data_dictionary, file)
+    force_probe = bool(getattr(getattr(integration_conf, "goresolver", {}), "force_probe", False))
 
     from lib.cuckoo.common.integrations.goresolver_engine import GoResolver, HAVE_GORESOLVER
 
     if not HAVE_GORESOLVER:
         return {}
 
-    if not heuristic_match:
-        # False negatives happen on stripped/packed binaries; still probe resolver.
-        log.debug("goresolver heuristic miss for %s; probing resolver anyway", file)
+    if not heuristic_match and not force_probe:
+        return {}
+    if not heuristic_match and force_probe:
+        log.debug("goresolver heuristic miss for %s; probing due to force_probe=yes", file)
 
     details = GoResolver(file, "files").run()
     if not details:

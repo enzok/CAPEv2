@@ -154,6 +154,8 @@ sigs_path = data/flare-signatures
 [goresolver]
 enabled = no
 timeout = 300
+# Force probing even when heuristic detection fails.
+force_probe = no
 # Use embedded symbol extraction.
 extract = yes
 # Use graph similarity matching (requires additional goresolver dependencies and toolchain).
