@@ -438,7 +438,7 @@
             <div class="card bg-dark border-secondary text-white">
                 <div class="card-header"><h6 class="mb-0 text-white-50">RustResolver</h6></div>
                 <div class="card-body">
-                    {% malware_config sub_file.rustresolver %}
+                    {% include "analysis/generic/_rustresolver.html" with rustresolver=sub_file.rustresolver %}
                 </div>
             </div>
         </div>

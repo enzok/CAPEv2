@@ -1,0 +1,101 @@
+<section id="rustresolver_info" class="mb-2">
+    {% if rustresolver %}
+    <div class="row g-2 mb-3">
+        <div class="col-md-3">
+            <div class="card bg-secondary bg-opacity-10 border-secondary h-100">
+                <div class="card-body py-2">
+                    <div class="small text-white-50">Confidence</div>
+                    <div class="h5 mb-0">{{ rustresolver.meta.confidence_score|default:"0" }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-secondary bg-opacity-10 border-secondary h-100">
+                <div class="card-body py-2">
+                    <div class="small text-white-50">Signals</div>
+                    <div class="h5 mb-0">{{ rustresolver.meta.signals|length|default:"0" }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-secondary bg-opacity-10 border-secondary h-100">
+                <div class="card-body py-2">
+                    <div class="small text-white-50">Symbols</div>
+                    <div class="h5 mb-0">{{ rustresolver.meta.symbol_count|default:"0" }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-secondary bg-opacity-10 border-secondary h-100">
+                <div class="card-body py-2">
+                    <div class="small text-white-50">Demangled</div>
+                    <div class="h5 mb-0">{{ rustresolver.meta.demangled_count|default:"0" }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% if rustresolver.meta.signals %}
+    <div class="mb-2">
+        <div class="small text-white-50 mb-1">Signals</div>
+        {% for signal in rustresolver.meta.signals %}
+            <span class="badge bg-info text-dark me-1 mb-1">{{ signal }}</span>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if rustresolver.markers %}
+    <div class="mb-2">
+        <div class="small text-white-50 mb-1">Markers</div>
+        {% for marker in rustresolver.markers %}
+            <code class="me-2">{{ marker }}</code>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if rustresolver.crate_hints %}
+    <div class="mb-2">
+        <div class="small text-white-50 mb-1">Crate Hints</div>
+        {% for hint in rustresolver.crate_hints %}
+            <span class="badge bg-secondary me-1 mb-1">{{ hint }}</span>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if rustresolver.demangled_symbols %}
+    <div class="mb-2">
+        <div class="small text-white-50 mb-1">Demangled Symbols</div>
+        <div class="table-responsive">
+            <table class="table table-sm table-dark table-striped mb-0">
+                <thead>
+                    <tr>
+                        <th style="width:40%;">Mangled</th>
+                        <th>Demangled</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for mangled, demangled in rustresolver.demangled_symbols.items %}
+                    <tr>
+                        <td><code>{{ mangled }}</code></td>
+                        <td><code>{{ demangled }}</code></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if rustresolver.symbols %}
+    <div>
+        <div class="small text-white-50 mb-1">Symbols (sample)</div>
+        <div class="card bg-dark text-white border-0">
+            <div class="card-body p-2" style="max-height: 240px; overflow-y: auto;">
+                <pre class="mb-0 small">{% for symbol in rustresolver.symbols %}{{ symbol }}
+{% endfor %}</pre>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    {% endif %}
+</section>
