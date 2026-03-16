@@ -96,6 +96,30 @@ maco = ["maco"]
 gcp = ["google-cloud-storage", "google-cloud-pubsub"]
 mcp = ["fastmcp", "httpx"]
 
+optional = [
+    "httpreplay @ git+https://github.com/CAPESandbox/httpreplay.git",
+    "bingraph @ git+https://github.com/CAPESandbox/binGraph.git",
+    "batch_deobfuscator @ git+https://github.com/DissectMalware/batch_deobfuscator.git",
+    "pyattck @ git+https://github.com/CAPESandbox/pyattck.git",
+
+    "ImageHash",
+    "pyasyncore",
+    "graphviz>=0.8.4",
+    "pydot>=1.2.4",
+    "pdfminer.six",
+    "urlextract==1.5.0",
+    "pg_activity",
+    "flare-floss",
+    "opencv-python",
+    "goresolver",
+    "gographer",
+    "volatility3",
+    "chepy",
+    "certvalidator",
+    "asn1crypto",
+    "mscerts",
+]
+
 [dependency-groups]
 dev = [
     "black>=24.3.0",
