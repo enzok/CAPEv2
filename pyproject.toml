@@ -222,3 +222,6 @@ files = [
 
 [tool.uv]
 package = false
+
+[tool.uv.sources]
+libvirt-python = { path = "/home/cuckoo/libvirt-python-9.10.0" }
