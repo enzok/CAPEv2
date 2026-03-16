@@ -111,7 +111,7 @@ optional = [
     "pg_activity",
     "flare-floss",
     "opencv-python",
-    "goresolver",
+    "goresolver; python_version >= '3.12'",
     "gographer",
     "volatility3",
     "chepy",
