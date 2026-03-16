@@ -96,6 +96,8 @@ maco = ["maco"]
 gcp = ["google-cloud-storage", "google-cloud-pubsub"]
 mcp = ["fastmcp", "httpx"]
 
+libvirt = ["libvirt-python"]
+
 optional = [
     "httpreplay @ git+https://github.com/CAPESandbox/httpreplay.git",
     "bingraph @ git+https://github.com/CAPESandbox/binGraph.git",
