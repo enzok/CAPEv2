@@ -3022,3 +3022,50 @@ def failed_processing(request, task_id):
         "process_log": log_content,
         "settings": settings,
     })
+
+
+@conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
+def wildfire_verdict(request, task_id:str, sha256: str):
+    if wf_change_verdict(sha256):
+        doc = mongo_find_one("analysis", {"info.id": int(task_id)}, {"_id": 1, "target.file.wildfire": 1})
+        if doc:
+            mongo_update_one("analysis", {"_id": ObjectId(doc["_id"])}, {"$set": {"target.file.wildfire": "malware"}})
+            return redirect("report", task_id=task_id)
+
+    return render(request, "error.html", {"error": f"Failed to change update Wildfire verdict."})
+
+
+@conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
+def wildfire_report(request, sha256: str):
+    file_name = f"{sha256}.pdf"
+    cd = "application/octet-stream"
+    report_data = wf_dl_report(sha256)
+    if not report_data:
+        return render(request, "error.html", {"error": f"{report_data}"})
+
+    bio = BytesIO(report_data)
+    return FileResponse(bio, as_attachment=True, filename=file_name, content_type=cd)
+
+
+@conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
+def wildfire_pcap(request, sha256: str):
+    file_name = f"{sha256}.pcap"
+    cd = "application/octet-stream"
+    pcap_data = wf_dl_pcap(sha256)
+    if not pcap_data:
+        return render(request, "error.html", {"error": "No pcap data available."})
+
+    bio = BytesIO(pcap_data)
+    return FileResponse(bio, as_attachment=True, filename=file_name, content_type=cd)
+
+
+@conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
+def zscaler_report(request, sha256: str):
+    file_name = f"{sha256}.pdf"
+    cd = "application/octet-stream"
+    report_data = zscaler_dl_report(sha256)
+    if not report_data:
+        return render(request, "error.html", {"error": f"{report_data}"})
+
+    bio = BytesIO(report_data)
+    return FileResponse(bio, as_attachment=True, filename=file_name, content_type=cd)
