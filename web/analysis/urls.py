@@ -47,9 +47,6 @@ urlpatterns = [
     re_path(
         r"^on_demand/(?P<service>[\w\-_]+)/(?P<task_id>\d+)/(?P<category>\w+)/(?P<sha256>\w{64})", views.on_demand, name="on_demand"
     ),
-    re_path(r"^archive/$", views.archive_index, name="archive_index"),
-    re_path(r"^archive/page/(?P<page>\d+)/$", views.archive_index, name="archive_index"),
-    re_path(r"^archive_search/$", views.archive_search, name="archive_search"),
     re_path(r"^wf_verdict/(?P<task_id>\d+)/(?P<sha256>\w{64})/$", views.wildfire_verdict, name="wf_verdict"),
     re_path(r"^wf_report/(?P<sha256>\w{64})/$", views.wildfire_report, name="wf_report"),
     re_path(r"^wf_pcap/(?P<sha256>\w{64})/$", views.wildfire_pcap, name="wf_pcap"),

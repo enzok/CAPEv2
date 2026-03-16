@@ -54,6 +54,5 @@ urlpatterns = [
     ),
     re_path(r"^dashboard/", include(dashboard)),
     re_path(r"statistics/(?P<days>\d+)/$", analysis_views.statistics_data, name="statistics_data"),
-    re_path(r"^archivereport/(?P<task_id>\d+)/$", analysis_views.archive_report, name="archive_report"),
     re_path(r"^audit/", include(audit), name="audit"),
 ]
