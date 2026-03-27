@@ -1,3 +1,8 @@
+### [26.03.2026]
+* Monitor update: RtlDispatchException hook: check module_name pointer before dereference
+* KVMRemote machinery updated and  moved to main repo
+* New Hyper-V machinery module
+
 ### [17.03.2026]
 * Monitor updates:
     * Fix issue with multiple DumpCount increments causing excessive dump limiting
