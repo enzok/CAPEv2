@@ -1274,12 +1274,30 @@ class NetworkMap:
                 _add_http_host(self.http_host_map, host, pinfo, sock=sock)
 
         if api in HTTP_HINT_APIS:
-            url = _get_arg_any(args_map, "url", "lpszurl", "lpurl", "uri", "pszurl", "purl")
+            url = _get_arg_any(
+                args_map,
+                "url",
+                "lpszurl",
+                "lpurl",
+                "uri",
+                "pszurl",
+                "purl",
+                "path",
+                "objectname",
+                "lpszobjectname",
+                "pszobjectname",
+                "pwszobjectname",
+            )
             if isinstance(url, str) and url.strip():
                 u = _extract_first_url(url) or url.strip()
                 host = _host_from_url(u)
                 if not host and "://" not in u:
                     host = _host_from_url(f"http://{u}")
+                method = _get_arg_any(args_map, "verb", "method")
+                if isinstance(method, str):
+                    method = method.strip().upper() or "GET"
+                else:
+                    method = "GET"
                 if host:
                     _add_http_host(self.http_host_map, host, pinfo, sock=sock)
 
@@ -1288,6 +1306,7 @@ class NetworkMap:
                         {
                             "url": u,
                             "host": host,
+                            "method": method,
                             "process_id": process.get("process_id"),
                             "process_name": process.get("process_name"),
                             "time": _parse_behavior_ts(call.get("timestamp")),

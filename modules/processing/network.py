@@ -1420,6 +1420,28 @@ class NetworkAnalysis(Processing):
         # HTTP
         http_host_map = net_map.get("http_host_map", {})
         http_requests = net_map.get("http_requests", [])
+        endpoint_map = self._reconstruct_endpoint_map(net_map.get("endpoint_map", {}))
+        endpoint_map_by_pid = defaultdict(list)
+        for (ip, port), procs in endpoint_map.items():
+            for proc in procs or []:
+                pid = proc.get("process_id")
+                if pid is None:
+                    continue
+                endpoint_map_by_pid[pid].append((ip, port))
+
+        dns_ip_to_domain = {}
+        for d in network.get("dns", []) or []:
+            req = _norm_domain(d.get("request"))
+            if not req:
+                continue
+            for ans in d.get("answers", []) or []:
+                if not isinstance(ans, dict):
+                    continue
+                if ans.get("type") not in ("A", "AAAA"):
+                    continue
+                ip = ans.get("data")
+                if isinstance(ip, str) and ip.strip():
+                    dns_ip_to_domain[ip.strip()] = req
 
         existing_hosts = set()
         existing_urls = set()
@@ -1443,7 +1465,7 @@ class NetworkAnalysis(Processing):
                 if not parsed.netloc and not parsed.path:
                     continue
 
-                host = parsed.netloc or req.get("host")
+                host = parsed.hostname or req.get("host")
                 # Handle cases where URL might be just a domain or path
                 if not host and url and "." in url and "/" not in url:
                     host = url
@@ -1458,23 +1480,44 @@ class NetworkAnalysis(Processing):
                 if not path:
                     path = "/"
 
-                # Check for duplicates
-                url_key = f"{host}{path}"
-                if url_key in existing_urls:
-                    continue
-
                 port = 80
                 if parsed.port:
                     port = parsed.port
                 elif parsed.scheme == "https":
                     port = 443
 
+                if not host:
+                    pid = req.get("process_id")
+                    candidates = endpoint_map_by_pid.get(pid, [])
+                    best = None
+                    for ip, eport in candidates:
+                        if eport in (443, 80):
+                            best = (ip, eport)
+                            break
+                    if best is None and candidates:
+                        best = candidates[0]
+                    if best:
+                        ip, eport = best
+                        host = dns_ip_to_domain.get(ip, ip)
+                        port = eport
+
+                # Check for duplicates
+                url_key = f"{host}{path}"
+                if url_key in existing_urls:
+                    continue
+
+                if parsed.scheme and parsed.netloc:
+                    uri = url
+                else:
+                    scheme = "https" if port == 443 else "http"
+                    uri = f"{scheme}://{host}{path}" if host else path
+
                 entry = {
                     "host": host,
                     "port": port,
-                    "uri": url,
+                    "uri": uri,
                     "path": path,
-                    "method": "GET",
+                    "method": req.get("method") or "GET",
                     "source": "behavior",
                     "process_id": req.get("process_id"),
                     "process_name": req.get("process_name"),
@@ -1505,8 +1548,6 @@ class NetworkAnalysis(Processing):
                 network.setdefault("http", []).append(entry)
 
         # Connections (TCP/UDP)
-        endpoint_map = self._reconstruct_endpoint_map(net_map.get("endpoint_map", {}))
-
         existing_endpoints = set()
         for t in network.get("tcp", []):
             existing_endpoints.add((t.get("dst"), t.get("dport")))
