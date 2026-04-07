@@ -2,6 +2,8 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
+from subprocess import call
+
 from lib.common.abstracts import Package
 
 
@@ -16,6 +18,17 @@ class Msi(Package):
     to run the sample."""
 
     def start(self, path):
+        # Best-effort UAC disable requested for MSI execution context.
+        call(
+            [
+                "powershell.exe",
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "bypass",
+                "-Command",
+                'Set-ItemProperty -Path "HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System" -Name "EnableLUA" -Value 0 -Force',
+            ]
+        )
         msi_path = self.get_path("msiexec.exe")
         msi_args = f'/I "{path}" /qb ACCEPTEULA=1 LicenseAccepted=1'
         return self.execute(msi_path, msi_args, path)
