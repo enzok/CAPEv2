@@ -241,20 +241,28 @@ class MongoDB(Report):
                         processtree = report[key].get("processtree")
                         if processtree is None:
                             raise
-                        self._set_analysis_field_with_chunk_fallback(
-                            obj_id=obj_id,
+                        pointer = self._build_chunk_pointer(
                             task_id=task_id,
-                            field_path="behavior.processtree",
+                            dotted_path="behavior.processtree",
                             value=processtree,
                         )
-                        behavior_without_tree = dict(report[key])
-                        behavior_without_tree.pop("processtree", None)
-                        mongo_update_one(
-                            "analysis",
-                            {"_id": obj_id},
-                            {"$set": {"behavior": behavior_without_tree}},
-                            bypass_document_validation=True,
-                        )
+                        behavior_with_pointer = dict(report[key])
+                        behavior_with_pointer["processtree"] = pointer
+                        try:
+                            mongo_update_one(
+                                "analysis",
+                                {"_id": obj_id},
+                                {"$set": {"behavior": behavior_with_pointer}},
+                                bypass_document_validation=True,
+                            )
+                            self._cleanup_chunk_orphans(
+                                task_id=task_id,
+                                dotted_path="behavior.processtree",
+                                keep_part_ids=pointer["parts"],
+                            )
+                        except Exception:
+                            self._delete_chunk_part_ids(pointer["parts"])
+                            raise
                 else:
                     self._set_analysis_field_with_chunk_fallback(obj_id=obj_id, task_id=task_id, field_path=key, value=report[key])
             except InvalidDocument:
