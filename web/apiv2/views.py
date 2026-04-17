@@ -163,6 +163,63 @@ def createProcessTreeNode(process):
     return process_node_dict
 
 
+def _collect_selfextract_from_analysis(analysis: dict) -> dict:
+    """Collect per-tool selfextract metadata from all file-bearing analysis sections."""
+    merged: dict = {}
+    seen_by_tool: dict = {}
+
+    file_nodes = []
+    target_file = analysis.get("target", {}).get("file")
+    if isinstance(target_file, dict):
+        file_nodes.append(target_file)
+
+    for section in ("dropped", "procdump", "procmemory"):
+        vals = analysis.get(section, []) or []
+        if isinstance(vals, list):
+            file_nodes.extend(v for v in vals if isinstance(v, dict))
+
+    cape_payloads = analysis.get("CAPE", {}).get("payloads", []) or []
+    if isinstance(cape_payloads, list):
+        file_nodes.extend(v for v in cape_payloads if isinstance(v, dict))
+
+    for fnode in file_nodes:
+        selfextract = fnode.get("selfextract", {})
+        if not isinstance(selfextract, dict):
+            continue
+
+        for tool_name, details in selfextract.items():
+            if not isinstance(details, dict):
+                continue
+
+            out = merged.setdefault(
+                tool_name,
+                {
+                    "extracted_files": [],
+                    "password": details.get("password", ""),
+                    "extracted_files_time": details.get("extracted_files_time"),
+                },
+            )
+            seen = seen_by_tool.setdefault(tool_name, set())
+
+            for meta in details.get("extracted_files", []) or []:
+                if not isinstance(meta, dict):
+                    continue
+                sha256 = meta.get("sha256")
+                key = sha256 if sha256 else json.dumps(meta, sort_keys=True, default=str)
+                if key in seen:
+                    continue
+                seen.add(key)
+                out["extracted_files"].append(meta)
+
+            # Keep latest non-empty values when merging.
+            if details.get("password"):
+                out["password"] = details["password"]
+            if details.get("extracted_files_time") is not None:
+                out["extracted_files_time"] = details["extracted_files_time"]
+
+    return merged
+
+
 @require_safe
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def index(request):
@@ -1827,9 +1884,19 @@ def tasks_selfextracted(request, task_id, tool="all"):
     selfextract_data = {}
 
     if repconf.mongodb.enabled:
-        tmp = mongo_find_one("analysis", {"info.id": int(task_id)}, {"selfextract": 1})
-        if tmp and "selfextract" in tmp:
-            selfextract_data = tmp["selfextract"]
+        tmp = mongo_find_one(
+            "analysis",
+            {"info.id": int(task_id)},
+            {
+                "target.file.selfextract": 1,
+                "dropped.selfextract": 1,
+                "procdump.selfextract": 1,
+                "procmemory.selfextract": 1,
+                "CAPE.payloads.selfextract": 1,
+            },
+        )
+        if tmp:
+            selfextract_data = _collect_selfextract_from_analysis(tmp)
     elif es_as_db:
         tmp = es.search(
             index=get_analysis_index(), query=get_query_by_info_id(str(task_id)), _source=["selfextract"]
@@ -1843,7 +1910,7 @@ def tasks_selfextracted(request, task_id, tool="all"):
             try:
                 with open(jfile, "r") as f:
                     rep = json.load(f)
-                    selfextract_data = rep.get("selfextract", {})
+                    selfextract_data = _collect_selfextract_from_analysis(rep)
             except Exception as e:
                 log.error(e)
 
@@ -2667,4 +2734,3 @@ def dist_tasks_notification(request, task_id: int):
         # main_db.set_status(task.main_task_id, TASK_REPORTED)
         # log.debug("reporting main_task_id: {}".format(task.main_task_id))
         task.notificated = True
-

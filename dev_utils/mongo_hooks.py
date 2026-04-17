@@ -69,6 +69,25 @@ def normalize_file(file_dict, task_id):
         "yara_hash",
         "options_hash",
         "clamav",
+        # static/enrichment outputs that should be reusable on file_cache hits
+        "trid",
+        "die",
+        "msi",
+        "office",
+        "pdf",
+        "wsf",
+        "lnk",
+        "java",
+        "rdp",
+        "dotnet",
+        "dotnet_strings",
+        "flare_capa",
+        "floss",
+        "virustotal",
+        "wildfire",
+        "zscaler",
+        "selfextract",
+        "executed_tools",
     )
     new_dict = {}
     for fld in static_fields:
