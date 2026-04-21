@@ -349,4 +349,6 @@ class MongoDB(Report):
                 log.warning("Large analysis document detected; switching to chunked storage: %s", e)
                 self._insert_analysis_non_lossy(report)
             else:
-                raise
+                raise CuckooReportError(
+                    f"Failed to insert MongoDB report for task {report['info']['id']}: {e}"
+                ) from e
