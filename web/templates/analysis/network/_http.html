@@ -52,9 +52,11 @@
         {% if settings.NETWORK_PROC_MAP %}
             <td style="width: 160px; white-space: nowrap;">
                 {% if http.process_name %}
-                    {{ http.process_name }}{% if http.process_id %} ({{ http.process_id }}){% endif %}
+                    <span class="badge bg-warning text-dark">
+                        {{ http.process_name }}{% if http.process_id %} ({{ http.process_id }}){% endif %}
+                    </span>
                 {% else %}
-                    -
+                    <span class="text-muted">-</span>
                 {% endif %}
             </td>
         {% endif %}
@@ -77,9 +79,11 @@
                 {% if settings.NETWORK_PROC_MAP %}
                     <td style="width: 160px; white-space: nowrap;">
                         {% if request.process_name %}
-                            {{ request.process_name }}{% if request.process_id %} ({{ request.process_id }}){% endif %}
+                            <span class="badge bg-warning text-dark">
+                                {{ request.process_name }}{% if request.process_id %} ({{ request.process_id }}){% endif %}
+                            </span>
                         {% else %}
-                            -
+                            <span class="text-muted">-</span>
                         {% endif %}
                     </td>
                 {% endif %}

@@ -21,9 +21,11 @@
         {% if settings.NETWORK_PROC_MAP %}
             <td>
                 {% if packet.process_name %}
-                    {{ packet.process_name }}{% if packet.process_id %} ({{ packet.process_id }}){% endif %}
+                    <span class="badge bg-warning text-dark">
+                        {{ packet.process_name }}{% if packet.process_id %} ({{ packet.process_id }}){% endif %}
+                    </span>
                 {% else %}
-                    -
+                    <span class="text-muted">-</span>
                 {% endif %}
             </td>
         {% endif %}

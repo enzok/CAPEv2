@@ -30,9 +30,11 @@
                                         {% if settings.NETWORK_PROC_MAP %}
                                             <td>
                                                 {% if p.process_name %}
-                                                    {{ p.process_name }}{% if p.process_id %} ({{ p.process_id }}){% endif %}
+                                                    <span class="badge bg-warning text-dark">
+                                                        {{ p.process_name }}{% if p.process_id %} ({{ p.process_id }}){% endif %}
+                                                    </span>
                                                 {% else %}
-                                                    -
+                                                    <span class="text-muted">-</span>
                                                 {% endif %}
                                             </td>
                                         {% endif %}

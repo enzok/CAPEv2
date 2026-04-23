@@ -46,9 +46,11 @@
         {% if settings.NETWORK_PROC_MAP %}
             <td>
                 {% if req.process_name %}
-                    {{ req.process_name }}{% if req.process_id %} ({{ req.process_id }}){% endif %}
+                    <span class="badge bg-warning text-dark">
+                        {{ req.process_name }}{% if req.process_id %} ({{ req.process_id }}){% endif %}
+                    </span>
                 {% else %}
-                    -
+                    <span class="text-muted">-</span>
                 {% endif %}
             </td>
         {% endif %}
@@ -71,9 +73,11 @@
         {% if settings.NETWORK_PROC_MAP %}
             <td>
                 {% if req.process_name %}
-                    {{ req.process_name }}{% if req.process_id %} ({{ req.process_id }}){% endif %}
+                    <span class="badge bg-warning text-dark">
+                        {{ req.process_name }}{% if req.process_id %} ({{ req.process_id }}){% endif %}
+                    </span>
                 {% else %}
-                    -
+                    <span class="text-muted">-</span>
                 {% endif %}
             </td>
         {% endif %}

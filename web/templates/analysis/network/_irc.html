@@ -19,9 +19,11 @@
         {% if settings.NETWORK_PROC_MAP %}
             <td>
                 {% if irc.process_name %}
-                    {{ irc.process_name }}{% if irc.process_id %} ({{ irc.process_id }}){% endif %}
+                    <span class="badge bg-warning text-dark">
+                        {{ irc.process_name }}{% if irc.process_id %} ({{ irc.process_id }}){% endif %}
+                    </span>
                 {% else %}
-                    -
+                    <span class="text-muted">-</span>
                 {% endif %}
             </td>
         {% endif %}
