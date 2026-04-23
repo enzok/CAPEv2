@@ -1,0 +1,97 @@
+import logging
+import os
+import zipfile
+
+from lib.common.abstracts import Package
+from lib.common.common import check_file_extension
+from lib.common.constants import OPT_ARGUMENTS
+
+log = logging.getLogger(__name__)
+
+# CONFIGURATION - allow non installed deno
+# Grab a copy of Deno for Windows and store it in extras as deno.zip
+DENO_ZIP_NAME = "deno.zip"
+DENO_DIR_NAME = "deno"
+DENO_EXE_NAME = "deno.exe"
+
+
+def setup_deno_environment():
+    """
+    Attempts to unzip a portable Deno environment.
+    Returns: (path_to_deno_exe, None) on success (None, error_message) on failure
+    """
+    try:
+        user_profile = os.environ.get("USERPROFILE", "C:\\Users\\Admin")
+        install_path = os.path.join(user_profile, "AppData", "Local", "app")
+        deno_zip_path = os.path.abspath(os.path.join("extras", DENO_ZIP_NAME))
+        deno_bin_path = os.path.join(install_path, DENO_DIR_NAME)
+
+        if not os.path.exists(deno_zip_path):
+            return None, f"Zip not found at {deno_zip_path}"
+
+        with zipfile.ZipFile(deno_zip_path, "r") as z:
+            file_list = z.namelist()
+            deno_internal_path = next((f for f in file_list if f.lower().endswith(DENO_EXE_NAME)), None)
+            if not deno_internal_path:
+                return None, f"Archive does not contain {DENO_EXE_NAME}"
+
+            deno_exe_path = os.path.normpath(os.path.join(deno_bin_path, deno_internal_path))
+            if not os.path.exists(deno_exe_path):
+                for member in z.infolist():
+                    if member.filename.startswith("/") or ".." in member.filename:
+                        return None, f"Aborting extraction. Zip contains potentially malicious path: {member.filename}"
+                os.makedirs(deno_bin_path, exist_ok=True)
+                log.info("Extracting Deno to %s...", deno_bin_path)
+                z.extractall(deno_bin_path)
+
+        if os.path.exists(deno_exe_path):
+            deno_dir = os.path.dirname(deno_exe_path)
+            current_path = os.environ.get("PATH", "")
+            os.environ["PATH"] = f"{deno_dir};{current_path}"
+            return deno_exe_path, None
+        return None, f"Extraction finished but {DENO_EXE_NAME} not found on disk."
+
+    except (zipfile.BadZipFile, OSError) as e:
+        return None, f"Exception during Deno setup: {e}"
+
+
+class Deno(Package):
+    """Package for executing JavaScript files using Deno."""
+
+    PATHS = [
+        ("USERPROFILE", ".deno", "bin", "deno.exe"),
+        ("ProgramFiles", "Deno", "bin", "deno.exe"),
+        ("ProgramFiles(x86)", "Deno", "bin", "deno.exe"),
+        ("SystemDrive", "deno", "deno.exe"),
+    ]
+
+    summary = "Executes a JS sample using Deno."
+    description = "Uses deno.exe to execute JavaScript files."
+    option_names = (OPT_ARGUMENTS,)
+
+    def start(self, path):
+        path = check_file_extension(path, ".js")
+        args = self.options.get(OPT_ARGUMENTS, "")
+
+        # Deno normally requires "run" before the script.
+        deno_args = f'run "{path}"'
+        if args:
+            deno_args += f" {args}"
+
+        binary = None
+        if os.path.exists(os.path.join("extras", DENO_ZIP_NAME)):
+            custom_bin, error = setup_deno_environment()
+            if custom_bin:
+                binary = custom_bin
+                log.info("Using Custom Deno: %s", binary)
+            else:
+                log.error("Failed to setup Custom Deno: %s", error)
+
+        if not binary:
+            log.info("Falling back to system installed Deno")
+            binary = self.get_path("deno.exe")
+
+        if not binary:
+            raise Exception("Deno executable not found in custom bundle OR system paths.")
+
+        return self.execute(binary, deno_args, path)
