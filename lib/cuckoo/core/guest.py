@@ -173,7 +173,12 @@ class GuestManager:
 
     def query_environ(self):
         """Query the environment of the Agent in the Virtual Machine."""
-        self.environ = self.get("/environ").json()["environ"]
+        raw_environ = self.get("/environ").json().get("environ", {})
+        if isinstance(raw_environ, dict):
+            # Keep lookups resilient to key casing differences returned by Agent.
+            self.environ = {str(k).upper(): v for k, v in raw_environ.items()}
+        else:
+            self.environ = {}
 
     def determine_analyzer_path(self):
         """Determine the path of the analyzer. Basically creating a temporary
@@ -191,12 +196,13 @@ class GuestManager:
 
     def determine_system_drive(self):
         if self.platform == "windows":
-            return f"{self.environ['SYSTEMDRIVE']}/"
+            systemdrive = self.environ.get("SYSTEMDRIVE") or self.environ.get("HOMEDRIVE") or "C:"
+            return f"{systemdrive}/"
         return "/"
 
     def determine_temp_path(self):
         if self.platform == "windows":
-            return self.environ["TEMP"]
+            return self.environ.get("TEMP") or self.environ.get("TMP") or r"C:\Windows\Temp"
         return "/tmp"
 
     def upload_analyzer(self):
