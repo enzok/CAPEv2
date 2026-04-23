@@ -1,5 +1,6 @@
 import logging
 import os
+import shutil
 import zipfile
 
 from lib.common.abstracts import Package
@@ -15,7 +16,18 @@ BUN_DIR_NAME = "bun"
 BUN_EXE_NAME = "bun.exe"
 
 
-def setup_bun_environment():
+def resolve_extras_zip(zip_name):
+    candidates = [
+        os.path.abspath(os.path.join("extras", zip_name)),
+        os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "extras", zip_name)),
+    ]
+    for candidate in candidates:
+        if os.path.exists(candidate):
+            return candidate
+    return candidates[0]
+
+
+def setup_bun_environment(bun_zip_path):
     """
     Attempts to unzip a portable Bun environment.
     Returns: (path_to_bun_exe, None) on success (None, error_message) on failure
@@ -23,7 +35,6 @@ def setup_bun_environment():
     try:
         user_profile = os.environ.get("USERPROFILE", "C:\\Users\\Admin")
         install_path = os.path.join(user_profile, "AppData", "Local", "app")
-        bun_zip_path = os.path.abspath(os.path.join("extras", BUN_ZIP_NAME))
         bun_bin_path = os.path.join(install_path, BUN_DIR_NAME)
 
         if not os.path.exists(bun_zip_path):
@@ -77,8 +88,9 @@ class Bun(Package):
             bun_args += f" {args}"
 
         binary = None
-        if os.path.exists(os.path.join("extras", BUN_ZIP_NAME)):
-            custom_bin, error = setup_bun_environment()
+        bun_zip_path = resolve_extras_zip(BUN_ZIP_NAME)
+        if os.path.exists(bun_zip_path):
+            custom_bin, error = setup_bun_environment(bun_zip_path)
             if custom_bin:
                 binary = custom_bin
                 log.info("Using Custom Bun: %s", binary)
@@ -87,7 +99,11 @@ class Bun(Package):
 
         if not binary:
             log.info("Falling back to system installed Bun")
-            binary = self.get_path("bun.exe")
+            try:
+                binary = self.get_path("bun.exe")
+            except Exception:
+                # PATH lookup for installations outside the hardcoded PATHS list.
+                binary = shutil.which("bun.exe")
 
         if not binary:
             raise Exception("Bun executable not found in custom bundle OR system paths.")

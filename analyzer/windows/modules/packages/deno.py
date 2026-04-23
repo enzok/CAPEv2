@@ -1,5 +1,6 @@
 import logging
 import os
+import shutil
 import zipfile
 
 from lib.common.abstracts import Package
@@ -15,7 +16,18 @@ DENO_DIR_NAME = "deno"
 DENO_EXE_NAME = "deno.exe"
 
 
-def setup_deno_environment():
+def resolve_extras_zip(zip_name):
+    candidates = [
+        os.path.abspath(os.path.join("extras", zip_name)),
+        os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "extras", zip_name)),
+    ]
+    for candidate in candidates:
+        if os.path.exists(candidate):
+            return candidate
+    return candidates[0]
+
+
+def setup_deno_environment(deno_zip_path):
     """
     Attempts to unzip a portable Deno environment.
     Returns: (path_to_deno_exe, None) on success (None, error_message) on failure
@@ -23,7 +35,6 @@ def setup_deno_environment():
     try:
         user_profile = os.environ.get("USERPROFILE", "C:\\Users\\Admin")
         install_path = os.path.join(user_profile, "AppData", "Local", "app")
-        deno_zip_path = os.path.abspath(os.path.join("extras", DENO_ZIP_NAME))
         deno_bin_path = os.path.join(install_path, DENO_DIR_NAME)
 
         if not os.path.exists(deno_zip_path):
@@ -79,8 +90,9 @@ class Deno(Package):
             deno_args += f" {args}"
 
         binary = None
-        if os.path.exists(os.path.join("extras", DENO_ZIP_NAME)):
-            custom_bin, error = setup_deno_environment()
+        deno_zip_path = resolve_extras_zip(DENO_ZIP_NAME)
+        if os.path.exists(deno_zip_path):
+            custom_bin, error = setup_deno_environment(deno_zip_path)
             if custom_bin:
                 binary = custom_bin
                 log.info("Using Custom Deno: %s", binary)
@@ -89,7 +101,11 @@ class Deno(Package):
 
         if not binary:
             log.info("Falling back to system installed Deno")
-            binary = self.get_path("deno.exe")
+            try:
+                binary = self.get_path("deno.exe")
+            except Exception:
+                # PATH lookup for installations outside the hardcoded PATHS list.
+                binary = shutil.which("deno.exe")
 
         if not binary:
             raise Exception("Deno executable not found in custom bundle OR system paths.")
