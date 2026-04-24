@@ -1,4 +1,5 @@
 import os
+import json
 from io import StringIO
 
 try:
@@ -289,3 +290,11 @@ def malware_config(obj, *args, **kwargs):
 def playback_url(task_id):
     session_id = uuid3(NAMESPACE_DNS, str(task_id)).hex[:16]
     return f"{task_id}_{session_id}"
+
+
+@register.filter(name="pretty_json")
+def pretty_json(value):
+    try:
+        return json.dumps(value, indent=2, sort_keys=True, ensure_ascii=False)
+    except (TypeError, ValueError):
+        return str(value)
