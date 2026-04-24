@@ -1,6 +1,7 @@
 import logging
 import os
 import shutil
+import subprocess
 import zipfile
 
 from lib.common.abstracts import Package
@@ -14,6 +15,7 @@ log = logging.getLogger(__name__)
 BUN_ZIP_NAME = "bun.zip"
 BUN_DIR_NAME = "bun"
 BUN_EXE_NAME = "bun.exe"
+INTERCEPTOR_NAME = "interceptor.js"
 
 
 def resolve_extras_zip(zip_name):
@@ -66,6 +68,16 @@ def setup_bun_environment(bun_zip_path):
         return None, f"Exception during Bun setup: {e}"
 
 
+def _set_windows_env_var(name, value):
+    # Set for current process immediately.
+    os.environ[name] = value
+    # Persist as a Windows user environment variable.
+    try:
+        subprocess.run(["setx", name, value], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
+    except Exception as e:
+        log.debug("Failed to persist env var %s via setx: %s", name, e)
+
+
 class Bun(Package):
     """Package for executing JavaScript files using Bun."""
 
@@ -83,9 +95,18 @@ class Bun(Package):
     def start(self, path):
         path = check_file_extension(path, ".js")
         args = self.options.get(OPT_ARGUMENTS, "")
-        bun_args = f'"{path}"'
+        target_dir = os.path.dirname(path) or "."
+        interceptor_path = os.path.join(target_dir, INTERCEPTOR_NAME)
+        if os.path.exists(interceptor_path):
+            _set_windows_env_var("BUN_OPTIONS", f'--preload "{interceptor_path}"')
+        else:
+            log.warning("Bun interceptor not found at %s. Running without preload.", interceptor_path)
+
+        bun_args = ""
         if args:
-            bun_args += f" {args}"
+            # Bun runtime flags must precede the script target.
+            bun_args = f"{bun_args} {args}".strip()
+        bun_args = f'{bun_args} "{path}"'.strip()
 
         binary = None
         bun_zip_path = resolve_extras_zip(BUN_ZIP_NAME)
@@ -108,4 +129,10 @@ class Bun(Package):
         if not binary:
             raise Exception("Bun executable not found in custom bundle OR system paths.")
 
+        log.info(
+            "Bun launch env: BUN_OPTIONS=%r interceptor_exists=%s interceptor_path=%s",
+            os.environ.get("BUN_OPTIONS", ""),
+            os.path.exists(interceptor_path),
+            interceptor_path,
+        )
         return self.execute(binary, bun_args, path)

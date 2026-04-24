@@ -2,6 +2,7 @@ import os
 import zipfile
 import logging
 import shutil
+import subprocess
 
 from lib.common.abstracts import Package
 from lib.common.common import check_file_extension
@@ -15,6 +16,17 @@ log = logging.getLogger(__name__)
 # Store it in extras as nodejs.zip
 NODE_ZIP_NAME = "nodejs.zip"
 NODE_DIR_NAME = "nodejs"
+INTERCEPTOR_NAME = "interceptor.js"
+
+
+def _set_windows_env_var(name, value):
+    # Set for current process immediately.
+    os.environ[name] = value
+    # Persist as a Windows user environment variable.
+    try:
+        subprocess.run(["setx", name, value], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
+    except Exception as e:
+        log.debug("Failed to persist env var %s via setx: %s", name, e)
 
 
 def resolve_extras_zip(zip_name):
@@ -107,14 +119,20 @@ class NodeJS(Package):
     def start(self, path):
         path = check_file_extension(path, ".js")
         args = self.options.get(OPT_ARGUMENTS, "")
+        target_dir = os.path.dirname(path) or "."
+        interceptor_path = os.path.join(target_dir, INTERCEPTOR_NAME)
 
-        # Prepare the argument list
-        # CAPE expects a list of arguments for the process
-        node_args = f'"{path}"'
+        if os.path.exists(interceptor_path):
+            _set_windows_env_var("NODE_OPTIONS", f'--require "{interceptor_path}"')
+        else:
+            _set_windows_env_var("NODE_OPTIONS", "")
+            log.warning("Node interceptor not found at %s. Running without --require.", interceptor_path)
 
-        # Append additional arguments if they exist
+        node_args = ""
         if args:
-            node_args += f" {args}"
+            # Node runtime flags must precede the script target.
+            node_args = f"{node_args} {args}".strip()
+        node_args = f'{node_args} "{path}"'.strip()
 
         # 1. Try to set up Custom Node
         binary = None

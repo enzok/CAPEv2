@@ -23,6 +23,7 @@ file_pickup = no
 permissions = no
 pre_script = no
 during_script = no
+js_console = no
 filecollector = yes
 tracee_linux = no
 sslkeylogfile = no

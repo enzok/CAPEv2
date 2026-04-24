@@ -14,6 +14,7 @@ log = logging.getLogger(__name__)
 DENO_ZIP_NAME = "deno.zip"
 DENO_DIR_NAME = "deno"
 DENO_EXE_NAME = "deno.exe"
+INTERCEPTOR_NAME = "interceptor.js"
 
 
 def resolve_extras_zip(zip_name):
@@ -83,11 +84,19 @@ class Deno(Package):
     def start(self, path):
         path = check_file_extension(path, ".js")
         args = self.options.get(OPT_ARGUMENTS, "")
+        target_dir = os.path.dirname(path) or "."
+        interceptor_path = os.path.join(target_dir, INTERCEPTOR_NAME)
 
-        # Deno normally requires "run" before the script.
-        deno_args = f'run "{path}"'
+        deno_args = "run"
+        if os.path.exists(interceptor_path):
+            deno_args = f'{deno_args} --import-map="{interceptor_path}"'
+        else:
+            log.warning("Deno interceptor not found at %s. Running without import-map.", interceptor_path)
+
         if args:
-            deno_args += f" {args}"
+            # Deno runtime flags must precede the script target.
+            deno_args = f"{deno_args} {args}".strip()
+        deno_args = f'{deno_args} "{path}"'.strip()
 
         binary = None
         deno_zip_path = resolve_extras_zip(DENO_ZIP_NAME)
