@@ -298,3 +298,100 @@ def pretty_json(value):
         return json.dumps(value, indent=2, sort_keys=True, ensure_ascii=False)
     except (TypeError, ValueError):
         return str(value)
+
+
+def _parse_json_text(value):
+    if not isinstance(value, str):
+        return value
+    stripped = value.strip()
+    if not stripped:
+        return value
+    if stripped[0] not in ("{", "["):
+        return value
+    try:
+        return json.loads(stripped)
+    except Exception:
+        return value
+
+
+def _format_headers(headers):
+    if not headers:
+        return ""
+    if isinstance(headers, dict):
+        return json.dumps(headers, indent=2, sort_keys=True, ensure_ascii=False)
+    return str(headers)
+
+
+def _format_body(body):
+    if body is None:
+        return ""
+    if isinstance(body, dict):
+        normalized = dict(body)
+        if "text" in normalized:
+            normalized["text"] = _parse_json_text(normalized["text"])
+        return json.dumps(normalized, indent=2, sort_keys=True, ensure_ascii=False)
+    parsed = _parse_json_text(body)
+    if isinstance(parsed, (dict, list)):
+        return json.dumps(parsed, indent=2, sort_keys=True, ensure_ascii=False)
+    return str(parsed)
+
+
+@register.filter(name="format_js_event")
+def format_js_event(event):
+    if not isinstance(event, dict):
+        return str(event)
+
+    ts = event.get("ts", "")
+    source = event.get("source", "")
+    event_type = event.get("event", "unknown")
+    request_id = event.get("request_id")
+    request_tag = f" req#{request_id}" if request_id is not None else ""
+    source_tag = f" ({source})" if source else ""
+    lines = [f"[{ts}] {event_type}{request_tag}{source_tag}"]
+
+    if event_type == "http_request":
+        lines.append(f"Method: {event.get('method', '')}")
+        lines.append(f"URL: {event.get('url', '')}")
+        headers = _format_headers(event.get("headers"))
+        if headers:
+            lines.append("Headers:")
+            lines.append(headers)
+        body = _format_body(event.get("body"))
+        if body:
+            lines.append("Body:")
+            lines.append(body)
+        return "\n".join(lines)
+
+    if event_type == "http_response":
+        lines.append(f"Status: {event.get('status', '')} {event.get('status_text', '')}".strip())
+        lines.append(f"Elapsed: {event.get('elapsed_ms', '')} ms")
+        headers = _format_headers(event.get("headers"))
+        if headers:
+            lines.append("Headers:")
+            lines.append(headers)
+        body = _format_body(event.get("body"))
+        if body:
+            lines.append("Body:")
+            lines.append(body)
+        return "\n".join(lines)
+
+    if event_type == "http_error":
+        lines.append(f"Elapsed: {event.get('elapsed_ms', '')} ms")
+        lines.append(f"Error: {event.get('error', '')}")
+        return "\n".join(lines)
+
+    if event_type == "console":
+        lines.append(f"Level: {event.get('level', '')}")
+        lines.append(f"Message: {event.get('message', '')}")
+        return "\n".join(lines)
+
+    if event_type == "warning":
+        lines.append(f"Message: {event.get('message', '')}")
+        return "\n".join(lines)
+
+    if event_type == "init":
+        lines.append(f"Log Path: {event.get('log_path', '')}")
+        return "\n".join(lines)
+
+    lines.append(json.dumps(event, indent=2, sort_keys=True, ensure_ascii=False))
+    return "\n".join(lines)

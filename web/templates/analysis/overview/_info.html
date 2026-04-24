@@ -58,7 +58,7 @@
                         {% if analysis.debug.log or analysis.process_log %}<th>Logs</th>{% endif %}
                         {% if analysis.debug.pre_script_log %}<th>Pre Script</th>{% endif %}
                         {% if analysis.debug.during_script_log %}<th>During Script</th>{% endif %}
-                        {% if analysis.js_log and analysis.js_log.exists %}<th class="text-nowrap px-1" style="width:1%;">JS</th>{% endif %}
+                        {% if analysis.js_log and analysis.js_log.exists %}<th>JS Log</th>{% endif %}
                         {% if config.malscore and analysis.malscore %}<th>MalScore</th>{% endif %}
                     </tr>
                 </thead>
@@ -97,7 +97,7 @@
                             <td><button class="btn btn-sm btn-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#info-during-script-log">View</button></td>
                         {% endif %}
                         {% if analysis.js_log and analysis.js_log.exists %}
-                            <td class="text-nowrap px-1"><button class="btn btn-sm btn-secondary px-2" type="button" data-bs-toggle="collapse" data-bs-target="#info-js-log" title="View JS Log"><i class="fas fa-code"></i></button></td>
+                            <td><button class="btn btn-sm btn-outline-info" type="button" data-bs-toggle="collapse" data-bs-target="#info-js-log">View</button></td>
                         {% endif %}
                         {% if config.malscore and analysis.malscore %}
                         <td>
@@ -208,8 +208,7 @@
         <div class="card card-body bg-dark text-white border-secondary">
             <h6 class="card-title text-white-50">JS Log</h6>
             {% if analysis.js_log.events %}
-            <pre class="mb-0 small">{% for event in analysis.js_log.events %}[{{event.ts}}] {{event.event}}{% if event.source %} ({{event.source}}){% endif %}
-{{ event|pretty_json }}{% if not forloop.last %}
+            <pre class="mb-0 small">{% for event in analysis.js_log.events %}{{ event|format_js_event }}{% if not forloop.last %}
 
 {% endif %}{% endfor %}</pre>
             {% else %}
