@@ -123,7 +123,7 @@ class NodeJS(Package):
         interceptor_path = os.path.join(target_dir, INTERCEPTOR_NAME)
 
         if os.path.exists(interceptor_path):
-            _set_windows_env_var("NODE_OPTIONS", f'--require "{interceptor_path}"')
+            _set_windows_env_var("NODE_OPTIONS", f"--require ./{INTERCEPTOR_NAME}")
         else:
             _set_windows_env_var("NODE_OPTIONS", "")
             log.warning("Node interceptor not found at %s. Running without --require.", interceptor_path)
