@@ -98,7 +98,7 @@ class Bun(Package):
         target_dir = os.path.dirname(path) or "."
         interceptor_path = os.path.join(target_dir, INTERCEPTOR_NAME)
         if os.path.exists(interceptor_path):
-            _set_windows_env_var("BUN_OPTIONS", f'--preload "{interceptor_path}"')
+            _set_windows_env_var("BUN_OPTIONS", f"--preload {INTERCEPTOR_NAME}")
         else:
             log.warning("Bun interceptor not found at %s. Running without preload.", interceptor_path)
 

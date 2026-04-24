@@ -3,7 +3,7 @@ import logging
 import os
 
 from lib.cuckoo.common.abstracts import Processing
-from lib.cuckoo.common.path_utils import path_exists
+from lib.cuckoo.common.path_utils import path_exists, path_read_file
 
 log = logging.getLogger(__name__)
 
@@ -23,6 +23,7 @@ class JSLogProcessing(Processing):
         output = {
             "path": log_path,
             "exists": False,
+            "log": "",
             "total_lines": 0,
             "parsed_lines": 0,
             "malformed_lines": 0,
@@ -42,6 +43,7 @@ class JSLogProcessing(Processing):
         output["exists"] = True
 
         try:
+            output["log"] = path_read_file(log_path, mode="text")
             with open(log_path, "r", encoding="utf-8", errors="replace") as f:
                 for line in f:
                     output["total_lines"] += 1

@@ -205,17 +205,8 @@
 
     <div id="info-js-log" class="collapse mb-3">
         <div class="card card-body bg-dark text-white border-secondary">
-            <h6 class="card-title text-white-50">JS Log Processing</h6>
-            <pre class="mb-0 small">Path: {{analysis.js_log.path}}
-Total lines: {{analysis.js_log.total_lines}}
-Parsed lines: {{analysis.js_log.parsed_lines}}
-Malformed lines: {{analysis.js_log.malformed_lines}}
-Truncated: {{analysis.js_log.truncated}}
-HTTP requests: {{analysis.js_log.http_requests|length}}
-HTTP responses: {{analysis.js_log.http_responses|length}}
-HTTP errors: {{analysis.js_log.http_errors|length}}
-Console events: {{analysis.js_log.console|length}}
-Warnings: {{analysis.js_log.warnings|length}}</pre>
+            <h6 class="card-title text-white-50">JS Log</h6>
+            <pre class="mb-0 small">{{analysis.js_log.log}}</pre>
         </div>
     </div>
 
