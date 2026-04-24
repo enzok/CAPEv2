@@ -13,6 +13,16 @@ class JSLogProcessing(Processing):
 
     order = 2
 
+    @staticmethod
+    def _format_event(event):
+        ts = event.get("ts", "")
+        event_type = event.get("event", "unknown")
+        source = event.get("source", "")
+        header = f"[{ts}] {event_type}"
+        if source:
+            header = f"{header} ({source})"
+        return f"{header}\n{json.dumps(event, indent=2, sort_keys=True, ensure_ascii=False)}"
+
     def run(self):
         self.key = "js_log"
 
@@ -24,6 +34,7 @@ class JSLogProcessing(Processing):
             "path": log_path,
             "exists": False,
             "log": "",
+            "pretty_log": "",
             "total_lines": 0,
             "parsed_lines": 0,
             "malformed_lines": 0,
@@ -44,6 +55,7 @@ class JSLogProcessing(Processing):
 
         try:
             output["log"] = path_read_file(log_path, mode="text")
+            pretty_blocks = []
             with open(log_path, "r", encoding="utf-8", errors="replace") as f:
                 for line in f:
                     output["total_lines"] += 1
@@ -59,10 +71,12 @@ class JSLogProcessing(Processing):
                         event = json.loads(text)
                     except json.JSONDecodeError:
                         output["malformed_lines"] += 1
+                        pretty_blocks.append(f"[malformed line]\n{text}")
                         continue
 
                     output["parsed_lines"] += 1
                     output["events"].append(event)
+                    pretty_blocks.append(self._format_event(event))
 
                     event_type = event.get("event")
                     if event_type == "http_request":
@@ -77,6 +91,7 @@ class JSLogProcessing(Processing):
                         output["warnings"].append(event)
                     elif event_type == "init":
                         output["init"].append(event)
+            output["pretty_log"] = "\n\n".join(pretty_blocks)
         except Exception as e:
             log.warning("js_log_processing failed on %s: %s", log_path, e)
 
