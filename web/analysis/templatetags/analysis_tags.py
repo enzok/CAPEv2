@@ -382,7 +382,13 @@ def format_js_event(event):
 
     if event_type == "console":
         lines.append(f"Level: {event.get('level', '')}")
-        lines.append(f"Message: {event.get('message', '')}")
+        message = event.get("message", "")
+        parsed_message = _parse_json_text(message)
+        if isinstance(parsed_message, (dict, list)):
+            lines.append("Message:")
+            lines.append(json.dumps(parsed_message, indent=2, sort_keys=True, ensure_ascii=False))
+        else:
+            lines.append(f"Message: {message}")
         return "\n".join(lines)
 
     if event_type == "warning":
