@@ -6,6 +6,7 @@ from lib.common.constants import OPT_CURDIR
 from lib.common.results import upload_to_host
 
 log = logging.getLogger(__name__)
+INTERCEPTOR_FILE_NAME = "js_interceptor.js"
 
 INTERCEPTOR_TEMPLATE = """(() => {
   const fs = require("fs");
@@ -191,7 +192,7 @@ class JsConsole(Auxiliary):
         temp_dir = _logged_in_user_temp()
         file_name = self.options.get("js_console_file", "js_console.log")
         self.log_path = os.path.join(temp_dir, file_name)
-        self.interceptor_name = self.options.get("js_interceptor_file", "js_interceptor.js")
+        self.interceptor_name = INTERCEPTOR_FILE_NAME
         self.interceptor_path = os.path.join(self._target_directory(), self.interceptor_name)
 
         # Interceptor should read this path and append console output there.
