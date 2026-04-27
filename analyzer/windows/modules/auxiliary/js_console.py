@@ -55,6 +55,10 @@ INTERCEPTOR_TEMPLATE = """(() => {
     try { return url.toString(); } catch { return String(url); }
   }
 
+  function safeCall(fn, fallback = null) {
+    try { return fn(); } catch { return fallback; }
+  }
+
   ["log", "info", "warn", "error", "debug"].forEach((level) => {
     const original = typeof console[level] === "function" ? console[level].bind(console) : null;
     console[level] = (...args) => {
@@ -74,6 +78,12 @@ INTERCEPTOR_TEMPLATE = """(() => {
     source: "js_interceptor",
     event: "init",
     log_path: logPath,
+    pid: safeCall(() => (typeof process !== "undefined" ? process.pid : null), null),
+    ppid: safeCall(() => (typeof process !== "undefined" ? process.ppid : null), null),
+    cwd: safeCall(() => (typeof process !== "undefined" ? process.cwd() : null), null),
+    exec_path: safeCall(() => (typeof process !== "undefined" ? process.execPath : null), null),
+    argv: safeCall(() => (typeof process !== "undefined" && Array.isArray(process.argv) ? process.argv : null), null),
+    bun_version: safeCall(() => (typeof Bun !== "undefined" ? Bun.version : null), null),
   });
 
   if (typeof globalThis.fetch !== "function") {
