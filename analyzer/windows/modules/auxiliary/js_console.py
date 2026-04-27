@@ -531,15 +531,11 @@ INTERCEPTOR_TEMPLATE = """(() => {
     if (typeof require !== "function") return;
     const httpMod = safeCall(() => require("http"), null);
     const httpsMod = safeCall(() => require("https"), null);
-    const axiosMod = safeCall(() => require("axios"), null);
-    const sioMod = safeCall(() => require("socket.io-client"), null);
     const dnsMod = safeCall(() => require("dns"), null);
     const netMod = safeCall(() => require("net"), null);
     const tlsMod = safeCall(() => require("tls"), null);
     installHttpLikeHook(httpMod, "http");
     installHttpLikeHook(httpsMod, "https");
-    installAxiosHook(axiosMod);
-    installSocketIoClientHook(sioMod);
     installDnsHook(dnsMod);
     installNetLikeHook(netMod, "tcp");
     installNetLikeHook(tlsMod, "tls");
