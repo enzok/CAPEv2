@@ -16,7 +16,7 @@ log = logging.getLogger(__name__)
 # Store it in extras as nodejs.zip
 NODE_ZIP_NAME = "nodejs.zip"
 NODE_DIR_NAME = "nodejs"
-INTERCEPTOR_NAME = "interceptor.js"
+INTERCEPTOR_NAME = "js_interceptor.js"
 
 
 def _set_windows_env_var(name, value):

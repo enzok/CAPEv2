@@ -14,7 +14,7 @@ log = logging.getLogger(__name__)
 DENO_ZIP_NAME = "deno.zip"
 DENO_DIR_NAME = "deno"
 DENO_EXE_NAME = "deno.exe"
-INTERCEPTOR_NAME = "interceptor.js"
+INTERCEPTOR_NAME = "js_interceptor.js"
 
 
 def resolve_extras_zip(zip_name):

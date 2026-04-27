@@ -16,7 +16,7 @@ log = logging.getLogger(__name__)
 BUN_ZIP_NAME = "bun.zip"
 BUN_DIR_NAME = "bun"
 BUN_EXE_NAME = "bun.exe"
-INTERCEPTOR_NAME = "interceptor.js"
+INTERCEPTOR_NAME = "js_interceptor.js"
 
 
 def resolve_extras_zip(zip_name):
