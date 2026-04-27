@@ -60,6 +60,491 @@ INTERCEPTOR_TEMPLATE = """(() => {
     try { return fn(); } catch { return fallback; }
   }
 
+  function toBodyLog(value) {
+    if (value === undefined || value === null) return null;
+    const t = truncate(safeToString(value));
+    return { text: t.text, truncated: t.truncated };
+  }
+
+  function nodeRequestMeta(input, options) {
+    let url = "";
+    let method = "GET";
+    let headers = {};
+    try {
+      if (typeof input === "string" || (typeof URL !== "undefined" && input instanceof URL)) {
+        url = normalizeUrl(input);
+      } else if (input && typeof input === "object") {
+        method = input.method || method;
+        headers = input.headers || headers;
+        const protocol = input.protocol || "http:";
+        const host = input.hostname || input.host || "localhost";
+        const port = input.port ? `:${input.port}` : "";
+        const path = input.path || input.pathname || "/";
+        url = `${protocol}//${host}${port}${path}`;
+      }
+
+      if (options && typeof options === "object") {
+        method = options.method || method;
+        headers = options.headers || headers;
+      }
+    } catch (_) {}
+    return { url, method, headers };
+  }
+
+  let seq = 0;
+
+  function installEvalHook() {
+    if (typeof globalThis.eval !== "function") return;
+    if (globalThis.eval.__jsInterceptorWrapped) return;
+    const originalEval = globalThis.eval;
+    const wrappedEval = function(code) {
+      safeAppendJson({
+        ts: nowIso(),
+        source: "js_interceptor",
+        event: "eval",
+        body: toBodyLog(code),
+      });
+      return originalEval(code);
+    };
+    wrappedEval.__jsInterceptorWrapped = true;
+    globalThis.eval = wrappedEval;
+  }
+
+  function installHttpLikeHook(mod, modName) {
+    if (!mod || typeof mod.request !== "function" || mod.__jsInterceptorWrapped) return;
+    mod.__jsInterceptorWrapped = true;
+
+    const originalRequest = mod.request.bind(mod);
+    mod.request = function(input, options, callback) {
+      const request_id = ++seq;
+      const meta = nodeRequestMeta(input, options);
+      const started = Date.now();
+      const reqBodyChunks = [];
+
+      safeAppendJson({
+        ts: nowIso(),
+        source: "js_interceptor",
+        event: "http_request",
+        request_id,
+        method: meta.method,
+        url: meta.url,
+        transport: modName,
+        headers: normalizeHeaders(meta.headers),
+        body: null,
+      });
+
+      const req = originalRequest(input, options, callback);
+      const originalWrite = typeof req.write === "function" ? req.write.bind(req) : null;
+      const originalEnd = typeof req.end === "function" ? req.end.bind(req) : null;
+
+      if (originalWrite) {
+        req.write = function(chunk, encoding, cb) {
+          if (chunk !== undefined && chunk !== null) reqBodyChunks.push(Buffer.from(chunk));
+          return originalWrite(chunk, encoding, cb);
+        };
+      }
+
+      if (originalEnd) {
+        req.end = function(chunk, encoding, cb) {
+          if (chunk !== undefined && chunk !== null) reqBodyChunks.push(Buffer.from(chunk));
+          const bodyText = reqBodyChunks.length ? Buffer.concat(reqBodyChunks).toString("utf8") : null;
+          safeAppendJson({
+            ts: nowIso(),
+            source: "js_interceptor",
+            event: "http_request_body",
+            request_id,
+            body: toBodyLog(bodyText),
+          });
+          return originalEnd(chunk, encoding, cb);
+        };
+      }
+
+      req.on("response", (res) => {
+        const chunks = [];
+        res.on("data", (c) => {
+          if (c !== undefined && c !== null) chunks.push(Buffer.from(c));
+        });
+        res.on("end", () => {
+          const text = chunks.length ? Buffer.concat(chunks).toString("utf8") : "";
+          safeAppendJson({
+            ts: nowIso(),
+            source: "js_interceptor",
+            event: "http_response",
+            request_id,
+            transport: modName,
+            status: res.statusCode,
+            status_text: res.statusMessage || "",
+            headers: normalizeHeaders(res.headers),
+            body: {
+              text: truncate(text).text,
+              truncated: truncate(text).truncated,
+              unreadable: false,
+            },
+            elapsed_ms: Date.now() - started,
+          });
+        });
+      });
+
+      req.on("error", (err) => {
+        safeAppendJson({
+          ts: nowIso(),
+          source: "js_interceptor",
+          event: "http_error",
+          request_id,
+          transport: modName,
+          elapsed_ms: Date.now() - started,
+          error: safeToString(err),
+        });
+      });
+
+      return req;
+    };
+
+    if (typeof mod.get === "function") {
+      const originalGet = mod.get.bind(mod);
+      mod.get = function(...args) {
+        const req = mod.request(...args);
+        req.end();
+        return req;
+      };
+      mod.get.__jsInterceptorWrapped = !!originalGet;
+    }
+  }
+
+  function installAxiosHook(axiosMod) {
+    if (!axiosMod || axiosMod.__jsInterceptorWrapped) return;
+    axiosMod.__jsInterceptorWrapped = true;
+
+    function wrapAxiosInstance(instance) {
+      if (!instance || typeof instance.request !== "function" || instance.__jsInterceptorWrapped) return;
+      instance.__jsInterceptorWrapped = true;
+      const originalRequest = instance.request.bind(instance);
+      instance.request = async function(config = {}) {
+        const request_id = ++seq;
+        const method = (config.method || "get").toUpperCase();
+        const url = config.url || "";
+        const started = Date.now();
+        safeAppendJson({
+          ts: nowIso(),
+          source: "js_interceptor",
+          event: "http_request",
+          request_id,
+          method,
+          url,
+          transport: "axios",
+          headers: normalizeHeaders(config.headers),
+          body: toBodyLog(config.data),
+        });
+        try {
+          const res = await originalRequest(config);
+          safeAppendJson({
+            ts: nowIso(),
+            source: "js_interceptor",
+            event: "http_response",
+            request_id,
+            transport: "axios",
+            status: res.status,
+            status_text: res.statusText || "",
+            headers: normalizeHeaders(res.headers),
+            body: toBodyLog(res.data),
+            elapsed_ms: Date.now() - started,
+          });
+          return res;
+        } catch (err) {
+          safeAppendJson({
+            ts: nowIso(),
+            source: "js_interceptor",
+            event: "http_error",
+            request_id,
+            transport: "axios",
+            elapsed_ms: Date.now() - started,
+            error: safeToString(err),
+          });
+          throw err;
+        }
+      };
+    }
+
+    wrapAxiosInstance(axiosMod);
+    if (typeof axiosMod.create === "function") {
+      const originalCreate = axiosMod.create.bind(axiosMod);
+      axiosMod.create = function(...args) {
+        const instance = originalCreate(...args);
+        wrapAxiosInstance(instance);
+        return instance;
+      };
+    }
+  }
+
+  function installSocketHook(socket) {
+    if (!socket || socket.__jsInterceptorWrapped) return;
+    socket.__jsInterceptorWrapped = true;
+
+    if (typeof socket.emit === "function") {
+      const originalEmit = socket.emit.bind(socket);
+      socket.emit = function(eventName, ...args) {
+        safeAppendJson({
+          ts: nowIso(),
+          source: "js_interceptor",
+          event: "socket_emit",
+          socket_event: safeToString(eventName),
+          args: toBodyLog(args),
+        });
+        return originalEmit(eventName, ...args);
+      };
+    }
+
+    if (typeof socket.on === "function") {
+      const originalOn = socket.on.bind(socket);
+      socket.on = function(eventName, handler) {
+        if (typeof handler !== "function") return originalOn(eventName, handler);
+        const wrapped = function(...cbArgs) {
+          safeAppendJson({
+            ts: nowIso(),
+            source: "js_interceptor",
+            event: "socket_on_event",
+            socket_event: safeToString(eventName),
+            args: toBodyLog(cbArgs),
+          });
+          return handler.apply(this, cbArgs);
+        };
+        return originalOn(eventName, wrapped);
+      };
+    }
+  }
+
+  function installSocketIoClientHook(ioModule) {
+    if (!ioModule) return;
+    const ioFn =
+      (typeof ioModule === "function" && ioModule) ||
+      (ioModule.default && typeof ioModule.default === "function" && ioModule.default) ||
+      (ioModule.io && typeof ioModule.io === "function" && ioModule.io) ||
+      null;
+
+    if (!ioFn || ioFn.__jsInterceptorWrapped) return;
+    const wrappedIo = function(...args) {
+      const socket = ioFn(...args);
+      installSocketHook(socket);
+      return socket;
+    };
+    wrappedIo.__jsInterceptorWrapped = true;
+
+    if (ioModule.io === ioFn) ioModule.io = wrappedIo;
+    if (ioModule.default === ioFn) ioModule.default = wrappedIo;
+    if (typeof ioModule === "function") {
+      // Can't rebind module value by reference; callers that hold original symbol
+      // will still work and can be wrapped by module loader hook below.
+    }
+  }
+
+  function installDnsHook(dnsMod) {
+    if (!dnsMod || dnsMod.__jsInterceptorWrapped) return;
+    dnsMod.__jsInterceptorWrapped = true;
+
+    ["lookup", "resolve", "resolve4", "resolve6"].forEach((fnName) => {
+      if (typeof dnsMod[fnName] !== "function" || dnsMod[fnName].__jsInterceptorWrapped) return;
+      const original = dnsMod[fnName].bind(dnsMod);
+      dnsMod[fnName] = function(...args) {
+        const request_id = ++seq;
+        const started = Date.now();
+        const host = args.length ? safeToString(args[0]) : "";
+
+        safeAppendJson({
+          ts: nowIso(),
+          source: "js_interceptor",
+          event: "dns_query",
+          request_id,
+          query_type: fnName,
+          host,
+        });
+
+        if (args.length && typeof args[args.length - 1] === "function") {
+          const cb = args[args.length - 1];
+          args[args.length - 1] = function(err, ...rest) {
+            if (err) {
+              safeAppendJson({
+                ts: nowIso(),
+                source: "js_interceptor",
+                event: "dns_error",
+                request_id,
+                query_type: fnName,
+                host,
+                elapsed_ms: Date.now() - started,
+                error: safeToString(err),
+              });
+            } else {
+              safeAppendJson({
+                ts: nowIso(),
+                source: "js_interceptor",
+                event: "dns_result",
+                request_id,
+                query_type: fnName,
+                host,
+                elapsed_ms: Date.now() - started,
+                result: toBodyLog(rest),
+              });
+            }
+            return cb.apply(this, [err, ...rest]);
+          };
+          return original(...args);
+        }
+
+        const ret = original(...args);
+        if (ret && typeof ret.then === "function") {
+          return ret.then((value) => {
+            safeAppendJson({
+              ts: nowIso(),
+              source: "js_interceptor",
+              event: "dns_result",
+              request_id,
+              query_type: fnName,
+              host,
+              elapsed_ms: Date.now() - started,
+              result: toBodyLog(value),
+            });
+            return value;
+          }).catch((err) => {
+            safeAppendJson({
+              ts: nowIso(),
+              source: "js_interceptor",
+              event: "dns_error",
+              request_id,
+              query_type: fnName,
+              host,
+              elapsed_ms: Date.now() - started,
+              error: safeToString(err),
+            });
+            throw err;
+          });
+        }
+        return ret;
+      };
+      dnsMod[fnName].__jsInterceptorWrapped = true;
+    });
+  }
+
+  function endpointFromArgs(args, defaultProto) {
+    let host = "";
+    let port = "";
+    let proto = defaultProto || "tcp";
+    try {
+      if (args.length && typeof args[0] === "object" && args[0] !== null) {
+        const o = args[0];
+        host = o.host || o.hostname || "";
+        port = o.port || "";
+        if (o.protocol) proto = safeToString(o.protocol).replace(":", "");
+      } else {
+        if (typeof args[0] === "number" || typeof args[0] === "string") port = args[0];
+        if (typeof args[1] === "string") host = args[1];
+      }
+    } catch (_) {}
+    return { host: safeToString(host), port: safeToString(port), proto };
+  }
+
+  function installSocketTrafficHook(socket, transport) {
+    if (!socket || socket.__jsInterceptorTrafficWrapped) return;
+    socket.__jsInterceptorTrafficWrapped = true;
+
+    const originalWrite = typeof socket.write === "function" ? socket.write.bind(socket) : null;
+    if (originalWrite) {
+      socket.write = function(chunk, ...rest) {
+        safeAppendJson({
+          ts: nowIso(),
+          source: "js_interceptor",
+          event: "tcp_send",
+          transport,
+          body: toBodyLog(chunk),
+        });
+        return originalWrite(chunk, ...rest);
+      };
+    }
+
+    socket.on("data", (chunk) => {
+      safeAppendJson({
+        ts: nowIso(),
+        source: "js_interceptor",
+        event: "tcp_receive",
+        transport,
+        body: toBodyLog(chunk),
+      });
+    });
+    socket.on("error", (err) => {
+      safeAppendJson({
+        ts: nowIso(),
+        source: "js_interceptor",
+        event: "tcp_error",
+        transport,
+        error: safeToString(err),
+      });
+    });
+  }
+
+  function installNetLikeHook(mod, modName) {
+    if (!mod || mod.__jsInterceptorNetWrapped) return;
+    mod.__jsInterceptorNetWrapped = true;
+
+    ["connect", "createConnection"].forEach((fnName) => {
+      if (typeof mod[fnName] !== "function" || mod[fnName].__jsInterceptorWrapped) return;
+      const original = mod[fnName].bind(mod);
+      mod[fnName] = function(...args) {
+        const ep = endpointFromArgs(args, modName);
+        safeAppendJson({
+          ts: nowIso(),
+          source: "js_interceptor",
+          event: "tcp_connect",
+          transport: modName,
+          host: ep.host,
+          port: ep.port,
+          protocol: ep.proto,
+        });
+        const socket = original(...args);
+        installSocketTrafficHook(socket, modName);
+        return socket;
+      };
+      mod[fnName].__jsInterceptorWrapped = true;
+    });
+  }
+
+  function installModuleLoadHook() {
+    if (typeof require !== "function") return;
+    const Module = safeCall(() => require("module"), null);
+    if (!Module || typeof Module._load !== "function" || Module._load.__jsInterceptorWrapped) return;
+
+    const originalLoad = Module._load;
+    Module._load = function(request, parent, isMain) {
+      const loaded = originalLoad.apply(this, arguments);
+      try {
+        if (request === "http") installHttpLikeHook(loaded, "http");
+        else if (request === "https") installHttpLikeHook(loaded, "https");
+        else if (request === "axios") installAxiosHook(loaded);
+        else if (request === "socket.io-client") installSocketIoClientHook(loaded);
+        else if (request === "dns") installDnsHook(loaded);
+        else if (request === "net") installNetLikeHook(loaded, "tcp");
+        else if (request === "tls") installNetLikeHook(loaded, "tls");
+      } catch (_) {}
+      return loaded;
+    };
+    Module._load.__jsInterceptorWrapped = true;
+  }
+
+  function installOptionalKnownModules() {
+    if (typeof require !== "function") return;
+    const httpMod = safeCall(() => require("http"), null);
+    const httpsMod = safeCall(() => require("https"), null);
+    const axiosMod = safeCall(() => require("axios"), null);
+    const sioMod = safeCall(() => require("socket.io-client"), null);
+    const dnsMod = safeCall(() => require("dns"), null);
+    const netMod = safeCall(() => require("net"), null);
+    const tlsMod = safeCall(() => require("tls"), null);
+    installHttpLikeHook(httpMod, "http");
+    installHttpLikeHook(httpsMod, "https");
+    installAxiosHook(axiosMod);
+    installSocketIoClientHook(sioMod);
+    installDnsHook(dnsMod);
+    installNetLikeHook(netMod, "tcp");
+    installNetLikeHook(tlsMod, "tls");
+  }
+
   ["log", "info", "warn", "error", "debug"].forEach((level) => {
     const original = typeof console[level] === "function" ? console[level].bind(console) : null;
     console[level] = (...args) => {
@@ -85,7 +570,13 @@ INTERCEPTOR_TEMPLATE = """(() => {
     exec_path: safeCall(() => (typeof process !== "undefined" ? process.execPath : null), null),
     argv: safeCall(() => (typeof process !== "undefined" && Array.isArray(process.argv) ? process.argv : null), null),
     bun_version: safeCall(() => (typeof Bun !== "undefined" ? Bun.version : null), null),
+    has_fetch: typeof globalThis.fetch === "function",
+    fetch_type: safeCall(() => typeof globalThis.fetch, null),
   });
+
+  installEvalHook();
+  installModuleLoadHook();
+  installOptionalKnownModules();
 
   if (typeof globalThis.fetch !== "function") {
     safeAppendJson({
@@ -98,7 +589,6 @@ INTERCEPTOR_TEMPLATE = """(() => {
   }
 
   const originalFetch = globalThis.fetch;
-  let seq = 0;
 
   globalThis.fetch = async (url, options = {}) => {
     const request_id = ++seq;

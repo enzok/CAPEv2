@@ -380,6 +380,55 @@ def format_js_event(event):
         lines.append(f"Error: {event.get('error', '')}")
         return "\n".join(lines)
 
+    if event_type == "dns_query":
+        lines.append(f"Type: {event.get('query_type', '')}")
+        lines.append(f"Host: {event.get('host', '')}")
+        return "\n".join(lines)
+
+    if event_type == "dns_result":
+        lines.append(f"Type: {event.get('query_type', '')}")
+        lines.append(f"Host: {event.get('host', '')}")
+        lines.append(f"Elapsed: {event.get('elapsed_ms', '')} ms")
+        result = _format_body(event.get("result"))
+        if result:
+            lines.append("Result:")
+            lines.append(result)
+        return "\n".join(lines)
+
+    if event_type == "dns_error":
+        lines.append(f"Type: {event.get('query_type', '')}")
+        lines.append(f"Host: {event.get('host', '')}")
+        lines.append(f"Elapsed: {event.get('elapsed_ms', '')} ms")
+        lines.append(f"Error: {event.get('error', '')}")
+        return "\n".join(lines)
+
+    if event_type == "tcp_connect":
+        lines.append(f"Transport: {event.get('transport', '')}")
+        lines.append(f"Protocol: {event.get('protocol', '')}")
+        lines.append(f"Host: {event.get('host', '')}")
+        lines.append(f"Port: {event.get('port', '')}")
+        return "\n".join(lines)
+
+    if event_type in ("tcp_send", "tcp_receive"):
+        lines.append(f"Transport: {event.get('transport', '')}")
+        body = _format_body(event.get("body"))
+        if body:
+            lines.append("Data:")
+            lines.append(body)
+        return "\n".join(lines)
+
+    if event_type == "tcp_error":
+        lines.append(f"Transport: {event.get('transport', '')}")
+        lines.append(f"Error: {event.get('error', '')}")
+        return "\n".join(lines)
+
+    if event_type == "http_request_body":
+        body = _format_body(event.get("body"))
+        if body:
+            lines.append("Body:")
+            lines.append(body)
+        return "\n".join(lines)
+
     if event_type == "console":
         lines.append(f"Level: {event.get('level', '')}")
         message = event.get("message", "")
@@ -395,8 +444,32 @@ def format_js_event(event):
         lines.append(f"Message: {event.get('message', '')}")
         return "\n".join(lines)
 
+    if event_type == "eval":
+        body = _format_body(event.get("body"))
+        if body:
+            lines.append("Code:")
+            lines.append(body)
+        return "\n".join(lines)
+
+    if event_type in ("socket_emit", "socket_on_event"):
+        lines.append(f"Socket Event: {event.get('socket_event', '')}")
+        body = _format_body(event.get("args"))
+        if body:
+            lines.append("Args:")
+            lines.append(body)
+        return "\n".join(lines)
+
     if event_type == "init":
         lines.append(f"Log Path: {event.get('log_path', '')}")
+        lines.append(f"PID: {event.get('pid', '')}  PPID: {event.get('ppid', '')}")
+        lines.append(f"CWD: {event.get('cwd', '')}")
+        lines.append(f"Exec: {event.get('exec_path', '')}")
+        lines.append(f"Bun: {event.get('bun_version', '')}")
+        lines.append(f"Fetch Available: {event.get('has_fetch', '')} ({event.get('fetch_type', '')})")
+        argv = event.get("argv")
+        if argv:
+            lines.append("ARGV:")
+            lines.append(json.dumps(argv, indent=2, ensure_ascii=False))
         return "\n".join(lines)
 
     lines.append(json.dumps(event, indent=2, sort_keys=True, ensure_ascii=False))
