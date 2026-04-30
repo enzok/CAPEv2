@@ -1426,9 +1426,8 @@ def tasks_behavior(request, task_id):
     if rtid:
         task_id = rtid
 
-    include_calls = request.query_params.get("include_calls", "0").lower() in ("1", "true", "yes")
     pid = force_int(request.query_params.get("pid", 0))
-    max_calls = force_int(request.query_params.get("max_calls", 0))
+    tid = force_int(request.query_params.get("tid", 0))
 
     jfile = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, "reports", "report.json")
     if not os.path.normpath(jfile).startswith(ANALYSIS_BASE_PATH):
@@ -1459,10 +1458,8 @@ def tasks_behavior(request, task_id):
             if pid and process_pid != pid:
                 continue
             proc_data = dict(proc)
-            if "calls" in proc_data and not include_calls:
-                del proc_data["calls"]
-            elif include_calls and max_calls > 0 and isinstance(proc_data.get("calls"), list):
-                proc_data["calls"] = proc_data["calls"][:max_calls]
+            if tid and isinstance(proc_data.get("calls"), list):
+                proc_data["calls"] = [call for call in proc_data["calls"] if isinstance(call, dict) and call.get("tid") == tid]
             filtered.append(proc_data)
         data["processes"] = filtered
 
