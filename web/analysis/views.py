@@ -3159,6 +3159,21 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
     if category not in allowed_categories:
         return render(request, "error.html", {"error": f"Unsupported category: {category}"}, status=400)
 
+    def _get_artifact_path_by_sha(category_name, target_sha256):
+        if category_name not in {"dropped", "procdump", "procmemory"}:
+            return None
+        projection = {"_id": 0, category_name: 1}
+        doc = mongo_find_one("analysis", {"info.id": int(task_id)}, projection) or {}
+        for entry in doc.get(category_name, []) or []:
+            if not isinstance(entry, dict):
+                continue
+            if entry.get("sha256") != target_sha256:
+                continue
+            candidate = entry.get("path")
+            if candidate and _path_safe(candidate) and path_exists(candidate):
+                return candidate
+        return None
+
     # Self Extracted support folder
     path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "selfextracted", sha256)
 
@@ -3168,9 +3183,9 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
             path = os.path.join(ANALYSIS_BASE_PATH, "analyses", task_id, "binary")
             category = "target.file"
         elif category == "dropped":
-            path = os.path.join(ANALYSIS_BASE_PATH, "analyses", task_id, "files", sha256)
+            path = _get_artifact_path_by_sha("dropped", sha256) or os.path.join(ANALYSIS_BASE_PATH, "analyses", task_id, "files", sha256)
         else:
-            path = os.path.join(ANALYSIS_BASE_PATH, "analyses", task_id, category, sha256)
+            path = _get_artifact_path_by_sha(category, sha256) or os.path.join(ANALYSIS_BASE_PATH, "analyses", task_id, category, sha256)
     else:
         # selfextracted storage is shared by multiple categories; keep non-static category intact
         if category == "static":
