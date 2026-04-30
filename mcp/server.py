@@ -607,9 +607,9 @@ async def list_exitnodes(token: str = "") -> str:
     return json.dumps(result, indent=2)
 
 @mcp_tool("cuckoostatus")
-async def get_cuckoo_status(token: str = "") -> str:
+async def get_cape_status(token: str = "") -> str:
     """Get the status of the CAPE host."""
-    result = await _request("GET", "cuckoo/status/", token=token)
+    result = await _request("GET", "cape/status/", token=token)
     return json.dumps(result, indent=2)
 
 @mcp.tool()
@@ -618,8 +618,8 @@ async def verify_auth(token: str = "") -> str:
     Verify if the provided API token is valid.
     Useful for checking authentication status before performing other operations.
     """
-    # We use a lightweight endpoint like cuckoo status to check auth
-    result = await _request("GET", "cuckoo/status/", token=token)
+    # We use a lightweight endpoint like cape status to check auth
+    result = await _request("GET", "cape/status/", token=token)
 
     if isinstance(result, dict) and result.get("error"):
         return json.dumps({"authenticated": False, "message": "Invalid token or authentication failed.", "details": result}, indent=2)
