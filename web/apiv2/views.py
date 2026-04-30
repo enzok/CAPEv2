@@ -2419,9 +2419,9 @@ def cape_status(request):
     # post
     # request.data
     resp = {}
-    if not apiconf.cuckoostatus.get("enabled"):
+    if not apiconf.capestatus.get("enabled"):
         resp["error"] = True
-        resp["error_value"] = "Cuckoo Status API is disabled"
+        resp["error_value"] = "CAPE Status API is disabled"
     else:
         resp["error"] = False
         tasks_dict_with_counts = db.get_tasks_status_count()
