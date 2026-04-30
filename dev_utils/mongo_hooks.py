@@ -107,9 +107,15 @@ def normalize_files(report):
     reference to it (along with the detonation-dependent fields) in the
     report.
     """
+    task_id = report.get("info", {}).get("id")
+    if not task_id:
+        # Partial update payloads (e.g., {"procdump": [...]}) don't carry full analysis
+        # context. Skip normalization hook in that case.
+        return report
+
     requests = []
     for file_dict in collect_file_dicts(report):
-        request = normalize_file(file_dict, report["info"]["id"])
+        request = normalize_file(file_dict, task_id)
         if request:
             requests.append(request)
 
