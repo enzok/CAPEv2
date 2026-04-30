@@ -1407,6 +1407,47 @@ def _find_pid_in_tree(node, target_pid):
 
 @csrf_exempt
 @api_view(["GET"])
+def tasks_network(request, task_id):
+    try:
+        enabled = apiconf.tasknetwork.get("enabled")
+    except Exception:
+        enabled = False
+    if not enabled:
+        return Response({"error": True, "error_value": "Task network API is disabled"})
+
+    check = validate_task(task_id)
+    if check["error"]:
+        return Response(check)
+
+    if check.get("tlp", "") in ("red", "Red"):
+        return Response({"error": True, "error_value": "Task has a TLP of RED"})
+
+    rtid = check.get("rtid", 0)
+    if rtid:
+        task_id = rtid
+
+    jfile = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, "reports", "report.json")
+    if not os.path.normpath(jfile).startswith(ANALYSIS_BASE_PATH):
+        return render(request, "error.html", {"error": f"File not found: {os.path.basename(jfile)}"})
+    if not path_exists(jfile):
+        return Response({"error": True, "error_value": f"Network report does not exist for task {task_id}"})
+
+    try:
+        with open(jfile, "r") as jdata:
+            report = json.load(jdata)
+    except Exception as e:
+        log.exception("Unable to parse network report for task %s: %s", task_id, e)
+        return Response({"error": True, "error_value": "Unable to parse report JSON"})
+
+    network = report.get("network", {})
+    if not isinstance(network, dict):
+        network = {}
+
+    return Response({"error": False, "data": network})
+
+
+@csrf_exempt
+@api_view(["GET"])
 def tasks_behavior(request, task_id):
     try:
         enabled = apiconf.taskbehavior.get("enabled")

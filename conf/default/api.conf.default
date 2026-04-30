@@ -199,6 +199,14 @@ rps = 1/s
 rpm = 6/m
 mcp = no
 
+# Retrieve full network section from report.json
+[tasknetwork]
+enabled = no
+auth_only = no
+rps = 1/s
+rpm = 4/m
+mcp = no
+
 # Retrieve full behavior section from report.json
 [taskbehavior]
 enabled = no
