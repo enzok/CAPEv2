@@ -1407,6 +1407,78 @@ def _find_pid_in_tree(node, target_pid):
 
 @csrf_exempt
 @api_view(["GET"])
+def tasks_jslog(request, task_id):
+    try:
+        enabled = apiconf.taskjslog.get("enabled")
+    except Exception:
+        enabled = False
+    if not enabled:
+        return Response({"error": True, "error_value": "Task JS log API is disabled"})
+
+    check = validate_task(task_id)
+    if check["error"]:
+        return Response(check)
+
+    if check.get("tlp", "") in ("red", "Red"):
+        return Response({"error": True, "error_value": "Task has a TLP of RED"})
+
+    rtid = check.get("rtid", 0)
+    if rtid:
+        task_id = rtid
+
+    include_log = request.query_params.get("include_log", "0").lower() in ("1", "true", "yes")
+    event_type = request.query_params.get("event_type", "").strip()
+    max_events = force_int(request.query_params.get("max_events", 0))
+
+    jfile = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, "reports", "report.json")
+    if not os.path.normpath(jfile).startswith(ANALYSIS_BASE_PATH):
+        return render(request, "error.html", {"error": f"File not found: {os.path.basename(jfile)}"})
+    if not path_exists(jfile):
+        return Response({"error": True, "error_value": f"JS log report does not exist for task {task_id}"})
+
+    try:
+        with open(jfile, "r") as jdata:
+            report = json.load(jdata)
+    except Exception as e:
+        log.exception("Unable to parse JS log report for task %s: %s", task_id, e)
+        return Response({"error": True, "error_value": "Unable to parse report JSON"})
+
+    js_log = report.get("js_log", {})
+    if not isinstance(js_log, dict):
+        js_log = {}
+
+    data = dict(js_log)
+    if not include_log and "log" in data:
+        del data["log"]
+
+    if event_type:
+        events = data.get("events", [])
+        if isinstance(events, list):
+            data["events"] = [event for event in events if isinstance(event, dict) and event.get("event") == event_type]
+            data["parsed_lines"] = len(data["events"])
+        event_key_map = {
+            "http_request": "http_requests",
+            "http_response": "http_responses",
+            "http_error": "http_errors",
+            "console": "console",
+            "warning": "warnings",
+            "init": "init",
+        }
+        keep_key = event_key_map.get(event_type)
+        for key in ("http_requests", "http_responses", "http_errors", "console", "warnings", "init"):
+            if key != keep_key and key in data:
+                data[key] = []
+
+    if max_events > 0:
+        for key in ("events", "http_requests", "http_responses", "http_errors", "console", "warnings", "init"):
+            if isinstance(data.get(key), list):
+                data[key] = data[key][:max_events]
+
+    return Response({"error": False, "data": data})
+
+
+@csrf_exempt
+@api_view(["GET"])
 def tasks_network(request, task_id):
     try:
         enabled = apiconf.tasknetwork.get("enabled")
