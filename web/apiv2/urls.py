@@ -69,7 +69,7 @@ urlpatterns = [
     re_path(r"^files/get/(?P<stype>task)/(?P<value>\d+)/$", views.file),
     re_path(r"^machines/list/$", views.machines_list),
     re_path(r"^machines/view/(?P<name>[\w$-/:-?{-~!^_`\[\]]+)/$", views.machines_view),
-    re_path(r"^cuckoo/status/$", views.cuckoo_status),
+    re_path(r"^cape/status/$", views.cape_status),
     re_path(r"^tasks/get/latests/(?P<hours>\d+)/$", views.tasks_latest),
     # re_path(r"^tasks/add/(?P<category>[A-Za-z0-9]+)/(?P<task_id>\d+)/$", views.post_processing),
     re_path(r"^tasks/statistics/(?P<days>\d+)/$", views.statistics_data),

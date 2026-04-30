@@ -2413,7 +2413,7 @@ def _bytes2gb(size):
 
 
 @api_view(["GET"])
-def cuckoo_status(request):
+def cape_status(request):
     # get
     # print(request.query_params)
     # post
