@@ -606,7 +606,7 @@ async def list_exitnodes(token: str = "") -> str:
     result = await _request("GET", "exitnodes/", token=token)
     return json.dumps(result, indent=2)
 
-@mcp_tool("cuckoostatus")
+@mcp_tool("capestatus")
 async def get_cape_status(token: str = "") -> str:
     """Get the status of the CAPE host."""
     result = await _request("GET", "cape/status/", token=token)
