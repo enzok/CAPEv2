@@ -37,6 +37,8 @@ urlpatterns = [
     re_path(r"^tasks/get/report/(?P<task_id>\d+)/$", views.tasks_report),
     re_path(r"^tasks/get/report/(?P<task_id>\d+)/(?P<report_format>\w+)/$", views.tasks_report),
     re_path(r"^tasks/get/report/(?P<task_id>\d+)/(?P<report_format>\w+)/(?P<make_zip>\w{3})/$", views.tasks_report),
+    re_path(r"^tasks/get/behavior/(?P<task_id>\d+)/$", views.tasks_behavior),
+    re_path(r"^tasks/get/debugger/(?P<task_id>\d+)/$", views.tasks_debugger),
     re_path(r"^tasks/get/iocs/(?P<task_id>\d+)/$", views.tasks_iocs),
     re_path(r"^tasks/get/iocs/(?P<task_id>\d+)/(?P<detail>detailed)/$", views.tasks_iocs),
     re_path(r"^tasks/get/config/(?P<task_id>\d+)/$", views.tasks_config),

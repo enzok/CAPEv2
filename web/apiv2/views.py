@@ -1393,6 +1393,147 @@ def tasks_report(request, task_id, report_format="json", make_zip=False):
         return Response(resp)
 
 
+def _find_pid_in_tree(node, target_pid):
+    if not isinstance(node, dict):
+        return None
+    if node.get("pid") == target_pid:
+        return node
+    for child in node.get("children", []) or []:
+        found = _find_pid_in_tree(child, target_pid)
+        if found:
+            return found
+    return None
+
+
+@csrf_exempt
+@api_view(["GET"])
+def tasks_behavior(request, task_id):
+    try:
+        enabled = apiconf.taskbehavior.get("enabled")
+    except Exception:
+        enabled = False
+    if not enabled:
+        return Response({"error": True, "error_value": "Task behavior API is disabled"})
+
+    check = validate_task(task_id)
+    if check["error"]:
+        return Response(check)
+
+    if check.get("tlp", "") in ("red", "Red"):
+        return Response({"error": True, "error_value": "Task has a TLP of RED"})
+
+    rtid = check.get("rtid", 0)
+    if rtid:
+        task_id = rtid
+
+    include_calls = request.query_params.get("include_calls", "0").lower() in ("1", "true", "yes")
+    pid = force_int(request.query_params.get("pid", 0))
+    max_calls = force_int(request.query_params.get("max_calls", 0))
+
+    jfile = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, "reports", "report.json")
+    if not os.path.normpath(jfile).startswith(ANALYSIS_BASE_PATH):
+        return render(request, "error.html", {"error": f"File not found: {os.path.basename(jfile)}"})
+    if not path_exists(jfile):
+        return Response({"error": True, "error_value": f"Behavior report does not exist for task {task_id}"})
+
+    try:
+        with open(jfile, "r") as jdata:
+            report = json.load(jdata)
+    except Exception as e:
+        log.exception("Unable to parse behavior report for task %s: %s", task_id, e)
+        return Response({"error": True, "error_value": "Unable to parse report JSON"})
+
+    behavior = report.get("behavior", {})
+    if not isinstance(behavior, dict):
+        return Response({"error": False, "data": {}})
+
+    # Apply optional filtering without modifying loaded report object.
+    data = dict(behavior)
+
+    if isinstance(behavior.get("processes"), list):
+        filtered = []
+        for proc in behavior["processes"]:
+            if not isinstance(proc, dict):
+                continue
+            process_pid = proc.get("process_id", proc.get("pid"))
+            if pid and process_pid != pid:
+                continue
+            proc_data = dict(proc)
+            if "calls" in proc_data and not include_calls:
+                del proc_data["calls"]
+            elif include_calls and max_calls > 0 and isinstance(proc_data.get("calls"), list):
+                proc_data["calls"] = proc_data["calls"][:max_calls]
+            filtered.append(proc_data)
+        data["processes"] = filtered
+
+    if pid and isinstance(behavior.get("processtree"), list):
+        tree_match = None
+        for root in behavior["processtree"]:
+            tree_match = _find_pid_in_tree(root, pid)
+            if tree_match:
+                break
+        data["processtree"] = [tree_match] if tree_match else []
+
+    return Response({"error": False, "data": data})
+
+
+@csrf_exempt
+@api_view(["GET"])
+def tasks_debugger(request, task_id):
+    try:
+        enabled = apiconf.taskdebugger.get("enabled")
+    except Exception:
+        enabled = False
+    if not enabled:
+        return Response({"error": True, "error_value": "Task debugger API is disabled"})
+
+    check = validate_task(task_id)
+    if check["error"]:
+        return Response(check)
+
+    if check.get("tlp", "") in ("red", "Red"):
+        return Response({"error": True, "error_value": "Task has a TLP of RED"})
+
+    rtid = check.get("rtid", 0)
+    if rtid:
+        task_id = rtid
+
+    pid_filter = request.query_params.get("pid", "").strip()
+    tail_lines = force_int(request.query_params.get("tail_lines", 0))
+    max_bytes = force_int(request.query_params.get("max_bytes", 0))
+
+    dbgdir = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, "debugger")
+    if not os.path.normpath(dbgdir).startswith(ANALYSIS_BASE_PATH):
+        return render(request, "error.html", {"error": f"File not found: {os.path.basename(dbgdir)}"})
+    if not path_exists(dbgdir):
+        return Response({"error": False, "data": {}})
+
+    logs = {}
+    try:
+        for log_file in sorted(os.listdir(dbgdir)):
+            if not log_file.endswith(".log"):
+                continue
+            pid = os.path.splitext(log_file)[0]
+            if pid_filter and pid_filter != pid:
+                continue
+            log_path = os.path.join(dbgdir, log_file)
+            if not os.path.isfile(log_path):
+                continue
+            with open(log_path, "r") as f:
+                content = f.read()
+
+            if max_bytes > 0:
+                content = content[-max_bytes:]
+            if tail_lines > 0:
+                content = "\n".join(content.splitlines()[-tail_lines:])
+            logs[pid] = content
+    except Exception as e:
+        log.exception("Unable to read debugger logs for task %s: %s", task_id, e)
+        return Response({"error": True, "error_value": "Unable to read debugger logs"})
+
+    return Response({"error": False, "data": logs})
+
+
 @csrf_exempt
 @api_view(["GET"])
 def tasks_iocs(request, task_id, detail=None):
