@@ -5,6 +5,7 @@
 import base64
 import collections
 import datetime
+import hashlib
 import json
 import os
 import subprocess
@@ -29,10 +30,12 @@ from django.views.decorators.http import require_POST, require_safe
 from rest_framework.decorators import api_view
 
 MONGO_DOCUMENT_TOO_LARGE_ERRORS = ()
+MONGO_OPERATION_FAILURE_ERRORS = ()
 try:
-    from pymongo.errors import DocumentTooLarge
+    from pymongo.errors import DocumentTooLarge, OperationFailure
 
     MONGO_DOCUMENT_TOO_LARGE_ERRORS = (DocumentTooLarge,)
+    MONGO_OPERATION_FAILURE_ERRORS = (OperationFailure,)
 except ImportError:
     pass
 
@@ -182,7 +185,15 @@ for cfile in ("integrations", "reporting", "processing", "auxiliary", "web", "di
 if enabledconf["mongodb"]:
     from bson.objectid import ObjectId
 
-    from dev_utils.mongodb import mongo_aggregate, mongo_delete_data, mongo_find, mongo_find_one, mongo_update_one
+    from dev_utils.mongodb import (
+        mongo_aggregate,
+        mongo_delete_data,
+        mongo_delete_many,
+        mongo_find,
+        mongo_find_one,
+        mongo_insert_one,
+        mongo_update_one,
+    )
 
 es_as_db = False
 essearch = False
@@ -211,6 +222,85 @@ anon_not_viewable_func_list = (
     "search_behavior",
     "statistics_data",
 )
+
+ANALYSIS_CHUNKS_COLL = "analysis_chunks"
+WEB_CHUNKABLE_NON_QUERY_FIELDS = {"info.comments"}
+
+
+def _is_mongo_doc_too_large(exc: Exception) -> bool:
+    if isinstance(exc, MONGO_DOCUMENT_TOO_LARGE_ERRORS):
+        return True
+    if isinstance(exc, MONGO_OPERATION_FAILURE_ERRORS) and getattr(exc, "code", None) in (10334, 15):
+        return True
+    msg = str(exc)
+    return "BSONObjectTooLarge" in msg or "BSONObj size" in msg
+
+
+def _store_chunked_analysis_field(task_id: int, field_path: str, value):
+    raw = json.dumps(value, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+    digest = hashlib.sha256(raw).hexdigest()
+    chunk_size = int(getattr(reporting_cfg.mongodb, "analysis_chunks_bytes", 2 * 1024 * 1024))
+    part_ids = []
+    total = (len(raw) + chunk_size - 1) // chunk_size
+
+    try:
+        for seq in range(total):
+            part = raw[seq * chunk_size : (seq + 1) * chunk_size]
+            part_doc = {
+                "task_id": int(task_id),
+                "path": field_path,
+                "seq": seq,
+                "total": total,
+                "codec": "json-v1",
+                "sha256": digest,
+                "data": part,
+            }
+            part_ids.append(mongo_insert_one(ANALYSIS_CHUNKS_COLL, part_doc).inserted_id)
+    except Exception:
+        if part_ids:
+            mongo_delete_many(ANALYSIS_CHUNKS_COLL, {"_id": {"$in": part_ids}})
+        raise
+
+    return {
+        "__chunked__": True,
+        "collection": ANALYSIS_CHUNKS_COLL,
+        "codec": "json-v1",
+        "parts": part_ids,
+        "path": field_path,
+        "sha256": digest,
+        "orig_bytes": len(raw),
+        "stored_bytes": len(raw),
+    }
+
+
+def _cleanup_chunk_orphans_for_field(task_id: int, field_path: str, keep_part_ids=None):
+    query = {"task_id": int(task_id), "path": field_path}
+    if keep_part_ids:
+        query["_id"] = {"$nin": list(keep_part_ids)}
+    mongo_delete_many(ANALYSIS_CHUNKS_COLL, query)
+
+
+def _safe_update_analysis_field(doc_id, task_id: int, field_path: str, value):
+    first_exc = None
+    try:
+        mongo_update_one("analysis", {"_id": ObjectId(doc_id)}, {"$set": {field_path: value}})
+        _cleanup_chunk_orphans_for_field(task_id=task_id, field_path=field_path)
+        return
+    except Exception as exc:
+        first_exc = exc
+        if not _is_mongo_doc_too_large(exc):
+            raise
+
+    if field_path not in WEB_CHUNKABLE_NON_QUERY_FIELDS:
+        raise first_exc
+
+    pointer = _store_chunked_analysis_field(task_id=task_id, field_path=field_path, value=value)
+    try:
+        mongo_update_one("analysis", {"_id": ObjectId(doc_id)}, {"$set": {field_path: pointer}})
+        _cleanup_chunk_orphans_for_field(task_id=task_id, field_path=field_path, keep_part_ids=pointer["parts"])
+    except Exception:
+        mongo_delete_many(ANALYSIS_CHUNKS_COLL, {"_id": {"$in": pointer["parts"]}})
+        raise
 
 
 # Conditional decorator for web authentication
@@ -2938,7 +3028,9 @@ def comments(request, task_id):
         buf["Status"] = "posted"
         curcomments.insert(0, buf)
         if enabledconf["mongodb"]:
-            mongo_update_one("analysis", {"info.id": int(task_id)}, {"$set": {"info.comments": curcomments}})
+            doc = mongo_find_one("analysis", {"info.id": int(task_id)}, {"_id": 1}, sort=[("_id", -1)])
+            if doc and doc.get("_id"):
+                _safe_update_analysis_field(doc_id=doc["_id"], task_id=int(task_id), field_path="info.comments", value=curcomments)
         if es_as_db:
             es.update(index=esidx, id=esid, body={"doc": {"info": {"comments": curcomments}}})
         return redirect("report", task_id=task_id)
@@ -3067,6 +3159,21 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
     if category not in allowed_categories:
         return render(request, "error.html", {"error": f"Unsupported category: {category}"}, status=400)
 
+    def _get_artifact_path_by_sha(category_name, target_sha256):
+        if category_name not in {"dropped", "procdump", "procmemory"}:
+            return None
+        projection = {"_id": 0, category_name: 1}
+        doc = mongo_find_one("analysis", {"info.id": int(task_id)}, projection) or {}
+        for entry in doc.get(category_name, []) or []:
+            if not isinstance(entry, dict):
+                continue
+            if entry.get("sha256") != target_sha256:
+                continue
+            candidate = entry.get("path")
+            if candidate and _path_safe(candidate) and path_exists(candidate):
+                return candidate
+        return None
+
     # Self Extracted support folder
     path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "selfextracted", sha256)
 
@@ -3076,9 +3183,9 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
             path = os.path.join(ANALYSIS_BASE_PATH, "analyses", task_id, "binary")
             category = "target.file"
         elif category == "dropped":
-            path = os.path.join(ANALYSIS_BASE_PATH, "analyses", task_id, "files", sha256)
+            path = _get_artifact_path_by_sha("dropped", sha256) or os.path.join(ANALYSIS_BASE_PATH, "analyses", task_id, "files", sha256)
         else:
-            path = os.path.join(ANALYSIS_BASE_PATH, "analyses", task_id, category, sha256)
+            path = _get_artifact_path_by_sha(category, sha256) or os.path.join(ANALYSIS_BASE_PATH, "analyses", task_id, category, sha256)
     else:
         # selfextracted storage is shared by multiple categories; keep non-static category intact
         if category == "static":
@@ -3173,8 +3280,16 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
 
         if servicedata:
             try:
-                mongo_update_one("analysis", {"_id": ObjectId(buf["_id"])}, {"$set": {category: servicedata}})
-            except MONGO_DOCUMENT_TOO_LARGE_ERRORS:
+                _safe_update_analysis_field(doc_id=buf["_id"], task_id=int(task_id), field_path=category, value=servicedata)
+            except Exception as e:
+                if not _is_mongo_doc_too_large(e):
+                    print(f"on_demand update failed for task_id={task_id} service={service} category={category} sha256={sha256}: {e}")
+                    return render(
+                        request,
+                        "error.html",
+                        {"error": f"Failed to store generated {service} data."},
+                        status=500,
+                    )
                 return render(
                     request,
                     "error.html",
@@ -3185,14 +3300,6 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
                         )
                     },
                     status=413,
-                )
-            except Exception as e:
-                print(f"on_demand update failed for task_id={task_id} service={service} category={category} sha256={sha256}: {e}")
-                return render(
-                    request,
-                    "error.html",
-                    {"error": f"Failed to store generated {service} data."},
-                    status=500,
                 )
         del details
 
@@ -3255,7 +3362,12 @@ def wildfire_verdict(request, task_id:str, sha256: str):
     if wf_change_verdict(sha256):
         doc = mongo_find_one("analysis", {"info.id": int(task_id)}, {"_id": 1, "target.file.wildfire": 1})
         if doc:
-            mongo_update_one("analysis", {"_id": ObjectId(doc["_id"])}, {"$set": {"target.file.wildfire": "malware"}})
+            _safe_update_analysis_field(
+                doc_id=doc["_id"],
+                task_id=int(task_id),
+                field_path="target.file.wildfire",
+                value="malware",
+            )
             return redirect("report", task_id=task_id)
 
     return render(request, "error.html", {"error": f"Failed to change update Wildfire verdict."})

@@ -1,6 +1,8 @@
 import os
 import zipfile
 import logging
+import shutil
+import subprocess
 
 from lib.common.abstracts import Package
 from lib.common.common import check_file_extension
@@ -14,9 +16,31 @@ log = logging.getLogger(__name__)
 # Store it in extras as nodejs.zip
 NODE_ZIP_NAME = "nodejs.zip"
 NODE_DIR_NAME = "nodejs"
+INTERCEPTOR_NAME = "js_interceptor.js"
 
 
-def setup_node_environment():
+def _set_windows_env_var(name, value):
+    # Set for current process immediately.
+    os.environ[name] = value
+    # Persist as a Windows user environment variable.
+    try:
+        subprocess.run(["setx", name, value], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
+    except Exception as e:
+        log.debug("Failed to persist env var %s via setx: %s", name, e)
+
+
+def resolve_extras_zip(zip_name):
+    candidates = [
+        os.path.abspath(os.path.join("extras", zip_name)),
+        os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "extras", zip_name)),
+    ]
+    for candidate in candidates:
+        if os.path.exists(candidate):
+            return candidate
+    return candidates[0]
+
+
+def setup_node_environment(node_zip_path):
     """
     Attempts to unzip a portable Node environment.
     Returns: (path_to_node_exe, None) on success (None, error_message) on failure
@@ -26,18 +50,10 @@ def setup_node_environment():
         user_profile = os.environ.get("USERPROFILE", "C:\\Users\\Admin")
         install_path = os.path.join(user_profile, "AppData", "Local", "app")
 
-        # Look for zip in absolute path relative to current execution or fixed 'extras'
-        # Assuming 'extras' is in the current working dir of the analyzer
-        node_zip_path = os.path.abspath(os.path.join("extras", NODE_ZIP_NAME))
         node_bin_path = os.path.join(install_path, NODE_DIR_NAME)
 
         if not os.path.exists(node_zip_path):
             return None, f"Zip not found at {node_zip_path}"
-
-        if not os.path.exists(node_bin_path):
-            os.makedirs(node_bin_path)
-
-        node_exe_path = None
 
         # 1. Open Zip and Find node.exe BEFORE extracting
         with zipfile.ZipFile(node_zip_path, 'r') as z:
@@ -51,28 +67,17 @@ def setup_node_environment():
             if not node_internal_path:
                 return None, "Archive does not contain node.exe"
 
-            # 2. Extract
-            # We extract to a specific folder to avoid cluttering if it's a "root-files" zip
-            # We use the zip name (minus extension) as a container folder
             extract_path = node_bin_path
-
-            if not os.path.exists(extract_path):
+            node_exe_path = os.path.normpath(os.path.join(extract_path, node_internal_path))
+            if not os.path.exists(node_exe_path):
                 # Security: Check for path traversal before extraction.
                 for member in z.infolist():
                     if member.filename.startswith("/") or ".." in member.filename:
                         return None, f"Aborting extraction. Zip contains potentially malicious path: {member.filename}"
 
-                os.makedirs(extract_path)
+                os.makedirs(extract_path, exist_ok=True)
                 log.info("Extracting to %s...", extract_path)
                 z.extractall(extract_path)
-
-            # 3. Construct the full path
-            # extract_path + internal_path_inside_zip
-            # e.g. C:\Apps\node-v25\ + node-v25-win-x64/node.exe
-            node_exe_path = os.path.join(extract_path, node_internal_path)
-
-            # Normalizing path separators (fixes mix of / and \)
-            node_exe_path = os.path.normpath(node_exe_path)
 
         # 4. Final Verification and Env Setup
         if node_exe_path and os.path.exists(node_exe_path):
@@ -114,21 +119,28 @@ class NodeJS(Package):
     def start(self, path):
         path = check_file_extension(path, ".js")
         args = self.options.get(OPT_ARGUMENTS, "")
+        target_dir = os.path.dirname(path) or "."
+        interceptor_path = os.path.join(target_dir, INTERCEPTOR_NAME)
 
-        # Prepare the argument list
-        # CAPE expects a list of arguments for the process
-        node_args = f'"{path}"'
+        if os.path.exists(interceptor_path):
+            _set_windows_env_var("NODE_OPTIONS", f"--require ./{INTERCEPTOR_NAME}")
+        else:
+            _set_windows_env_var("NODE_OPTIONS", "")
+            log.warning("Node interceptor not found at %s. Running without --require.", interceptor_path)
 
-        # Append additional arguments if they exist
+        node_args = ""
         if args:
-            node_args += f" {args}"
+            # Node runtime flags must precede the script target.
+            node_args = f"{node_args} {args}".strip()
+        node_args = f'{node_args} "{path}"'.strip()
 
         # 1. Try to set up Custom Node
         binary = None
 
         # Check if the zip exists before trying setup
-        if os.path.exists(os.path.join("extras", NODE_ZIP_NAME)):
-            custom_bin, error = setup_node_environment()
+        node_zip_path = resolve_extras_zip(NODE_ZIP_NAME)
+        if os.path.exists(node_zip_path):
+            custom_bin, error = setup_node_environment(node_zip_path)
             if custom_bin:
                 binary = custom_bin
                 log.info("Using Custom Node.js: %s", binary)
@@ -139,7 +151,11 @@ class NodeJS(Package):
         # 2. Fallback to System Node if custom failed or zip missing
         if not binary:
             log.info("Falling back to system installed Node.js")
-            binary = self.get_path("node.exe")
+            try:
+                binary = self.get_path("node.exe")
+            except Exception:
+                # PATH lookup for installations outside the hardcoded PATHS list.
+                binary = shutil.which("node.exe")
 
         # 3. Execution
         if not binary:

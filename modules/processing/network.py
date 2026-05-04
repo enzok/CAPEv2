@@ -1651,10 +1651,12 @@ class NetworkAnalysis(Processing):
                 self.options["sorted"] = True
                 results.update(Pcap(sorted_path, ja3_fprints, self.options).run())
 
-        if HAVE_HTTPREPLAY and not using_mixed_pcap:
+        httpreplay_pcap_path = original_pcap_path if using_mixed_pcap else self.pcap_path
+
+        if HAVE_HTTPREPLAY:
             try:
                 tls_master = self.get_tlsmaster()
-                p2 = Pcap2(self.pcap_path, tls_master, self.network_path).run()
+                p2 = Pcap2(httpreplay_pcap_path, tls_master, self.network_path).run()
                 if any(p2.values()):
                     results.update(p2)
             except Exception:

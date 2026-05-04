@@ -125,6 +125,8 @@ def check_webgui_mongo():
         # Some indexes that can be useful for some users
         mongo_create_index("files", "md5", name="file_md5")
         mongo_create_index("files", [("_task_ids", 1)])
+        mongo_create_index("analysis_chunks", [("task_id", 1), ("path", 1), ("seq", 1)], name="analysis_chunks_tid_path_seq")
+        mongo_create_index("analysis_chunks", [("task_id", 1)], name="analysis_chunks_task_id")
 
         # side indexes as ideas
         """

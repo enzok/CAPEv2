@@ -199,6 +199,38 @@ rps = 1/s
 rpm = 6/m
 mcp = no
 
+# Retrieve js_log section from report.json
+[taskjslog]
+enabled = no
+auth_only = no
+rps = 1/s
+rpm = 4/m
+mcp = no
+
+# Retrieve full network section from report.json
+[tasknetwork]
+enabled = no
+auth_only = no
+rps = 1/s
+rpm = 4/m
+mcp = no
+
+# Retrieve full behavior section from report.json
+[taskbehavior]
+enabled = no
+auth_only = no
+rps = 1/s
+rpm = 4/m
+mcp = no
+
+# Retrieve debugger logs as JSON (pid => log text)
+[taskdebugger]
+enabled = no
+auth_only = no
+rps = 1/s
+rpm = 4/m
+mcp = no
+
 # Configure the ability to pull a summarized version of data stored in MongoDB
 # which contains potentially actionable data.
 [taskiocs]

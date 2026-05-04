@@ -209,6 +209,7 @@ def mongo_delete_data(task_ids: int | Sequence[int]) -> None:
 
         if task_ids:
             mongo_delete_calls(task_ids=task_ids)
+            mongo_delete_many("analysis_chunks", {"task_id": {"$in": task_ids}})
             mongo_delete_many("analysis", {"info.id": {"$in": task_ids}})
             for hook in hooks[mongo_delete_data]["analysis"]:
                 hook(task_ids)
@@ -227,6 +228,7 @@ def mongo_delete_data_range(*, range_start: int = 0, range_end: int = 0) -> None
             info_id_query["$lt"] = range_end
         if info_id_query:
             mongo_delete_calls_by_task_id_in_range(range_start=range_start, range_end=range_end)
+            mongo_delete_many("analysis_chunks", {"task_id": info_id_query})
             mongo_delete_many("analysis", {INFO_ID: info_id_query})
             for hook in hooks[mongo_delete_data_range]["analysis"]:
                 hook(range_start=range_start, range_end=range_end)

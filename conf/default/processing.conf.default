@@ -352,6 +352,12 @@ key =
 [script_log_processing]
 enabled = yes
 
+# Community
+[js_log_processing]
+enabled = no
+log_name = js_console.log
+max_entries = 10000
+
 [html_scraper]
 enabled = no
 

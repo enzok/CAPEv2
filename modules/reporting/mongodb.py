@@ -3,16 +3,30 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 import gc
+import hashlib
+import json
 import logging
 
+from bson import BSON
+from bson.binary import Binary
+from contextlib import suppress
+from lib.cuckoo.common.iocs import dump_iocs
 from lib.cuckoo.common.abstracts import Report
 from lib.cuckoo.common.exceptions import CuckooDependencyError, CuckooReportError
 from modules.reporting.report_doc import ensure_valid_utf8, get_json_document, insert_calls
+from lib.cuckoo.common.config import Config
 
 try:
     from pymongo.errors import InvalidDocument, OperationFailure
 
-    from dev_utils.mongodb import mongo_collection_names, mongo_delete_data, mongo_find_one, mongo_insert_one, mongo_update_one
+    from dev_utils.mongodb import (
+        mongo_collection_names,
+        mongo_delete_data,
+        mongo_delete_many,
+        mongo_find_one,
+        mongo_insert_one,
+        mongo_update_one,
+    )
 
     HAVE_MONGO = True
 except ImportError:
@@ -20,8 +34,13 @@ except ImportError:
 
 MONGOSIZELIMIT = 0x1000000
 MEGABYTE = 0x100000
+ANALYSIS_CHUNKS_COLL = "analysis_chunks"
+DEFAULT_TARGET_DOC_SIZE = 14 * MEGABYTE
+DEFAULT_MIN_SECTION_SIZE = 1 * MEGABYTE
+CHUNKABLE_NON_QUERY_FIELDS = ("strings", "behavior.processtree")
 
 log = logging.getLogger(__name__)
+reporting_conf = Config("reporting")
 
 
 class MongoDB(Report):
@@ -31,6 +50,139 @@ class MongoDB(Report):
 
     # Mongo schema version, used for data migration.
     SCHEMA_VERSION = "1"
+
+    @staticmethod
+    def _bson_size(doc):
+        return len(BSON.encode(doc))
+
+    @staticmethod
+    def _is_doc_too_large(exc):
+        if isinstance(exc, OperationFailure) and getattr(exc, "code", None) in (10334, 15):
+            return True
+        msg = str(exc)
+        return "BSONObjectTooLarge" in msg or "BSONObj size" in msg
+
+    @staticmethod
+    def _get_path(doc, dotted):
+        cur = doc
+        for part in dotted.split("."):
+            if not isinstance(cur, dict) or part not in cur:
+                return None
+            cur = cur[part]
+        return cur
+
+    @staticmethod
+    def _set_path(doc, dotted, value):
+        parts = dotted.split(".")
+        cur = doc
+        for part in parts[:-1]:
+            cur = cur[part]
+        cur[parts[-1]] = value
+
+    def _delete_chunk_part_ids(self, part_ids):
+        if part_ids:
+            mongo_delete_many(ANALYSIS_CHUNKS_COLL, {"_id": {"$in": list(part_ids)}})
+
+    def _cleanup_chunk_orphans(self, task_id, dotted_path, keep_part_ids=None):
+        query = {"task_id": int(task_id), "path": dotted_path}
+        if keep_part_ids:
+            query["_id"] = {"$nin": list(keep_part_ids)}
+        mongo_delete_many(ANALYSIS_CHUNKS_COLL, query)
+
+    def _build_chunk_pointer(self, task_id, dotted_path, value):
+        raw = json.dumps(value, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+        digest = hashlib.sha256(raw).hexdigest()
+        chunk_size = int(self.options.get("analysis_chunks_bytes", 2 * MEGABYTE))
+        chunk_ids = []
+        total = (len(raw) + chunk_size - 1) // chunk_size
+        try:
+            for seq in range(total):
+                part = raw[seq * chunk_size : (seq + 1) * chunk_size]
+                doc = {
+                    "task_id": int(task_id),
+                    "path": dotted_path,
+                    "seq": seq,
+                    "total": total,
+                    "codec": "json-v1",
+                    "sha256": digest,
+                    "data": Binary(part),
+                }
+                chunk_ids.append(mongo_insert_one(ANALYSIS_CHUNKS_COLL, doc).inserted_id)
+        except Exception:
+            self._delete_chunk_part_ids(chunk_ids)
+            raise
+        return {
+            "__chunked__": True,
+            "collection": ANALYSIS_CHUNKS_COLL,
+            "codec": "json-v1",
+            "parts": chunk_ids,
+            "path": dotted_path,
+            "sha256": digest,
+            "orig_bytes": len(raw),
+            "stored_bytes": len(raw),
+        }
+
+    def _store_chunked_section(self, report, task_id, dotted_path, value):
+        pointer = self._build_chunk_pointer(task_id=task_id, dotted_path=dotted_path, value=value)
+        self._set_path(report, dotted_path, pointer)
+        self._cleanup_chunk_orphans(task_id=task_id, dotted_path=dotted_path, keep_part_ids=pointer["parts"])
+
+    def _set_analysis_field_with_chunk_fallback(self, obj_id, task_id, field_path, value):
+        first_exc = None
+        try:
+            mongo_update_one("analysis", {"_id": obj_id}, {"$set": {field_path: value}}, bypass_document_validation=True)
+            self._cleanup_chunk_orphans(task_id=task_id, dotted_path=field_path)
+            return
+        except (InvalidDocument, OperationFailure) as exc:
+            first_exc = exc
+            if not self._is_doc_too_large(exc):
+                raise
+
+        if field_path not in CHUNKABLE_NON_QUERY_FIELDS:
+            raise first_exc
+
+        pointer = self._build_chunk_pointer(task_id=task_id, dotted_path=field_path, value=value)
+        try:
+            mongo_update_one("analysis", {"_id": obj_id}, {"$set": {field_path: pointer}}, bypass_document_validation=True)
+            self._cleanup_chunk_orphans(task_id=task_id, dotted_path=field_path, keep_part_ids=pointer["parts"])
+        except Exception:
+            self._delete_chunk_part_ids(pointer["parts"])
+            raise
+
+    def _insert_analysis_non_lossy(self, report):
+        task_id = report["info"]["id"]
+        target_size = int(self.options.get("chunk_large_docs_target_bytes", DEFAULT_TARGET_DOC_SIZE))
+        min_section = int(self.options.get("chunk_large_docs_min_section_bytes", DEFAULT_MIN_SECTION_SIZE))
+        candidates = list(CHUNKABLE_NON_QUERY_FIELDS)
+
+        created = []
+        try:
+            while self._bson_size(report) > target_size:
+                sized = []
+                for path in candidates:
+                    value = self._get_path(report, path)
+                    if value is None or (isinstance(value, dict) and value.get("__chunked__")):
+                        continue
+                    sec_size = self._bson_size({"v": value})
+                    if sec_size >= min_section:
+                        sized.append((sec_size, path, value))
+                if not sized:
+                    raise CuckooReportError("Report too large and no chunkable section remains")
+                _, path, value = max(sized, key=lambda x: x[0])
+                before_ids = set(created)
+                self._store_chunked_section(report, task_id, path, value)
+                ptr = self._get_path(report, path)
+                created.extend(ptr.get("parts", []))
+                if set(created) == before_ids:
+                    raise CuckooReportError(f"Failed chunking section: {path}")
+
+            mongo_insert_one("analysis", report)
+        except Exception:
+            if created:
+                from dev_utils.mongodb import mongo_delete_many
+
+                mongo_delete_many(ANALYSIS_CHUNKS_COLL, {"_id": {"$in": created}})
+            raise
 
     def debug_dict_size(self, dct):
         if isinstance(dct, list):
@@ -76,14 +228,52 @@ class MongoDB(Report):
         if "_id" in keys:
             keys.remove("_id")
 
+        # We insert the info section first to get an _id
         obj_id = mongo_insert_one("analysis", {"info": report["info"]}).inserted_id
+        task_id = report["info"]["id"]
         keys.remove("info")
 
         for key in keys:
             try:
-                mongo_update_one("analysis", {"_id": obj_id}, {"$set": {key: report[key]}}, bypass_document_validation=True)
+                if key == "behavior" and isinstance(report[key], dict):
+                    try:
+                        self._set_analysis_field_with_chunk_fallback(
+                            obj_id=obj_id, task_id=task_id, field_path=key, value=report[key]
+                        )
+                    except (InvalidDocument, OperationFailure) as exc:
+                        if not self._is_doc_too_large(exc):
+                            raise
+                        processtree = report[key].get("processtree")
+                        if processtree is None:
+                            raise
+                        pointer = self._build_chunk_pointer(
+                            task_id=task_id,
+                            dotted_path="behavior.processtree",
+                            value=processtree,
+                        )
+                        behavior_with_pointer = dict(report[key])
+                        behavior_with_pointer["processtree"] = pointer
+                        try:
+                            mongo_update_one(
+                                "analysis",
+                                {"_id": obj_id},
+                                {"$set": {"behavior": behavior_with_pointer}},
+                                bypass_document_validation=True,
+                            )
+                            self._cleanup_chunk_orphans(
+                                task_id=task_id,
+                                dotted_path="behavior.processtree",
+                                keep_part_ids=pointer["parts"],
+                            )
+                        except Exception:
+                            self._delete_chunk_part_ids(pointer["parts"])
+                            raise
+                else:
+                    self._set_analysis_field_with_chunk_fallback(obj_id=obj_id, task_id=task_id, field_path=key, value=report[key])
             except InvalidDocument:
                 log.warning("Investigate your key: %s", key)
+            except Exception as e:
+                log.error("Failed to update key %s in loop_saver: %s", key, e)
 
     def run(self, results):
         """Writes report.
@@ -100,7 +290,7 @@ class MongoDB(Report):
         # TODO: This is not optimal because it run each analysis. Need to run only one time at startup.
         if "cuckoo_schema" in mongo_collection_names():
             if mongo_find_one("cuckoo_schema", {}, {"version": 1})["version"] != self.SCHEMA_VERSION:
-                CuckooReportError("Mongo schema version not expected, check data migration tool")
+                raise CuckooReportError("Mongo schema version not expected, check data migration tool")
         else:
             mongo_insert_one("cuckoo_schema", {"version": self.SCHEMA_VERSION})
 
@@ -108,97 +298,57 @@ class MongoDB(Report):
         # the original dictionary and possibly compromise the following
         # reporting modules.
         report = get_json_document(results, self.analysis_path)
+        if not report or "info" not in report:
+            log.error("Failed to get JSON document or 'info' key is missing for Task")
+            return
 
-        mongo_delete_data(int(report["info"]["id"]))
-        log.debug("Deleted previous MongoDB data for Task %s", report["info"]["id"])
+        local_task_id = int(report["info"].get("id", 0))
+        if not local_task_id:
+            log.error("Task ID is missing in report['info']")
+            return
 
         # trick for distributed api
-        if results.get("info", {}).get("options", {}).get("main_task_id", ""):
-            report["info"]["id"] = int(results["info"]["options"]["main_task_id"])
+        main_task_id = results.get("info", {}).get("options", {}).get("main_task_id")
+        if main_task_id:
+            with suppress(ValueError, TypeError):
+                report["info"]["id"] = int(main_task_id)
 
         if "network" not in report:
             report["network"] = {}
 
+        if "behavior" not in report or not isinstance(report["behavior"], dict):
+            report["behavior"] = {"processes": [], "processtree": [], "summary": {}}
+
+        # Delete old data just before inserting new one to avoid "missing report" window
+        # or data loss if insertion fails during preparation (e.g. OOM)
+        ids_to_delete = {local_task_id, int(report["info"]["id"])}
+        log.debug("Deleting previous MongoDB data for Task IDs: %s", ids_to_delete)
+        mongo_delete_data(list(ids_to_delete))
+
         new_processes = insert_calls(report, mongodb=True)
         # Store the results in the report.
-        report["behavior"] = dict(report["behavior"])
         report["behavior"]["processes"] = new_processes
+
+        # Store iocs as file
+        if reporting_conf.mongodb.dump_iocs:
+            dump_iocs(report, local_task_id)
 
         ensure_valid_utf8(report)
         gc.collect()
 
         # Store the report and retrieve its object id.
         try:
+            log.debug("Inserting new MongoDB report for Task %s", report["info"]["id"])
             mongo_insert_one("analysis", report)
-        except OperationFailure as e:
-            # Check for error codes indicating the BSON object was too large
-            # (10334 BSONObjectTooLarge) or the maximum nested object depth was
-            # exceeded (15 Overflow).
-            if e.code in (10334, 15):
-                log.error("Got MongoDB OperationFailure, code %d", e.code)
-                # ToDo rewrite how children are stored
-                log.warning("Deleting behavior process tree children from results.")
-                del report["behavior"]["processtree"][0]["children"]
-                try:
-                    mongo_insert_one("analysis", report)
-                except Exception as e:
-                    log.error("Deleting behavior process tree parent from results: %s", str(e))
-                    del report["behavior"]["processtree"][0]
-                    mongo_insert_one("analysis", report)
-            else:
-                raise CuckooReportError("Failed inserting report in Mongo") from e
-        except InvalidDocument as e:
+        except (OperationFailure, InvalidDocument) as e:
             if str(e).startswith("cannot encode object") or "must not contain" in str(e):
                 self.loop_saver(report)
                 return
-            parent_key, psize = self.debug_dict_size(report)[0]
-            log.warning("Largest parent key: %s (%d MB)", parent_key, int(psize) // MEGABYTE)
-            if self.options.get("fix_large_docs"):
-                # Delete the problem keys and check for more
-                error_saved = True
-                size_filter = MONGOSIZELIMIT
-                while error_saved:
-                    if isinstance(report, list):
-                        report = report[0]
-                    try:
-                        if isinstance(report[parent_key], list):
-                            if parent_key == "strings":
-                                del report["strings"]
-                                parent_key, psize = self.debug_dict_size(report)[0]
-                                continue
-                            else:
-                                for j, parent_dict in enumerate(report[parent_key]):
-                                    child_key, csize = self.debug_dict_size(parent_dict)[0]
-                                    if csize > size_filter:
-                                        log.warning("results['%s']['%s'] deleted due to size: %s", parent_key, child_key, csize)
-                                        del report[parent_key][j][child_key]
-                        else:
-                            child_key, csize = self.debug_dict_size(report[parent_key])[0]
-                            if csize > size_filter:
-                                log.warning("results['%s']['%s'] deleted due to size: %s", parent_key, child_key, csize)
-                                del report[parent_key][child_key]
-                        try:
-                            mongo_insert_one("analysis", report)
-                            error_saved = False
-                        except InvalidDocument as e:
-                            if str(e).startswith("documents must have only string keys"):
-                                log.error("Search bug in your modifications - you got an dictionary key as int, should be string")
-                                log.error(str(e))
-                                return
-                            else:
-                                parent_key, psize = self.debug_dict_size(report)[0]
-                                log.error(str(e))
-                                log.warning("Largest parent key: %s (%d MB)", parent_key, int(psize) // MEGABYTE)
-                                size_filter -= MEGABYTE
-                    except Exception as e:
-                        log.error("Failed to delete child key: %s", e)
-                        error_saved = False
-        except Exception as e:
-            log.error("Deleting behavior process tree children from results.")
-            del report["behavior"]["processtree"][0]["children"]
-            try:
-                mongo_insert_one("analysis", report)
-            except:
-                log.error("Deleting behavior process tree parent from results.")
-                del report["behavior"]["processtree"][0]
-                mongo_insert_one("analysis", report)
+
+            if self.options.get("chunk_large_docs", True):
+                log.warning("Large analysis document detected; switching to chunked storage: %s", e)
+                self._insert_analysis_non_lossy(report)
+            else:
+                raise CuckooReportError(
+                    f"Failed to insert MongoDB report for task {report['info']['id']}: {e}"
+                ) from e

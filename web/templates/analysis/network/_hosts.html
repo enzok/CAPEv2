@@ -11,7 +11,7 @@
                         <th>IP</th>
                         <th>Country Name</th>
                         <th>ASN</th>
-                        {% if settings.NETWORK_PROC_MAP %} <th>Processes</th> {% endif %}
+                        {% if settings.NETWORK_PROC_MAP %} <th>Process Name (PID)</th> {% endif %}
                     </tr>
                     {% for host in network.hosts %}
                     <tr>

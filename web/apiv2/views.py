@@ -163,6 +163,63 @@ def createProcessTreeNode(process):
     return process_node_dict
 
 
+def _collect_selfextract_from_analysis(analysis: dict) -> dict:
+    """Collect per-tool selfextract metadata from all file-bearing analysis sections."""
+    merged: dict = {}
+    seen_by_tool: dict = {}
+
+    file_nodes = []
+    target_file = analysis.get("target", {}).get("file")
+    if isinstance(target_file, dict):
+        file_nodes.append(target_file)
+
+    for section in ("dropped", "procdump", "procmemory"):
+        vals = analysis.get(section, []) or []
+        if isinstance(vals, list):
+            file_nodes.extend(v for v in vals if isinstance(v, dict))
+
+    cape_payloads = analysis.get("CAPE", {}).get("payloads", []) or []
+    if isinstance(cape_payloads, list):
+        file_nodes.extend(v for v in cape_payloads if isinstance(v, dict))
+
+    for fnode in file_nodes:
+        selfextract = fnode.get("selfextract", {})
+        if not isinstance(selfextract, dict):
+            continue
+
+        for tool_name, details in selfextract.items():
+            if not isinstance(details, dict):
+                continue
+
+            out = merged.setdefault(
+                tool_name,
+                {
+                    "extracted_files": [],
+                    "password": details.get("password", ""),
+                    "extracted_files_time": details.get("extracted_files_time"),
+                },
+            )
+            seen = seen_by_tool.setdefault(tool_name, set())
+
+            for meta in details.get("extracted_files", []) or []:
+                if not isinstance(meta, dict):
+                    continue
+                sha256 = meta.get("sha256")
+                key = sha256 if sha256 else json.dumps(meta, sort_keys=True, default=str)
+                if key in seen:
+                    continue
+                seen.add(key)
+                out["extracted_files"].append(meta)
+
+            # Keep latest non-empty values when merging.
+            if details.get("password"):
+                out["password"] = details["password"]
+            if details.get("extracted_files_time") is not None:
+                out["extracted_files_time"] = details["extracted_files_time"]
+
+    return merged
+
+
 @require_safe
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def index(request):
@@ -1336,6 +1393,257 @@ def tasks_report(request, task_id, report_format="json", make_zip=False):
         return Response(resp)
 
 
+def _find_pid_in_tree(node, target_pid):
+    if not isinstance(node, dict):
+        return None
+    if node.get("pid") == target_pid:
+        return node
+    for child in node.get("children", []) or []:
+        found = _find_pid_in_tree(child, target_pid)
+        if found:
+            return found
+    return None
+
+
+@csrf_exempt
+@api_view(["GET"])
+def tasks_jslog(request, task_id):
+    try:
+        enabled = apiconf.taskjslog.get("enabled")
+    except Exception:
+        enabled = False
+    if not enabled:
+        return Response({"error": True, "error_value": "Task JS log API is disabled"})
+
+    check = validate_task(task_id)
+    if check["error"]:
+        return Response(check)
+
+    if check.get("tlp", "") in ("red", "Red"):
+        return Response({"error": True, "error_value": "Task has a TLP of RED"})
+
+    rtid = check.get("rtid", 0)
+    if rtid:
+        task_id = rtid
+
+    include_log = request.query_params.get("include_log", "0").lower() in ("1", "true", "yes")
+    event_type = request.query_params.get("event_type", "").strip()
+    max_events = force_int(request.query_params.get("max_events", 0))
+
+    jfile = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, "reports", "report.json")
+    if not os.path.normpath(jfile).startswith(ANALYSIS_BASE_PATH):
+        return render(request, "error.html", {"error": f"File not found: {os.path.basename(jfile)}"})
+    if not path_exists(jfile):
+        return Response({"error": True, "error_value": f"JS log report does not exist for task {task_id}"})
+
+    try:
+        with open(jfile, "r") as jdata:
+            report = json.load(jdata)
+    except Exception as e:
+        log.exception("Unable to parse JS log report for task %s: %s", task_id, e)
+        return Response({"error": True, "error_value": "Unable to parse report JSON"})
+
+    js_log = report.get("js_log", {})
+    if not isinstance(js_log, dict):
+        js_log = {}
+
+    data = dict(js_log)
+    if not include_log and "log" in data:
+        del data["log"]
+
+    if event_type:
+        events = data.get("events", [])
+        if isinstance(events, list):
+            data["events"] = [event for event in events if isinstance(event, dict) and event.get("event") == event_type]
+            data["parsed_lines"] = len(data["events"])
+        event_key_map = {
+            "http_request": "http_requests",
+            "http_response": "http_responses",
+            "http_error": "http_errors",
+            "console": "console",
+            "warning": "warnings",
+            "init": "init",
+        }
+        keep_key = event_key_map.get(event_type)
+        for key in ("http_requests", "http_responses", "http_errors", "console", "warnings", "init"):
+            if key != keep_key and key in data:
+                data[key] = []
+
+    if max_events > 0:
+        for key in ("events", "http_requests", "http_responses", "http_errors", "console", "warnings", "init"):
+            if isinstance(data.get(key), list):
+                data[key] = data[key][:max_events]
+
+    return Response({"error": False, "data": data})
+
+
+@csrf_exempt
+@api_view(["GET"])
+def tasks_network(request, task_id):
+    try:
+        enabled = apiconf.tasknetwork.get("enabled")
+    except Exception:
+        enabled = False
+    if not enabled:
+        return Response({"error": True, "error_value": "Task network API is disabled"})
+
+    check = validate_task(task_id)
+    if check["error"]:
+        return Response(check)
+
+    if check.get("tlp", "") in ("red", "Red"):
+        return Response({"error": True, "error_value": "Task has a TLP of RED"})
+
+    rtid = check.get("rtid", 0)
+    if rtid:
+        task_id = rtid
+
+    jfile = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, "reports", "report.json")
+    if not os.path.normpath(jfile).startswith(ANALYSIS_BASE_PATH):
+        return render(request, "error.html", {"error": f"File not found: {os.path.basename(jfile)}"})
+    if not path_exists(jfile):
+        return Response({"error": True, "error_value": f"Network report does not exist for task {task_id}"})
+
+    try:
+        with open(jfile, "r") as jdata:
+            report = json.load(jdata)
+    except Exception as e:
+        log.exception("Unable to parse network report for task %s: %s", task_id, e)
+        return Response({"error": True, "error_value": "Unable to parse report JSON"})
+
+    network = report.get("network", {})
+    if not isinstance(network, dict):
+        network = {}
+
+    return Response({"error": False, "data": network})
+
+
+@csrf_exempt
+@api_view(["GET"])
+def tasks_behavior(request, task_id):
+    try:
+        enabled = apiconf.taskbehavior.get("enabled")
+    except Exception:
+        enabled = False
+    if not enabled:
+        return Response({"error": True, "error_value": "Task behavior API is disabled"})
+
+    check = validate_task(task_id)
+    if check["error"]:
+        return Response(check)
+
+    if check.get("tlp", "") in ("red", "Red"):
+        return Response({"error": True, "error_value": "Task has a TLP of RED"})
+
+    rtid = check.get("rtid", 0)
+    if rtid:
+        task_id = rtid
+
+    pid = force_int(request.query_params.get("pid", 0))
+    tid = force_int(request.query_params.get("tid", 0))
+
+    jfile = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, "reports", "report.json")
+    if not os.path.normpath(jfile).startswith(ANALYSIS_BASE_PATH):
+        return render(request, "error.html", {"error": f"File not found: {os.path.basename(jfile)}"})
+    if not path_exists(jfile):
+        return Response({"error": True, "error_value": f"Behavior report does not exist for task {task_id}"})
+
+    try:
+        with open(jfile, "r") as jdata:
+            report = json.load(jdata)
+    except Exception as e:
+        log.exception("Unable to parse behavior report for task %s: %s", task_id, e)
+        return Response({"error": True, "error_value": "Unable to parse report JSON"})
+
+    behavior = report.get("behavior", {})
+    if not isinstance(behavior, dict):
+        return Response({"error": False, "data": {}})
+
+    # Apply optional filtering without modifying loaded report object.
+    data = dict(behavior)
+
+    if isinstance(behavior.get("processes"), list):
+        filtered = []
+        for proc in behavior["processes"]:
+            if not isinstance(proc, dict):
+                continue
+            process_pid = proc.get("process_id", proc.get("pid"))
+            if pid and process_pid != pid:
+                continue
+            proc_data = dict(proc)
+            if tid and isinstance(proc_data.get("calls"), list):
+                proc_data["calls"] = [call for call in proc_data["calls"] if isinstance(call, dict) and call.get("tid") == tid]
+            filtered.append(proc_data)
+        data["processes"] = filtered
+
+    if pid and isinstance(behavior.get("processtree"), list):
+        tree_match = None
+        for root in behavior["processtree"]:
+            tree_match = _find_pid_in_tree(root, pid)
+            if tree_match:
+                break
+        data["processtree"] = [tree_match] if tree_match else []
+
+    return Response({"error": False, "data": data})
+
+
+@csrf_exempt
+@api_view(["GET"])
+def tasks_debugger(request, task_id):
+    try:
+        enabled = apiconf.taskdebugger.get("enabled")
+    except Exception:
+        enabled = False
+    if not enabled:
+        return Response({"error": True, "error_value": "Task debugger API is disabled"})
+
+    check = validate_task(task_id)
+    if check["error"]:
+        return Response(check)
+
+    if check.get("tlp", "") in ("red", "Red"):
+        return Response({"error": True, "error_value": "Task has a TLP of RED"})
+
+    rtid = check.get("rtid", 0)
+    if rtid:
+        task_id = rtid
+
+    pid_filter = request.query_params.get("pid", "").strip()
+    tail_lines = force_int(request.query_params.get("tail_lines", 0))
+    max_bytes = force_int(request.query_params.get("max_bytes", 0))
+
+    dbgdir = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, "debugger")
+    if not os.path.normpath(dbgdir).startswith(ANALYSIS_BASE_PATH):
+        return render(request, "error.html", {"error": f"File not found: {os.path.basename(dbgdir)}"})
+    if not path_exists(dbgdir):
+        return Response({"error": False, "data": {}})
+
+    logs = {}
+    try:
+        for log_file in sorted(os.listdir(dbgdir)):
+            if not log_file.endswith(".log"):
+                continue
+            pid = os.path.splitext(log_file)[0]
+            if pid_filter and pid_filter != pid:
+                continue
+            log_path = os.path.join(dbgdir, log_file)
+            if not os.path.isfile(log_path):
+                continue
+            with open(log_path, "r") as f:
+                content = f.read()
+
+            if max_bytes > 0:
+                content = content[-max_bytes:]
+            if tail_lines > 0:
+                content = "\n".join(content.splitlines()[-tail_lines:])
+            logs[pid] = content
+    except Exception as e:
+        log.exception("Unable to read debugger logs for task %s: %s", task_id, e)
+        return Response({"error": True, "error_value": "Unable to read debugger logs"})
+
+    return Response({"error": False, "data": logs})
+
+
 @csrf_exempt
 @api_view(["GET"])
 def tasks_iocs(request, task_id, detail=None):
@@ -1827,9 +2135,19 @@ def tasks_selfextracted(request, task_id, tool="all"):
     selfextract_data = {}
 
     if repconf.mongodb.enabled:
-        tmp = mongo_find_one("analysis", {"info.id": int(task_id)}, {"selfextract": 1})
-        if tmp and "selfextract" in tmp:
-            selfextract_data = tmp["selfextract"]
+        tmp = mongo_find_one(
+            "analysis",
+            {"info.id": int(task_id)},
+            {
+                "target.file.selfextract": 1,
+                "dropped.selfextract": 1,
+                "procdump.selfextract": 1,
+                "procmemory.selfextract": 1,
+                "CAPE.payloads.selfextract": 1,
+            },
+        )
+        if tmp:
+            selfextract_data = _collect_selfextract_from_analysis(tmp)
     elif es_as_db:
         tmp = es.search(
             index=get_analysis_index(), query=get_query_by_info_id(str(task_id)), _source=["selfextract"]
@@ -1843,7 +2161,7 @@ def tasks_selfextracted(request, task_id, tool="all"):
             try:
                 with open(jfile, "r") as f:
                     rep = json.load(f)
-                    selfextract_data = rep.get("selfextract", {})
+                    selfextract_data = _collect_selfextract_from_analysis(rep)
             except Exception as e:
                 log.error(e)
 
@@ -2205,15 +2523,15 @@ def _bytes2gb(size):
 
 
 @api_view(["GET"])
-def cuckoo_status(request):
+def cape_status(request):
     # get
     # print(request.query_params)
     # post
     # request.data
     resp = {}
-    if not apiconf.cuckoostatus.get("enabled"):
+    if not apiconf.capestatus.get("enabled"):
         resp["error"] = True
-        resp["error_value"] = "Cuckoo Status API is disabled"
+        resp["error_value"] = "CAPE Status API is disabled"
     else:
         resp["error"] = False
         tasks_dict_with_counts = db.get_tasks_status_count()
@@ -2671,4 +2989,3 @@ def dist_tasks_notification(request, task_id: int):
         # main_db.set_status(task.main_task_id, TASK_REPORTED)
         # log.debug("reporting main_task_id: {}".format(task.main_task_id))
         task.notificated = True
-

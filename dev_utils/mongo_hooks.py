@@ -1,4 +1,5 @@
 import itertools
+import json
 import logging
 from contextlib import suppress
 
@@ -25,6 +26,7 @@ FILES_COLL = "files"
 FILE_KEY = "sha256"
 TASK_IDS_KEY = "_task_ids"
 FILE_REF_KEY = "file_ref"
+ANALYSIS_CHUNKS_COLL = "analysis_chunks"
 
 
 def normalize_file(file_dict, task_id):
@@ -67,6 +69,25 @@ def normalize_file(file_dict, task_id):
         "yara_hash",
         "options_hash",
         "clamav",
+        # static/enrichment outputs that should be reusable on file_cache hits
+        "trid",
+        "die",
+        "msi",
+        "office",
+        "pdf",
+        "wsf",
+        "lnk",
+        "java",
+        "rdp",
+        "dotnet",
+        "dotnet_strings",
+        "flare_capa",
+        "floss",
+        "virustotal",
+        "wildfire",
+        "zscaler",
+        "selfextract",
+        "executed_tools",
     )
     new_dict = {}
     for fld in static_fields:
@@ -86,9 +107,15 @@ def normalize_files(report):
     reference to it (along with the detonation-dependent fields) in the
     report.
     """
+    task_id = report.get("info", {}).get("id")
+    if not task_id:
+        # Partial update payloads (e.g., {"procdump": [...]}) don't carry full analysis
+        # context. Skip normalization hook in that case.
+        return report
+
     requests = []
     for file_dict in collect_file_dicts(report):
-        request = normalize_file(file_dict, report["info"]["id"])
+        request = normalize_file(file_dict, task_id)
         if request:
             requests.append(request)
 
@@ -173,6 +200,49 @@ def denormalize_files(report):
     """
     denormalize_files_from_reports([report])
     return report
+
+
+def _is_chunk_pointer(node):
+    return isinstance(node, dict) and node.get("__chunked__") is True and node.get("collection") == ANALYSIS_CHUNKS_COLL
+
+
+def _rehydrate_chunk_pointer(pointer):
+    part_ids = pointer.get("parts") or []
+    if not part_ids:
+        return None
+    docs = list(mongo_find(ANALYSIS_CHUNKS_COLL, {"_id": {"$in": part_ids}}, {"_id": 1, "seq": 1, "data": 1}, sort=[("seq", 1)]))
+    by_id = {d["_id"]: d for d in docs}
+    payload = b"".join(bytes(by_id[_id]["data"]) for _id in part_ids if _id in by_id)
+    return json.loads(payload.decode("utf-8"))
+
+
+def _rehydrate_inplace(node):
+    if isinstance(node, dict):
+        for key, value in list(node.items()):
+            if _is_chunk_pointer(value):
+                node[key] = _rehydrate_chunk_pointer(value)
+            else:
+                _rehydrate_inplace(value)
+    elif isinstance(node, list):
+        for idx, value in enumerate(node):
+            if _is_chunk_pointer(value):
+                node[idx] = _rehydrate_chunk_pointer(value)
+            else:
+                _rehydrate_inplace(value)
+
+
+@mongo_hook(mongo_find_one, "analysis")
+def rehydrate_analysis_chunks(report):
+    _rehydrate_inplace(report)
+    return report
+
+
+@mongo_hook(mongo_find, "analysis")
+def rehydrate_analysis_chunks_many(reports):
+    reports = list(reports)
+    for report in reports:
+        _rehydrate_inplace(report)
+    return reports
 
 
 @mongo_hook(mongo_delete_data, "analysis")

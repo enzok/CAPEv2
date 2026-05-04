@@ -99,11 +99,17 @@ db = cuckoo
 # Set this value if you are using mongodb with TLS enabled
 # tlscafile =
 
-# Automatically delete large dict values that exceed mongos 16MB limitation
-# Note: This only deletes dict keys from data stored in MongoDB. You would
-# still get the full dataset if you parsed the results dict in another
-# reporting module or from the jsondump module.
+# Legacy destructive fallback (drops keys). Keep disabled for no data loss.
 fix_large_docs = yes
+
+# Non-lossy large document handling: move oversized sections to analysis_chunks.
+chunk_large_docs = no
+# Keep analysis root doc below this size (bytes), must be < 16MB BSON cap.
+chunk_large_docs_target_bytes = 14680064
+# Minimum section size eligible for offload (bytes).
+chunk_large_docs_min_section_bytes = 1048576
+# Chunk payload fragment size (bytes).
+analysis_chunks_bytes = 2097152
 
 # Community
 # Latest known working version is 7.16.2

@@ -200,7 +200,19 @@ class CAPE(Processing):
         sorted_opts = json.dumps(opts, sort_keys=True)
         options_hash = hashlib.sha256(sorted_opts.encode()).hexdigest()
 
-        if processing_conf.CAPE.file_cache:
+        file_cache_opt = str(opts.get("file_cache", "")).strip()
+        if file_cache_opt in {"0", "1"}:
+            file_cache_enabled = file_cache_opt == "1"
+        else:
+            file_cache_enabled = bool(processing_conf.CAPE.file_cache)
+            if file_cache_opt:
+                log.warning(
+                    "Invalid task option file_cache=%s for task %s; expected 0 or 1. Falling back to processing.conf setting.",
+                    file_cache_opt,
+                    self.task.get("id"),
+                )
+
+        if file_cache_enabled:
             try:
                 db_file = mongo_find_one("files", {"sha256": sha256})
                 if db_file:
@@ -215,6 +227,14 @@ class CAPE(Processing):
                     cached = True
                     if yara_match and options_match:
                         run_static = False
+                        log.info(
+                            "CAPE file_cache hit: skipping static_file_info for %s (sha256=%s, category=%s, yara_hash_match=%s, options_hash_match=%s)",
+                            file_path,
+                            sha256,
+                            category,
+                            yara_match,
+                            options_match,
+                        )
                         if HAVE_VIRUSTOTAL:
                             # We might want to refresh VT based on cache policy
                             vt_details = vt_lookup("file", sha256, self.results, file_category=category)

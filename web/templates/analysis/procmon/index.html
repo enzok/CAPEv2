@@ -1,0 +1,50 @@
+{% load analysis_tags %}
+{% if procmon %}
+<div class="card bg-dark border-secondary mb-3">
+    <div class="card-header border-secondary d-flex justify-content-between align-items-center">
+        <h5 class="mb-0 text-white"><i class="fas fa-microscope me-2 text-info"></i> Procmon Results</h5>
+        <a class="btn btn-sm btn-outline-light" href="{% url "file" "procmon" id "log" %}">
+            <i class="fas fa-download me-1"></i> Download XML
+        </a>
+    </div>
+    <div class="card-body">
+        <p class="mb-2 text-white-50">Total events: <strong class="text-white">{{ procmon|length }}</strong></p>
+        {% if procmon|length > 2000 %}
+            <p class="mb-0 text-warning">Showing first 2000 events for browser performance.</p>
+        {% endif %}
+    </div>
+</div>
+
+<div class="card bg-dark border-secondary">
+    <div class="table-responsive">
+        <table class="table table-dark table-hover table-striped mb-0">
+            <thead>
+                <tr>
+                    <th>Time</th>
+                    <th>Process</th>
+                    <th>PID</th>
+                    <th>Operation</th>
+                    <th>Path</th>
+                    <th>Result</th>
+                    <th>Detail</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for event in procmon|slice:":2000" %}
+                <tr>
+                    <td class="text-nowrap">{{ event|get_item:"Time_of_Day"|default:"-" }}</td>
+                    <td>{{ event|get_item:"Process_Name"|default:"-" }}</td>
+                    <td>{{ event|get_item:"PID"|default:"-" }}</td>
+                    <td>{{ event|get_item:"Operation"|default:"-" }}</td>
+                    <td class="text-break">{{ event|get_item:"Path"|default:"-" }}</td>
+                    <td>{{ event|get_item:"Result"|default:"-" }}</td>
+                    <td class="text-break small">{{ event|get_item:"Detail"|default:"-" }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% else %}
+<div class="alert alert-primary"><b>Sorry!</b> No Procmon results.</div>
+{% endif %}
