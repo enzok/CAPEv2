@@ -257,7 +257,7 @@ class Process:
             self.open()
 
         pbi = create_string_buffer(4096)
-        size = c_int()
+        size = c_ulong()
 
         ret = NTDLL.NtQueryInformationProcess(self.h_process, 27, byref(pbi), sizeof(pbi), byref(size))
         if NT_SUCCESS(ret) and size.value >= sizeof(UNICODE_STRING):
