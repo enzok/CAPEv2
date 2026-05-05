@@ -14,6 +14,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from ctypes import POINTER, byref, c_buffer, c_int, c_ulong, create_string_buffer, sizeof, windll, ArgumentError, Structure, c_ushort, c_void_p, string_at, create_unicode_buffer
+from ctypes.wintypes import BOOL, DWORD, HANDLE
 from pathlib import Path
 from shutil import copy
 
