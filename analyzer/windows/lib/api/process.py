@@ -91,6 +91,7 @@ KERNEL32.OpenProcess.argtypes = [DWORD, BOOL, DWORD]
 KERNEL32.OpenThread.restype = HANDLE
 KERNEL32.OpenThread.argtypes = [DWORD, BOOL, DWORD]
 KERNEL32.GetLastError.restype = DWORD
+KERNEL32.CreateFileW.restype = HANDLE
 
 NTDLL.NtQueryInformationProcess.restype = c_int
 NTDLL.NtQueryInformationProcess.argtypes = [c_void_p, c_int, c_void_p, c_ulong, POINTER(c_ulong)]
@@ -488,7 +489,7 @@ class Process:
         hFile = KERNEL32.CreateFileW(PATH_KERNEL_DRIVER, GENERIC_READ | GENERIC_WRITE, 0, None, OPEN_EXISTING, 0, None)
         if os_is_64bit:
             KERNEL32.Wow64RevertWow64FsRedirection(wow64)
-        if hFile:
+        if hFile and hFile != HANDLE(-1).value:
             p = Process(pid=os.getpid())
             ppid = p.get_parent_pid()
             pid_vboxservice = 0
