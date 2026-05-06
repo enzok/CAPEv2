@@ -1647,6 +1647,51 @@ def tasks_debugger(request, task_id):
 
 @csrf_exempt
 @api_view(["GET"])
+def tasks_analysislog(request, task_id):
+    try:
+        enabled = apiconf.taskanalysislog.get("enabled")
+    except Exception:
+        enabled = False
+    if not enabled:
+        return Response({"error": True, "error_value": "Task analysis log API is disabled"})
+
+    check = validate_task(task_id)
+    if check["error"]:
+        return Response(check)
+
+    if check.get("tlp", "") in ("red", "Red"):
+        return Response({"error": True, "error_value": "Task has a TLP of RED"})
+
+    rtid = check.get("rtid", 0)
+    if rtid:
+        task_id = rtid
+
+    tail_lines = force_int(request.query_params.get("tail_lines", 0))
+    max_bytes = force_int(request.query_params.get("max_bytes", 0))
+
+    log_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, "analysis.log")
+    if not os.path.normpath(log_path).startswith(ANALYSIS_BASE_PATH):
+        return render(request, "error.html", {"error": f"File not found: {os.path.basename(log_path)}"})
+    if not path_exists(log_path):
+        return Response({"error": True, "error_value": f"analysis.log does not exist for task {task_id}"})
+
+    try:
+        with open(log_path, "r") as f:
+            content = f.read()
+
+        if max_bytes > 0:
+            content = content[-max_bytes:]
+        if tail_lines > 0:
+            content = "\n".join(content.splitlines()[-tail_lines:])
+    except Exception as e:
+        log.exception("Unable to read analysis.log for task %s: %s", task_id, e)
+        return Response({"error": True, "error_value": "Unable to read analysis.log"})
+
+    return Response({"error": False, "data": content})
+
+
+@csrf_exempt
+@api_view(["GET"])
 def tasks_iocs(request, task_id, detail=None):
     if not apiconf.taskiocs.get("enabled"):
         resp = {"error": True, "error_value": "IOC download API is disabled"}

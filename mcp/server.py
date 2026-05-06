@@ -510,6 +510,17 @@ async def get_task_config(task_id: int, token: str = "") -> str:
     result = await _request("GET", f"tasks/get/config/{task_id}/", token=token)
     return json.dumps(result, indent=2)
 
+@mcp_tool("taskanalysislog")
+async def get_task_analysis_log(task_id: int, tail_lines: int = 0, max_bytes: int = 0, token: str = "") -> str:
+    """Get analysis.log text for a task."""
+    params = {}
+    if tail_lines > 0:
+        params["tail_lines"] = tail_lines
+    if max_bytes > 0:
+        params["max_bytes"] = max_bytes
+    result = await _request("GET", f"tasks/get/analysislog/{task_id}/", token=token, params=params)
+    return json.dumps(result, indent=2)
+
 # --- File Downloads ---
 
 @mcp_tool("taskscreenshot")

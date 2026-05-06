@@ -231,6 +231,14 @@ rps = 1/s
 rpm = 4/m
 mcp = no
 
+# Retrieve analysis.log as plain text
+[taskanalysislog]
+enabled = no
+auth_only = no
+rps = 1/s
+rpm = 4/m
+mcp = no
+
 # Configure the ability to pull a summarized version of data stored in MongoDB
 # which contains potentially actionable data.
 [taskiocs]

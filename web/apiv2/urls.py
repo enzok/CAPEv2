@@ -41,6 +41,7 @@ urlpatterns = [
     re_path(r"^tasks/get/network/(?P<task_id>\d+)/$", views.tasks_network),
     re_path(r"^tasks/get/behavior/(?P<task_id>\d+)/$", views.tasks_behavior),
     re_path(r"^tasks/get/debugger/(?P<task_id>\d+)/$", views.tasks_debugger),
+    re_path(r"^tasks/get/analysislog/(?P<task_id>\d+)/$", views.tasks_analysislog),
     re_path(r"^tasks/get/iocs/(?P<task_id>\d+)/$", views.tasks_iocs),
     re_path(r"^tasks/get/iocs/(?P<task_id>\d+)/(?P<detail>detailed)/$", views.tasks_iocs),
     re_path(r"^tasks/get/config/(?P<task_id>\d+)/$", views.tasks_config),
