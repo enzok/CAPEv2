@@ -630,10 +630,10 @@ class Analyzer:
         zer0m0n.dumpint(int(self.options.get("dumpint", 0)))
         """
 
-        if self.options.get("interactive", False) and self.options.get("manual", False):
+        if self.options.get("interactive", False):
             INTERACTIVE_MODE = True
             log.info("Interactive mode enabled - injecting into explorer shell")
-            if self.config.category == "file":
+            if self.config.category == "file" and self.options.get("manual", False):
                 with suppress(Exception):
                     dest_path = os.path.join(os.environ["HOMEPATH"], "Desktop", os.path.basename(self.config.file_name))
                     copy(self.target, dest_path)
