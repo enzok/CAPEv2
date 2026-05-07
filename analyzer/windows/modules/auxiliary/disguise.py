@@ -43,6 +43,13 @@ class Disguise(Auxiliary):
         self.config = config
 
     @staticmethod
+    def _option_enabled(options, key, default=False):
+        value = options.get(key, default)
+        if isinstance(value, bool):
+            return value
+        return str(value).strip().lower() in {"1", "true", "yes", "on"}
+
+    @staticmethod
     def run_as_system(command):
         if not command:
             return None
@@ -266,7 +273,7 @@ class Disguise(Auxiliary):
             log.error(f"Failed to launch legacy notepad: {e}")
 
     def start(self):
-        if getattr(self.config, "launch_background_processes", False):
+        if self._option_enabled(self.options, "launch_background_processes", False):
             self.launch_background_processes()
 
         if self.config.windows_static_route:
