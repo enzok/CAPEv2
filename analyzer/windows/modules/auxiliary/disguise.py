@@ -8,6 +8,7 @@ import logging
 import os
 import re
 import subprocess
+from ctypes import byref, sizeof
 from random import randint
 from uuid import uuid4
 from winreg import (
@@ -27,7 +28,16 @@ from winreg import (
 )
 
 from lib.common.abstracts import Auxiliary
+from lib.common.defines import (
+    CREATE_NEW_CONSOLE,
+    EXTENDED_STARTUPINFO_PRESENT,
+    KERNEL32,
+    PROCESS_INFORMATION,
+    STARTUPINFOEXW,
+)
 from lib.common.rand import random_integer, random_string
+from lib.core.config import Config
+from lib.api.process import Process
 
 log = logging.getLogger(__name__)
 si = subprocess.STARTUPINFO()
@@ -261,14 +271,42 @@ class Disguise(Auxiliary):
         # Use the specific legacy path to avoid the UWP wrapper
         legacy_notepad = os.path.join(os.environ['SystemRoot'], 'System32', 'notepad.exe')
 
-        si = subprocess.STARTUPINFO()
-        si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-        si.wShowWindow = 0  # SW_HIDE
-
         try:
-            # We launch the legacy path directly
-            proc = subprocess.Popen(legacy_notepad, startupinfo=si)
-            log.info(f"Launched legacy Notepad hidden (PID: {proc.pid})")
+            process = Process(options=self.options, config=self.config or Config(cfg="analysis.conf"))
+            startup_info = STARTUPINFOEXW()
+            startup_info.StartupInfo.cb = sizeof(STARTUPINFOEXW)
+            attr_list, _attr_buf, h_parent = process.build_parent_attribute_list()
+            startup_info.lpAttributeList = attr_list
+            startup_info.StartupInfo.dwFlags = 1  # STARTF_USESHOWWINDOW
+            startup_info.StartupInfo.wShowWindow = 0  # SW_HIDE
+            process_info = PROCESS_INFORMATION()
+            creation_flags = CREATE_NEW_CONSOLE | EXTENDED_STARTUPINFO_PRESENT
+
+            created = KERNEL32.CreateProcessW(
+                legacy_notepad,
+                f'"{legacy_notepad}"',
+                None,
+                None,
+                False,
+                creation_flags,
+                None,
+                None,
+                byref(startup_info),
+                byref(process_info),
+            )
+
+            KERNEL32.CloseHandle(h_parent)
+            KERNEL32.DeleteProcThreadAttributeList(attr_list)
+
+            if not created:
+                raise RuntimeError("CreateProcessW failed")
+
+            pid = process_info.dwProcessId
+            if process_info.hThread:
+                KERNEL32.CloseHandle(process_info.hThread)
+            if process_info.hProcess:
+                KERNEL32.CloseHandle(process_info.hProcess)
+            log.info("Launched legacy Notepad hidden (PID: %d)", pid)
         except Exception as e:
             log.error(f"Failed to launch legacy notepad: {e}")
 
