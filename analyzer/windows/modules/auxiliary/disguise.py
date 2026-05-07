@@ -246,10 +246,33 @@ class Disguise(Auxiliary):
         self.run_as_system(["C:\\Windows\\System32\\ROUTE.exe", "-p", "add", "0.0.0.0", "mask", "0.0.0.0", gateway])
         self.run_as_system(["C:\\Windows\\System32\\ROUTE.exe", "-p", "change", "0.0.0.0", "mask", "0.0.0.0", gateway])
 
+    def launch_background_processes(self):
+        # Specify the absolute path to the REAL Win32 notepad
+        # C:\Windows\System32\notepad.exe is usually the legacy binary,
+        # but Windows 11 often redirects 'notepad.exe' globally to the UWP version.
+
+        # Use the specific legacy path to avoid the UWP wrapper
+        legacy_notepad = os.path.join(os.environ['SystemRoot'], 'System32', 'notepad.exe')
+
+        si = subprocess.STARTUPINFO()
+        si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+        si.wShowWindow = 0  # SW_HIDE
+
+        try:
+            # We launch the legacy path directly
+            proc = subprocess.Popen(legacy_notepad, startupinfo=si)
+            log.info(f"Launched legacy Notepad hidden (PID: {proc.pid})")
+        except Exception as e:
+            log.error(f"Failed to launch legacy notepad: {e}")
+
     def start(self):
+        if self.config.launch_background_processes:
+            self.launch_background_processes()
+        self.launch_background_processes()
         if self.config.windows_static_route:
             log.info("Config for route is: %s", str(self.config.windows_static_route))
             self.add_persistent_route(self.config.windows_static_route_gateway)
+
         self.change_productid()
         self.set_office_mrus()
         self.ramnit()
