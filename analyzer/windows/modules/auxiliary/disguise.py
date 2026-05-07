@@ -272,9 +272,25 @@ class Disguise(Auxiliary):
         except Exception as e:
             log.error(f"Failed to launch legacy notepad: {e}")
 
+    def log_notepad_process_tree(self):
+        cmd = [
+            "powershell.exe",
+            "-NoProfile",
+            "-Command",
+            "Get-CimInstance Win32_Process -Filter \"Name='notepad.exe'\" | "
+            "Select-Object ProcessId,ParentProcessId,Name | Format-Table -AutoSize",
+        ]
+        try:
+            output = subprocess.check_output(cmd, stderr=subprocess.STDOUT, startupinfo=si, text=True)
+            if output.strip():
+                log.info("Notepad process info:\n%s", output.strip())
+        except subprocess.CalledProcessError as e:
+            log.error("Failed to collect notepad process info: %s", e.output)
+
     def start(self):
         if self._option_enabled(self.options, "launch_background_processes", False):
             self.launch_background_processes()
+            self.log_notepad_process_tree()
 
         if self.config.windows_static_route:
             log.info("Config for route is: %s", str(self.config.windows_static_route))
