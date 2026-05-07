@@ -123,7 +123,7 @@ KERNEL32.CreateProcessW.argtypes = [
     DWORD,
     LPVOID,
     LPCWSTR,
-    POINTER(STARTUPINFOW),
+    LPVOID,
     POINTER(PROCESS_INFORMATION),
 ]
 KERNEL32.CreateProcessW.restype = BOOL
