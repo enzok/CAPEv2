@@ -278,7 +278,15 @@ class Disguise(Auxiliary):
             "-NoProfile",
             "-Command",
             "Get-CimInstance Win32_Process -Filter \"Name='notepad.exe'\" | "
-            "Select-Object ProcessId,ParentProcessId,Name | Format-Table -AutoSize",
+            "ForEach-Object { "
+            "$parent = Get-CimInstance Win32_Process -Filter \"ProcessId=$($_.ParentProcessId)\"; "
+            "[PSCustomObject]@{ "
+            "ProcessId = $_.ProcessId; "
+            "Name = $_.Name; "
+            "ParentProcessId = $_.ParentProcessId; "
+            "ParentName = $parent.Name "
+            "} "
+            "} | Format-Table -AutoSize",
         ]
         try:
             output = subprocess.check_output(cmd, stderr=subprocess.STDOUT, startupinfo=si, text=True)
