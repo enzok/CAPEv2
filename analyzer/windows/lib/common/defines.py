@@ -229,7 +229,7 @@ class LUID_AND_ATTRIBUTES(Structure):
 class TOKEN_PRIVILEGES(Structure):
     _fields_ = [
         ("PrivilegeCount", DWORD),
-        ("Privileges", LUID_AND_ATTRIBUTES),
+        ("Privileges", LUID_AND_ATTRIBUTES * 1),
     ]
 
 
@@ -344,30 +344,6 @@ class PROCESS_BASIC_INFORMATION(Structure):
         ("BasePriority", c_long),
         ("UniqueProcessId", ULONG_PTR),
         ("InheritedFromUniqueProcessId", ULONG_PTR),
-    ]
-
-
-try:
-    LUID = wintypes.LUID
-except AttributeError:
-    class LUID(Structure):
-        _fields_ = [
-            ("LowPart", wintypes.DWORD),
-            ("HighPart", wintypes.LONG),
-        ]
-
-
-class LUID_AND_ATTRIBUTES(Structure):
-    _fields_ = [
-        ("Luid", LUID),
-        ("Attributes", DWORD),
-    ]
-
-
-class TOKEN_PRIVILEGES(Structure):
-    _fields_ = [
-        ("PrivilegeCount", DWORD),
-        ("Privileges", LUID_AND_ATTRIBUTES * 1),
     ]
 
 
