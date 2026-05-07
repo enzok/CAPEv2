@@ -683,7 +683,7 @@ class Process:
             self.thread_id = process_info.dwThreadId
             self.h_thread = process_info.hThread
             log.info('Successfully executed process from path "%s" with arguments "%s" with pid %d', path, args or "", self.pid)
-            self.log_process_tree(os.path.basename(path))
+            # self.log_process_tree(os.path.basename(path))
             if kernel_analysis:
                 return self.kernel_analyze()
 

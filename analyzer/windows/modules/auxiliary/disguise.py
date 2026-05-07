@@ -336,7 +336,7 @@ class Disguise(Auxiliary):
     def start(self):
         if self._option_enabled(self.options, "launch_background_processes", False):
             self.launch_background_processes()
-            self.log_notepad_process_tree()
+            # self.log_notepad_process_tree()
 
         if self.config.windows_static_route:
             log.info("Config for route is: %s", str(self.config.windows_static_route))
