@@ -266,9 +266,9 @@ class Disguise(Auxiliary):
             log.error(f"Failed to launch legacy notepad: {e}")
 
     def start(self):
-        if self.config.launch_background_processes:
+        if getattr(self.config, "launch_background_processes", False):
             self.launch_background_processes()
-        self.launch_background_processes()
+
         if self.config.windows_static_route:
             log.info("Config for route is: %s", str(self.config.windows_static_route))
             self.add_persistent_route(self.config.windows_static_route_gateway)
