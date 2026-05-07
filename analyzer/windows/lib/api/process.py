@@ -605,6 +605,32 @@ class Process:
         log.info("build_parent_attribute_list returning")
         return attr_list, attr_buf, h_parent
 
+    def log_process_tree(self, process_name):
+        if not process_name:
+            return
+
+        cmd = [
+            "powershell.exe",
+            "-NoProfile",
+            "-Command",
+            f"Get-CimInstance Win32_Process -Filter \"Name='{process_name}'\" | "
+            "ForEach-Object { "
+            "$parent = Get-CimInstance Win32_Process -Filter \"ProcessId=$($_.ParentProcessId)\"; "
+            "[PSCustomObject]@{ "
+            "ProcessId = $_.ProcessId; "
+            "Name = $_.Name; "
+            "ParentProcessId = $_.ParentProcessId; "
+            "ParentName = $parent.Name "
+            "} "
+            "} | Format-Table -AutoSize",
+        ]
+        try:
+            output = subprocess.check_output(cmd, stderr=subprocess.STDOUT, text=True)
+            if output.strip():
+                log.info("%s process info:\n%s", process_name, output.strip())
+        except subprocess.CalledProcessError as e:
+            log.error("Failed to collect %s process info: %s", process_name, e.output)
+
     def execute(self, path, args=None, suspended=False, kernel_analysis=False):
         """Execute sample process.
         @param path: sample path.
@@ -657,6 +683,7 @@ class Process:
             self.thread_id = process_info.dwThreadId
             self.h_thread = process_info.hThread
             log.info('Successfully executed process from path "%s" with arguments "%s" with pid %d', path, args or "", self.pid)
+            self.log_process_tree(os.path.basename(path))
             if kernel_analysis:
                 return self.kernel_analyze()
 
