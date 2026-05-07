@@ -617,13 +617,13 @@ class Process:
             return False
 
         startup_info = STARTUPINFOEXW()
-        startup_info.cb = sizeof(STARTUPINFOEXW)
+        startup_info.StartupInfo.cb = sizeof(STARTUPINFOEXW)
         attr_list, attr_buf, h_parent = self.build_parent_attribute_list()
         startup_info.lpAttributeList = attr_list
         # STARTF_USESHOWWINDOW
-        startup_info.dwFlags = 1
+        startup_info.StartupInfo.dwFlags = 1
         # SW_SHOWNORMAL
-        startup_info.wShowWindow = 1
+        startup_info.StartupInfo.wShowWindow = 1
         process_info = PROCESS_INFORMATION()
 
         arguments = f'"{path}" '
