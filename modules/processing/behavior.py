@@ -1222,6 +1222,18 @@ class ProcessTree:
             if not self.add_node(process, self.tree):
                 self.tree.append(process)
 
+        # Since samples are spoofed to have explorer.exe as a parent (see analyzer/windows/lib/api/process.py),
+        # we move the explorer.exe root node to the top if it has children to prioritize the main analysis branch.
+        if len(self.tree) > 1:
+            explorer_idx = -1
+            for i, root in enumerate(self.tree):
+                if root.get("name", "").lower() == "explorer.exe" and root.get("children"):
+                    explorer_idx = i
+                    break
+
+            if explorer_idx > 0:
+                self.tree.insert(0, self.tree.pop(explorer_idx))
+
         return self.tree
 
 
