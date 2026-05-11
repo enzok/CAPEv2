@@ -276,6 +276,77 @@ INTERCEPTOR_TEMPLATE = """(() => {
     }
   }
 
+  function installRequestHook(mod, modName) {
+    if (!mod || mod.__jsInterceptorWrapped) return mod;
+
+    function wrap(fn) {
+      if (typeof fn !== "function" || fn.__jsInterceptorWrapped) return fn;
+      const wrapped = function (...args) {
+        const request_id = ++seq;
+        const started = Date.now();
+        let uri = args[0];
+        let options = args[1];
+        let params = {};
+
+        if (typeof uri === "string") params.url = uri;
+        else if (uri && typeof uri === "object") params = uri;
+        if (options && typeof options === "object") Object.assign(params, options);
+
+        safeAppendJson({
+          ts: nowIso(),
+          source: "js_interceptor",
+          event: "http_request",
+          request_id,
+          method: (params.method || (params.url ? "GET" : "??")).toUpperCase(),
+          url: params.url || params.uri || "",
+          transport: modName,
+          headers: normalizeHeaders(params.headers),
+          body: toBodyLog(params.body || params.json || null),
+        });
+
+        let cbIdx = -1;
+        for (let i = args.length - 1; i >= 0; i--) {
+          if (typeof args[i] === "function") {
+            cbIdx = i;
+            break;
+          }
+        }
+
+        if (cbIdx !== -1) {
+          const originalCb = args[cbIdx];
+          args[cbIdx] = function (err, res, body) {
+            if (res) {
+              safeAppendJson({
+                ts: nowIso(),
+                source: "js_interceptor",
+                event: "http_response",
+                request_id,
+                transport: modName,
+                status: res.statusCode,
+                status_text: res.statusMessage || "",
+                headers: normalizeHeaders(res.headers),
+                body: toBodyLog(body),
+                elapsed_ms: Date.now() - started,
+              });
+            }
+            return originalCb.apply(this, arguments);
+          };
+        }
+        return fn.apply(this, args);
+      };
+      wrapped.__jsInterceptorWrapped = true;
+      Object.assign(wrapped, fn);
+      return wrapped;
+    }
+
+    const finalMod = wrap(mod);
+    ["get", "post", "put", "delete", "patch", "head"].forEach((m) => {
+      if (typeof finalMod[m] === "function") finalMod[m] = wrap(finalMod[m]);
+    });
+    finalMod.__jsInterceptorWrapped = true;
+    return finalMod;
+  }
+
   function installSocketHook(socket) {
     if (!socket || socket.__jsInterceptorWrapped) return;
     socket.__jsInterceptorWrapped = true;
@@ -511,16 +582,17 @@ INTERCEPTOR_TEMPLATE = """(() => {
     if (!Module || typeof Module._load !== "function" || Module._load.__jsInterceptorWrapped) return;
 
     const originalLoad = Module._load;
-    Module._load = function(request, parent, isMain) {
-      const loaded = originalLoad.apply(this, arguments);
+    Module._load = function(requestName, parent, isMain) {
+      let loaded = originalLoad.apply(this, arguments);
       try {
-        if (request === "http") installHttpLikeHook(loaded, "http");
-        else if (request === "https") installHttpLikeHook(loaded, "https");
-        else if (request === "axios") installAxiosHook(loaded);
-        else if (request === "socket.io-client") installSocketIoClientHook(loaded);
-        else if (request === "dns") installDnsHook(loaded);
-        else if (request === "net") installNetLikeHook(loaded, "tcp");
-        else if (request === "tls") installNetLikeHook(loaded, "tls");
+        if (requestName === "http") installHttpLikeHook(loaded, "http");
+        else if (requestName === "https") installHttpLikeHook(loaded, "https");
+        else if (requestName === "axios") installAxiosHook(loaded);
+        else if (requestName === "request" || requestName === "requests") loaded = installRequestHook(loaded, requestName);
+        else if (requestName === "socket.io-client") installSocketIoClientHook(loaded);
+        else if (requestName === "dns") installDnsHook(loaded);
+        else if (requestName === "net") installNetLikeHook(loaded, "tcp");
+        else if (requestName === "tls") installNetLikeHook(loaded, "tls");
       } catch (_) {}
       return loaded;
     };
@@ -534,11 +606,15 @@ INTERCEPTOR_TEMPLATE = """(() => {
     const dnsMod = safeCall(() => require("dns"), null);
     const netMod = safeCall(() => require("net"), null);
     const tlsMod = safeCall(() => require("tls"), null);
+    const requestMod = safeCall(() => require("request"), null);
+    const requestsMod = safeCall(() => require("requests"), null);
     installHttpLikeHook(httpMod, "http");
     installHttpLikeHook(httpsMod, "https");
     installDnsHook(dnsMod);
     installNetLikeHook(netMod, "tcp");
     installNetLikeHook(tlsMod, "tls");
+    if (requestMod) installRequestHook(requestMod, "request");
+    if (requestsMod) installRequestHook(requestsMod, "requests");
   }
 
   ["log", "info", "warn", "error", "debug"].forEach((level) => {
