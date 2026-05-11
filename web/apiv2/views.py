@@ -13,8 +13,6 @@ from io import BytesIO
 from urllib.parse import quote, urljoin
 from wsgiref.util import FileWrapper
 
-import plyara
-import plyara.utils
 import pyzipper
 import requests
 import yara
@@ -75,6 +73,15 @@ try:
 except ImportError:
     HAVE_PSUTIL = False
     print("Missed psutil dependency: poetry run pip install -U psutil")
+
+try:
+    import plyara
+    import plyara.utils
+
+    HAVE_PLYARA = True
+except ImportError:
+    HAVE_PLYARA = False
+    print("Missed plyara dependency: poetry run pip install plyara")
 
 log = logging.getLogger(__name__)
 
@@ -3276,6 +3283,9 @@ def yara_uploader(request):
         if not apiconf.yara_uploader.get("enabled"):
             return Response({"error": True, "error_value": "Yara Uploader API is Disabled"})
 
+        if not HAVE_PLYARA:
+            return Response({"status": "error", "message": "plyara is not installed: pip install plyara"}, status=500)
+
         category = request.data.get("category")
         if not category or category not in ALLOWED_YARA_CATEGORIES:
             return Response(
@@ -3456,4 +3466,3 @@ def yara_uploader(request):
 
     except Exception as e:
         return Response({"status": "error", "message": str(e)}, status=500)
-
