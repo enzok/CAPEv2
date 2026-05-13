@@ -8,6 +8,7 @@ import subprocess
 import sys
 import tempfile
 import zipfile
+from contextlib import suppress
 from datetime import datetime, timedelta
 from io import BytesIO
 from urllib.parse import quote, urljoin
@@ -74,15 +75,6 @@ except ImportError:
     HAVE_PSUTIL = False
     print("Missed psutil dependency: poetry run pip install -U psutil")
 
-try:
-    import plyara
-    import plyara.utils
-
-    HAVE_PLYARA = True
-except ImportError:
-    HAVE_PLYARA = False
-    print("Missed plyara dependency: poetry run pip install plyara")
-
 log = logging.getLogger(__name__)
 
 try:
@@ -94,6 +86,12 @@ try:
     import re2 as re
 except ImportError:
     import re
+
+HAVE_PLYARA = False
+with suppress(ImportError):
+    import plyara
+    import plyara.utils
+    HAVE_PLYARA = True
 
 # FORMAT = '%(asctime)-15s %(clientip)s %(user)-8s %(message)s'
 
@@ -3284,7 +3282,7 @@ def yara_uploader(request):
             return Response({"error": True, "error_value": "Yara Uploader API is Disabled"})
 
         if not HAVE_PLYARA:
-            return Response({"status": "error", "message": "plyara is not installed: pip install plyara"}, status=500)
+            return Response({"error": True, "error_value": "Missing dependency. Contact your administrator."})
 
         category = request.data.get("category")
         if not category or category not in ALLOWED_YARA_CATEGORIES:
