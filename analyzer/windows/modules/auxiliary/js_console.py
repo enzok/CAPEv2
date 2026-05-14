@@ -788,11 +788,13 @@ class JsConsole(Auxiliary):
         self.do_run = False
 
     def finish(self):
+        if not os.path.exists(self.log_path):
+            log.debug("js_console: log file not found at %s", self.log_path)
+            return
+
         try:
-            if os.path.exists(self.log_path):
-                upload_to_host(self.log_path, "aux/js_console.log", category="aux")
-                log.info("js_console: uploaded %s", self.log_path)
-            else:
-                log.debug("js_console: log file not found at %s", self.log_path)
+            # Upload to aux directory for the processing module to pick up and parse into report.json
+            upload_to_host(self.log_path, "js_console.log", category="aux")
+            log.info("js_console: uploaded %s", self.log_path)
         except Exception as e:
             log.warning("js_console: upload failed for %s: %s", self.log_path, e)
