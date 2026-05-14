@@ -6,9 +6,14 @@
         <div class="text-center mb-3">
             <h5 class="d-inline-block me-2 text-white-50 font-weight-bold">Detection(s):</h5>
             {% for block in analysis.detections %}
-                <a href="/analysis/search/detections:{{block.family}}/" class="badge bg-danger p-2 mb-1" data-bs-toggle="tooltip" data-placement="top" data-bs-html="true" title="{% for subblock in block.details %}{% for k,v in subblock.items %}{{k}}{% if v %} -> {{v}}<br>{% endif %}{% endfor %}{% endfor %}">
-                    {{block.family}}
-                </a>
+                <span class="badge bg-danger p-0 me-2 mb-1 d-inline-flex align-items-stretch">
+                    <a href="/analysis/search/detections:{{block.family}}/" class="text-white text-decoration-none px-2 py-1 d-flex align-items-center">
+                        {{block.family}}
+                    </a>
+                    <span class="px-2 py-1 border-start border-white border-opacity-25 d-flex align-items-center" style="cursor: pointer;" data-bs-toggle="popover" data-bs-placement="top" data-bs-html="true" data-bs-content="<pre>{% for subblock in block.details %}{% for k,v in subblock.items %}{{k}}{% if v %} -> {{v}}{% endif %}&#10;{% endfor %}{% endfor %}</pre>" data-bs-trigger="click" tabindex="0" data-bs-container="body" data-bs-custom-class="detection-popover">
+                        <i class="fas fa-info-circle text-white"></i>
+                    </span>
+                </span>
             {% endfor %}
         </div>
     {% endif %}
@@ -257,3 +262,22 @@
         </div>
     </section>
 {% endif %}
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        if (typeof bootstrap !== 'undefined' && bootstrap.Popover) {
+            var popoverTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="popover"]'))
+            var popoverList = popoverTriggerList.map(function (popoverTriggerEl) {
+                return new bootstrap.Popover(popoverTriggerEl)
+            })
+        } else {
+            console.warn("Bootstrap Popover not found. Ensure Bootstrap's JavaScript is loaded.");
+        }
+    });
+</script>
+<style>
+    .detection-popover .popover-body,
+    .detection-popover .popover-body pre {
+        user-select: text;
+    }
+</style>
