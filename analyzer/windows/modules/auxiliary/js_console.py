@@ -12,7 +12,23 @@ INTERCEPTOR_TEMPLATE = """(() => {
   const fs = require("fs");
   const path = require("path");
   const MAX_BODY_CHARS = 4096;
+  const punycode = require('punycode/');
 
+  // Store the original functions
+  const originalSetTimeout = global.setTimeout;
+  const originalSetInterval = global.setInterval;
+
+  // Override setTimeout
+  global.setTimeout = (callback, delay, ...args) => {
+      // Force all delays to 1ms regardless of what the script asks for
+      return originalSetTimeout(callback, 1, ...args);
+  };
+
+  // Override setInterval
+  global.setInterval = (callback, delay, ...args) => {
+      return originalSetInterval(callback, 1, ...args);
+  };
+  
   function loggedInUserTemp() {
     if (process.env.LOCALAPPDATA) return path.join(process.env.LOCALAPPDATA, "Temp");
     if (process.env.USERPROFILE) return path.join(process.env.USERPROFILE, "AppData", "Local", "Temp");

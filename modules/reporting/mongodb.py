@@ -367,7 +367,7 @@ class MongoDB(Report):
         gc.collect()
 
         # Add this line to debug the report size
-        log.info("Report key sizes for task %s: %s", report["info"]["id"], self.debug_dict_size(report))
+        log.debug("Report key sizes for task %s: %s", report["info"]["id"], self.debug_dict_size(report))
 
         # Store the report and retrieve its object id.
         try:
