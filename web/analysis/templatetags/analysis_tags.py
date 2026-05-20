@@ -47,7 +47,8 @@ def mongo_id(value):
     """
     if isinstance(value, dict):
         if "_id" in value:
-            value = value["_id"]
+            return str(value.get("_id", ""))
+        return ""
 
     # Return value
     return str(value)
