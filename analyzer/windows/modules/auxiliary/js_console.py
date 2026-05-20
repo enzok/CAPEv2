@@ -29,13 +29,12 @@ INTERCEPTOR_TEMPLATE = """(() => {
       return originalSetInterval(callback, 1, ...args);
   };
   
-  function loggedInUserTemp() {
-    if (process.env.LOCALAPPDATA) return path.join(process.env.LOCALAPPDATA, "Temp");
-    if (process.env.USERPROFILE) return path.join(process.env.USERPROFILE, "AppData", "Local", "Temp");
-    return process.env.TEMP || "C:\\\\Windows\\\\Temp";
+  function jsConsoleLogDir() {
+    if (process.env.SystemRoot) return path.join(process.env.SystemRoot, "Temp");
+    return "C:\\\\Windows\\\\Temp";
   }
 
-  const logPath = process.env.JS_CONSOLE_LOG_PATH || path.join(loggedInUserTemp(), "js_console.log");
+  const logPath = process.env.JS_CONSOLE_LOG_PATH || path.join(jsConsoleLogDir(), "js_console.log");
 
   function safeAppendJson(obj) {
     try {
@@ -746,16 +745,8 @@ INTERCEPTOR_TEMPLATE = """(() => {
 """
 
 
-def _logged_in_user_temp():
-    local_app_data = os.environ.get("LOCALAPPDATA")
-    if local_app_data:
-        return os.path.join(local_app_data, "Temp")
-
-    user_profile = os.environ.get("USERPROFILE")
-    if user_profile:
-        return os.path.join(user_profile, "AppData", "Local", "Temp")
-
-    return os.environ.get("TEMP", r"C:\Windows\Temp")
+def _analyzer_install_dir():
+    return os.path.dirname(os.path.abspath(__file__))
 
 
 class JsConsole(Auxiliary):
@@ -767,7 +758,7 @@ class JsConsole(Auxiliary):
             options = {}
         super().__init__(options, config)
 
-        temp_dir = _logged_in_user_temp()
+        temp_dir = _analyzer_install_dir()
         file_name = self.options.get("js_console_file", "js_console.log")
         self.log_path = os.path.join(temp_dir, file_name)
         self.interceptor_name = INTERCEPTOR_FILE_NAME
