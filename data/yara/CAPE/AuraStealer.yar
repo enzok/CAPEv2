@@ -31,7 +31,7 @@ rule AuraStealer_OLLVM_64bit
         $json_err1 = "invalid string: control character U+0008 (BS) must be escaped" ascii
         $json_err2 = "attempting to parse an empty input; check that your input string or stream contains the expected JSON" ascii
         $http_post = "Content-Disposition: form-data; name=\"" ascii
-        $ollvm_xmm_xor = { 0F 28 06 0F 57 00 0F 29 06 0F 28 46 10 0F 57 40 10 0F 29 46 10 }
+        $ollvm_xmm_xor = {0F 28 ?? 0F 57 ?? 0F 29 ?? 0F 28 ?? 10 0F 57 ?? 10 0F 29 ?? 10}
 
     condition:
         #ollvm_xmm_xor > 5 and $aes_key_expansion and $aes_sbox and $anti_dbg_check and 1 of ($json_err*) and $http_post
