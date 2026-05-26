@@ -37,7 +37,23 @@ MEGABYTE = 0x100000
 ANALYSIS_CHUNKS_COLL = "analysis_chunks"
 DEFAULT_TARGET_DOC_SIZE = 14 * MEGABYTE
 DEFAULT_MIN_SECTION_SIZE = 1 * MEGABYTE
-CHUNKABLE_NON_QUERY_FIELDS = ("strings", "behavior.processtree")
+CHUNKABLE_NON_QUERY_FIELDS = (
+    "strings",
+    "behavior.processtree",
+    "behavior.processes",
+    "behavior.summary",
+    "procdump",
+    "static",
+    "dropped",
+    "suricata",
+    "signatures",
+    "network",
+    "target",
+    "CAPE",
+    "statistics",
+    "memory",
+    "js_log",
+)
 
 log = logging.getLogger(__name__)
 reporting_conf = Config("reporting")
@@ -166,14 +182,28 @@ class MongoDB(Report):
                     sec_size = self._bson_size({"v": value})
                     if sec_size >= min_section:
                         sized.append((sec_size, path, value))
+
                 if not sized:
+                    log.error(
+                        "Report for task %s is too large (%s bytes), but no chunkable sections remain to be processed.",
+                        task_id,
+                        self._bson_size(report),
+                    )
                     raise CuckooReportError("Report too large and no chunkable section remains")
-                _, path, value = max(sized, key=lambda x: x[0])
+
+                log.debug("Large report chunking candidates for task %s (current size: %s bytes):", task_id, self._bson_size(report))
+                for s, p, _ in sorted(sized, key=lambda x: x[0], reverse=True):
+                    log.debug("  - %s: %s bytes", p, s)
+
+                sec_size, path, value = max(sized, key=lambda x: x[0])
+                log.info("Chunking largest section for task %s: '%s' (%s bytes)", task_id, path, sec_size)
+
                 before_ids = set(created)
                 self._store_chunked_section(report, task_id, path, value)
                 ptr = self._get_path(report, path)
                 created.extend(ptr.get("parts", []))
                 if set(created) == before_ids:
+                    log.error("Failed to chunk section '%s' for task %s, it seems to have produced no parts.", path, task_id)
                     raise CuckooReportError(f"Failed chunking section: {path}")
 
             mongo_insert_one("analysis", report)
@@ -335,6 +365,9 @@ class MongoDB(Report):
 
         ensure_valid_utf8(report)
         gc.collect()
+
+        # Add this line to debug the report size
+        log.debug("Report key sizes for task %s: %s", report["info"]["id"], self.debug_dict_size(report))
 
         # Store the report and retrieve its object id.
         try:

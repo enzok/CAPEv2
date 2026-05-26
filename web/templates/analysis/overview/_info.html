@@ -6,9 +6,14 @@
         <div class="text-center mb-3">
             <h5 class="d-inline-block me-2 text-white-50 font-weight-bold">Detection(s):</h5>
             {% for block in analysis.detections %}
-                <a href="/analysis/search/detections:{{block.family}}/" class="badge bg-danger p-2 mb-1" data-bs-toggle="tooltip" data-placement="top" data-bs-html="true" title="{% for subblock in block.details %}{% for k,v in subblock.items %}{{k}}{% if v %} -> {{v}}<br>{% endif %}{% endfor %}{% endfor %}">
-                    {{block.family}}
-                </a>
+                <span class="badge bg-danger p-0 me-2 mb-1 d-inline-flex align-items-stretch">
+                    <a href="/analysis/search/detections:{{block.family}}/" class="text-white text-decoration-none px-2 py-1 d-flex align-items-center">
+                        {{block.family}}
+                    </a>
+                    <span class="px-2 py-1 border-start border-white border-opacity-25 d-flex align-items-center" style="cursor: pointer;" data-bs-toggle="popover" data-bs-placement="top" data-bs-html="true" data-bs-content="<pre>{% for subblock in block.details %}{% for k,v in subblock.items %}{{k}}{% if v %} -> {{v}}{% endif %}&#10;{% endfor %}{% endfor %}</pre>" data-bs-trigger="click" tabindex="0" data-bs-container="body" data-bs-custom-class="detection-popover">
+                        <i class="fas fa-info-circle text-white"></i>
+                    </span>
+                </span>
             {% endfor %}
         </div>
     {% endif %}
@@ -53,6 +58,8 @@
                         <th>Started</th>
                         <th>Completed</th>
                         <th>Duration</th>
+                        {% if settings.WEB_AUTHENTICATION and config.display_submitter and analysis.info.submitter_username %}<th>Submitter</th>{% endif %}
+                        {% if analysis.info.tags_tasks %}<th>Task Tags</th>{% endif %}
                         {% if analysis.info.options %}<th>Options</th>{% endif %}
                         {% if user.is_staff and analysis.distributed %}<th>Distributed</th>{% endif %}
                         {% if analysis.debug.log or analysis.process_log %}<th>Logs</th>{% endif %}
@@ -72,6 +79,12 @@
                         <td class="text-nowrap">{{analysis.info.started}}</td>
                         <td class="text-nowrap">{{analysis.info.ended}}</td>
                         <td>{{analysis.info.duration}}s</td>
+                        {% if settings.WEB_AUTHENTICATION and config.display_submitter and analysis.info.submitter_username %}
+                            <td><span class="badge bg-secondary"><i class="fas fa-user me-1"></i>{{analysis.info.submitter_username}}</span></td>
+                        {% endif %}
+                        {% if analysis.info.tags_tasks %}
+                            <td>{% for t in analysis.info.tags_tasks|split_csv %}<span class="badge bg-danger me-1">{{t}}</span>{% endfor %}</td>
+                        {% endif %}
                         {% if analysis.info.options %}
                             <td><button class="btn btn-sm btn-outline-info" type="button" data-bs-toggle="collapse" data-bs-target="#options_collapse">View</button></td>
                         {% endif %}
@@ -220,7 +233,7 @@
 </section>
 
 <!-- Machine Details Card -->
-{% if analysis.info.machine %}
+{% if analysis.info.machine and analysis.info.machine.name %}
     <section id="machine" class="mb-4">
         <div class="card bg-dark border-secondary">
             <div class="card-header border-secondary">
@@ -231,7 +244,6 @@
                     <thead>
                         <tr>
                             <th>Name</th>
-                            {% if analysis.distributed %}<th>Node</th>{% endif %}
                             <th>Label</th>
                             <th>Manager</th>
                             <th>Started On</th>
@@ -241,12 +253,11 @@
                     </thead>
                     <tbody>
                         <tr>
-                            <td>{% if analysis.info.machine.name %}{{analysis.info.machine.name}}{% else %}{{analysis.info.machine}}{% endif %}</td>
-                            {% if analysis.distributed %}<td>{{analysis.distributed.name}}</td>{% endif %}
-                            <td><span class="badge bg-dark">{% if analysis.info.machine.label %}{{analysis.info.machine.label}}{% else %}-{% endif %}</span></td>
-                            <td>{% if analysis.info.machine.manager %}{{analysis.info.machine.manager}}{% else %}-{% endif %}</td>
-                            <td class="text-nowrap">{% if analysis.info.machine.started_on %}{{analysis.info.machine.started_on}}{% else %}-{% endif %}</td>
-                            <td class="text-nowrap">{% if analysis.info.machine.shutdown_on %}{{analysis.info.machine.shutdown_on}}{% else %}-{% endif %}</td>
+                            <td>{{analysis.info.machine.name}}</td>
+                            <td><span class="badge bg-dark">{{analysis.info.machine.label}}</span></td>
+                            <td>{{analysis.info.machine.manager}}</td>
+                            <td class="text-nowrap">{{analysis.info.machine.started_on}}</td>
+                            <td class="text-nowrap">{{analysis.info.machine.shutdown_on}}</td>
                             {% if analysis.info.route %}
                                 <td><code>{{analysis.info.route}}</code></td>
                             {% endif %}
@@ -257,3 +268,22 @@
         </div>
     </section>
 {% endif %}
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        if (typeof bootstrap !== 'undefined' && bootstrap.Popover) {
+            var popoverTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="popover"]'))
+            var popoverList = popoverTriggerList.map(function (popoverTriggerEl) {
+                return new bootstrap.Popover(popoverTriggerEl)
+            })
+        } else {
+            console.warn("Bootstrap Popover not found. Ensure Bootstrap's JavaScript is loaded.");
+        }
+    });
+</script>
+<style>
+    .detection-popover .popover-body,
+    .detection-popover .popover-body pre {
+        user-select: text;
+    }
+</style>

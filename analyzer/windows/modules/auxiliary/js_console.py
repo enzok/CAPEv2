@@ -12,14 +12,29 @@ INTERCEPTOR_TEMPLATE = """(() => {
   const fs = require("fs");
   const path = require("path");
   const MAX_BODY_CHARS = 4096;
+  const punycode = require('punycode/');
 
-  function loggedInUserTemp() {
-    if (process.env.LOCALAPPDATA) return path.join(process.env.LOCALAPPDATA, "Temp");
-    if (process.env.USERPROFILE) return path.join(process.env.USERPROFILE, "AppData", "Local", "Temp");
-    return process.env.TEMP || "C:\\\\Windows\\\\Temp";
+  // Store the original functions
+  const originalSetTimeout = global.setTimeout;
+  const originalSetInterval = global.setInterval;
+
+  // Override setTimeout
+  global.setTimeout = (callback, delay, ...args) => {
+      // Force all delays to 1ms regardless of what the script asks for
+      return originalSetTimeout(callback, 1, ...args);
+  };
+
+  // Override setInterval
+  global.setInterval = (callback, delay, ...args) => {
+      return originalSetInterval(callback, 1, ...args);
+  };
+  
+  function jsConsoleLogDir() {
+    if (process.env.SystemRoot) return path.join(process.env.SystemRoot, "Temp");
+    return "C:\\\\Windows\\\\Temp";
   }
 
-  const logPath = process.env.JS_CONSOLE_LOG_PATH || path.join(loggedInUserTemp(), "js_console.log");
+  const logPath = process.env.JS_CONSOLE_LOG_PATH || path.join(jsConsoleLogDir(), "js_console.log");
 
   function safeAppendJson(obj) {
     try {
@@ -276,6 +291,77 @@ INTERCEPTOR_TEMPLATE = """(() => {
     }
   }
 
+  function installRequestHook(mod, modName) {
+    if (!mod || mod.__jsInterceptorWrapped) return mod;
+
+    function wrap(fn) {
+      if (typeof fn !== "function" || fn.__jsInterceptorWrapped) return fn;
+      const wrapped = function (...args) {
+        const request_id = ++seq;
+        const started = Date.now();
+        let uri = args[0];
+        let options = args[1];
+        let params = {};
+
+        if (typeof uri === "string") params.url = uri;
+        else if (uri && typeof uri === "object") params = uri;
+        if (options && typeof options === "object") Object.assign(params, options);
+
+        safeAppendJson({
+          ts: nowIso(),
+          source: "js_interceptor",
+          event: "http_request",
+          request_id,
+          method: (params.method || (params.url ? "GET" : "??")).toUpperCase(),
+          url: params.url || params.uri || "",
+          transport: modName,
+          headers: normalizeHeaders(params.headers),
+          body: toBodyLog(params.body || params.json || null),
+        });
+
+        let cbIdx = -1;
+        for (let i = args.length - 1; i >= 0; i--) {
+          if (typeof args[i] === "function") {
+            cbIdx = i;
+            break;
+          }
+        }
+
+        if (cbIdx !== -1) {
+          const originalCb = args[cbIdx];
+          args[cbIdx] = function (err, res, body) {
+            if (res) {
+              safeAppendJson({
+                ts: nowIso(),
+                source: "js_interceptor",
+                event: "http_response",
+                request_id,
+                transport: modName,
+                status: res.statusCode,
+                status_text: res.statusMessage || "",
+                headers: normalizeHeaders(res.headers),
+                body: toBodyLog(body),
+                elapsed_ms: Date.now() - started,
+              });
+            }
+            return originalCb.apply(this, arguments);
+          };
+        }
+        return fn.apply(this, args);
+      };
+      wrapped.__jsInterceptorWrapped = true;
+      Object.assign(wrapped, fn);
+      return wrapped;
+    }
+
+    const finalMod = wrap(mod);
+    ["get", "post", "put", "delete", "patch", "head"].forEach((m) => {
+      if (typeof finalMod[m] === "function") finalMod[m] = wrap(finalMod[m]);
+    });
+    finalMod.__jsInterceptorWrapped = true;
+    return finalMod;
+  }
+
   function installSocketHook(socket) {
     if (!socket || socket.__jsInterceptorWrapped) return;
     socket.__jsInterceptorWrapped = true;
@@ -511,16 +597,17 @@ INTERCEPTOR_TEMPLATE = """(() => {
     if (!Module || typeof Module._load !== "function" || Module._load.__jsInterceptorWrapped) return;
 
     const originalLoad = Module._load;
-    Module._load = function(request, parent, isMain) {
-      const loaded = originalLoad.apply(this, arguments);
+    Module._load = function(requestName, parent, isMain) {
+      let loaded = originalLoad.apply(this, arguments);
       try {
-        if (request === "http") installHttpLikeHook(loaded, "http");
-        else if (request === "https") installHttpLikeHook(loaded, "https");
-        else if (request === "axios") installAxiosHook(loaded);
-        else if (request === "socket.io-client") installSocketIoClientHook(loaded);
-        else if (request === "dns") installDnsHook(loaded);
-        else if (request === "net") installNetLikeHook(loaded, "tcp");
-        else if (request === "tls") installNetLikeHook(loaded, "tls");
+        if (requestName === "http") installHttpLikeHook(loaded, "http");
+        else if (requestName === "https") installHttpLikeHook(loaded, "https");
+        else if (requestName === "axios") installAxiosHook(loaded);
+        else if (requestName === "request" || requestName === "requests") loaded = installRequestHook(loaded, requestName);
+        else if (requestName === "socket.io-client") installSocketIoClientHook(loaded);
+        else if (requestName === "dns") installDnsHook(loaded);
+        else if (requestName === "net") installNetLikeHook(loaded, "tcp");
+        else if (requestName === "tls") installNetLikeHook(loaded, "tls");
       } catch (_) {}
       return loaded;
     };
@@ -534,11 +621,15 @@ INTERCEPTOR_TEMPLATE = """(() => {
     const dnsMod = safeCall(() => require("dns"), null);
     const netMod = safeCall(() => require("net"), null);
     const tlsMod = safeCall(() => require("tls"), null);
+    const requestMod = safeCall(() => require("request"), null);
+    const requestsMod = safeCall(() => require("requests"), null);
     installHttpLikeHook(httpMod, "http");
     installHttpLikeHook(httpsMod, "https");
     installDnsHook(dnsMod);
     installNetLikeHook(netMod, "tcp");
     installNetLikeHook(tlsMod, "tls");
+    if (requestMod) installRequestHook(requestMod, "request");
+    if (requestsMod) installRequestHook(requestsMod, "requests");
   }
 
   ["log", "info", "warn", "error", "debug"].forEach((level) => {
@@ -654,16 +745,8 @@ INTERCEPTOR_TEMPLATE = """(() => {
 """
 
 
-def _logged_in_user_temp():
-    local_app_data = os.environ.get("LOCALAPPDATA")
-    if local_app_data:
-        return os.path.join(local_app_data, "Temp")
-
-    user_profile = os.environ.get("USERPROFILE")
-    if user_profile:
-        return os.path.join(user_profile, "AppData", "Local", "Temp")
-
-    return os.environ.get("TEMP", r"C:\Windows\Temp")
+def _analyzer_install_dir():
+    return os.path.dirname(os.path.abspath(__file__))
 
 
 class JsConsole(Auxiliary):
@@ -675,7 +758,7 @@ class JsConsole(Auxiliary):
             options = {}
         super().__init__(options, config)
 
-        temp_dir = _logged_in_user_temp()
+        temp_dir = _analyzer_install_dir()
         file_name = self.options.get("js_console_file", "js_console.log")
         self.log_path = os.path.join(temp_dir, file_name)
         self.interceptor_name = INTERCEPTOR_FILE_NAME
@@ -712,11 +795,13 @@ class JsConsole(Auxiliary):
         self.do_run = False
 
     def finish(self):
+        if not os.path.exists(self.log_path):
+            log.debug("js_console: log file not found at %s", self.log_path)
+            return
+
         try:
-            if os.path.exists(self.log_path):
-                upload_to_host(self.log_path, "aux/js_console.log", category="aux")
-                log.info("js_console: uploaded %s", self.log_path)
-            else:
-                log.debug("js_console: log file not found at %s", self.log_path)
+            # Upload to aux directory for the processing module to pick up and parse into report.json
+            upload_to_host(self.log_path, "js_console.log", category="aux")
+            log.info("js_console: uploaded %s", self.log_path)
         except Exception as e:
             log.warning("js_console: upload failed for %s: %s", self.log_path, e)

@@ -47,7 +47,8 @@ def mongo_id(value):
     """
     if isinstance(value, dict):
         if "_id" in value:
-            value = value["_id"]
+            return str(value.get("_id", ""))
+        return ""
 
     # Return value
     return str(value)
@@ -64,7 +65,7 @@ def get_item(dictionary, key):
     return dictionary.get(key, "")
 
 
-malware_name_url_pattern = """<a href="/analysis/search/detections:{malware_name}"><span style="font-weight: bold;">{malware_name}</span></a>"""
+malware_name_url_pattern = """<a href="/analysis/search/detections:{malware_name}/"><span style="font-weight: bold;">{malware_name}</span></a>"""
 
 
 @register.filter("get_detection_by_pid")
@@ -474,3 +475,20 @@ def format_js_event(event):
 
     lines.append(json.dumps(event, indent=2, sort_keys=True, ensure_ascii=False))
     return "\n".join(lines)
+
+@register.filter
+def split_csv(value):
+    if not value:
+        return []
+    if isinstance(value, list):
+        return [str(v).strip() for v in value if str(v).strip()]
+    return [t.strip() for t in str(value).split(",") if t.strip()]
+
+@register.filter
+def cert_chain_signers(signers):
+    return [s for s in (signers or []) if "Certificate Chain" in s.get("name", "")]
+
+
+@register.filter
+def ts_chain_signers(signers):
+    return [s for s in (signers or []) if "Timestamp Chain" in s.get("name", "")]
