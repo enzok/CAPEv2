@@ -124,11 +124,9 @@ def check_webgui_mongo():
         index_configs = [
             ("analysis", [("info.id", -1)], {"name": "info_id_desc"}),
             ("files", [("_task_ids", 1)], {}),
-
+            ("analysis_chunks", [("task_id", 1), ("path", 1), ("seq", 1)], {"name": "analysis_chunks_tid_path_seq"}),
+            ("analysis_chunks", [("task_id", 1)], {"name": "analysis_chunks_task_id"}),
         ]
-
-        mongo_create_index("analysis_chunks", [("task_id", 1), ("path", 1), ("seq", 1)], name="analysis_chunks_tid_path_seq")
-        mongo_create_index("analysis_chunks", [("task_id", 1)], name="analysis_chunks_task_id")
 
         if repconf.mongodb.get("index_yara", False):
             index_configs.extend([

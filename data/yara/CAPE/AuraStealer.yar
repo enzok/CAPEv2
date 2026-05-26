@@ -34,5 +34,5 @@ rule AuraStealer_OLLVM_64bit
         $ollvm_xmm_xor = {0F 28 ?? 0F 57 ?? 0F 29 ?? 0F 28 ?? 10 0F 57 ?? 10 0F 29 ?? 10}
 
     condition:
-        #ollvm_xmm_xor > 5 and $aes_key_expansion and $aes_sbox and $anti_dbg_check and 1 of ($json_err*) and $http_post
+        $ollvm_xmm_xor and $aes_key_expansion and $aes_sbox and $anti_dbg_check and 1 of ($json_err*) and $http_post
 }
