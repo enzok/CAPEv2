@@ -630,3 +630,10 @@ footer a:hover,
 #footer-extra a:hover {
     text-decoration: underline !important;
 }
+
+.layout-centered {
+    min-width: 500px;
+    max-width: 1200px;
+    margin-left: auto;
+    margin-right: auto;
+}
