@@ -54,7 +54,7 @@ class JSLogProcessing(Processing):
 
         log_name = self.options.get("log_name", "js_console.log")
         max_entries = int(self.options.get("max_entries", 10000))
-        log_path = os.path.join(self.aux_path, log_name)
+        log_path = os.path.join(self.aux_path, "js_log", log_name)
         dropped_created = 0
         dropped_errors = 0
         dropped_paths = []

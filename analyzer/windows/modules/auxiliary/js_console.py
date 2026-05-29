@@ -10,23 +10,6 @@ log = logging.getLogger(__name__)
 INTERCEPTOR_FILE_NAME = "js_interceptor.js"
 
 INTERCEPTOR_TEMPLATE = """ (() => {
-  if (typeof console !== "undefined" && typeof console.log === "function") {
-    console.log("[DEBUG] JS Interceptor: Loaded and running.");
-    console.log("[DEBUG]", process.env.JS_CONSOLE_LOG_PAT);
-  }
-
-  try {
-    const fs = require("fs");
-    fs.writeFileSync("C:\\\\js_interceptor_debug.txt", "js_interceptor is running\\n", "utf8");
-  } catch (e) {
-    try {
-      const fs = require("fs");
-      const path = require("path");
-      const temp = process.env.TEMP || "C:\\\\Windows\\\\Temp";
-      fs.writeFileSync(path.join(temp, "js_interceptor_debug.txt"), "js_interceptor is running\\n", "utf8");
-    } catch (_) {}
-  }
-
   // Suppress Node.js internal deprecation warnings at the process level
   if (typeof process !== "undefined" && typeof process.on === "function") {
     process.on("warning", (warning) => {
@@ -59,7 +42,7 @@ INTERCEPTOR_TEMPLATE = """ (() => {
     return process.env.TEMP || "C:\\\\Windows\\\\Temp";
   }
 
-  const logPath = process.env.JS_CONSOLE_LOG_PATH || path.join(loggedInUserTemp(), "js_console.log");
+  const logPath = path.join(loggedInUserTemp(), "js_console.log");
 
   function safeAppendJson(obj) {
     try {
@@ -803,19 +786,6 @@ INTERCEPTOR_TEMPLATE = """ (() => {
 })();
 """
 
-def _analyzer_install_dir():
-    return os.path.dirname(os.path.abspath(__file__))
-
-
-def _set_windows_env_var(name, value):
-    # Set for current process immediately.
-    os.environ[name] = value
-    # Persist as a Windows user environment variable.
-    try:
-        subprocess.run(["setx", name, value], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
-    except Exception as e:
-        log.debug("Failed to persist env var %s via setx: %s", name, e)
-
 
 class JsConsole(Auxiliary):
     start_priority = 10
@@ -826,11 +796,11 @@ class JsConsole(Auxiliary):
             options = {}
         super().__init__(options, config)
 
-        file_name = self.options.get("js_console_file", "js_console.log")
-        self.log_path = os.path.join(self._target_directory(), file_name)
+        self.file_name = self.options.get("js_console_file", "js_console.log")
+        self.log_path = os.path.join(self._target_directory(), self.file_name)
         self.interceptor_name = INTERCEPTOR_FILE_NAME
         self.interceptor_path = os.path.join(self._target_directory(), self.interceptor_name)
-        _set_windows_env_var("JS_CONSOLE_LOG_PATH", self.log_path)
+        self.upload_prefix = "aux/js_console"
         self.do_run = True
 
     def _target_directory(self):
@@ -858,6 +828,6 @@ class JsConsole(Auxiliary):
     def finish(self):
         try:
             # Upload to aux directory for the processing module to pick up and parse into report.json
-            upload_to_host(self.log_path, "js_console.log", category="aux")
+            upload_to_host(self.log_path, f"{self.upload_prefix}/{self.file_name}")
         except Exception as e:
             log.warning("js_console: upload failed for %s: %s", self.log_path, e)
