@@ -1,5 +1,6 @@
 import logging
 import os
+import subprocess
 
 from lib.common.abstracts import Auxiliary
 from lib.common.constants import OPT_CURDIR
@@ -8,11 +9,17 @@ from lib.common.results import upload_to_host
 log = logging.getLogger(__name__)
 INTERCEPTOR_FILE_NAME = "js_interceptor.js"
 
-INTERCEPTOR_TEMPLATE = """(() => {
+INTERCEPTOR_TEMPLATE = """ (() => {
+  // Suppress Node.js internal deprecation warnings at the process level
+  if (typeof process !== "undefined" && typeof process.on === "function") {
+    process.on("warning", (warning) => {
+      if (warning.code === "DEP0040" || warning.code === "DEP0190") return;
+    });
+  }
+
   const fs = require("fs");
   const path = require("path");
   const MAX_BODY_CHARS = 4096;
-  const punycode = require('punycode/');
 
   // Store the original functions
   const originalSetTimeout = global.setTimeout;
@@ -28,13 +35,14 @@ INTERCEPTOR_TEMPLATE = """(() => {
   global.setInterval = (callback, delay, ...args) => {
       return originalSetInterval(callback, 1, ...args);
   };
-  
-  function jsConsoleLogDir() {
-    if (process.env.SystemRoot) return path.join(process.env.SystemRoot, "Temp");
-    return "C:\\\\Windows\\\\Temp";
+
+  function loggedInUserTemp() {
+    if (process.env.LOCALAPPDATA) return path.join(process.env.LOCALAPPDATA, "Temp");
+    if (process.env.USERPROFILE) return path.join(process.env.USERPROFILE, "AppData", "Local", "Temp");
+    return process.env.TEMP || "C:\\\\Windows\\\\Temp";
   }
 
-  const logPath = process.env.JS_CONSOLE_LOG_PATH || path.join(jsConsoleLogDir(), "js_console.log");
+  const logPath = process.env.JS_CONSOLE_LOG_PATH || path.join(loggedInUserTemp(), "js_console.log");
 
   function safeAppendJson(obj) {
     try {
@@ -111,7 +119,7 @@ INTERCEPTOR_TEMPLATE = """(() => {
   function installEvalHook() {
     if (typeof globalThis.eval !== "function") return;
     if (globalThis.eval.__jsInterceptorWrapped) return;
-    const originalEval = globalThis.eval;
+    const originalEval =globalThis.eval;
     const wrappedEval = function(code) {
       safeAppendJson({
         ts: nowIso(),
@@ -598,6 +606,35 @@ INTERCEPTOR_TEMPLATE = """(() => {
 
     const originalLoad = Module._load;
     Module._load = function(requestName, parent, isMain) {
+      // Intercept 'punycode' module requests and provide the userland alternative
+      if (requestName === "punycode" || requestName === "punycode/") {
+        try {
+          // Attempt to load the userland punycode module.
+          // This assumes the 'punycode' npm package is installed and resolvable
+          // through the standard Node.js module resolution for non-built-in modules.
+          const userlandPunycode = originalLoad("punycode", parent, isMain);
+          safeAppendJson({
+            ts: nowIso(),
+            source: "js_interceptor",
+            event: "module_intercept",
+            module_name: "punycode",
+            status: "replaced_with_userland",
+          });
+          return userlandPunycode;
+        } catch (e) {
+          // If loading the userland module fails, log the error and fall back to original behavior
+          safeAppendJson({
+            ts: nowIso(),
+            source: "js_interceptor",
+            event: "module_intercept_error",
+            module_name: "punycode",
+            error: safeToString(e),
+            message: "Failed to load userland punycode, falling back to original behavior.",
+          });
+          return originalLoad(requestName, parent, isMain);
+        }
+      }
+
       let loaded = originalLoad.apply(this, arguments);
       try {
         if (requestName === "http") installHttpLikeHook(loaded, "http");
@@ -635,12 +672,17 @@ INTERCEPTOR_TEMPLATE = """(() => {
   ["log", "info", "warn", "error", "debug"].forEach((level) => {
     const original = typeof console[level] === "function" ? console[level].bind(console) : null;
     console[level] = (...args) => {
+      const message = args.map(safeToString).join(" ");
+
+      // Filter out specific deprecation warnings coming from the target script
+      if (message.includes("[DEP0040]") || message.includes("[DEP0190]")) return;
+
       safeAppendJson({
         ts: nowIso(),
         source: "js_interceptor",
         event: "console",
         level,
-        message: args.map(safeToString).join(" "),
+        message,
       });
       if (original) return original(...args);
     };
@@ -744,9 +786,18 @@ INTERCEPTOR_TEMPLATE = """(() => {
 })();
 """
 
-
 def _analyzer_install_dir():
     return os.path.dirname(os.path.abspath(__file__))
+
+
+def _set_windows_env_var(name, value):
+    # Set for current process immediately.
+    os.environ[name] = value
+    # Persist as a Windows user environment variable.
+    try:
+        subprocess.run(["setx", name, value], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
+    except Exception as e:
+        log.debug("Failed to persist env var %s via setx: %s", name, e)
 
 
 class JsConsole(Auxiliary):
@@ -765,8 +816,8 @@ class JsConsole(Auxiliary):
         self.interceptor_path = os.path.join(self._target_directory(), self.interceptor_name)
 
         # Interceptor should read this path and append console output there.
-        os.environ["JS_CONSOLE_LOG_PATH"] = self.log_path
-        os.environ["JS_INTERCEPTOR_PATH"] = self.interceptor_path
+        _set_windows_env_var("JS_CONSOLE_LOG_PATH", self.log_path)
+        _set_windows_env_var("JS_INTERCEPTOR_PATH", self.interceptor_path)
         self.do_run = True
 
     def _target_directory(self):
