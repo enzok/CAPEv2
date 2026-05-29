@@ -800,7 +800,6 @@ class JsConsole(Auxiliary):
         self.log_path = os.path.join(self._target_directory(), self.file_name)
         self.interceptor_name = INTERCEPTOR_FILE_NAME
         self.interceptor_path = os.path.join(self._target_directory(), self.interceptor_name)
-        self.upload_prefix = "aux/js_console"
         self.do_run = True
 
     def _target_directory(self):
@@ -828,6 +827,6 @@ class JsConsole(Auxiliary):
     def finish(self):
         try:
             # Upload to aux directory for the processing module to pick up and parse into report.json
-            upload_to_host(self.log_path, f"{self.upload_prefix}/{self.file_name}")
+            upload_to_host(self.log_path, os.path.join("aux", self.file_name))
         except Exception as e:
             log.warning("js_console: upload failed for %s: %s", self.log_path, e)
