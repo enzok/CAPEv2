@@ -817,7 +817,6 @@ class JsConsole(Auxiliary):
 
         # Interceptor should read this path and append console output there.
         _set_windows_env_var("JS_CONSOLE_LOG_PATH", self.log_path)
-        _set_windows_env_var("JS_INTERCEPTOR_PATH", self.interceptor_path)
         self.do_run = True
 
     def _target_directory(self):

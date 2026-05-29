@@ -123,10 +123,6 @@ class NodeJS(Package):
         target_dir = os.path.dirname(path) or "."
         interceptor_path = os.path.join(target_dir, INTERCEPTOR_NAME)
 
-        env_interceptor_path = os.environ.get("JS_INTERCEPTOR_PATH")
-        if not os.path.exists(interceptor_path) and env_interceptor_path and os.path.exists(env_interceptor_path):
-            interceptor_path = env_interceptor_path
-
         if os.path.exists(interceptor_path):
             preload_path = Path(interceptor_path).resolve().as_posix()
             _set_windows_env_var("NODE_OPTIONS", f'--require "{preload_path}"')
