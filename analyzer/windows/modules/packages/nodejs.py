@@ -130,6 +130,7 @@ class NodeJS(Package):
         if os.path.exists(interceptor_path):
             preload_path = Path(interceptor_path).resolve().as_posix()
             _set_windows_env_var("NODE_OPTIONS", f'--require "{preload_path}"')
+            log.info("Node interceptor found at %s. Setting NODE_OPTIONS env var with --require.", interceptor_path)
         else:
             _set_windows_env_var("NODE_OPTIONS", "")
             log.warning("Node interceptor not found at %s. Running without --require.", interceptor_path)

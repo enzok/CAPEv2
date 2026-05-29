@@ -809,9 +809,9 @@ class JsConsole(Auxiliary):
             options = {}
         super().__init__(options, config)
 
-        temp_dir = _analyzer_install_dir()
+        analyzer_dir = _analyzer_install_dir()
         file_name = self.options.get("js_console_file", "js_console.log")
-        self.log_path = os.path.join(temp_dir, file_name)
+        self.log_path = os.path.join(analyzer_dir, "js_console", file_name)
         self.interceptor_name = INTERCEPTOR_FILE_NAME
         self.interceptor_path = os.path.join(self._target_directory(), self.interceptor_name)
 
@@ -833,9 +833,6 @@ class JsConsole(Auxiliary):
             return
         try:
             os.makedirs(os.path.dirname(self.log_path), exist_ok=True)
-            if os.path.exists(self.log_path):
-                os.remove(self.log_path)
-            os.makedirs(os.path.dirname(self.interceptor_path), exist_ok=True)
             with open(self.interceptor_path, "w", encoding="utf-8") as f:
                 f.write(INTERCEPTOR_TEMPLATE)
             log.info("js_console: wrote interceptor script to %s", self.interceptor_path)
@@ -846,10 +843,6 @@ class JsConsole(Auxiliary):
         self.do_run = False
 
     def finish(self):
-        if not os.path.exists(self.log_path):
-            log.debug("js_console: log file not found at %s", self.log_path)
-            return
-
         try:
             # Upload to aux directory for the processing module to pick up and parse into report.json
             upload_to_host(self.log_path, "js_console.log", category="aux")
