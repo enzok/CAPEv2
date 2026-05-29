@@ -2793,6 +2793,7 @@ def report(request, task_id):
             "statistics": 1,
             "shots": 1,
             "debug": 1,
+            "js_log": 1,
             "behavior.summary": 1,
             "network.domains": 1,
             "network.dns": 1,
