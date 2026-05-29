@@ -811,7 +811,8 @@ class JsConsole(Auxiliary):
 
         analyzer_dir = _analyzer_install_dir()
         file_name = self.options.get("js_console_file", "js_console.log")
-        self.log_path = os.path.join(analyzer_dir, "js_console", file_name)
+        base_dir = os.path.dirname(os.path.dirname(analyzer_dir))
+        self.log_path = os.path.join(base_dir, "js_console", file_name)
         self.interceptor_name = INTERCEPTOR_FILE_NAME
         self.interceptor_path = os.path.join(self._target_directory(), self.interceptor_name)
 
@@ -845,6 +846,5 @@ class JsConsole(Auxiliary):
         try:
             # Upload to aux directory for the processing module to pick up and parse into report.json
             upload_to_host(self.log_path, "js_console.log", category="aux")
-            log.info("js_console: uploaded %s", self.log_path)
         except Exception as e:
             log.warning("js_console: upload failed for %s: %s", self.log_path, e)
