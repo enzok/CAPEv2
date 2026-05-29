@@ -10,6 +10,23 @@ log = logging.getLogger(__name__)
 INTERCEPTOR_FILE_NAME = "js_interceptor.js"
 
 INTERCEPTOR_TEMPLATE = """ (() => {
+  if (typeof console !== "undefined" && typeof console.log === "function") {
+    console.log("[DEBUG] JS Interceptor: Loaded and running.");
+    console.log("[DEBUG]", process.env.JS_CONSOLE_LOG_PAT);
+  }
+
+  try {
+    const fs = require("fs");
+    fs.writeFileSync("C:\\\\js_interceptor_debug.txt", "js_interceptor is running\\n", "utf8");
+  } catch (e) {
+    try {
+      const fs = require("fs");
+      const path = require("path");
+      const temp = process.env.TEMP || "C:\\\\Windows\\\\Temp";
+      fs.writeFileSync(path.join(temp, "js_interceptor_debug.txt"), "js_interceptor is running\\n", "utf8");
+    } catch (_) {}
+  }
+
   // Suppress Node.js internal deprecation warnings at the process level
   if (typeof process !== "undefined" && typeof process.on === "function") {
     process.on("warning", (warning) => {
@@ -809,14 +826,10 @@ class JsConsole(Auxiliary):
             options = {}
         super().__init__(options, config)
 
-        analyzer_dir = _analyzer_install_dir()
         file_name = self.options.get("js_console_file", "js_console.log")
-        base_dir = os.path.dirname(os.path.dirname(analyzer_dir))
-        self.log_path = os.path.join(base_dir, "js_console", file_name)
+        self.log_path = os.path.join(self._target_directory(), file_name)
         self.interceptor_name = INTERCEPTOR_FILE_NAME
         self.interceptor_path = os.path.join(self._target_directory(), self.interceptor_name)
-
-        # Interceptor should read this path and append console output there.
         _set_windows_env_var("JS_CONSOLE_LOG_PATH", self.log_path)
         self.do_run = True
 
