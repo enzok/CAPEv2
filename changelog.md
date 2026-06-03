@@ -1,3 +1,14 @@
+### [01.06.2026]
+* Monitor update: Fix standalone mode broken since August
+
+### [29.05.2026]
+* Monitor updates:
+    * Debugger: Action target argument enhanced with keywords "src", "dst", "&src" & "&dst" (e.g. action0=dumpimage:&src) for instruction parsing
+    * Debugger: Add ignored non-internal breakpoints to analysis log
+
+### [28.05.2026]
+* Monitor update: Fix issue with hooking very small 32-bit functions (e.g. GetCommandLineA/W)
+
 ### [13.05.2026]
 * Update Formbook (Xloader) dynamic config extractor
 * Monitor updates:

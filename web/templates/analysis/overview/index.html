@@ -1,4 +1,5 @@
 {% load key_tags %}
+<div class="dynamic-layout-target layout-centered">
 
 <!-- Info Section -->
 {% include "analysis/overview/_info.html" %}
@@ -201,35 +202,4 @@
     {% include "analysis/overview/_summary.html" %}
 {% endif %}
 
-<script>
-(() => {
-    const MIN_COLUMN_WIDTH_PX = 320;
-    const MAX_COLUMNS = 4;
-    const CHAR_WIDTH_PX = 8;
-    const CELL_PADDING_PX = 40;
-
-    const updateMalwareConfigColumns = () => {
-        document.querySelectorAll("#malware-config ul.malware-config-list").forEach((list) => {
-            if (list.dataset.forceSingleCol === "1") {
-                list.style.setProperty("--mc-cols", "1");
-                return;
-            }
-            const maxLen = parseInt(list.dataset.maxLen || "0", 10);
-            if (!maxLen) {
-                list.style.setProperty("--mc-cols", "1");
-                return;
-            }
-
-            const container = list.closest("td") || list.parentElement;
-            const width = (container && container.clientWidth) || list.clientWidth || 0;
-            const itemWidth = Math.max(MIN_COLUMN_WIDTH_PX, (maxLen * CHAR_WIDTH_PX) + CELL_PADDING_PX);
-            const columns = Math.max(1, Math.min(MAX_COLUMNS, Math.floor(width / itemWidth)));
-            list.style.setProperty("--mc-cols", String(columns || 1));
-        });
-    };
-
-    document.addEventListener("DOMContentLoaded", updateMalwareConfigColumns);
-    window.addEventListener("resize", updateMalwareConfigColumns);
-    updateMalwareConfigColumns();
-})();
-</script>
+</div>

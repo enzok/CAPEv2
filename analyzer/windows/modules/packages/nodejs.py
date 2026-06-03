@@ -3,6 +3,7 @@ import zipfile
 import logging
 import shutil
 import subprocess
+from pathlib import Path
 
 from lib.common.abstracts import Package
 from lib.common.common import check_file_extension
@@ -123,7 +124,9 @@ class NodeJS(Package):
         interceptor_path = os.path.join(target_dir, INTERCEPTOR_NAME)
 
         if os.path.exists(interceptor_path):
-            _set_windows_env_var("NODE_OPTIONS", f"--require ./{INTERCEPTOR_NAME}")
+            preload_path = Path(interceptor_path).resolve().as_posix()
+            _set_windows_env_var("NODE_OPTIONS", f'--require "{preload_path}"')
+            log.info("Node interceptor found at %s. Setting NODE_OPTIONS env var with --require.", interceptor_path)
         else:
             _set_windows_env_var("NODE_OPTIONS", "")
             log.warning("Node interceptor not found at %s. Running without --require.", interceptor_path)
