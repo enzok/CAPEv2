@@ -104,3 +104,108 @@ def index(request, task_id, session_data):
                 conn.close()
             except Exception:
                 pass
+
+
+@conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
+def direct_vnc_host_port(request, host, port):
+    token = uuid.uuid4()
+    try:
+        guac_session = db.create_guac_session(
+            token=token,
+            task_id=0,
+            vm_label=str(port),
+            guest_ip=host,
+        )
+    except Exception as e:
+        return _error(request, 0, f"Failed to create Guacamole session: {e}")
+
+    clean_host = "".join(c for c in host if c.isalnum() or c in ".-_")
+    recording_name = f"direct_{clean_host}_{port}_{str(token)[:8]}"
+
+    response = render(request, "guac/index.html", {
+        "session_id": str(token),
+        "task_id": 0,
+        "recording_name": recording_name,
+        "vnc_host": host,
+        "vnc_port": port,
+    })
+
+    response.set_cookie(
+        "guac_session",
+        str(guac_session.token),
+        httponly=True,
+        secure=request.is_secure(),
+        samesite="Lax",
+        path="/guac/",
+    )
+
+    return response
+
+
+@conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
+def direct_vnc_vm(request, vm_name):
+    if not LIBVIRT_AVAILABLE:
+        return _error(request, 0, "Libvirt not available")
+
+    if machinery not in machinery_available:
+        return _error(request, 0, f"Machinery type '{machinery}' is not supported")
+
+    conn = None
+    try:
+        conn = libvirt.open(machinery_dsn)
+        if not conn:
+            return _error(request, 0, "Could not connect to hypervisor")
+
+        try:
+            dom = conn.lookupByName(vm_name)
+        except Exception as e:
+            return _error(request, 0, str(e))
+
+        if not dom:
+            return _error(request, 0, f"VM {vm_name} not found")
+
+        state = dom.state(flags=0)
+        if not state or state[0] != 1:
+            return render(request, "guac/wait.html", {"task_id": 0})
+
+    except Exception as e:
+        return _error(request, 0, str(e))
+    finally:
+        if conn:
+            try:
+                conn.close()
+            except Exception:
+                pass
+
+    token = uuid.uuid4()
+    try:
+        guac_session = db.create_guac_session(
+            token=token,
+            task_id=0,
+            vm_label=vm_name,
+            guest_ip="",
+        )
+    except Exception as e:
+        return _error(request, 0, f"Failed to create Guacamole session: {e}")
+
+    recording_name = f"direct_{vm_name}_{str(token)[:8]}"
+
+    response = render(request, "guac/index.html", {
+        "session_id": str(token),
+        "task_id": 0,
+        "recording_name": recording_name,
+        "vnc_host": vm_name,
+        "vnc_port": "auto",
+    })
+
+    response.set_cookie(
+        "guac_session",
+        str(guac_session.token),
+        httponly=True,
+        secure=request.is_secure(),
+        samesite="Lax",
+        path="/guac/",
+    )
+
+    return response
+
