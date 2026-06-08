@@ -52,6 +52,26 @@ from lib.cuckoo.common.web_utils import category_all_files, my_rate_minutes, my_
 from lib.cuckoo.core.database import Database, TasksMixIn
 from lib.cuckoo.core.data.task import TASK_PENDING, Task
 from modules.reporting.report_doc import CHUNK_CALL_SIZE
+try:
+    from modules.reporting.mongodb import CHUNKABLE_NON_QUERY_FIELDS
+except ImportError:
+    CHUNKABLE_NON_QUERY_FIELDS = (
+        "strings",
+        "behavior.processtree",
+        "behavior.processes",
+        "behavior.summary",
+        "procdump",
+        "static",
+        "dropped",
+        "suricata",
+        "signatures",
+        "network",
+        "target",
+        "CAPE",
+        "statistics",
+        "memory",
+        "js_log",
+    )
 from analysis.templatetags.analysis_tags import malware_config
 
 try:
@@ -301,7 +321,20 @@ def _safe_update_analysis_field(doc_id, task_id: int, field_path: str, value):
         if not _is_mongo_doc_too_large(exc):
             raise
 
-    if field_path not in WEB_CHUNKABLE_NON_QUERY_FIELDS:
+    chunk_large_docs = True
+    if hasattr(reporting_cfg, "mongodb"):
+        chunk_large_docs = getattr(reporting_cfg.mongodb, "chunk_large_docs", True)
+
+    is_chunkable = False
+    if chunk_large_docs:
+        root_field = field_path.split(".")[0]
+        if field_path in CHUNKABLE_NON_QUERY_FIELDS or root_field in CHUNKABLE_NON_QUERY_FIELDS:
+            is_chunkable = True
+
+    if not is_chunkable and field_path in WEB_CHUNKABLE_NON_QUERY_FIELDS:
+        is_chunkable = True
+
+    if not is_chunkable:
         raise first_exc
 
     pointer = _store_chunked_analysis_field(task_id=task_id, field_path=field_path, value=value)
