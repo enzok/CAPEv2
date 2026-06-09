@@ -111,6 +111,9 @@ fix_large_docs = yes
 
 # Non-lossy large document handling: move oversized sections to analysis_chunks.
 chunk_large_docs = no
+# List of fields that can be chunked if they are too large to store in MongoDB.
+# Separated by commas.
+chunkable_non_query_fields = strings, behavior.processtree, behavior.processes, behavior.summary, procdump, static, dropped, suricata, signatures, network, target, CAPE, statistics, memory, js_log
 # Keep analysis root doc below this size (bytes), must be < 16MB BSON cap.
 chunk_large_docs_target_bytes = 14680064
 # Minimum section size eligible for offload (bytes).

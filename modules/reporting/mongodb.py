@@ -37,7 +37,7 @@ MEGABYTE = 0x100000
 ANALYSIS_CHUNKS_COLL = "analysis_chunks"
 DEFAULT_TARGET_DOC_SIZE = 14 * MEGABYTE
 DEFAULT_MIN_SECTION_SIZE = 1 * MEGABYTE
-CHUNKABLE_NON_QUERY_FIELDS = (
+DEFAULT_CHUNKABLE_NON_QUERY_FIELDS = (
     "strings",
     "behavior.processtree",
     "behavior.processes",
@@ -57,6 +57,12 @@ CHUNKABLE_NON_QUERY_FIELDS = (
 
 log = logging.getLogger(__name__)
 reporting_conf = Config("reporting")
+
+CHUNKABLE_NON_QUERY_FIELDS = DEFAULT_CHUNKABLE_NON_QUERY_FIELDS
+if hasattr(reporting_conf, "mongodb") and hasattr(reporting_conf.mongodb, "chunkable_non_query_fields"):
+    cfg_val = reporting_conf.mongodb.chunkable_non_query_fields
+    if isinstance(cfg_val, str) and cfg_val.strip():
+        CHUNKABLE_NON_QUERY_FIELDS = tuple(f.strip() for f in cfg_val.split(",") if f.strip())
 
 
 class MongoDB(Report):

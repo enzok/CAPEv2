@@ -398,3 +398,15 @@ def remove_configs_on_delete_range(*, range_start: int = 0, range_end: int = 0):
         task_id_query["$lt"] = range_end
     if task_id_query:
         mongo_delete_many(CONFIGS_COLL, {"task_id": task_id_query})
+
+
+# Ensure rehydrate_analysis_chunks runs before other find hooks
+from dev_utils.mongodb import hooks
+
+if rehydrate_analysis_chunks in hooks[mongo_find_one]["analysis"]:
+    hooks[mongo_find_one]["analysis"].remove(rehydrate_analysis_chunks)
+    hooks[mongo_find_one]["analysis"].insert(0, rehydrate_analysis_chunks)
+
+if rehydrate_analysis_chunks_many in hooks[mongo_find]["analysis"]:
+    hooks[mongo_find]["analysis"].remove(rehydrate_analysis_chunks_many)
+    hooks[mongo_find]["analysis"].insert(0, rehydrate_analysis_chunks_many)
