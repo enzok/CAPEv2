@@ -298,14 +298,31 @@ def collect_file_dicts(report) -> itertools.chain:
     # ToDo extend to self extract
     file_dicts = []
     target_file = report.get("target", {}).get("file", None)
-    if target_file:
+    if target_file and not _is_chunk_pointer(target_file):
         file_dicts.append([target_file])
-    file_dicts.append(report.get("dropped", None) or [])
-    file_dicts.append(report.get("CAPE", {}).get("payloads", None) or [])
-    file_dicts.append(report.get("procdump", None) or [])
-    if report.get("suricata", {}).get("files", []):
-        file_dicts.append(list(filter(None, [file_info.get("file_info", []) for file_info in report.get("suricata", {}).get("files", [])])))
+
+    dropped = report.get("dropped", None)
+    if dropped and not _is_chunk_pointer(dropped):
+        file_dicts.append(dropped)
+
+    cape = report.get("CAPE", {})
+    if cape and not _is_chunk_pointer(cape):
+        payloads = cape.get("payloads", None)
+        if payloads and not _is_chunk_pointer(payloads):
+            file_dicts.append(payloads)
+
+    procdump = report.get("procdump", None)
+    if procdump and not _is_chunk_pointer(procdump):
+        file_dicts.append(procdump)
+
+    suricata = report.get("suricata", {})
+    if suricata and not _is_chunk_pointer(suricata):
+        files = suricata.get("files", [])
+        if files and not _is_chunk_pointer(files):
+            file_dicts.append(list(filter(None, [file_info.get("file_info", []) for file_info in files])))
+
     return itertools.chain.from_iterable(file_dicts)
+
 
 
 # --------- Configs normalization helpers ---------

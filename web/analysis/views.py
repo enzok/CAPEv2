@@ -314,6 +314,17 @@ def _cleanup_chunk_orphans_for_field(task_id: int, field_path: str, keep_part_id
 
 
 def _safe_update_analysis_field(doc_id, task_id: int, field_path: str, value):
+    from dev_utils.mongo_hooks import normalize_files
+
+    dummy_report = {"info": {"id": task_id}}
+    if field_path == "target.file":
+        dummy_report["target"] = {"file": value}
+    elif field_path == "CAPE":
+        dummy_report["CAPE"] = value
+    else:
+        dummy_report[field_path] = value
+    normalize_files(dummy_report)
+
     first_exc = None
     try:
         mongo_update_one("analysis", {"_id": ObjectId(doc_id)}, {"$set": {field_path: value}})
@@ -4220,8 +4231,10 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
         if not buf:
             return render(request, "error.html", {"error": f"Task {task_id} not found in results database"})
 
-        from dev_utils.mongo_hooks import rehydrate_analysis_chunks
+        from dev_utils.mongo_hooks import denormalize_files, rehydrate_analysis_chunks
+
         buf = rehydrate_analysis_chunks(buf)
+        buf = denormalize_files(buf)
 
         servicedata = {}
         if category == "CAPE":
