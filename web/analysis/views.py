@@ -141,13 +141,10 @@ except (NameError, ImportError):
     print("Can't import FLARE-CAPA")
 
 HAVE_STRINGS = False
-if processing_cfg.strings.enabled:
-    try:
-        from lib.cuckoo.common.integrations.strings import extract_strings
+if processing_cfg.strings.on_demand:
+    from lib.cuckoo.common.integrations.strings import extract_strings
 
-        HAVE_STRINGS = True
-    except ImportError:
-        pass
+    HAVE_STRINGS = True
 
 try:
     from evtx import PyEvtxParser
@@ -4103,10 +4100,7 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
         pass
     elif service in on_demand_config_mapper:
         config_section = getattr(on_demand_config_mapper[service], service, {})
-        if service == "strings":
-            if not config_section.get("enabled"):
-                return render(request, "error.html", {"error": f"{service} extraction is disabled in configuration"})
-        elif not config_section.get("on_demand"):
+        if not config_section.get("on_demand"):
             return render(request, "error.html", {"error": f"{service} on demand is disabled in configuration"})
     else:
         return render(request, "error.html", {"error": f"Unsupported service: {service}"})
