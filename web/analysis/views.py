@@ -4220,6 +4220,9 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
         if not buf:
             return render(request, "error.html", {"error": f"Task {task_id} not found in results database"})
 
+        from dev_utils.mongo_hooks import rehydrate_analysis_chunks
+        buf = rehydrate_analysis_chunks(buf)
+
         servicedata = {}
         if category == "CAPE":
             _set_service_by_sha256(buf.get(category, {}).get("payloads", []) or [], sha256, service, details)
