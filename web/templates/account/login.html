@@ -63,7 +63,7 @@
 </div>
 {% endblock content %}
 
-{% block extra_body %}
+{% block extra_scripts %}
     {{ block.super }}
     {% include "mfa/webauthn/snippets/login_script.html" with button_id="passkey_login" %}
-{% endblock extra_body %}
+{% endblock extra_scripts %}
