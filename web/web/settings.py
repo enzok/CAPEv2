@@ -265,6 +265,7 @@ INSTALLED_APPS = [
     "allauth",
     "allauth.account",
     "allauth.socialaccount",
+    "allauth.mfa",
     # Keeping this as example but disabling as some of them has extra dependencies. Check official docs.
     # "allauth.socialaccount.providers.github",
     # "allauth.socialaccount.providers.gitlab",
@@ -377,6 +378,8 @@ SOCIAL_AUTH_EMAIL_DOMAIN = web_cfg.web_auth.get("social_auth_email_domain", Fals
 # In case you want to verify domain of email + set the username
 # SOCIALACCOUNT_ADAPTER = 'web.allauth_adapters.MySocialAccountAdapter'
 # ACCOUNT_DEFAULT_HTTP_PROTOCOL = "https"
+
+MFA_PASSKEY_LOGIN_ENABLED = True
 
 #### AllAuth end
 
