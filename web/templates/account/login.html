@@ -2,7 +2,6 @@
 {% load i18n %}
 {% load crispy_forms_tags %}
 {% load socialaccount %}
-{% load mfa %}
 {% block title %}{% trans "Sign In" %}{% endblock title %}
 
 {% block content %}
@@ -37,9 +36,6 @@
             {% endif %}
 
             <form method="post" autocomplete="off">
-                <div class="d-grid mb-3">
-                    {% mfa_passkey_login_button %}
-                </div>
                 {% csrf_token %}
                 {{ form|crispy }}
                 <div class="d-grid mt-3">
