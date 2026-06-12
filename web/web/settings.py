@@ -380,6 +380,7 @@ SOCIAL_AUTH_EMAIL_DOMAIN = web_cfg.web_auth.get("social_auth_email_domain", Fals
 # ACCOUNT_DEFAULT_HTTP_PROTOCOL = "https"
 
 MFA_PASSKEY_LOGIN_ENABLED = True
+MFA_SUPPORTED_TYPES = ["totp", "webauthn", "recovery_codes"]
 
 #### AllAuth end
 
