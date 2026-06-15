@@ -383,8 +383,8 @@ SETTINGS_EXPORT = [
     "HUNT_ENABLED"
 ]
 
-EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
 if web_cfg.registration.get("email_confirmation", False):
+    EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
     EMAIL_HOST = web_cfg.registration.get("email_host", False)
     EMAIL_HOST_USER = web_cfg.registration.get("email_user", False)
     EMAIL_HOST_PASSWORD = web_cfg.registration.get("email_password", False)
@@ -393,6 +393,8 @@ if web_cfg.registration.get("email_confirmation", False):
     EMAIL_USE_SSL = web_cfg.registration.get("use_ssl", False)
     SERVER_EMAIL = EMAIL_HOST_USER
     DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+else:
+    EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 
 SITE_ID = 1
 
@@ -433,6 +435,7 @@ MFA_SUPPORTED_TYPES = ["totp", "webauthn", "recovery_codes"]
 MFA_FORMS = {
     "add_webauthn": "web.allauth_forms.CustomAddWebAuthnForm",
 }
+MFA_ALLOW_UNVERIFIED_EMAIL = True
 
 #### AllAuth end
 
