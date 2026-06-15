@@ -39,8 +39,6 @@ DEBUG = True
 
 LOGGING_CONFIG = None
 
-WEB_AUTHENTICATION = getattr(Config("web"), "web_auth", {}).get("enabled", False)
-
 web_cfg = Config("web")
 csfr_list = []
 if web_cfg.security.csrf_trusted_origins:
