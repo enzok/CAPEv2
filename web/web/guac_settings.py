@@ -5,6 +5,9 @@ from pathlib import Path
 
 from django.utils.log import DEFAULT_LOGGING
 
+from lib.cuckoo.common.config import Config as _CapeConfig
+from lib.cuckoo.core.database import init_database
+
 CUCKOO_PATH = os.path.join(Path.cwd(), "..")
 sys.path.append(CUCKOO_PATH)
 
@@ -37,20 +40,6 @@ except ImportError:
 DEBUG = True
 
 LOGGING_CONFIG = None
-
-web_cfg = Config("web")
-csfr_list = []
-if web_cfg.security.csrf_trusted_origins:
-    for host in web_cfg.security.csrf_trusted_origins.split(","):
-        host = host.strip()
-        if not host:
-            continue
-        if host.startswith(("http://", "https://")):
-            csfr_list.append(host)
-        else:
-            csfr_list.extend([f"http://{host}", f"https://{host}"])
-
-CSRF_TRUSTED_ORIGINS = csfr_list
 
 ALLOWED_HOSTS = [
     "*",
@@ -184,8 +173,6 @@ logging.config.dictConfig(
     }
 )
 
-from lib.cuckoo.core.database import init_database
-from lib.cuckoo.common.config import Config as _CapeConfig
 
 _db = init_database(exists_ok=True)
 
