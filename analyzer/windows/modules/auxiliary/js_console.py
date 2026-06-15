@@ -827,6 +827,6 @@ class JsConsole(Auxiliary):
     def finish(self):
         try:
             # Upload to aux directory for the processing module to pick up and parse into report.json
-            upload_to_host(self.log_path, os.path.join("aux", self.file_name))
+            upload_to_host(self.log_path, os.path.join("aux", "js_console", self.file_name))
         except Exception as e:
             log.warning("js_console: upload failed for %s: %s", self.log_path, e)

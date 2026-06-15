@@ -65,6 +65,7 @@ RESULT_UPLOADABLE = (
     b"aux",
     b"aux/amsi_etw",
     b"aux/sslkeylogfile",
+    b"aux/js_console",
     b"browser",
     b"curtain",
     b"debugger",
@@ -93,6 +94,8 @@ REPLACEABLE_RESULT_UPLOADS = (
 def netlog_sanitize_fname(path):
     """Validate agent-provided path for result files"""
     path = path.replace(b"\\", b"/")
+    if path == b"js_console.log" or path == b"aux/js_console.log":
+        path = b"aux/js_console/js_console.log"
     dir_part, name = os.path.split(path)
     if dir_part not in RESULT_DIRECTORIES:
         raise CuckooOperationalError(f"Netlog client requested banned path: {path}")
