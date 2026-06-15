@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% load static %}
+
+{% block content %}
+<div class="container my-4" style="max-width: 600px;">
+    <h3 class="text-white mb-3"><i class="fas fa-key me-2"></i>Add Security Key</h3>
+
+    {% if messages %}
+        {% for m in messages %}
+        <div class="alert alert-{% if m.tags == 'error' %}danger{% else %}{{ m.tags|default:'info' }}{% endif %}">{{ m }}</div>
+        {% endfor %}
+    {% endif %}
+
+    <form method="post" id="add_webauthn_form">
+        {% csrf_token %}
+        {{ form.credential }}
+
+        <div class="mb-3">
+            <label for="id_name" class="form-label text-light">Key Name</label>
+            <input type="text" name="name" id="id_name" class="form-control bg-dark text-white border-secondary" value="{{ form.name.value|default:'' }}">
+            <div class="form-text text-white-50">Give this security key a friendly name (e.g., "My YubiKey" or "Work Windows Hello").</div>
+            {% if form.name.errors %}<div class="text-danger small mt-1">{{ form.name.errors|join:", " }}</div>{% endif %}
+        </div>
+
+        {% if form.passwordless %}
+        <div class="form-check mb-3">
+            <input type="checkbox" name="passwordless" id="id_passwordless" class="form-check-input" {% if form.passwordless.value %}checked{% endif %}>
+            <label class="form-check-label text-light" for="id_passwordless">
+                <strong>Passwordless (Passkey)</strong>
+            </label>
+            <div class="form-text text-white-50">Enabling passwordless operation allows you to sign in using just this key/biometrics, but imposes additional requirements such as biometrics or PIN protection.</div>
+        </div>
+        {% endif %}
+
+        <div class="d-flex gap-2">
+            <button type="button" id="mfa_webauthn_add" class="btn btn-primary"><i class="fas fa-plus me-1"></i> Register Key</button>
+            <a href="{% url 'mfa_list_webauthn' %}" class="btn btn-secondary">Cancel</a>
+        </div>
+    </form>
+
+    {% include "mfa/webauthn/snippets/scripts.html" %}
+    {{ js_data|json_script:"js_data" }}
+    <script data-allauth-onload="allauth.webauthn.forms.addForm" type="application/json">{
+    "ids": {
+        "add": "mfa_webauthn_add",
+        "passwordless": "id_passwordless",
+        "credential": "id_credential",
+        "data": "js_data"
+    }
+}
+    </script>
+</div>
+{% endblock %}
