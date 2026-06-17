@@ -105,6 +105,44 @@ class TestAnalysisConfigLinks:
         assert "_associated_analysis_hashes" not in cfg
 
 
+class TestPcapProcessing:
+    @patch("modules.processing.CAPE.path_exists")
+    @patch("modules.processing.CAPE.File")
+    def test_pcap_category_processing(self, mock_file_cls, mock_path_exists, cape_processor):
+        mock_path_exists.return_value = True
+
+        mock_file_instance = MagicMock()
+        mock_file_cls.return_value = mock_file_instance
+        mock_file_instance.get_sha256.return_value = "fake-pcap-sha256"
+        mock_file_instance.get_all.return_value = ({"sha256": "fake-pcap-sha256", "path": "/fake/path"}, None)
+        mock_file_instance.get_type.return_value = "pcap capture file"
+        mock_file_instance.get_name.return_value = "target.pcap"
+        mock_file_instance.guest_paths = ["target.pcap"]
+
+        cape_processor.task = {
+            "id": 123,
+            "category": "pcap",
+            "target": "/fake/path/target.pcap",
+            "options": ""
+        }
+        cape_processor.results = {}
+        cape_processor.options = MagicMock()
+        cape_processor.options.replace_patterns = []
+        cape_processor.self_extracted = []
+
+        cape_processor.process_file(
+            "/fake/path/target.pcap",
+            False,
+            {},
+            category="pcap",
+            duplicated={"sha256": set()}
+        )
+
+        assert "target" in cape_processor.results
+        assert cape_processor.results["target"]["category"] == "pcap"
+        assert cape_processor.results["target"]["file"]["sha256"] == "fake-pcap-sha256"
+
+
 class TestDeduplication:
     @patch("os.rename")
     @patch("os.listdir")

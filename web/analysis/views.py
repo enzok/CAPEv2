@@ -2927,7 +2927,7 @@ def report(request, task_id):
     # if report.get("info", {}).get("tlp", "").lower() == "red" and not request.user.is_staff:
     #    return render(request, "error.html", {"error": "Task has a TLP of RED and is restricted to staff."})
 
-    if report.get("info", {}).get("category", "") in ("file", "pcap", "static") and not report.get("target", {}).get(
+    if report.get("info", {}).get("category", "") in ("file", "static") and not report.get("target", {}).get(
         "file", {}
     ).get("sha256"):
         return render(

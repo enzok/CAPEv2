@@ -277,7 +277,7 @@ class CAPE(Processing):
 
         file_info["options_hash"] = options_hash
 
-        if category in ("static", "file"):
+        if category in ("static", "file", "pcap"):
             file_info["name"] = Path(self.task["target"]).name
 
         if pefile_object:
@@ -289,7 +289,7 @@ class CAPE(Processing):
                 add_family_detection(self.results, clamav_detection, "ClamAV", file_info["sha256"])
 
         # should we use dropped path here?
-        if run_static:
+        if run_static and category != "pcap":
             static_file_info(
                 file_info,
                 file_path,
@@ -304,7 +304,7 @@ class CAPE(Processing):
 
         type_string, append_file = self._metadata_processing(metadata, file_info, append_file)
 
-        if category in ("static", "file"):
+        if category in ("static", "file", "pcap"):
             if MISP_HASH_LOOKUP:
                 misp_hash_lookup(file_info["sha256"], str(self.task["id"]), file_info)
 
@@ -465,7 +465,7 @@ class CAPE(Processing):
                 }
 
         #  Static processing of submitted file
-        if self.task["category"] in ("file", "static"):
+        if self.task["category"] in ("file", "static", "pcap"):
             self.process_file(
                 self.file_path, False, meta.get(self.file_path, {}), category=self.task["category"], duplicated=duplicated
             )
