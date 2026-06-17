@@ -315,16 +315,10 @@ class GuestManager:
         # Upload the analyzer.
         self.upload_analyzer()
 
-        # Update file_name in options if category is file/archive to include task-id unique subdirectory
+        # Update file_name in options if category is file/archive
         # This must be done BEFORE self.add_config(options) is called so that analysis.conf in guest has the correct path
         if options["category"] in ("file", "archive"):
-            if "subdir_upload" in features:
-                if self.platform == "windows":
-                    options["file_name"] = f"{options['id']}\\{sanitize_filename(options['file_name'])}"
-                else:
-                    options["file_name"] = f"{options['id']}/{sanitize_filename(options['file_name'])}"
-            else:
-                options["file_name"] = sanitize_filename(options["file_name"])
+            options["file_name"] = sanitize_filename(options["file_name"])
 
 
         # Pass along the analysis.conf file.
