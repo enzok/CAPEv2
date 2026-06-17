@@ -107,6 +107,9 @@ class DummyContext:
         fd.write(b"payload")
         fd.flush()
 
+    def discard(self):
+        pass
+
 
 def test_auxiliary_config_registers_network_etw():
     cfg = Config("auxiliary")
@@ -177,3 +180,23 @@ def test_attribution_index_backfills_process_names():
     hit = idx.for_ip("8.8.8.8", dst_port=443)
 
     assert hit["process_name"] == "powershell.exe"
+
+
+def test_resultserver_handles_overwrite_gracefully_by_discarding(tmp_path):
+    import os
+    ctx = DummyContext(str(tmp_path), [b"files/existing_file.bin"])
+    upload = FileUpload(task_id=7, ctx=ctx)
+    upload.init()
+
+    with patch("lib.cuckoo.core.resultserver.open_exclusive", side_effect=OSError(17, "File exists")) as exclusive_mock, \
+         patch("lib.cuckoo.core.resultserver.log") as log_mock, \
+         patch.object(upload.handler, "discard", wraps=upload.handler.discard) as discard_mock:
+        upload.handle()
+
+    exclusive_mock.assert_called_once()
+    log_mock.debug.assert_any_call(
+        "Task #%s: Analyzer tried to overwrite an existing file: %s. Skipping and discarding incoming data.",
+        7,
+        os.path.join(str(tmp_path), "files/existing_file.bin"),
+    )
+    discard_mock.assert_called_once()

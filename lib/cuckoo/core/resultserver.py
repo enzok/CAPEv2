@@ -285,10 +285,13 @@ class FileUpload(ProtocolHandler):
             except OSError as e:
                 log.debug("File upload error for %s (task #%s)", dump_path, self.task_id)
                 if e.errno == errno.EEXIST:
-                    raise CuckooOperationalError(
-                        "Task #%s: Analyzer tried to overwrite an existing file: %s" % (self.task_id, file_path)
+                    log.debug(
+                        "Task #%s: Analyzer tried to overwrite an existing file: %s. Skipping and discarding incoming data.",
+                        self.task_id,
+                        file_path,
                     )
-                raise
+                else:
+                    raise
         # ToDo we need Windows path
         # filter screens/curtain/sysmon
         if not dump_path.startswith(
@@ -314,7 +317,10 @@ class FileUpload(ProtocolHandler):
         if not duplicated:
             self.handler.sock.settimeout(None)
             try:
-                return self.handler.copy_to_fd(self.fd, self.upload_max_size)
+                if self.fd:
+                    return self.handler.copy_to_fd(self.fd, self.upload_max_size)
+                else:
+                    return self.handler.discard()
             except Exception as e:
                 if self.fd:
                     log.debug(
