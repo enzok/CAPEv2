@@ -71,6 +71,25 @@ HAVE_HTTPREPLAY = False
 try:
     import httpreplay
     import httpreplay.cut
+    import httpreplay.cobweb
+
+    class SafeEncodingDict(dict):
+        def __getitem__(self, key):
+            if not super().__contains__(key):
+                log.warning("httpreplay: unknown content encoding '%s', skipping decompression", key)
+                return lambda ts, content: content
+            return super().__getitem__(key)
+
+        def get(self, key, default=None):
+            if not super().__contains__(key):
+                log.warning("httpreplay: unknown content encoding '%s', skipping decompression", key)
+                return lambda ts, content: content
+            return super().get(key, default)
+
+        def __contains__(self, key):
+            return True
+
+    httpreplay.cobweb.content_encodings = SafeEncodingDict(httpreplay.cobweb.content_encodings)
 
     if httpreplay.__version__ == "0.3":
         HAVE_HTTPREPLAY = True
