@@ -1332,15 +1332,8 @@ class NetworkAnalysis(Processing):
 
             events = []
             try:
-                with open(log_path, "r", encoding="utf-8", errors="replace") as f:
-                    for line in f:
-                        line = line.strip()
-                        if not line:
-                            continue
-                        try:
-                            events.append(loads(line))
-                        except Exception:
-                            continue
+                from modules.processing.js_log_processing import parse_js_log_file
+                events, _, _, _, _ = parse_js_log_file(log_path)
             except Exception as e:
                 log.warning("Failed to manually read JS console log: %s", e)
                 return js_map
@@ -1382,8 +1375,11 @@ class NetworkAnalysis(Processing):
                 result_text = event.get("result", {}).get("text")
                 if result_text:
                     try:
-                        import json
-                        data = json.loads(result_text)
+                        if isinstance(result_text, str):
+                            import json
+                            data = json.loads(result_text)
+                        else:
+                            data = result_text
                         def find_ips(node):
                             if isinstance(node, dict):
                                 addr = node.get("address")
@@ -1405,7 +1401,7 @@ class NetworkAnalysis(Processing):
                 current_pid = event.get("pid")
                 exec_path = event.get("exec_path")
                 if exec_path:
-                    current_process_name = os.path.basename(exec_path)
+                    current_process_name = exec_path.split("\\")[-1].split("/")[-1]
                 else:
                     current_process_name = "node.exe"
                 continue
