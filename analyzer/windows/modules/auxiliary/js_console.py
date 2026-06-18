@@ -3,7 +3,7 @@ import os
 import subprocess
 
 from lib.common.abstracts import Auxiliary
-from lib.common.constants import OPT_CURDIR
+from lib.common.constants import OPT_CURDIR, PATHS
 from lib.common.results import upload_to_host
 
 log = logging.getLogger(__name__)
@@ -35,14 +35,7 @@ INTERCEPTOR_TEMPLATE = """ (() => {
   global.setInterval = (callback, delay, ...args) => {
       return originalSetInterval(callback, 1, ...args);
   };
-
-  function loggedInUserTemp() {
-    if (process.env.LOCALAPPDATA) return path.join(process.env.LOCALAPPDATA, "Temp");
-    if (process.env.USERPROFILE) return path.join(process.env.USERPROFILE, "AppData", "Local", "Temp");
-    return process.env.TEMP || "C:\\\\Windows\\\\Temp";
-  }
-
-  const logPath = path.join(loggedInUserTemp(), "js_console.log");
+  const logPath = "@LOG_PATH@";
 
   function safeAppendJson(obj) {
     try {
@@ -797,7 +790,7 @@ class JsConsole(Auxiliary):
         super().__init__(options, config)
 
         self.file_name = self.options.get("js_console_file", "js_console.log")
-        self.log_path = os.path.join(self._target_directory(), self.file_name)
+        self.log_path = os.path.join(PATHS["logs"], self.file_name)
         self.interceptor_name = INTERCEPTOR_FILE_NAME
         self.interceptor_path = os.path.join(self._target_directory(), self.interceptor_name)
         self.do_run = True
@@ -815,9 +808,44 @@ class JsConsole(Auxiliary):
             return
         try:
             os.makedirs(os.path.dirname(self.log_path), exist_ok=True)
+            
+            # Substitute log path in interceptor script dynamically
+            templated_log_path = self.log_path.replace("\\", "\\\\")
+            templated_script = INTERCEPTOR_TEMPLATE.replace("@LOG_PATH@", templated_log_path)
+
             with open(self.interceptor_path, "w", encoding="utf-8") as f:
-                f.write(INTERCEPTOR_TEMPLATE)
+                f.write(templated_script)
             log.info("js_console: wrote interceptor script to %s", self.interceptor_path)
+
+            # Set NODE_OPTIONS environment variable system-wide and for current process
+            preload_path = os.path.abspath(self.interceptor_path).replace("\\", "/")
+            node_options_val = f'--require "{preload_path}"'
+            
+            os.environ["NODE_OPTIONS"] = node_options_val
+            try:
+                subprocess.run(
+                    ["setx", "NODE_OPTIONS", node_options_val],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    check=False
+                )
+                log.info("js_console: set NODE_OPTIONS system env var to %s", node_options_val)
+            except Exception as e:
+                log.debug("js_console: failed to set persistent NODE_OPTIONS: %s", e)
+
+            # Set BUN_OPTIONS environment variable system-wide and for current process
+            bun_options_val = f'--preload "{preload_path}"'
+            os.environ["BUN_OPTIONS"] = bun_options_val
+            try:
+                subprocess.run(
+                    ["setx", "BUN_OPTIONS", bun_options_val],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    check=False
+                )
+                log.info("js_console: set BUN_OPTIONS system env var to %s", bun_options_val)
+            except Exception as e:
+                log.debug("js_console: failed to set persistent BUN_OPTIONS: %s", e)
         except Exception as e:
             log.warning("js_console: failed to prepare js artifacts: %s", e)
 
@@ -825,6 +853,10 @@ class JsConsole(Auxiliary):
         self.do_run = False
 
     def finish(self):
+        if not os.path.exists(self.log_path):
+            log.warning("js_console: log file %s not found", self.log_path)
+            return
+
         try:
             # Upload to aux directory for the processing module to pick up and parse into report.json
             upload_to_host(self.log_path, os.path.join("aux", "js_console", self.file_name))
