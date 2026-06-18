@@ -1362,6 +1362,7 @@ class NetworkAnalysis(Processing):
                 return None
 
         domain_to_ips = defaultdict(set)
+        active_http = {}
 
         for event in events:
             if not isinstance(event, dict):
@@ -1445,6 +1446,7 @@ class NetworkAnalysis(Processing):
             elif event_type == "http_request":
                 url = event.get("url")
                 method = event.get("method") or "GET"
+                req_id = event.get("request_id")
                 if url:
                     try:
                         parsed = urlparse(url)
@@ -1460,16 +1462,46 @@ class NetworkAnalysis(Processing):
                             for ip in domain_to_ips.get(norm_host, []):
                                 js_map["endpoint_map"][(ip, port_val)].append(pinfo)
 
-                            js_map["http_requests"].append({
+                            req_entry = {
                                 "url": url,
                                 "host": norm_host,
                                 "method": method,
                                 "process_id": current_pid,
                                 "process_name": current_process_name,
                                 "time": ts_epoch,
-                            })
+                                "headers": event.get("headers"),
+                            }
+                            js_map["http_requests"].append(req_entry)
+                            if req_id is not None:
+                                active_http[req_id] = req_entry
                     except Exception:
                         pass
+
+            elif event_type in ("http_response", "http_error"):
+                req_id = event.get("request_id")
+                if req_id is not None and req_id in active_http:
+                    req_entry = active_http[req_id]
+                    if event_type == "http_response":
+                        status = event.get("status")
+                        status_text = event.get("status_text") or ""
+                        req_entry["response_status"] = status
+                        req_entry["response_status_text"] = status_text
+                        req_entry["response_headers"] = event.get("headers")
+                        # Format response headers/body
+                        resp_headers = event.get("headers")
+                        resp_str = f"HTTP/1.1 {status} {status_text}\r\n"
+                        if isinstance(resp_headers, dict):
+                            for k, v in resp_headers.items():
+                                val_str = ", ".join(v) if isinstance(v, list) else str(v)
+                                resp_str += f"{k}: {val_str}\r\n"
+                        body = event.get("body")
+                        if isinstance(body, dict) and body.get("text"):
+                            resp_str += f"\r\n{body['text']}"
+                        req_entry["response"] = resp_str
+                    else:
+                        error_val = event.get("error")
+                        req_entry["error"] = error_val
+                        req_entry["response"] = f"HTTP Error: {error_val}"
 
         return js_map
 
@@ -1917,6 +1949,28 @@ class NetworkAnalysis(Processing):
                     "first_seen": req.get("time"),
                 }
                 network.setdefault("http", []).append(entry)
+                
+                # Also add to http_ex/https_ex to render in UI
+                ex_entry = entry.copy()
+                ex_entry["protocol"] = "https" if port == 443 else "http"
+                ex_entry["uri"] = path
+                
+                req_headers = req.get("headers")
+                request_str = f"{entry['method']} {path} HTTP/1.1\r\n"
+                if isinstance(req_headers, dict):
+                    for k, v in req_headers.items():
+                        val_str = ", ".join(v) if isinstance(v, list) else str(v)
+                        request_str += f"{k}: {val_str}\r\n"
+                ex_entry["request"] = request_str
+                
+                if "response" in req:
+                    ex_entry["response"] = req["response"]
+                    if "response_status" in req:
+                        ex_entry["status"] = req["response_status"]
+                        
+                target_list = "https_ex" if port == 443 else "http_ex"
+                network.setdefault(target_list, []).append(ex_entry)
+
                 if host:
                     existing_hosts.add(_norm_domain(host))
                 existing_urls.add(url_key)
