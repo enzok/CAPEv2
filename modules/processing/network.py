@@ -1304,29 +1304,214 @@ class NetworkAnalysis(Processing):
             obj["process_id"] = None
             obj["process_name"] = None
 
+    def _parse_js_log(self) -> Dict:
+        """
+        Parses the js_console.log file, extracting DNS queries, TCP connections, and HTTP requests
+        associated with their respective PIDs and process names.
+        """
+        js_map = {
+            "endpoint_map": defaultdict(list),
+            "http_host_map": defaultdict(list),
+            "dns_intents": defaultdict(list),
+            "http_requests": [],
+        }
+
+        events = None
+        js_log = self.results.get("js_log")
+        if isinstance(js_log, dict) and js_log.get("exists") and "events" in js_log:
+            events = js_log["events"]
+
+        if events is None:
+            log_name = self.options.get("log_name", "js_console.log")
+            log_path = os.path.join(self.aux_path, "js_console", log_name)
+            if not path_exists(log_path):
+                log_path = os.path.join(self.aux_path, log_name)
+
+            if not path_exists(log_path):
+                return js_map
+
+            events = []
+            try:
+                with open(log_path, "r", encoding="utf-8", errors="replace") as f:
+                    for line in f:
+                        line = line.strip()
+                        if not line:
+                            continue
+                        try:
+                            events.append(loads(line))
+                        except Exception:
+                            continue
+            except Exception as e:
+                log.warning("Failed to manually read JS console log: %s", e)
+                return js_map
+
+        current_pid = None
+        current_process_name = "node.exe"
+
+        def _safe_int(x):
+            try:
+                if isinstance(x, str) and x.lower().startswith("0x"):
+                    return int(x, 16)
+                return int(x)
+            except Exception:
+                return None
+
+        def parse_iso_ts(ts_str):
+            if not ts_str or not isinstance(ts_str, str):
+                return None
+            try:
+                ts_str = ts_str.rstrip("Z").replace("T", " ")
+                from datetime import datetime
+                if "." in ts_str:
+                    return datetime.strptime(ts_str, "%Y-%m-%d %H:%M:%S.%f").timestamp()
+                return datetime.strptime(ts_str, "%Y-%m-%d %H:%M:%S").timestamp()
+            except Exception:
+                return None
+
+        domain_to_ips = defaultdict(set)
+
+        for event in events:
+            if not isinstance(event, dict):
+                continue
+            event_type = event.get("event")
+            if event_type == "dns_result":
+                host = event.get("host")
+                norm_host = _norm_domain(host)
+                if not norm_host:
+                    continue
+                result_text = event.get("result", {}).get("text")
+                if result_text:
+                    try:
+                        import json
+                        data = json.loads(result_text)
+                        def find_ips(node):
+                            if isinstance(node, dict):
+                                addr = node.get("address")
+                                if addr:
+                                    domain_to_ips[norm_host].add(addr)
+                            elif isinstance(node, list):
+                                for item in node:
+                                    find_ips(item)
+                        find_ips(data)
+                    except Exception:
+                        pass
+
+        for event in events:
+            if not isinstance(event, dict):
+                continue
+
+            event_type = event.get("event")
+            if event_type == "init":
+                current_pid = event.get("pid")
+                exec_path = event.get("exec_path")
+                if exec_path:
+                    current_process_name = os.path.basename(exec_path)
+                else:
+                    current_process_name = "node.exe"
+                continue
+
+            if current_pid is None:
+                continue
+
+            pinfo = {"process_id": current_pid, "process_name": current_process_name}
+            ts_epoch = parse_iso_ts(event.get("ts"))
+
+            if event_type == "dns_query":
+                host = event.get("host")
+                norm_host = _norm_domain(host)
+                if norm_host:
+                    js_map["dns_intents"][norm_host].append({
+                        "process": pinfo,
+                        "ts_epoch": ts_epoch,
+                        "api": "dns_query"
+                    })
+
+            elif event_type == "tcp_connect":
+                host = event.get("host")
+                port_val = _safe_int(event.get("port"))
+                if host and port_val is not None:
+                    is_ip = False
+                    try:
+                        ipaddress.ip_address(host)
+                        is_ip = True
+                    except Exception:
+                        pass
+
+                    if is_ip:
+                        js_map["endpoint_map"][(host, port_val)].append(pinfo)
+                    else:
+                        norm_host = _norm_domain(host)
+                        if norm_host:
+                            js_map["http_host_map"][norm_host].append(pinfo)
+                            for ip in domain_to_ips.get(norm_host, []):
+                                js_map["endpoint_map"][(ip, port_val)].append(pinfo)
+
+            elif event_type == "http_request":
+                url = event.get("url")
+                method = event.get("method") or "GET"
+                if url:
+                    try:
+                        parsed = urlparse(url)
+                        host = parsed.hostname or _norm_domain(url)
+                        if not host and "." in url and "/" not in url:
+                            host = url
+                        norm_host = _norm_domain(host)
+                        if norm_host:
+                            js_map["http_host_map"][norm_host].append(pinfo)
+                            port_val = parsed.port
+                            if not port_val:
+                                port_val = 443 if parsed.scheme == "https" else 80
+                            for ip in domain_to_ips.get(norm_host, []):
+                                js_map["endpoint_map"][(ip, port_val)].append(pinfo)
+
+                            js_map["http_requests"].append({
+                                "url": url,
+                                "host": norm_host,
+                                "method": method,
+                                "process_id": current_pid,
+                                "process_name": current_process_name,
+                                "time": ts_epoch,
+                            })
+                    except Exception:
+                        pass
+
+        return js_map
+
     def _process_map(self, network: Dict):
         net_map = self._load_network_map()
+        js_map = self._parse_js_log()
 
-        if not network or not net_map:
+        if not network:
             return
 
         endpoint_map = self._reconstruct_endpoint_map(net_map.get("endpoint_map", {}))
         http_host_map = net_map.get("http_host_map", {})
         dns_intents = net_map.get("dns_intents", {})
 
+        js_endpoint_map = js_map.get("endpoint_map", {})
+        js_http_host_map = js_map.get("http_host_map", {})
+        js_dns_intents = js_map.get("dns_intents", {})
+
         for flow in network.get("tcp") or []:
             proc = None
             if flow.get("dst") and flow.get("dport") is not None:
                 proc = self._pick_best(endpoint_map.get((flow["dst"], int(flow["dport"])), []))
+                if not proc:
+                    proc = self._pick_best(js_endpoint_map.get((flow["dst"], int(flow["dport"])), []))
 
             if not proc and flow.get("dst"):
                 proc = self._pick_best(http_host_map.get(flow["dst"], []))
+                if not proc:
+                    proc = self._pick_best(js_http_host_map.get(flow["dst"], []))
 
             self._set_proc_fields(flow, proc)
 
         dns_events_rel = self._build_dns_events_rel(network, dns_intents, max_skew_seconds=10.0)
+        js_dns_events_rel = self._build_dns_events_rel(network, js_dns_intents, max_skew_seconds=10.0)
         for d in network.get("dns") or []:
             proc = self._match_dns_process(d, dns_intents, max_skew_seconds=10.0)
+            if not proc:
+                proc = self._match_dns_process(d, js_dns_intents, max_skew_seconds=10.0)
             self._set_proc_fields(d, proc)
 
         for flow in network.get("udp") or []:
@@ -1337,13 +1522,19 @@ class NetworkAnalysis(Processing):
 
             if dst and dport is not None:
                 proc = self._pick_best(endpoint_map.get((dst, int(dport)), []))
+                if not proc:
+                    proc = self._pick_best(js_endpoint_map.get((dst, int(dport)), []))
 
             if not proc and dst:
                 proc = self._pick_best(http_host_map.get(dst, []))
+                if not proc:
+                    proc = self._pick_best(js_http_host_map.get(dst, []))
 
             if not proc and (dport == 53 or sport == 53):
                 t_rel = flow.get("time")
                 proc = self._nearest_dns_process_by_rel_time(dns_events_rel, t_rel, max_skew=5.0)
+                if not proc:
+                    proc = self._nearest_dns_process_by_rel_time(js_dns_events_rel, t_rel, max_skew=5.0)
 
             self._set_proc_fields(flow, proc)
 
@@ -1353,28 +1544,30 @@ class NetworkAnalysis(Processing):
 
                 host = h.get("host")
                 if isinstance(host, str) and host:
-                    # Normalize key for lookup
                     norm_host = _norm_domain(host)
                     if norm_host:
                         proc = self._pick_best(http_host_map.get(norm_host, []))
+                        if not proc:
+                            proc = self._pick_best(js_http_host_map.get(norm_host, []))
 
-                    # Try fallback to IP if host lookup failed or wasn't present,
-                    # but only if original logic supported it.
                     if not proc and ":" in host:
                         raw = host.rsplit(":", 1)[0].strip()
                         norm_raw = _norm_domain(raw)
                         if norm_raw:
                             proc = self._pick_best(http_host_map.get(norm_raw, []))
+                            if not proc:
+                                proc = self._pick_best(js_http_host_map.get(norm_raw, []))
 
                 if not proc:
                     dst = h.get("dst")
                     dport = h.get("dport")
                     if dst and dport is not None:
                         proc = self._pick_best(endpoint_map.get((dst, int(dport)), []))
+                        if not proc:
+                            proc = self._pick_best(js_endpoint_map.get((dst, int(dport)), []))
 
                 self._set_proc_fields(h, proc)
 
-        # Aggregate process information for the 'hosts' summary
         ip_to_procs = defaultdict(dict)
         for flow_type in ("tcp", "udp"):
             for flow in network.get(flow_type, []):
@@ -1392,8 +1585,9 @@ class NetworkAnalysis(Processing):
                     host["process_name"] = ", ".join(f"{name} ({pid})" for pid, name in procs.items())
                     host["process_id"] = None
             else:
-                # Fallback: check http_host_map for this IP
                 proc = self._pick_best(http_host_map.get(host["ip"], []))
+                if not proc:
+                    proc = self._pick_best(js_http_host_map.get(host["ip"], []))
                 if proc:
                     host["process_id"] = proc.get("process_id")
                     host["process_name"] = proc.get("process_name")
@@ -1635,6 +1829,141 @@ class NetworkAnalysis(Processing):
                 target_list = "udp" if port == 53 else "tcp"
                 network.setdefault(target_list, []).append(entry)
 
+    def _merge_js_log_network(self, network):
+        """
+        Merge network events found in js_console.log but missing in PCAP/behavior.
+        Marks them with source='js_log'.
+        """
+        js_map = self._parse_js_log()
+        if not js_map:
+            return
+
+        # 1. DNS Merge
+        js_dns_intents = js_map.get("dns_intents", {})
+        existing_dns = {_norm_domain(d.get("request")) for d in network.get("dns", []) if d.get("request")}
+
+        for domain, intents in js_dns_intents.items():
+            if domain not in existing_dns:
+                first_intent = intents[0]
+                proc = first_intent.get("process", {})
+                entry = {
+                    "request": domain,
+                    "answers": [],
+                    "type": "A",
+                    "source": "js_log",
+                    "process_id": proc.get("process_id"),
+                    "process_name": proc.get("process_name"),
+                    "first_seen": first_intent.get("ts_epoch"),
+                }
+                network.setdefault("dns", []).append(entry)
+
+        # 2. HTTP Merge
+        js_http_requests = js_map.get("http_requests", [])
+        js_http_host_map = js_map.get("http_host_map", {})
+        js_endpoint_map = js_map.get("endpoint_map", {})
+
+        existing_hosts = set()
+        existing_urls = set()
+        for h in (network.get("http", []) or []) + (network.get("http_ex", []) or []) + (network.get("https_ex", []) or []):
+            host = h.get("host")
+            if host:
+                existing_hosts.add(_norm_domain(host))
+                uri = h.get("uri", "/")
+                existing_urls.add(f"{host}{uri}")
+
+        for req in js_http_requests:
+            url = req.get("url")
+            if not url:
+                continue
+
+            try:
+                parsed = urlparse(url)
+                host = parsed.hostname or req.get("host")
+                if not host and url and "." in url and "/" not in url:
+                    host = url
+                if not host and req.get("host"):
+                    host = req.get("host")
+
+                path = parsed.path
+                if parsed.query:
+                    path += f"?{parsed.query}"
+                if not path:
+                    path = "/"
+
+                port = 80
+                if parsed.port:
+                    port = parsed.port
+                elif parsed.scheme == "https":
+                    port = 443
+
+                if not host:
+                    continue
+
+                url_key = f"{host}{path}"
+                if url_key in existing_urls:
+                    continue
+
+                if parsed.scheme and parsed.netloc:
+                    uri = url
+                else:
+                    scheme = "https" if port == 443 else "http"
+                    uri = f"{scheme}://{host}{path}" if host else path
+
+                entry = {
+                    "host": host,
+                    "port": port,
+                    "uri": uri,
+                    "path": path,
+                    "method": req.get("method") or "GET",
+                    "source": "js_log",
+                    "process_id": req.get("process_id"),
+                    "process_name": req.get("process_name"),
+                    "first_seen": req.get("time"),
+                }
+                network.setdefault("http", []).append(entry)
+                if host:
+                    existing_hosts.add(_norm_domain(host))
+                existing_urls.add(url_key)
+            except Exception:
+                log.warning("Failed to parse JS log URL: %s", url)
+
+        for host, procs in js_http_host_map.items():
+            if _norm_domain(host) not in existing_hosts:
+                proc = procs[0] if procs else {}
+                entry = {
+                    "host": host,
+                    "port": 80,
+                    "uri": f"http://{host}/",
+                    "path": "/",
+                    "method": "GET",
+                    "source": "js_log",
+                    "process_id": proc.get("process_id"),
+                    "process_name": proc.get("process_name"),
+                }
+                network.setdefault("http", []).append(entry)
+
+        # 3. Connections (TCP/UDP) Merge
+        existing_endpoints = set()
+        for t in network.get("tcp", []):
+            existing_endpoints.add((t.get("dst"), t.get("dport")))
+        for u in network.get("udp", []):
+            existing_endpoints.add((u.get("dst"), u.get("dport")))
+
+        for (ip, port), procs in js_endpoint_map.items():
+            if (ip, port) not in existing_endpoints:
+                proc = procs[0] if procs else {}
+                entry = {
+                    "src": "js_log",
+                    "sport": 0,
+                    "dst": ip,
+                    "dport": port,
+                    "source": "js_log",
+                    "process_id": proc.get("process_id"),
+                    "process_name": proc.get("process_name"),
+                }
+                target_list = "udp" if port == 53 else "tcp"
+                network.setdefault(target_list, []).append(entry)
+
     def _resolve_pcap_path(self):
         pcapsrc = self.options.get("pcapsrc", "auto") if self.options else "auto"
         return resolve_processing_pcap_path(self.analysis_path, self.pcap_path, pcapsrc=pcapsrc)
@@ -1656,7 +1985,6 @@ class NetworkAnalysis(Processing):
             log.error('The PCAP file at path "%s" is empty', self.pcap_path)
             return {}
 
-        # Prefer the mixed (original + decrypted TLS) pcap if available
         original_pcap_path = self.pcap_path
         using_mixed_pcap = False
         mixed_pcap_path = os.path.join(self.analysis_path, "dump_mixed.pcap")
@@ -1698,6 +2026,7 @@ class NetworkAnalysis(Processing):
             self._process_map(results)
             if proc_cfg.network.merge_behavior_map:
                 self._merge_behavior_network(results)
+            self._merge_js_log_network(results)
 
         return results
 
