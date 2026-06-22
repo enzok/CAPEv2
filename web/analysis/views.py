@@ -3407,6 +3407,12 @@ def file(request, category, task_id, dlfile):
                 task_id, sub_cat, os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), category_map[sub_cat])
             )
             file_name = f"{task_id}_{category}"
+    elif category == "js_log":
+        path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "aux", "js_console", "js_console.log")
+        if not path_exists(path):
+            path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "aux", "js_console.log")
+        file_name = "js_console.log"
+        cd = "text/plain"
     elif category.startswith("CAPE"):
         buf = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "CAPE", file_name)
         if os.path.isdir(buf):

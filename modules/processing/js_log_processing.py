@@ -224,7 +224,12 @@ class JSLogProcessing(Processing):
         output["exists"] = True
 
         try:
-            output["log"] = path_read_file(log_path, mode="text")
+            raw_log = path_read_file(log_path, mode="text")
+            max_log_chars = 64 * 1024
+            if len(raw_log) > max_log_chars:
+                output["log"] = raw_log[:max_log_chars] + "\r\n... [TRUNCATED - LOG TOO LARGE] ..."
+            else:
+                output["log"] = raw_log
             events, total_lines, parsed_lines, malformed_lines, truncated = parse_js_log_file(log_path, max_entries)
             output["total_lines"] = total_lines
             output["parsed_lines"] = parsed_lines

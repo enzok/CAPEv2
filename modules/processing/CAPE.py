@@ -456,6 +456,9 @@ class CAPE(Processing):
                 if entry["filepath"] in self.results.get("ransom_exclude_files", []):
                     continue
 
+                if os.path.basename(entry.get("filepath", "")).lower() == "js_console.log":
+                    continue
+
                 filepath = os.path.join(self.analysis_path, entry["path"])
                 meta[filepath] = {
                     "pids": entry.get("pids"),
