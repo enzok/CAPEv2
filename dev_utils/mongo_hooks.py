@@ -128,18 +128,69 @@ def normalize_files(report):
             # req._doc is the update document: {"$set": new_dict, ...}
             # Accessing private attribute _doc to modify in place for retry
             try:
-                if hasattr(req, "_doc") and "$set" in req._doc and "strings" in req._doc["$set"]:
-                    strings_val = req._doc["$set"]["strings"]
-                    # Check if strings field alone is too large (buffer safe 15MB)
-                    if strings_val and len(bson.encode({"strings": strings_val})) > 15 * 1024 * 1024:
-                        log.warning("Truncating oversized strings field for retry.")
-                        if isinstance(strings_val, list):
-                            req._doc["$set"]["strings"] = strings_val[:1000]
-                        else:
-                            req._doc["$set"]["strings"] = []
-                        # If still too large, clear it
-                        if len(bson.encode({"strings": req._doc["$set"]["strings"]})) > 15 * 1024 * 1024:
-                            req._doc["$set"]["strings"] = []
+                if hasattr(req, "_doc") and "$set" in req._doc:
+                    # Check if the entire update document is too large (buffer safe 15MB)
+                    if len(bson.encode(req._doc)) > 15 * 1024 * 1024:
+                        def prune_data_keys(node, limit):
+                            if isinstance(node, dict):
+                                for k in list(node.keys()):
+                                    if k == "data":
+                                        if limit > 0:
+                                            val = node[k]
+                                            if isinstance(val, (str, bytes)):
+                                                node[k] = val[:limit]
+                                        else:
+                                            node.pop(k, None)
+                                    else:
+                                        prune_data_keys(node[k], limit)
+                            elif isinstance(node, list):
+                                for item in node:
+                                    prune_data_keys(item, limit)
+
+                        # Iterative pruning of the 'data' subkey
+                        for limit in (1024, 512, 256, 128, 64, 32, 16, 0):
+                            if len(bson.encode(req._doc)) <= 15 * 1024 * 1024:
+                                break
+                            log.warning("Truncating 'data' subkeys to %d bytes to fit BSON size limits.", limit)
+                            prune_data_keys(req._doc["$set"], limit)
+
+                        # Final fallback if still too large
+                        if len(bson.encode(req._doc)) > 15 * 1024 * 1024:
+                            log.warning("Document is still too large; applying fallback list truncation.")
+                            # Sort other fields by size
+                            field_sizes = []
+                            for key, val in req._doc["$set"].items():
+                                try:
+                                    field_sizes.append((len(bson.encode({key: val})), key))
+                                except Exception:
+                                    pass
+                            field_sizes.sort(reverse=True)
+                            
+                            for _, field in field_sizes:
+                                if len(bson.encode(req._doc)) <= 15 * 1024 * 1024:
+                                    break
+                                if field in ("_id", "sha256", "md5", "sha1", "size"):
+                                    continue
+                                val = req._doc["$set"][field]
+                                if not val:
+                                    continue
+                                log.warning("Pruning large field '%s' as fallback.", field)
+                                # Recursive list truncation helper
+                                def truncate_lists(node, max_len=100):
+                                    if isinstance(node, list):
+                                        if len(node) > max_len:
+                                            node[:] = node[:max_len]
+                                        for item in node:
+                                            truncate_lists(item, max_len)
+                                    elif isinstance(node, dict):
+                                        for v in node.values():
+                                            truncate_lists(v, max_len)
+
+                                truncate_lists(val, 100)
+                                            
+                                # If still too large, clear it entirely
+                                if len(bson.encode(req._doc)) > 15 * 1024 * 1024:
+                                    req._doc["$set"][field] = [] if isinstance(val, list) else ({} if isinstance(val, dict) else None)
             except Exception as e:
                 log.error("Failed to sanitize request during retry: %s", e)
 
