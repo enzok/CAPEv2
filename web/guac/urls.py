@@ -13,4 +13,3 @@ urlpatterns = [
     path("direct/vnc/<str:vm_name>/snapshot/create/", views.direct_vnc_vm_snapshot_create, name="direct_vnc_vm_snapshot_create"),
     path("direct/vnc/<str:vm_name>/snapshot/delete/", views.direct_vnc_vm_snapshot_delete, name="direct_vnc_vm_snapshot_delete"),
 ]
-
