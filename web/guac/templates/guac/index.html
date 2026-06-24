@@ -124,6 +124,12 @@
                         <textarea class="form-control form-control-sm bg-dark text-white border-secondary" id="newSnapshotDesc" rows="2" placeholder="e.g. Installed software baseline"></textarea>
                     </div>
                     <div id="takeSnapshotError" class="text-danger small" style="display: none;"></div>
+                    <div id="takeSnapshotLoading" style="display: none;" class="text-center my-3">
+                        <div class="spinner-border text-success" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="mt-2 small text-secondary">Taking snapshot... Please wait. This may take up to a minute.</p>
+                    </div>
                 </div>
                 <div class="modal-footer border-secondary justify-content-end">
                     <button type="button" class="btn btn-outline-light btn-sm me-2" data-bs-dismiss="modal">Cancel</button>
@@ -218,11 +224,18 @@
         var takeSnapshotModalEl = document.getElementById('takeSnapshotModal');
         var takeSnapshotModal = new bootstrap.Modal(takeSnapshotModalEl);
 
+        takeSnapshotModalEl.addEventListener('hide.bs.modal', function(event) {
+            if (window.guacSession && window.guacSession.takingSnapshot) {
+                event.preventDefault();
+            }
+        });
+
         document.getElementById('takeSnapshotBtn').addEventListener('click', function(e) {
             e.preventDefault();
             document.getElementById('newSnapshotName').value = '';
             document.getElementById('newSnapshotDesc').value = '';
             document.getElementById('takeSnapshotError').style.display = 'none';
+            document.getElementById('takeSnapshotLoading').style.display = 'none';
             takeSnapshotModal.show();
         });
 
@@ -230,6 +243,12 @@
             var name = document.getElementById('newSnapshotName').value.trim();
             var desc = document.getElementById('newSnapshotDesc').value.trim();
             var errDiv = document.getElementById('takeSnapshotError');
+            var loadingDiv = document.getElementById('takeSnapshotLoading');
+            var confirmBtn = document.getElementById('btnConfirmTakeSnapshot');
+            var cancelBtn = document.querySelector('#takeSnapshotModal [data-bs-dismiss="modal"]');
+            var closeBtn = document.querySelector('#takeSnapshotModal .btn-close');
+            var nameInput = document.getElementById('newSnapshotName');
+            var descInput = document.getElementById('newSnapshotDesc');
             
             if (!name) {
                 errDiv.textContent = 'Snapshot name is required.';
@@ -244,7 +263,16 @@
             }
 
             errDiv.style.display = 'none';
-            document.getElementById('btnConfirmTakeSnapshot').disabled = true;
+            loadingDiv.style.display = 'block';
+            confirmBtn.disabled = true;
+            if (cancelBtn) cancelBtn.disabled = true;
+            if (closeBtn) closeBtn.disabled = true;
+            nameInput.disabled = true;
+            descInput.disabled = true;
+
+            if (window.guacSession) {
+                window.guacSession.takingSnapshot = true;
+            }
 
             fetch("/guac/direct/vnc/{{ vnc_host }}/snapshot/create/", {
                 method: 'POST',
@@ -256,7 +284,18 @@
             })
             .then(response => response.json())
             .then(data => {
-                document.getElementById('btnConfirmTakeSnapshot').disabled = false;
+                confirmBtn.disabled = false;
+                if (cancelBtn) cancelBtn.disabled = false;
+                if (closeBtn) closeBtn.disabled = false;
+                nameInput.disabled = false;
+                descInput.disabled = false;
+                loadingDiv.style.display = 'none';
+
+                if (window.guacSession) {
+                    window.guacSession.takingSnapshot = false;
+                    window.guacSession.connect();
+                }
+
                 if (data.status === 'success') {
                     takeSnapshotModal.hide();
                     alert(data.message || 'Snapshot created successfully.');
@@ -267,7 +306,18 @@
                 }
             })
             .catch(error => {
-                document.getElementById('btnConfirmTakeSnapshot').disabled = false;
+                confirmBtn.disabled = false;
+                if (cancelBtn) cancelBtn.disabled = false;
+                if (closeBtn) closeBtn.disabled = false;
+                nameInput.disabled = false;
+                descInput.disabled = false;
+                loadingDiv.style.display = 'none';
+
+                if (window.guacSession) {
+                    window.guacSession.takingSnapshot = false;
+                    window.guacSession.connect();
+                }
+
                 console.error('Error creating snapshot:', error);
                 errDiv.textContent = 'Network or server error occurred.';
                 errDiv.style.display = 'block';
@@ -469,7 +519,7 @@
         }
         {% endif %}
 
-        GuacMe("html", "{{ session_id }}", "{{ recording_name }}");
+        window.guacSession = GuacMe("html", "{{ session_id }}", "{{ recording_name }}");
     </script>
 </body>
 </html>

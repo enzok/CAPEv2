@@ -32,6 +32,7 @@ class GuacSession {
         this.ctrl = false;
         this.shift = false;
         this.dialogContainer = $(element).find('.guaconsole')[0];
+        this.takingSnapshot = false;
 
         this._init();
     }
@@ -181,6 +182,11 @@ class GuacSession {
     _setupErrorHandler() {
         const handler = (error) => {
             console.log(`guac error ${error.code}: ${error.message}`);
+
+            if (this.takingSnapshot) {
+                console.log("Ignoring guac error during snapshot");
+                return;
+            }
 
             if (NON_FATAL_STATUS_CODES.has(error.code)) {
                 return;
