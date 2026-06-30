@@ -1,11 +1,13 @@
 # Stage 1: Build binlex from source using Cargo
 FROM rust:1.85-slim-bullseye AS builder
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends git pkg-config libssl-dev && \
+    apt-get install -y --no-install-recommends git pkg-config libssl-dev build-essential cmake g++ && \
     rm -rf /var/lib/apt/lists/*
-RUN git clone --recursive https://github.com/c3rb3ru5d3d53c/binlex.git /src
 WORKDIR /src
-RUN cargo build --release --workspace
+COPY src/ .
+RUN --mount=type=cache,target=/root/.cargo/registry \
+    --mount=type=cache,target=/root/.cargo/git \
+    cargo build --release --workspace
 
 # Stage 2: Create python container for scanning and mounting
 FROM python:3.10-slim-bullseye
