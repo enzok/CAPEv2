@@ -1,0 +1,9 @@
+version: "3.8"
+
+services:
+  binlex-server:
+    image: c3rb3ru5d3d53c/binlex:latest
+    container_name: binlex-server
+    restart: always
+    volumes:
+      - /opt/CAPEv2/storage:/storage:ro

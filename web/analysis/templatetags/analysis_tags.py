@@ -492,3 +492,10 @@ def cert_chain_signers(signers):
 @register.filter
 def ts_chain_signers(signers):
     return [s for s in (signers or []) if "Timestamp Chain" in s.get("name", "")]
+
+
+@register.filter(name="match_type_count")
+def match_type_count(traits, trait_type):
+    if not isinstance(traits, list):
+        return 0
+    return sum(1 for t in traits if isinstance(t, dict) and t.get("type") == trait_type)

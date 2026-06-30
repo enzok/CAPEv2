@@ -366,3 +366,14 @@ enabled = no
 # Enable when using the PolarProxy option during analysis. This will merge the tls.pcap containing
 # plain-text TLS streams into the task PCAP.
 enabled = no
+
+[binlex]
+enabled = yes
+# Path/command for docker binary
+docker_binary = docker
+# Name of the docker container
+container_name = binlex-server
+# Prefix mapping translation
+host_storage_prefix = /opt/CAPEv2/storage
+container_storage_prefix = /storage
+

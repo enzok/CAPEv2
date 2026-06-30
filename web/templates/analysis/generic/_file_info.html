@@ -339,6 +339,10 @@
             {% if file.zscaler %}
                 <a class="btn btn-sm btn-outline-light me-2 mb-2" data-bs-toggle="collapse" href="#zscaler_{{file.sha256}}">Zscaler</a>
             {% endif %}
+
+            {% if file.binlex %}
+                <a class="btn btn-sm btn-outline-danger me-2 mb-2" data-bs-toggle="collapse" href="#binlex_{{file.sha256}}"><i class="fas fa-dna me-1"></i> Binlex ({{file.binlex.traits|length}})</a>
+            {% endif %}
         </div>
     </div>
     {% endif %}
@@ -501,6 +505,7 @@
         {% endif %}
         {% if file.wildfire %} <div class="collapse mb-3" id="wildfire_{{file.sha256}}"> {% include "analysis/generic/_wildfire.html" %}</div>{% endif %}
         {% if file.zscaler %} <div class="collapse mb-3" id="zscaler_{{file.sha256}}"> {% include "analysis/generic/_zscaler.html" %}</div>{% endif %}
+        {% if file.binlex %} <div class="collapse mb-3" id="binlex_{{file.sha256}}"> {% include "analysis/generic/_binlex.html" %}</div>{% endif %}
     </div>
 </div>
 

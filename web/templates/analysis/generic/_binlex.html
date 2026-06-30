@@ -1,0 +1,254 @@
+<section id="static_analysis_binlex_{{file.sha256}}" class="mb-4">
+    {% if file.binlex %}
+    <div class="card bg-dark border-secondary">
+        <div class="card-header border-secondary d-flex justify-content-between align-items-center">
+            <h5 class="mb-0 text-white"><i class="fas fa-dna me-2 text-danger"></i> Binary Genetic Traits (Binlex)</h5>
+            <span class="badge bg-danger">{{file.binlex.traits|length}} Traits Extracted</span>
+        </div>
+        <div class="card-body">
+            <!-- Summary Dashboard Widgets - CAPEv2 Card Styling -->
+            <div class="row mb-4">
+                <div class="col-md-3 mb-2">
+                    <div class="card bg-dark border-secondary h-100">
+                        <div class="card-body py-2">
+                            <small class="text-white-50 text-uppercase fw-bold">Total Chromosomes</small>
+                            <div class="text-white fs-5 font-monospace">{{file.binlex.traits|length}}</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3 mb-2">
+                    <div class="card bg-dark border-secondary h-100">
+                        <div class="card-body py-2">
+                            <small class="text-white-50 text-uppercase fw-bold">Function Traits</small>
+                            <div class="text-info fs-5 font-monospace">
+                                {{ file.binlex.traits|match_type_count:"function" }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3 mb-2">
+                    <div class="card bg-dark border-secondary h-100">
+                        <div class="card-body py-2">
+                            <small class="text-white-50 text-uppercase fw-bold">Basic Block Traits</small>
+                            <div class="text-warning fs-5 font-monospace">
+                                {{ file.binlex.traits|match_type_count:"block" }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3 mb-2">
+                    <div class="card bg-dark border-secondary h-100">
+                        <div class="card-body py-2">
+                            <small class="text-white-50 text-uppercase fw-bold">Instruction Traits</small>
+                            <div class="text-secondary fs-5 font-monospace">
+                                {{ file.binlex.traits|match_type_count:"instruction" }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Filters & Search - CAPEv2 styled inputs -->
+            <div class="row g-3 align-items-center mb-3">
+                <div class="col-md-6">
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text bg-dark border-secondary text-white-50"><i class="fas fa-search"></i></span>
+                        <input type="text" id="binlex_search_{{file.sha256}}" class="form-control bg-dark border-secondary text-white" placeholder="Search patterns or offsets..." onkeyup="filterBinlexTable('{{file.sha256}}')">
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text bg-dark border-secondary text-white-50"><i class="fas fa-filter"></i></span>
+                        <select id="binlex_filter_type_{{file.sha256}}" class="form-select bg-dark border-secondary text-white" onchange="filterBinlexTable('{{file.sha256}}')">
+                            <option value="all">All Types</option>
+                            <option value="function">Functions Only</option>
+                            <option value="block">Basic Blocks Only</option>
+                            <option value="instruction">Instructions Only</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-2 text-end">
+                    <button class="btn btn-sm btn-outline-secondary w-100" onclick="selectAllTraits('{{file.sha256}}', true)"><i class="fas fa-check-square me-1"></i> Select All</button>
+                </div>
+            </div>
+
+            <!-- Traits Data Table -->
+            <div class="table-responsive mb-4" style="max-height: 450px; border: 1px solid #444; border-radius: 4px;">
+                <table class="table table-dark table-striped table-hover align-middle mb-0">
+                    <thead class="thead-dark sticky-top bg-dark">
+                        <tr>
+                            <th style="width: 50px;" class="text-center">Select</th>
+                            <th style="width: 120px;">Type</th>
+                            <th style="width: 140px;">Offset</th>
+                            <th style="width: 100px;">Size</th>
+                            <th>Genetic Pattern (Chromosome)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="binlex_tbody_{{file.sha256}}">
+                        {% for trait in file.binlex.traits %}
+                        <tr class="binlex-row-{{file.sha256}}" data-offset="{{trait.offset}}" data-pattern="{{trait.pattern}}" data-type="{{trait.type}}">
+                            <td class="text-center">
+                                <input type="checkbox" class="form-check-input binlex-checkbox-{{file.sha256}}" data-pattern="{{trait.pattern}}" data-type="{{trait.type}}" onchange="updateYaraRule('{{file.sha256}}')">
+                            </td>
+                            <td>
+                                {% if trait.type == "function" %}
+                                <span class="badge bg-info text-dark px-2 py-1">function</span>
+                                {% elif trait.type == "block" %}
+                                <span class="badge bg-warning text-dark px-2 py-1">block</span>
+                                {% else %}
+                                <span class="badge bg-secondary px-2 py-1">instruction</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <code class="text-success fw-bold font-monospace">{{trait.offset}}</code>
+                            </td>
+                            <td>
+                                <small class="text-white-50 font-monospace">{{trait.size}} bytes</small>
+                            </td>
+                            <td>
+                                <div class="p-2 rounded bg-black border border-secondary text-monospace text-wrap small" style="line-height: 1.6; max-height: 80px; overflow-y: auto;">
+                                    <span class="binlex-pattern text-light">{{trait.pattern}}</span>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- YARA Live Builder Section -->
+            <div class="card border-secondary bg-dark shadow-sm">
+                <div class="card-header border-secondary d-flex justify-content-between align-items-center bg-transparent">
+                    <h6 class="mb-0 text-white"><i class="fas fa-file-signature text-warning me-2"></i> Live YARA Rule Signature Generator</h6>
+                    <div class="d-flex align-items-center">
+                        <span class="me-2 text-white-50 small">Rule Name:</span>
+                        <input type="text" id="yara_rule_name_{{file.sha256}}" class="form-control form-control-sm bg-dark border-secondary text-white text-monospace" style="width: 250px;" value="binlex_generated_{{file.sha256|slice:":8"}}" onkeyup="updateYaraRule('{{file.sha256}}')">
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="position-relative">
+                        <pre class="bg-black border border-secondary p-3 rounded text-monospace text-success font-monospace mb-0" id="yara_code_{{file.sha256}}" style="max-height: 350px; overflow-y: auto;">/* Select one or more traits above to build a YARA rule */</pre>
+                        <div class="position-absolute top-0 end-0 m-2">
+                            <button id="yara_copy_{{file.sha256}}" class="btn btn-sm btn-outline-info me-2" onclick="copyToClipboard('{{file.sha256}}')"><i class="fas fa-copy me-1"></i> Copy</button>
+                            <button id="yara_download_{{file.sha256}}" class="btn btn-sm btn-outline-warning disabled" onclick="downloadYara('{{file.sha256}}')"><i class="fas fa-download me-1"></i> Download</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Client-Side JavaScript Handlers -->
+    <script>
+    (function() {
+        // Render colored badges for wildcards (??) when panel opens
+        const patternElements = document.querySelectorAll('#static_analysis_binlex_{{file.sha256}} .binlex-pattern');
+        patternElements.forEach(function(el) {
+            let raw = el.textContent.trim();
+            let formatted = raw.split(' ').map(function(byte) {
+                if (byte === '??') {
+                    return '<span class="badge bg-danger px-1 text-white font-weight-bold" style="font-size: 0.75rem; vertical-align: middle;">??</span>';
+                }
+                return '<span class="text-light">' + byte + '</span>';
+            }).join(' ');
+            el.innerHTML = formatted;
+        });
+    })();
+
+    function selectAllTraits(sha256, check) {
+        let checkboxes = document.querySelectorAll('.binlex-checkbox-' + sha256);
+        checkboxes.forEach(function(cb) {
+            cb.checked = check;
+        });
+        updateYaraRule(sha256);
+    }
+
+    function filterBinlexTable(sha256) {
+        let searchVal = document.getElementById('binlex_search_' + sha256).value.toLowerCase();
+        let typeFilter = document.getElementById('binlex_filter_type_' + sha256).value;
+        let rows = document.querySelectorAll('.binlex-row-' + sha256);
+        
+        rows.forEach(function(row) {
+            let offset = row.getAttribute('data-offset').toLowerCase();
+            let pattern = row.getAttribute('data-pattern').toLowerCase();
+            let type = row.getAttribute('data-type');
+            
+            let matchesSearch = offset.includes(searchVal) || pattern.includes(searchVal);
+            let matchesType = (typeFilter === 'all') || (type === typeFilter);
+            
+            if (matchesSearch && matchesType) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+    }
+
+    function updateYaraRule(sha256) {
+        let ruleNameInput = document.getElementById('yara_rule_name_' + sha256);
+        let ruleName = ruleNameInput.value.replace(/[^a-zA-Z0-9_]/g, '_') || 'binlex_rule';
+        let selectedCheckboxes = document.querySelectorAll('.binlex-checkbox-' + sha256 + ':checked');
+        let yaraCodePre = document.getElementById('yara_code_' + sha256);
+        let downloadBtn = document.getElementById('yara_download_' + sha256);
+        
+        if (selectedCheckboxes.length === 0) {
+            yaraCodePre.innerHTML = '<span class="text-white-50">/* Select one or more traits above to build a YARA rule */</span>';
+            downloadBtn.classList.add('disabled');
+            return;
+        }
+        
+        downloadBtn.classList.remove('disabled');
+        let stringsSection = [];
+        let conditionSection = [];
+        
+        selectedCheckboxes.forEach(function(cb, index) {
+            let pattern = cb.getAttribute('data-pattern');
+            stringsSection.push(`        $trait_${index} = { ${pattern} }`);
+            conditionSection.push(`$trait_${index}`);
+        });
+        
+        let ruleText = `rule ${ruleName} {\n`;
+        ruleText += `    meta:\n`;
+        ruleText += `        description = "Generated from Binlex Genetic Traits"\n`;
+        ruleText += `        author = "CAPE Sandbox"\n`;
+        ruleText += `        hash = "${sha256}"\n`;
+        ruleText += `    strings:\n`;
+        ruleText += stringsSection.join('\n') + '\n';
+        ruleText += `    condition:\n`;
+        ruleText += `        all of them\n`;
+        ruleText += `}`;
+        
+        yaraCodePre.textContent = ruleText;
+    }
+
+    function copyToClipboard(sha256) {
+        let code = document.getElementById('yara_code_' + sha256).textContent;
+        navigator.clipboard.writeText(code).then(function() {
+            let btn = document.getElementById('yara_copy_' + sha256);
+            let origHTML = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-check me-1"></i> Copied!';
+            btn.classList.replace('btn-outline-info', 'btn-success');
+            setTimeout(function() {
+                btn.innerHTML = origHTML;
+                btn.classList.replace('btn-success', 'btn-outline-info');
+            }, 1500);
+        });
+    }
+
+    function downloadYara(sha256) {
+        let code = document.getElementById('yara_code_' + sha256).textContent;
+        let ruleName = document.getElementById('yara_rule_name_' + sha256).value || 'binlex_rule';
+        let blob = new Blob([code], {type: 'text/plain'});
+        let url = URL.createObjectURL(blob);
+        let a = document.createElement('a');
+        a.href = url;
+        a.download = ruleName + '.yar';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }
+    </script>
+    {% endif %}
+</section>
