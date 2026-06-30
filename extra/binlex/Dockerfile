@@ -3,7 +3,9 @@ FROM rust:1.70-slim-bullseye AS builder
 RUN apt-get update && \
     apt-get install -y --no-install-recommends git pkg-config libssl-dev && \
     rm -rf /var/lib/apt/lists/*
-RUN cargo install binlex
+RUN git clone https://github.com/c3rb3ru5d3d53c/binlex.git /src
+WORKDIR /src
+RUN cargo install --path .
 
 # Stage 2: Create python container for scanning and mounting
 FROM python:3.10-slim-bullseye
