@@ -4,9 +4,9 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 RUN git clone https://github.com/c3rb3ru5d3d53c/binlex.git /src
 WORKDIR /src
-RUN cargo install --path .
+RUN cargo build --release --workspace
 
 FROM debian:bullseye-slim
-COPY --from=builder /usr/local/cargo/bin/binlex /usr/local/bin/binlex
+COPY --from=builder /src/target/release/binlex /usr/local/bin/binlex
 # Keep container running infinitely
 CMD ["tail", "-f", "/dev/null"]
