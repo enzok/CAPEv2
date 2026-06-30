@@ -1,5 +1,5 @@
 # Stage 1: Build binlex from source using Cargo
-FROM rust:1.70-slim-bullseye AS builder
+FROM rust:1.85-slim-bullseye AS builder
 RUN apt-get update && \
     apt-get install -y --no-install-recommends git pkg-config libssl-dev && \
     rm -rf /var/lib/apt/lists/*
