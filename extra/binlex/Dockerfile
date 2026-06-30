@@ -1,9 +1,18 @@
-FROM ghcr.io/c3rb3ru5d3d53c/binlex:latest
-
-# Install Python 3, QEMU NBD client, and NTFS support
+# Stage 1: Build binlex from source using Cargo
+FROM rust:1.70-slim-bullseye AS builder
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends python3 qemu-utils ntfs-3g && \
+    apt-get install -y --no-install-recommends git pkg-config libssl-dev && \
     rm -rf /var/lib/apt/lists/*
+RUN cargo install binlex
+
+# Stage 2: Create python container for scanning and mounting
+FROM python:3.10-slim-bullseye
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends qemu-utils ntfs-3g && \
+    rm -rf /var/lib/apt/lists/*
+
+# Copy compiled binlex binary from builder stage
+COPY --from=builder /usr/local/cargo/bin/binlex /usr/local/bin/binlex
 
 WORKDIR /app
 
