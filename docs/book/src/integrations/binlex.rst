@@ -18,11 +18,9 @@ Docker Installation
 
 Example ``compose.yml``::
 
-    version: "3.8"
-
     services:
       binlex-server:
-        image: c3rb3ru5d3d53c/binlex:latest
+        image: ghcr.io/c3rb3ru5d3d53c/binlex:latest
         container_name: binlex-server
         restart: always
         volumes:
@@ -46,6 +44,19 @@ Enable and configure the processing module in ``conf/processing.conf`` under the
     # Prefix mapping translation
     host_storage_prefix = /opt/CAPEv2/storage
     container_storage_prefix = /storage
+
+Docker Permissions for CAPE User
+================================
+
+Since CAPE processes run under the ``cape`` system user, the ``cape`` user must have permissions to communicate with the Docker daemon via the UNIX socket (``/var/run/docker.sock``). 
+
+Run the following commands on the host to add the ``cape`` user to the ``docker`` group::
+
+    sudo usermod -aG docker cape
+
+Then, restart the CAPE services (or log out and log back in as the ``cape`` user) to apply the new group membership:
+
+    sudo systemctl restart cape-processor.service
 
 Ensuring Binlex Docker Container Starts with CAPE
 =================================================
@@ -124,7 +135,7 @@ If you already have a QCOW2 virtual disk image of your clean VM template on your
 
     {
       "binlex_path": "docker",
-      "docker_image": "c3rb3ru5d3d53c/binlex:latest",
+      "docker_image": "ghcr.io/c3rb3ru5d3d53c/binlex:latest",
       "mount_path": "/mnt/windows_vm",
       "output_file": "benign_traits.txt",
       "max_file_size_bytes": 52428800,

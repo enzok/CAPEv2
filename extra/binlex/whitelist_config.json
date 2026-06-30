@@ -1,6 +1,6 @@
 {
   "binlex_path": "binlex.exe",
-  "docker_image": "c3rb3ru5d3d53c/binlex:latest",
+  "docker_image": "ghcr.io/c3rb3ru5d3d53c/binlex:latest",
   "mount_path": "/mnt/windows_vm",
   "output_file": "benign_traits.txt",
   "max_file_size_bytes": 52428800,

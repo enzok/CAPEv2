@@ -1,4 +1,4 @@
-FROM c3rb3ru5d3d53c/binlex:latest
+FROM ghcr.io/c3rb3ru5d3d53c/binlex:latest
 
 # Install Python 3, QEMU NBD client, and NTFS support
 RUN apt-get update && \
