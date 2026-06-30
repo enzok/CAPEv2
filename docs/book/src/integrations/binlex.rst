@@ -20,7 +20,9 @@ Example ``compose.yml``::
 
     services:
       binlex-server:
-        image: ghcr.io/c3rb3ru5d3d53c/binlex:latest
+        build:
+          context: .
+          dockerfile: Dockerfile.server
         container_name: binlex-server
         restart: always
         volumes:
