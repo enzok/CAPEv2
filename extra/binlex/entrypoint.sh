@@ -18,12 +18,28 @@ if [ ! -b "$NBD_DEV" ]; then
 fi
 
 echo "[*] Connecting $QCOW2_IMAGE to $NBD_DEV..."
-qemu-nbd --connect="$NBD_DEV" "$QCOW2_IMAGE"
+qemu-nbd --read-only --connect="$NBD_DEV" "$QCOW2_IMAGE"
 
 # Force kernel partition table re-scan
 echo "[*] Scanning partition tables on $NBD_DEV..."
 partx -av "$NBD_DEV" || true
 sleep 2
+
+# Populate missing partition block device nodes in /dev/ from sysfs info
+nbd_name=$(basename "$NBD_DEV")
+for part_sys in /sys/block/${nbd_name}/${nbd_name}p*; do
+    if [ -d "$part_sys" ]; then
+        part_name=$(basename "$part_sys")
+        if [ ! -b "/dev/$part_name" ]; then
+            dev_type=$(cat "$part_sys/dev")
+            major=$(echo "$dev_type" | cut -d: -f1)
+            minor=$(echo "$dev_type" | cut -d: -f2)
+            echo "[*] Creating block device node /dev/$part_name ($major:$minor)..."
+            mknod "/dev/$part_name" b "$major" "$minor" || true
+        fi
+    fi
+done
+sleep 1
 
 # Try to find and mount the Windows partition
 echo "[*] Searching for Windows partition..."
@@ -69,7 +85,7 @@ fi
 
 # Run the python whitelist builder script
 echo "[*] Running Whitelist Builder..."
-python3 /app/build_whitelist.py -c /app/whitelist_config.json
+python3 -u /app/build_whitelist.py -c /app/whitelist_config.json
 
 # Cleanup mounts
 echo "[*] Cleaning up mounts..."

@@ -34,7 +34,9 @@ ENV PROTOC_INCLUDE=/usr/include
 # Clone and Build
 WORKDIR /src
 RUN git clone https://github.com/enzok/binlex.git .
-RUN cargo build --release --workspace
+RUN --mount=type=cache,target=/root/.cargo/registry \
+    --mount=type=cache,target=/root/.cargo/git \
+    cargo build --release --workspace
 
 # Stage 2: Minimal Runtime
 FROM ubuntu:24.04
