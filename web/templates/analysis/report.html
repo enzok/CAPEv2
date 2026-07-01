@@ -2,19 +2,27 @@
 {% block content %}
 <script>
 $(function() {
-  //Apply only when we reload the same page
-  if (document.referrer === document.URL){
-    //for bootstrap 3 use 'shown.bs.tab' instead of 'shown' in the next line
-    $('a[data-bs-toggle="tab"]').on('click', function (e) {
-      localStorage.setItem('lastAnalysisTab', $(e.target).attr('href'));
-    });
-
-    var lastAnalysisTab = localStorage.getItem('lastAnalysisTab');
-
-    if (lastAnalysisTab) {
-        $('a[href="'+lastAnalysisTab+'"]').click();
-    }
+  // Support activating tabs from URL hash on load (e.g. redirected from on-demand URLs)
+  var hash = window.location.hash;
+  if (hash) {
+      var $tabLink = $('a[href="' + hash + '"]');
+      if ($tabLink.length) {
+          $tabLink.click();
+      }
+  } else if (document.referrer === document.URL || document.referrer.indexOf('/on_demand/') !== -1) {
+      var lastAnalysisTab = localStorage.getItem('lastAnalysisTab');
+      if (lastAnalysisTab) {
+          var $tabLink = $('a[href="' + lastAnalysisTab + '"]');
+          if ($tabLink.length) {
+              $tabLink.click();
+          }
+      }
   }
+
+  // Save clicked tab (supports both standard and ajax-based tabs, and clicks on nested icons)
+  $('a[data-bs-toggle="tab"], a[data-bs-toggle="tabajax"]').on('click', function () {
+      localStorage.setItem('lastAnalysisTab', $(this).attr('href'));
+  });
   // ajax req for some tabs
   $('[data-bs-toggle="tabajax"]').click(function(e) {
     var $this = $(this),

@@ -4294,7 +4294,8 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
                     status=500,
                 )
         del details
-    return redirect("report", task_id=task_id)
+    anchor = "overview" if category == "static" else category
+    return redirect(f"/analysis/{task_id}/#{anchor}")
 
 
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
