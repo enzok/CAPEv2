@@ -2,6 +2,23 @@
 {% block content %}
 <script>
 $(function() {
+  function _scrollToSha256() {
+      var urlParams = new URLSearchParams(window.location.search);
+      var sha256 = urlParams.get('sha256');
+      if (sha256) {
+          var $targetCard = $('#file_' + sha256);
+          if ($targetCard.length) {
+              $targetCard.addClass('card-flash-active');
+              setTimeout(function() {
+                  $targetCard[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+              }, 100);
+              setTimeout(function() {
+                  $targetCard.removeClass('card-flash-active');
+              }, 2500);
+          }
+      }
+  }
+
   // Save clicked tab (supports both standard and ajax-based tabs, and clicks on nested icons)
   $('a[data-bs-toggle="tab"], a[data-bs-toggle="tabajax"]').on('click', function () {
       localStorage.setItem('lastAnalysisTab', $(this).attr('href'));
@@ -16,6 +33,7 @@ $(function() {
     if (typeof url !== "undefined") {
         if ($target.data("loaded")) {
             $this.tab('show');
+            _scrollToSha256();
             return false;
         }
 
@@ -29,10 +47,12 @@ $(function() {
             if (status === "success") {
                 $target.data("loaded", true);
                 $this.tab('show');
+                _scrollToSha256();
             }
         });
     } else {
          $this.tab('show');
+         _scrollToSha256();
     }
     return false;
     });
@@ -54,9 +74,19 @@ $(function() {
           }
       }
   }
+
+  // Try scrolling on initial load if the content is already in DOM (e.g. Overview tab)
+  _scrollToSha256();
 });
 </script>
 <style type="text/css">
+@keyframes card-flash-highlight {
+  0% { border-color: var(--bs-info) !important; box-shadow: 0 0 15px var(--bs-info); }
+  100% { border-color: var(--bs-secondary) !important; box-shadow: none; }
+}
+.card-flash-active {
+  animation: card-flash-highlight 2.5s ease-out;
+}
 .alert-tlp_green {
   background-color: black;
   color: rgb(51, 255, 0);

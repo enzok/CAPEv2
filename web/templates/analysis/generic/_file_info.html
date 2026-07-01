@@ -1,6 +1,6 @@
 {% load key_tags analysis_tags %}
 
-<div class="card bg-dark border-secondary mb-3">
+<div class="card bg-dark border-secondary mb-3" id="file_{{ file.sha256 }}">
     <div class="card-header border-secondary d-flex justify-content-between align-items-center">
         <h5 class="mb-0 text-white"><i class="fas fa-file-alt me-2 text-info"></i> File Information</h5>
         {% if file.dropdir %}
