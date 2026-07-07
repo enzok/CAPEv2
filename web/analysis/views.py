@@ -2849,6 +2849,12 @@ def report(request, task_id):
             "network.hosts": 1,
             "reversinglabs": 1,
             "tcr_config_lookup": 1,
+            "url_analysis": 1,
+            "genai": 1,
+            "genai_summary": 1,
+            "genai_status": 1,
+            "genai_error": 1,
+            "genai_updated_ts": 1,
             "_id": 0,
         }
         if CUSTOM_SERVICES:
