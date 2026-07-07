@@ -226,6 +226,16 @@ If you use CAPEv2 in your work, please cite it as specified in the "Cite this re
 * They becoming a headache, specially those that using `pefile` as each pins version that they want.
     * Our suggestion is clone/fork them, remove `pefile` dependency as you already have it installed. Volia no more pain.
 
+## GenAI post-analysis enrichment (optional)
+This integration is disabled by default. It curates the finished `report.json`, POSTs it to a GenAI HTTP endpoint and stores the response. No extra services or dependencies are required.
+
+1. Enable and configure `[genai_enrich]` in `custom/conf/reporting.conf`.
+2. With `on_demand = no`, every analysis is enriched automatically at the end of reporting (fail-open: reporting completes even if the endpoint is down). With `on_demand = yes`, enrichment only runs from the "Generate GenAI" button in the WebGUI report page.
+
+Outputs:
+* `storage/analyses/<task_id>/reports/genai.json`
+* `storage/analyses/<task_id>/reports/genai.txt` (if `write_txt = yes`)
+
 ### Docs
 * [ReadTheDocs](https://capev2.readthedocs.io/en/latest/#)
 * [DeepWiki](https://deepwiki.com/kevoreilly/CAPEv2/1-overview) - AI generated, some might be wrong but generally pretty accurate.

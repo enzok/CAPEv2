@@ -51,6 +51,19 @@ indent = 4
 encoding = latin-1
 store_compressed = no
 
+[genai_enrich]
+enabled = no
+# on_demand = yes turns off automatic enrichment; use the WebGUI button instead
+on_demand = no
+genai_endpoint = http://127.0.0.1:9055/analyze
+timeout_secs = 30
+max_payload_bytes = 1500000
+redact_enabled = yes
+write_txt = yes
+max_retries = 5
+# optional, if your endpoint requires bearer auth
+auth_token =
+
 # Community
 [reporthtml]
 # Standalone report, not requires CAPE webgui

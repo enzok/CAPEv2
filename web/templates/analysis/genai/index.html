@@ -1,0 +1,112 @@
+{% load verdict_tags %}
+
+<section id="genai-report" class="mb-4">
+    <div class="card bg-dark border-secondary">
+        <div class="card-header border-secondary d-flex justify-content-between align-items-center">
+            <h5 class="mb-0 text-white"><i class="fas fa-robot me-2 text-info"></i> GenAI Report</h5>
+            <div>
+                {% if reports_exist.genaijson %}
+                    <a href="{% url "filereport" analysis.info.id "genaijson" %}" class="btn btn-sm btn-outline-light ms-1">
+                        <i class="fas fa-file-code me-1"></i> genai.json
+                    </a>
+                {% endif %}
+                {% if reports_exist.genaitxt %}
+                    <a href="{% url "filereport" analysis.info.id "genaitxt" %}" class="btn btn-sm btn-outline-light ms-1">
+                        <i class="fas fa-file-alt me-1"></i> genai.txt
+                    </a>
+                {% endif %}
+            </div>
+        </div>
+        <div class="card-body">
+            {% if analysis.genai_status == "queued" and not analysis.genai %}
+                <div class="alert alert-info">
+                    GenAI job queued. Refresh in a few seconds.
+                </div>
+            {% elif analysis.genai_status == "failed" and not analysis.genai %}
+                <div class="alert alert-warning">
+                    GenAI enrichment failed{% if analysis.genai_error %}: {{ analysis.genai_error }}{% endif %}
+                </div>
+            {% endif %}
+            {% if analysis.genai_summary %}
+                <div class="{{ analysis.genai_summary.verdict|verdict_alert_class }} mb-3">
+                    <strong>Verdict:</strong> {{ analysis.genai_summary.verdict|default:"unknown" }}
+                    <span class="ms-2"><strong>Confidence:</strong> {{ analysis.genai_summary.confidence|default:"0.0" }}</span>
+                    {% if analysis.genai_summary.model %}
+                        <span class="ms-2"><strong>Model:</strong> {{ analysis.genai_summary.model }}</span>
+                    {% endif %}
+                </div>
+            {% elif analysis.genai.response %}
+                <div class="{{ analysis.genai.response.verdict|verdict_alert_class }} mb-3">
+                    <strong>Verdict:</strong> {{ analysis.genai.response.verdict|default:"unknown" }}
+                    <span class="ms-2"><strong>Confidence:</strong> {{ analysis.genai.response.confidence|default:"0.0" }}</span>
+                    {% if analysis.genai.metadata.model %}
+                        <span class="ms-2"><strong>Model:</strong> {{ analysis.genai.metadata.model }}</span>
+                    {% endif %}
+                </div>
+            {% endif %}
+
+            {% if analysis.genai.response.summary or analysis.genai_summary.summary %}
+                <h6 class="text-white">Summary</h6>
+                <p>{{ analysis.genai.response.summary|default:analysis.genai_summary.summary }}</p>
+            {% endif %}
+
+            {% if analysis.genai.response.key_behaviors %}
+                <h6 class="text-white">Key Behaviors</h6>
+                <ul class="mb-3">
+                    {% for item in analysis.genai.response.key_behaviors %}
+                        <li>{{ item }}</li>
+                    {% endfor %}
+                </ul>
+            {% endif %}
+
+            {% if analysis.genai.response.family_hypothesis %}
+                <h6 class="text-white">Family Hypothesis</h6>
+                <ul class="mb-3">
+                    {% for item in analysis.genai.response.family_hypothesis %}
+                        <li>{{ item.name|default:"unknown" }} ({{ item.confidence|default:"0" }})</li>
+                    {% endfor %}
+                </ul>
+            {% endif %}
+
+            {% if analysis.genai.response.mitre %}
+                <h6 class="text-white">MITRE</h6>
+                <div class="table-responsive mb-3">
+                    <table class="table table-dark table-striped table-bordered mb-0">
+                        <thead>
+                            <tr>
+                                <th>Technique</th>
+                                <th>Name</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in analysis.genai.response.mitre %}
+                                <tr>
+                                    <td>{{ item.technique }}</td>
+                                    <td>{{ item.name }}</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% endif %}
+
+            {% if analysis.genai.response.recommendations %}
+                <h6 class="text-white">Recommendations</h6>
+                <ul class="mb-3">
+                    {% for item in analysis.genai.response.recommendations %}
+                        <li>{{ item }}</li>
+                    {% endfor %}
+                </ul>
+            {% endif %}
+
+            {% if analysis.genai.response.errors %}
+                <h6 class="text-white">Errors</h6>
+                <ul class="mb-0">
+                    {% for item in analysis.genai.response.errors %}
+                        <li>{{ item }}</li>
+                    {% endfor %}
+                </ul>
+            {% endif %}
+        </div>
+    </div>
+</section>

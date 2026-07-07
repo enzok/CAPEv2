@@ -12,6 +12,7 @@ import re
 import subprocess
 import sys
 import tempfile
+import threading
 import zipfile
 from contextlib import suppress
 from functools import lru_cache
@@ -47,6 +48,7 @@ from lib.cuckoo.common.pcap_utils import PcapToNg
 import modules.processing.network as network
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import ANALYSIS_BASE_PATH, CUCKOO_ROOT
+from lib.cuckoo.common.integrations.genai import build_genai_options, genai_enrich_task
 from lib.cuckoo.common.path_utils import path_exists, path_get_size, path_mkdir, path_read_file, path_safe
 from lib.cuckoo.common.utils import delete_folder, yara_detected
 from lib.cuckoo.common.web_utils import category_all_files, my_rate_minutes, my_rate_seconds, perform_search, rateblock, statistics
@@ -3041,6 +3043,10 @@ def report(request, task_id):
                 reports_exist["litereport"] = True
             elif f == "cents.json":
                 reports_exist["cents"] = True
+            elif f == "genai.json":
+                reports_exist["genaijson"] = True
+            elif f == "genai.txt":
+                reports_exist["genaitxt"] = True
 
     debugger_log_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "debugger")
     if path_exists(debugger_log_path) and os.listdir(debugger_log_path):
@@ -3689,6 +3695,8 @@ def filereport(request, task_id, category):
         "cents": "cents.rules",
         "targetinfo": "targetinfo.txt",
         "parti": "report.parti",
+        "genaijson": "genai.json",
+        "genaitxt": "genai.txt",
     }
 
     if category in formats:
@@ -4091,6 +4099,7 @@ on_demand_config_mapper = {
     "strings": processing_cfg,
     "floss": integrations_cfg,
     "virustotal": integrations_cfg,
+    "genai_enrich": reporting_cfg,
 }
 
 
@@ -4143,6 +4152,38 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
         return None
 
     details = False
+
+    if service == "genai_enrich":
+        report_path = os.path.join(ANALYSIS_BASE_PATH, "analyses", task_id, "reports", "report.json")
+        if not path_exists(report_path):
+            return render(request, "error.html", {"error": f"File not found: {report_path}"})
+
+        created_ts = datetime.datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
+        options = build_genai_options(reporting_cfg.genai_enrich)
+
+        if enabledconf["mongodb"]:
+            mongo_update_one(
+                "analysis",
+                {"info.id": int(task_id)},
+                {"$set": {"genai_status": "queued", "genai_queue_ts": created_ts}},
+            )
+
+        # Run out of band so the request returns immediately; genai_enrich_task
+        # updates genai_status to done/failed in MongoDB when it finishes.
+        threading.Thread(
+            target=genai_enrich_task,
+            kwargs={
+                "task_id": task_id,
+                "report_path": report_path,
+                "sha256": sha256,
+                "created_ts": created_ts,
+                "options": options,
+                "force": True,
+            },
+            daemon=True,
+        ).start()
+        return redirect("report", task_id=task_id)
+
     if service in CUSTOM_SERVICES and handle_custom_service:
         details, category = handle_custom_service(service, task_id, sha256)
     else:
