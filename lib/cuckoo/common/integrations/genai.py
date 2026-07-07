@@ -24,6 +24,8 @@ SCHEMA_VERSION = "1.0"
 
 OPTION_DEFAULTS = {
     "genai_endpoint": "http://127.0.0.1:9055/analyze",
+    # Model requested from the GenAI service; empty = the service's own default.
+    "model": "",
     "timeout_secs": 30,
     "max_payload_bytes": 1500000,
     "redact_enabled": True,
@@ -51,6 +53,12 @@ def _json_dump_bytes(data):
     if HAVE_ORJSON:
         return orjson.dumps(data, option=orjson.OPT_INDENT_2)
     return json.dumps(data, indent=2, ensure_ascii=False).encode("utf-8")
+
+
+def _json_dump_compact(data):
+    if HAVE_ORJSON:
+        return orjson.dumps(data)
+    return json.dumps(data, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
 
 
 def _write_json_atomic(path, data):
@@ -106,8 +114,8 @@ def _sanitize_genai_response(data):
     return data
 
 
-def _build_payload(task_id, sha256, report_obj, created_ts):
-    return {
+def _build_payload(task_id, sha256, report_obj, created_ts, model=""):
+    payload = {
         "task_id": task_id,
         "sha256": sha256,
         "report": report_obj,
@@ -118,6 +126,9 @@ def _build_payload(task_id, sha256, report_obj, created_ts):
             "created_ts": created_ts or _iso_now(),
         },
     }
+    if model:
+        payload["model"] = model
+    return payload
 
 
 def _call_genai(endpoint, payload, headers, timeout_secs, max_retries):
@@ -125,7 +136,9 @@ def _call_genai(endpoint, payload, headers, timeout_secs, max_retries):
     for attempt in range(1, max_retries + 1):
         try:
             started = time.time()
-            response = requests.post(endpoint, json=payload, headers=headers, timeout=timeout_secs)
+            # Compact body: matches json_size_bytes measurements and avoids the
+            # ~7% overhead of requests' default spaced separators.
+            response = requests.post(endpoint, data=_json_dump_compact(payload), headers=headers, timeout=timeout_secs)
             elapsed_ms = int((time.time() - started) * 1000)
         except requests.RequestException as exc:
             last_error = "request_exception: {0}".format(exc)
@@ -327,6 +340,7 @@ def genai_enrich_task(task_id, report_path, sha256=None, created_ts=None, option
     max_retries = max(1, _to_int(options.get("max_retries", 5), 5))
     endpoint = options.get("genai_endpoint", "http://127.0.0.1:9055/analyze")
     auth_token = options.get("auth_token", "")
+    model = (options.get("model") or "").strip()
 
     reports_dir = os.path.dirname(report_path)
     output_json = os.path.join(reports_dir, "genai.json")
@@ -350,13 +364,14 @@ def genai_enrich_task(task_id, report_path, sha256=None, created_ts=None, option
             request_bytes = json_size_bytes(curated)
             mode = "single_trimmed"
 
-        payload = _build_payload(task_id=task_id, sha256=sha256, report_obj=curated, created_ts=created_ts)
+        payload = _build_payload(task_id=task_id, sha256=sha256, report_obj=curated, created_ts=created_ts, model=model)
         if json_size_bytes(payload) > max_payload_bytes:
             payload = _build_payload(
                 task_id=task_id,
                 sha256=sha256,
                 report_obj={"target": curated.get("target", {}), "iocs": curated.get("iocs", {})},
                 created_ts=created_ts,
+                model=model,
             )
         headers = _build_headers(auth_token)
         response_data, elapsed_ms, status_code = _call_genai(endpoint, payload, headers, timeout_secs, max_retries)

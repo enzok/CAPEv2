@@ -11,27 +11,25 @@ except ImportError:
     HAVE_ORJSON = False
 
 
+# Per-section entry caps. Sized for verdict evidence, not completeness — the
+# model doesn't need 500 domains to judge a sample, and every entry is tokens.
 CAPS = {
-    "signatures": 200,
-    "dropped": 300,
-    "domains": 500,
-    "hosts": 500,
-    "network_http": 800,
-    "network_tls": 500,
-    "processtree": 300,
-    "behavior_processes": 300,
-    "summary_write_files": 200,
-    "summary_run_keys": 200,
-    "summary_service_events": 200,
-    "summary_scheduled_tasks": 200,
-    "ioc_mutexes": 400,
-    "ioc_registry": 600,
-    "ioc_files": 600,
-    "ioc_urls": 500,
-    "ioc_domains": 500,
-    "ioc_ips": 500,
-    "ioc_emails": 200,
-    "interesting_strings": 200,
+    "signatures": 100,
+    "dropped": 100,
+    "domains": 200,
+    "hosts": 200,
+    "network_http": 200,
+    "network_tls": 100,
+    "processtree": 150,
+    "behavior_processes": 150,
+    "summary_run_keys": 50,
+    "summary_service_events": 50,
+    "summary_scheduled_tasks": 50,
+    "ioc_mutexes": 100,
+    "ioc_registry": 200,
+    "ioc_files": 200,
+    "ioc_emails": 50,
+    "interesting_strings": 100,
 }
 
 SUSPICIOUS_KEYWORDS = (
@@ -248,9 +246,11 @@ def _extract_api_category_counts(behavior):
 
 
 def _extract_key_events(behavior, stats):
+    # Mutations only — read_keys/keys are mostly benign OS noise, and file
+    # writes are already carried by iocs.files.
     summary = behavior.get("summary", {}) or {}
     registry_values = []
-    for field in ("keys", "write_keys", "read_keys", "delete_keys"):
+    for field in ("write_keys", "delete_keys"):
         registry_values.extend(_as_list(summary.get(field)))
     unique_registry = _collect_unique_strings(registry_values)
 
@@ -260,7 +260,6 @@ def _extract_key_events(behavior, stats):
             scheduled.append(command)
 
     return {
-        "file_writes": _cap_list(summary.get("write_files", []), "summary_write_files", stats),
         "registry_run_keys": _cap_list([value for value in unique_registry if _RUNKEY_RE.search(value or "")], "summary_run_keys", stats),
         "service_events": _cap_list(
             _as_list(summary.get("created_services")) + _as_list(summary.get("started_services")),
@@ -300,21 +299,20 @@ def _extract_iocs(results, stats):
     summary = behavior.get("summary", {}) or {}
     network = results.get("network", {}) or {}
 
+    # urls/domains/ips are not repeated here — the network section already
+    # carries them. Registry/file lists are mutations only (reads are noise).
     iocs = {
         "mutexes": _cap_list(summary.get("mutexes", []), "ioc_mutexes", stats),
         "registry": _cap_list(
-            _as_list(summary.get("keys")) + _as_list(summary.get("write_keys")) + _as_list(summary.get("delete_keys")),
+            _collect_unique_strings(_as_list(summary.get("write_keys")) + _as_list(summary.get("delete_keys"))),
             "ioc_registry",
             stats,
         ),
         "files": _cap_list(
-            _as_list(summary.get("files")) + _as_list(summary.get("write_files")) + _as_list(summary.get("delete_files")),
+            _collect_unique_strings(_as_list(summary.get("write_files")) + _as_list(summary.get("delete_files"))),
             "ioc_files",
             stats,
         ),
-        "urls": _cap_list([h.get("uri") for h in network.get("http", []) if h.get("uri")], "ioc_urls", stats),
-        "domains": _cap_list([d.get("domain") for d in network.get("domains", []) if d.get("domain")], "ioc_domains", stats),
-        "ips": _cap_list([h.get("ip") for h in network.get("hosts", []) if h.get("ip")], "ioc_ips", stats),
         "emails": _cap_list(_extract_email_candidates(results, summary), "ioc_emails", stats),
     }
     return iocs
@@ -327,7 +325,7 @@ def _extract_interesting_strings(results, stats):
             continue
         lower = item.lower()
         if _URL_RE.search(item) or _DOMAIN_RE.search(item) or any(keyword in lower for keyword in SUSPICIOUS_KEYWORDS):
-            interesting.append(item[:500])
+            interesting.append(item[:300])
 
     return _cap_list(_collect_unique_strings(interesting), "interesting_strings", stats)
 
@@ -352,6 +350,20 @@ def redact_secrets(data):
     return data
 
 
+def _prune_empty(value):
+    """Drop None, empty strings, and empty containers recursively (0/False kept)."""
+    if isinstance(value, dict):
+        output = {}
+        for key, item in value.items():
+            pruned = _prune_empty(item)
+            if pruned or pruned == 0 or pruned is False:
+                output[key] = pruned
+        return output
+    if isinstance(value, list):
+        return [pruned for pruned in (_prune_empty(item) for item in value) if pruned or pruned == 0 or pruned is False]
+    return value
+
+
 def massage_report(results, opts=None):
     opts = opts or {}
     stats = {"dropped": {}, "capped": {}, "sizes": {}}
@@ -365,6 +377,7 @@ def massage_report(results, opts=None):
         "iocs": _extract_iocs(results, stats),
         "strings": _extract_interesting_strings(results, stats),
     }
+    curated = _prune_empty(curated)
 
     if opts.get("redact_enabled", True):
         curated = redact_secrets(curated)
