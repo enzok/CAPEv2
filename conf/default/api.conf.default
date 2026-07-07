@@ -432,6 +432,15 @@ rps = 1/s
 rpm = 4/m
 mcp = no
 
+# Retrieve the GenAI enrichment summary (verdict/summary/status) for a task.
+# See reporting.conf [genai_enrich].
+[taskgenai]
+enabled = no
+auth_only = no
+rps = 1/s
+rpm = 4/m
+mcp = no
+
 # Configure the ability to download CAPE procdump files.
 [procdumpfiles]
 enabled = no

@@ -226,25 +226,6 @@ If you use CAPEv2 in your work, please cite it as specified in the "Cite this re
 * They becoming a headache, specially those that using `pefile` as each pins version that they want.
     * Our suggestion is clone/fork them, remove `pefile` dependency as you already have it installed. Volia no more pain.
 
-## GenAI post-analysis enrichment (optional)
-This integration is disabled by default. It curates the finished `report.json`, POSTs it to a GenAI HTTP endpoint and stores the response. No extra services or dependencies are required.
-
-1. Enable and configure `[genai_enrich]` in `custom/conf/reporting.conf`.
-2. With `on_demand = no`, every analysis is enriched automatically at the end of reporting (fail-open: reporting completes even if the endpoint is down). With `on_demand = yes`, enrichment only runs from the "Generate GenAI" button in the WebGUI report page.
-3. Point `genai_endpoint` at your enrichment service. A reference implementation backed by the Claude API ships in `utils/genai_service.py`:
-```bash
-pip install anthropic
-export ANTHROPIC_API_KEY=sk-ant-...
-python3 utils/genai_service.py --host 127.0.0.1 --port 9055   # --model to override claude-opus-4-8
-```
-Model selection: set `model =` in `[genai_enrich]` to request a specific model per CAPE instance (e.g. `claude-sonnet-5` for cheaper triage); empty uses the service's `--model` default. The service can restrict what clients may request with `--allowed-models claude-opus-4-8,claude-haiku-4-5` (or `GENAI_ALLOWED_MODELS`).
-
-Optional bearer auth: set `GENAI_SERVICE_TOKEN` for the service and the same value as `auth_token` in `[genai_enrich]`. Large reports can take a while to analyze — raise `timeout_secs` (e.g. 120) if you see retries.
-
-Outputs:
-* `storage/analyses/<task_id>/reports/genai.json`
-* `storage/analyses/<task_id>/reports/genai.txt` (if `write_txt = yes`)
-
 ### Docs
 * [ReadTheDocs](https://capev2.readthedocs.io/en/latest/#)
 * [DeepWiki](https://deepwiki.com/kevoreilly/CAPEv2/1-overview) - AI generated, some might be wrong but generally pretty accurate.
