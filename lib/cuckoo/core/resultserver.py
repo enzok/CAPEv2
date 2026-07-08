@@ -65,6 +65,7 @@ RESULT_UPLOADABLE = (
     b"aux",
     b"aux/amsi_etw",
     b"aux/sslkeylogfile",
+    b"aux/js_console",
     b"browser",
     b"curtain",
     b"debugger",
@@ -93,6 +94,8 @@ REPLACEABLE_RESULT_UPLOADS = (
 def netlog_sanitize_fname(path):
     """Validate agent-provided path for result files"""
     path = path.replace(b"\\", b"/")
+    if path == b"js_console.log" or path == b"aux/js_console.log":
+        path = b"aux/js_console/js_console.log"
     dir_part, name = os.path.split(path)
     if dir_part not in RESULT_DIRECTORIES:
         raise CuckooOperationalError(f"Netlog client requested banned path: {path}")
@@ -282,10 +285,13 @@ class FileUpload(ProtocolHandler):
             except OSError as e:
                 log.debug("File upload error for %s (task #%s)", dump_path, self.task_id)
                 if e.errno == errno.EEXIST:
-                    raise CuckooOperationalError(
-                        "Task #%s: Analyzer tried to overwrite an existing file: %s" % (self.task_id, file_path)
+                    log.debug(
+                        "Task #%s: Analyzer tried to overwrite an existing file: %s. Skipping and discarding incoming data.",
+                        self.task_id,
+                        file_path,
                     )
-                raise
+                else:
+                    raise
         # ToDo we need Windows path
         # filter screens/curtain/sysmon
         if not dump_path.startswith(
@@ -311,7 +317,10 @@ class FileUpload(ProtocolHandler):
         if not duplicated:
             self.handler.sock.settimeout(None)
             try:
-                return self.handler.copy_to_fd(self.fd, self.upload_max_size)
+                if self.fd:
+                    return self.handler.copy_to_fd(self.fd, self.upload_max_size)
+                else:
+                    return self.handler.discard()
             except Exception as e:
                 if self.fd:
                     log.debug(
@@ -695,7 +704,19 @@ class SingleVMResultServerWorker(GeventResultServerWorker):
             task_log_stop_force(task_id)
 
 
-class ResultServerWorkerProcess(multiprocessing.Process):
+# Use a SPAWN context (not the default fork) for the per-VM ResultServer worker
+# processes. cape monkey-patches threading with gevent, and gevent's Thread lacks
+# CPython's _reset_internal_locks; forking a running gevent-patched process makes
+# threading._after_fork raise AttributeError on every live aux Thread (Mitmdump,
+# QEMUScreenshots, ...) in the child, leaving locks unreset -> intermittent
+# deadlocks (e.g. a later sniffer subprocess fork wedging an analysis). spawn
+# starts a fresh interpreter with NO inherited threads, so _after_fork never runs
+# on them. (2026-07-02: a 12-job multiworker load test wedged a task and logged
+# _after_fork AttributeErrors for Mitmdump + QEMUScreenshots.)
+_rs_spawn_ctx = multiprocessing.get_context("spawn")
+
+
+class ResultServerWorkerProcess(_rs_spawn_ctx.Process):
     """Dedicated ResultServer process for a single VM.
 
     Each worker runs its own gevent event loop and StreamServer,
@@ -709,8 +730,10 @@ class ResultServerWorkerProcess(multiprocessing.Process):
         self.ip = ip
         self.port = port
         self.listen_ip = listen_ip
-        self._task_id = multiprocessing.Value("i", 0)
-        self._ready = multiprocessing.Event()
+        # Value/Event must come from the same spawn context as the Process so they
+        # are shared correctly across the spawn boundary (pickled into the child).
+        self._task_id = _rs_spawn_ctx.Value("i", 0)
+        self._ready = _rs_spawn_ctx.Event()
 
     def run(self):
         """Entry point for the worker process. Sets up a standalone

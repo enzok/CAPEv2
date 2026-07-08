@@ -246,3 +246,9 @@ analysis = 0
 mongo = no
 # Clean orphan files in mongodb
 unused_files_in_mongodb = no
+
+[security]
+# Enable ephemeral token authentication for the VM agent
+agent_auth = yes
+# Secret key used to dynamically sign task tokens (highly recommended to change this to a random string)
+secret_key = ChangeMeToARandomStringForSecurity

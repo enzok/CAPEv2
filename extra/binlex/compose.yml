@@ -1,0 +1,9 @@
+services:
+  binlex-server:
+    build:
+      context: .
+      dockerfile: Dockerfile.server
+    container_name: binlex-server
+    restart: always
+    volumes:
+      - /opt/CAPEv2/storage:/storage:ro

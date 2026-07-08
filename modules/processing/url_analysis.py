@@ -33,7 +33,7 @@ class UrlAnalysis(Processing):
             if HAVE_VIRUSTOTAL and processing_conf.virustotal.enabled:
                 vt_details = vt_lookup("url", self.task["target"], self.results)
                 if vt_details:
-                    self.results["url"].setdefault("virustotal", vt_details)
+                    self.results.setdefault("url", {}).setdefault("virustotal", vt_details)
 
-            self.results["target"] = {"category": "url"}
+            self.results["target"] = {"category": "url", "url": self.task["target"]}
         return target_info

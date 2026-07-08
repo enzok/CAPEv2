@@ -11,5 +11,8 @@ to fit the needs of all users.
 
     box-js
     curtain
+    genai
     librenms
     suricata
+    binlex
+

@@ -72,11 +72,6 @@ def setup_bun_environment(bun_zip_path):
 def _set_windows_env_var(name, value):
     # Set for current process immediately.
     os.environ[name] = value
-    # Persist as a Windows user environment variable.
-    try:
-        subprocess.run(["setx", name, value], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
-    except Exception as e:
-        log.debug("Failed to persist env var %s via setx: %s", name, e)
 
 
 class Bun(Package):

@@ -1,0 +1,47 @@
+{% load verdict_tags %}
+
+{% if analysis.genai_summary or analysis.genai or on_demand.genai_enrich %}
+<section id="genai-overview" class="mb-4">
+    <div class="card bg-dark border-secondary">
+        <div class="card-header border-secondary d-flex justify-content-between align-items-center">
+            <h5 class="mb-0 text-white"><i class="fas fa-robot me-2 text-info"></i> GenAI Enrichment</h5>
+            <div class="d-flex align-items-center">
+                {% if config.genai_enrich and on_demand.genai_enrich and analysis.target.file.sha256 %}
+                    <a href="{% url "on_demand" "genai_enrich" analysis.info.id "static" analysis.target.file.sha256 %}" class="btn btn-sm btn-secondary me-2">
+                        {% if analysis.genai %}Re-run GenAI{% else %}Generate GenAI{% endif %}
+                    </a>
+                {% endif %}
+                {% if analysis.genai_updated_ts %}
+                    <small class="text-muted">Updated {{ analysis.genai_updated_ts }}</small>
+                {% endif %}
+            </div>
+        </div>
+        <div class="card-body">
+            {% if analysis.genai_status == "queued" and not analysis.genai %}
+                <div class="alert alert-info">
+                    GenAI job queued. Refresh in a few seconds.
+                </div>
+            {% elif analysis.genai_status == "failed" and not analysis.genai %}
+                <div class="alert alert-warning">
+                    GenAI enrichment failed{% if analysis.genai_error %}: {{ analysis.genai_error }}{% endif %}
+                </div>
+            {% endif %}
+            {% if analysis.genai_summary %}
+                <div class="{{ analysis.genai_summary.verdict|verdict_alert_class }} mb-3">
+                    <strong>Verdict:</strong> {{ analysis.genai_summary.verdict|default:"unknown" }}
+                    <span class="ms-2"><strong>Confidence:</strong> {{ analysis.genai_summary.confidence|default:"0.0" }}</span>
+                </div>
+                <p class="mb-0">{{ analysis.genai_summary.summary|default:"No GenAI summary available yet." }}</p>
+            {% elif analysis.genai.response %}
+                <div class="{{ analysis.genai.response.verdict|verdict_alert_class }} mb-3">
+                    <strong>Verdict:</strong> {{ analysis.genai.response.verdict|default:"unknown" }}
+                    <span class="ms-2"><strong>Confidence:</strong> {{ analysis.genai.response.confidence|default:"0.0" }}</span>
+                </div>
+                <p class="mb-0">{{ analysis.genai.response.summary|default:"No GenAI summary available yet." }}</p>
+            {% elif on_demand.genai_enrich %}
+                <p class="mb-0 text-muted">No GenAI result yet. Use "Generate GenAI" to run enrichment on demand.</p>
+            {% endif %}
+        </div>
+    </div>
+</section>
+{% endif %}

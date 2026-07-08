@@ -1954,6 +1954,46 @@ def tasks_iocs(request, task_id, detail=None):
 
 @csrf_exempt
 @api_view(["GET"])
+def tasks_genai(request, task_id):
+    if not apiconf.taskgenai.get("enabled"):
+        return Response({"error": True, "error_value": "GenAI summary API is disabled"})
+
+    check = validate_task(task_id)
+    if check["error"]:
+        return Response(check)
+
+    genai_keys = ("genai_summary", "genai_status", "genai_error", "genai_updated_ts")
+    data = {}
+    if repconf.mongodb.get("enabled"):
+        projection = {key: 1 for key in genai_keys}
+        projection["_id"] = 0
+        buf = mongo_find_one("analysis", {"info.id": int(task_id)}, projection)
+        if buf:
+            data = {key: buf[key] for key in genai_keys if key in buf}
+
+    # Fall back to the on-disk genai.json metadata if Mongo is disabled or empty.
+    if not data:
+        gfile = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, "reports", "genai.json")
+        if os.path.normpath(gfile).startswith(ANALYSIS_BASE_PATH) and path_exists(gfile):
+            try:
+                with open(gfile, "r") as gdata:
+                    genai = json.load(gdata)
+                data = {
+                    "genai_summary": genai.get("response"),
+                    "genai_status": "done",
+                    "genai_updated_ts": genai.get("metadata", {}).get("written_ts"),
+                }
+            except Exception as e:
+                log.exception("Unable to read genai.json for task %s: %s", task_id, e)
+
+    if not data:
+        return Response({"error": True, "error_value": "No GenAI enrichment found for this task"})
+
+    return Response({"error": False, "data": data})
+
+
+@csrf_exempt
+@api_view(["GET"])
 def tasks_screenshot(request, task_id, screenshot="all"):
     if not apiconf.taskscreenshot.get("enabled"):
         resp = {"error": True, "error_value": "Screenshot download API is disabled"}

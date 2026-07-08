@@ -307,13 +307,23 @@ class GuestManager:
         # Pin the Agent to our IP address so that it is not accessible by
         # other Virtual Machines etc.
         if "pinning" in features:
-            self.get("/pinning")
+            headers = {}
+            task_token = getattr(self.analysis_manager.task, "token", None)
+            if task_token:
+                headers["X-CAPE-Auth-Token"] = task_token
+            self.get("/pinning", headers=headers)
 
         # Obtain the environment variables.
         self.query_environ()
 
         # Upload the analyzer.
         self.upload_analyzer()
+
+        # Update file_name in options if category is file/archive
+        # This must be done BEFORE self.add_config(options) is called so that analysis.conf in guest has the correct path
+        if options["category"] in ("file", "archive"):
+            options["file_name"] = sanitize_filename(options["file_name"])
+
 
         # Pass along the analysis.conf file.
         self.add_config(options)
@@ -335,9 +345,9 @@ class GuestManager:
         if options["category"] in ("file", "archive"):
             # Use the correct os.sep in the filepath based on what OS this file is destined for
             if self.platform == "windows":
-                filepath = ntpath.join(self.determine_temp_path(), sanitize_filename(options["file_name"]))
+                filepath = ntpath.join(self.determine_temp_path(), options["file_name"])
             else:
-                filepath = os.path.join(self.determine_temp_path(), sanitize_filename(options["file_name"]))
+                filepath = os.path.join(self.determine_temp_path(), options["file_name"])
             data = {"filepath": filepath}
             files = {
                 "file": ("sample.bin", open(sample_path, "rb")),

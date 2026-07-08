@@ -105,6 +105,44 @@ class TestAnalysisConfigLinks:
         assert "_associated_analysis_hashes" not in cfg
 
 
+class TestPcapProcessing:
+    @patch("modules.processing.CAPE.path_exists")
+    @patch("modules.processing.CAPE.File")
+    def test_pcap_category_processing(self, mock_file_cls, mock_path_exists, cape_processor):
+        mock_path_exists.return_value = True
+
+        mock_file_instance = MagicMock()
+        mock_file_cls.return_value = mock_file_instance
+        mock_file_instance.get_sha256.return_value = "fake-pcap-sha256"
+        mock_file_instance.get_all.return_value = ({"sha256": "fake-pcap-sha256", "path": "/fake/path"}, None)
+        mock_file_instance.get_type.return_value = "pcap capture file"
+        mock_file_instance.get_name.return_value = "target.pcap"
+        mock_file_instance.guest_paths = ["target.pcap"]
+
+        cape_processor.task = {
+            "id": 123,
+            "category": "pcap",
+            "target": "/fake/path/target.pcap",
+            "options": ""
+        }
+        cape_processor.results = {}
+        cape_processor.options = MagicMock()
+        cape_processor.options.replace_patterns = []
+        cape_processor.self_extracted = []
+
+        cape_processor.process_file(
+            "/fake/path/target.pcap",
+            False,
+            {},
+            category="pcap",
+            duplicated={"sha256": set()}
+        )
+
+        assert "target" in cape_processor.results
+        assert cape_processor.results["target"]["category"] == "pcap"
+        assert cape_processor.results["target"]["file"]["sha256"] == "fake-pcap-sha256"
+
+
 class TestDeduplication:
     @patch("os.rename")
     @patch("os.listdir")
@@ -116,3 +154,72 @@ class TestDeduplication:
         os_rename.assert_any_call("shots/bar.jpg", "shots/0000.jpg")
         os_rename.assert_any_call("shots/baz.jpg", "shots/0001.jpg")
         os_rename.assert_any_call("shots/foo.jpg", "shots/0002.jpg")
+
+
+class TestJsLogNetworkProcessing:
+    @patch("modules.processing.network.path_exists")
+    def test_js_log_parsing_and_mapping(self, mock_path_exists):
+        from unittest.mock import patch
+        from modules.processing.network import NetworkAnalysis
+
+        # Mock results with parsed js_log events
+        events = [
+            {"event": "init", "pid": 1234, "exec_path": "C:\\Program Files\\nodejs\\node.exe", "ts": "2026-05-16T00:56:10.059Z"},
+            {"event": "dns_query", "host": "example.com", "ts": "2026-05-16T00:56:20.961Z"},
+            {"event": "dns_result", "host": "example.com", "result": {"text": "[[{\"address\":\"1.2.3.4\",\"family\":4}]]"}, "ts": "2026-05-16T00:56:22.496Z"},
+            {"event": "tcp_connect", "host": "1.2.3.4", "port": 443, "ts": "2026-05-16T00:56:23.000Z"},
+            {"event": "http_request", "url": "https://example.com/api", "method": "POST", "ts": "2026-05-16T00:56:24.000Z"}
+        ]
+
+        processor = NetworkAnalysis()
+        processor.results = {
+            "js_log": {
+                "exists": True,
+                "events": events
+            }
+        }
+
+        # Test _parse_js_log
+        js_map = processor._parse_js_log()
+        assert 1234 in [p["process_id"] for p in js_map["endpoint_map"][("1.2.3.4", 443)]]
+        assert "node.exe" in [p["process_name"] for p in js_map["http_host_map"]["example.com"]]
+        assert "example.com" in js_map["dns_intents"]
+        assert len(js_map["http_requests"]) == 1
+        assert js_map["http_requests"][0]["url"] == "https://example.com/api"
+
+        # Test _process_map process mappings fallback
+        network = {
+            "tcp": [{"dst": "1.2.3.4", "dport": 443}],
+            "dns": [{"request": "example.com"}],
+            "http": [{"host": "example.com", "uri": "/api"}],
+            "hosts": [{"ip": "1.2.3.4"}]
+        }
+        processor._process_map(network)
+
+        assert network["tcp"][0]["process_id"] == 1234
+        assert network["tcp"][0]["process_name"] == "node.exe"
+        assert network["dns"][0]["process_id"] == 1234
+        assert network["http"][0]["process_id"] == 1234
+
+        # Test _merge_js_log_network
+        empty_network = {
+            "tcp": [],
+            "dns": [],
+            "http": [],
+            "hosts": []
+        }
+        processor._merge_js_log_network(empty_network)
+        assert len(empty_network["dns"]) == 1
+        assert empty_network["dns"][0]["request"] == "example.com"
+        assert empty_network["dns"][0]["source"] == "js_log"
+        assert empty_network["dns"][0]["process_id"] == 1234
+
+        assert len(empty_network["http"]) == 1
+        assert empty_network["http"][0]["host"] == "example.com"
+        assert empty_network["http"][0]["source"] == "js_log"
+
+        assert len(empty_network["tcp"]) == 1
+        assert empty_network["tcp"][0]["dst"] == "1.2.3.4"
+        assert empty_network["tcp"][0]["dport"] == 443
+        assert empty_network["tcp"][0]["source"] == "js_log"
+

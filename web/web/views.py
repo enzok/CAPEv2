@@ -10,6 +10,9 @@ except ImportError:
         print("missed dependency: poetry run pip install django-ratelimit -U")
 
 
+from django.urls import resolve, Resolver404
+
+
 def handler403(request, exception=None):
     if isinstance(exception, Ratelimited):
         return render(request, "error.html", {"error": settings.RATELIMIT_ERROR_MSG}, status=429)
@@ -17,4 +20,12 @@ def handler403(request, exception=None):
 
 
 def handler404(request, exception=None):
+    if settings.APPEND_SLASH and not request.path_info.endswith("/"):
+        urlconf = getattr(request, "urlconf", None)
+        try:
+            resolve(request.path_info + "/", urlconf)
+            return redirect(request.get_full_path(force_append_slash=True), permanent=True)
+        except Resolver404:
+            pass
     return redirect("/")
+

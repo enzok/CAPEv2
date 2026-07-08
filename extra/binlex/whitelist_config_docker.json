@@ -1,0 +1,32 @@
+{
+  "binlex_path": "binlex",
+  "output_file": "/output/benign_traits.txt",
+  "max_file_size_bytes": 52428800,
+  "extensions": [
+    ".dll",
+    ".exe",
+    ".sys",
+    ".ocx"
+  ],
+  "directories": [
+    "/storage/Windows/System32",
+    "/storage/Windows/SysWOW64",
+    "/storage/Windows/Microsoft.NET/Framework",
+    "/storage/Windows/Microsoft.NET/Framework64",
+    "/storage/Program Files/dotnet",
+    "/storage/Program Files (x86)/dotnet",
+    "/storage/Program Files/Java",
+    "/storage/Program Files (x86)/Java",
+    "/storage/Program Files/Common Files/microsoft shared",
+    "/storage/Program Files (x86)/Common Files/microsoft shared",
+    "/storage/Program Files/PowerShell",
+    "/storage/Program Files/Google/Chrome/Application",
+    "/storage/Program Files (x86)/Microsoft/Edge/Application",
+    "/storage/Program Files/Git/usr/bin",
+    "/storage/Program Files/Git/bin",
+    "/storage/Program Files/Microsoft Visual Studio",
+    "/storage/Program Files (x86)/Microsoft Visual Studio",
+    "/storage/Go/bin",
+    "/storage/Users"
+  ]
+}

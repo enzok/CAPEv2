@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block content %}
+<div class="container my-4" style="max-width: 800px;">
+    <h3 class="text-white mb-4"><i class="fas fa-shield-alt me-2"></i>Two-Factor Authentication</h3>
+
+    {% if messages %}
+        {% for m in messages %}
+        <div class="alert alert-{% if m.tags == 'error' %}danger{% else %}{{ m.tags|default:'info' }}{% endif %}">{{ m }}</div>
+        {% endfor %}
+    {% endif %}
+
+    <!-- Authenticator App Card -->
+    {% if "totp" in MFA_SUPPORTED_TYPES %}
+    <div class="card bg-dark border-secondary mb-4 shadow-sm">
+        <div class="card-header border-secondary text-white bg-transparent d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="fas fa-mobile-alt me-2 text-primary"></i>{% translate "Authenticator App" %}</h5>
+            {% if authenticators.totp %}
+                <span class="badge bg-success">active</span>
+            {% else %}
+                <span class="badge bg-secondary">inactive</span>
+            {% endif %}
+        </div>
+        <div class="card-body text-light">
+            {% if authenticators.totp %}
+                <p class="mb-0">{% translate "Authentication using an authenticator app is active." %}</p>
+            {% else %}
+                <p class="mb-0">{% translate "An authenticator app is not active." %}</p>
+            {% endif %}
+        </div>
+        <div class="card-footer border-secondary bg-transparent">
+            {% url 'mfa_deactivate_totp' as deactivate_url %}
+            {% url 'mfa_activate_totp' as activate_url %}
+            {% if authenticators.totp %}
+                <a href="{{ deactivate_url }}" class="btn btn-outline-danger">{% translate "Deactivate" %}</a>
+            {% else %}
+                <a href="{{ activate_url }}" class="btn btn-primary">{% translate "Activate" %}</a>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Security Keys / Passkeys Card -->
+    {% if "webauthn" in MFA_SUPPORTED_TYPES %}
+    <div class="card bg-dark border-secondary mb-4 shadow-sm">
+        <div class="card-header border-secondary text-white bg-transparent d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="fas fa-key me-2 text-warning"></i>{% translate "Security Keys / Passkeys" %}</h5>
+            {% if authenticators.webauthn|length %}
+                <span class="badge bg-success">active</span>
+            {% else %}
+                <span class="badge bg-secondary">inactive</span>
+            {% endif %}
+        </div>
+        <div class="card-body text-light">
+            {% if authenticators.webauthn|length %}
+                <p class="mb-0">
+                    {% blocktranslate count count=authenticators.webauthn|length %}You have added {{ count }} security key.{% plural %}You have added {{ count }} security keys.{% endblocktranslate %}
+                </p>
+            {% else %}
+                <p class="mb-0">{% translate "No security keys have been added." %}</p>
+            {% endif %}
+        </div>
+        <div class="card-footer border-secondary bg-transparent">
+            {% if authenticators.webauthn|length %}
+                {% url 'mfa_list_webauthn' as webauthn_list_url %}
+                <a href="{{ webauthn_list_url }}" class="btn btn-primary">{% translate "Manage Keys" %}</a>
+            {% else %}
+                {% url 'mfa_add_webauthn' as webauthn_add_url %}
+                <a href="{{ webauthn_add_url }}" class="btn btn-primary"><i class="fas fa-plus me-1"></i>{% translate "Add Security Key" %}</a>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Recovery Codes Card -->
+    {% if "recovery_codes" in MFA_SUPPORTED_TYPES %}
+    <div class="card bg-dark border-secondary mb-4 shadow-sm">
+        <div class="card-header border-secondary text-white bg-transparent d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="fas fa-file-alt me-2 text-info"></i>{% translate "Recovery Codes" %}</h5>
+            {% if authenticators.recovery_codes %}
+                <span class="badge bg-success">active</span>
+            {% else %}
+                <span class="badge bg-secondary">inactive</span>
+            {% endif %}
+        </div>
+        <div class="card-body text-light">
+            {% with total_count=authenticators.recovery_codes.generate_codes|length unused_count=authenticators.recovery_codes.get_unused_codes|length %}
+                {% if authenticators.recovery_codes %}
+                    <p class="mb-0">
+                        {% blocktranslate count unused_count=unused_count %}There is {{ unused_count }} out of {{ total_count }} recovery codes available.{% plural %}There are {{ unused_count }} out of {{ total_count }} recovery codes available.{% endblocktranslate %}
+                    </p>
+                {% else %}
+                    <p class="mb-0">{% translate "No recovery codes set up." %}</p>
+                {% endif %}
+            {% endwith %}
+        </div>
+        {% if is_mfa_enabled %}
+        <div class="card-footer border-secondary bg-transparent d-flex gap-2">
+            {% with total_count=authenticators.recovery_codes.generate_codes|length unused_count=authenticators.recovery_codes.get_unused_codes|length %}
+                {% if authenticators.recovery_codes and unused_count > 0 %}
+                    {% url 'mfa_view_recovery_codes' as view_url %}
+                    <a href="{{ view_url }}" class="btn btn-primary">{% translate "View" %}</a>
+                    {% url 'mfa_download_recovery_codes' as download_url %}
+                    <a href="{{ download_url }}" class="btn btn-outline-secondary">{% translate "Download" %}</a>
+                {% endif %}
+            {% endwith %}
+            {% url 'mfa_generate_recovery_codes' as generate_url %}
+            <a href="{{ generate_url }}" class="btn btn-outline-secondary">{% translate "Generate New Codes" %}</a>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

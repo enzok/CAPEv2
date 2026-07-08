@@ -172,6 +172,9 @@ class MongoDB(Report):
             raise
 
     def _insert_analysis_non_lossy(self, report):
+        from dev_utils.mongo_hooks import normalize_files
+
+        report = normalize_files(report)
         task_id = report["info"]["id"]
         target_size = int(self.options.get("chunk_large_docs_target_bytes", DEFAULT_TARGET_DOC_SIZE))
         min_section = int(self.options.get("chunk_large_docs_min_section_bytes", DEFAULT_MIN_SECTION_SIZE))

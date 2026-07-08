@@ -1,0 +1,35 @@
+{
+  "binlex_path": "binlex.exe",
+  "docker_image": "ghcr.io/c3rb3ru5d3d53c/binlex:latest",
+  "mount_path": "/mnt/windows_vm",
+  "output_file": "benign_traits.txt",
+  "max_file_size_bytes": 52428800,
+  "extensions": [
+    ".dll",
+    ".exe",
+    ".sys",
+    ".ocx"
+  ],
+  "directories": [
+    "%SystemRoot%\\System32",
+    "%SystemRoot%\\SysWOW64",
+    "%SystemRoot%\\Microsoft.NET\\Framework",
+    "%SystemRoot%\\Microsoft.NET\\Framework64",
+    "%ProgramFiles%\\dotnet",
+    "%ProgramFiles(x86)%\\dotnet",
+    "%ProgramFiles%\\Java",
+    "%ProgramFiles(x86)%\\Java",
+    "%ProgramFiles%\\Common Files\\microsoft shared",
+    "%ProgramFiles(x86)%\\Common Files\\microsoft shared",
+    "%ProgramFiles%\\PowerShell",
+    "%ProgramFiles%\\Google\\Chrome\\Application",
+    "%ProgramFiles(x86)%\\Microsoft\\Edge\\Application",
+    "%ProgramFiles%\\Git\\usr\\bin",
+    "%ProgramFiles%\\Git\\bin",
+    "%ProgramFiles%\\Microsoft Visual Studio",
+    "%ProgramFiles(x86)%\\Microsoft Visual Studio",
+    "C:\\Go\\bin",
+    "%USERPROFILE%\\.cargo\\bin",
+    "%USERPROFILE%\\AppData\\Local\\Programs\\Python"
+  ]
+}

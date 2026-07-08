@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block content %}
+<div class="container my-4" style="max-width: 600px;">
+    <h3 class="text-white mb-3"><i class="fas fa-edit me-2"></i>Edit Security Key</h3>
+
+    {% if messages %}
+        {% for m in messages %}
+        <div class="alert alert-{% if m.tags == 'error' %}danger{% else %}{{ m.tags|default:'info' }}{% endif %}">{{ m }}</div>
+        {% endfor %}
+    {% endif %}
+
+    <form method="post">
+        {% csrf_token %}
+        <div class="mb-3">
+            <label for="id_name" class="form-label text-light">Key Name</label>
+            <input type="text" name="name" id="id_name" class="form-control bg-dark text-white border-secondary" value="{{ form.name.value|default:'' }}" required>
+            {% if form.name.errors %}<div class="text-danger small mt-1">{{ form.name.errors|join:", " }}</div>{% endif %}
+        </div>
+        <button type="submit" class="btn btn-primary"><i class="fas fa-save me-1"></i> Save</button>
+        <a href="{% url 'mfa_list_webauthn' %}" class="btn btn-secondary">Cancel</a>
+    </form>
+</div>
+{% endblock %}
