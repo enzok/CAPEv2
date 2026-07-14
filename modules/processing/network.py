@@ -17,7 +17,7 @@ import sys
 import tempfile
 import traceback
 from base64 import b64encode
-from collections import OrderedDict, namedtuple, defaultdict
+from collections import OrderedDict, defaultdict, namedtuple
 from contextlib import suppress
 from hashlib import md5, sha1, sha256
 from itertools import islice
@@ -134,12 +134,25 @@ network_passlist_file = proc_cfg.network.network_passlist_file
 logging.getLogger("httpreplay").setLevel(logging.CRITICAL)
 
 comment_re = re.compile(r"\s*#.*")
+# Build the DNS passlist once, pre-compiled. Do NOT append to the imported
+# domain_passlist_re module-global: that list is shared with suricata.py, so
+# mutating it here polluted that module's passlist with duplicates. Pre-compiling
+# also removes the per-event recompile cost in the match loops below.
+dns_passlist_re = []
+for pattern in domain_passlist_re:
+    try:
+        dns_passlist_re.append(re.compile(pattern))
+    except re.error:
+        log.warning("Network: invalid base passlist regex %r; skipping", pattern)
 if enabled_passlist and passlist_file:
     f = path_read_file(os.path.join(CUCKOO_ROOT, passlist_file), mode="text")
     for domain in f.splitlines():
         domain = comment_re.sub("", domain).strip()
         if domain:
-            domain_passlist_re.append(domain)
+            try:
+                dns_passlist_re.append(re.compile(domain))
+            except re.error:
+                log.warning("Network: invalid passlist domain regex %r; skipping", domain)
 
 ip_passlist = set()
 network_passlist = []
@@ -546,8 +559,8 @@ class Pcap:
                 query["answers"].append(ans)
 
             if enabled_passlist:
-                for reject in domain_passlist_re:
-                    if re.search(reject, query["request"]):
+                for reject in dns_passlist_re:
+                    if reject.search(query["request"]):
                         for addip in query["answers"]:
                             if addip["type"] in ("A", "AAAA") and not self.options.inetsim_ip:
                                 ip_passlist.add(addip["data"])
@@ -628,8 +641,8 @@ class Pcap:
                 entry["host"] = conn["dst"]
 
             if enabled_passlist:
-                for reject in domain_passlist_re:
-                    if re.search(reject, entry["host"]):
+                for reject in dns_passlist_re:
+                    if reject.search(entry["host"]):
                         return False
 
             entry["port"] = conn["dport"]
@@ -1012,9 +1025,10 @@ class Pcap2:
                     hostname = sent.headers.get("host")
 
                 included_to_passlist = False
-                for reject in domain_passlist_re:
-                    if hostname and re.search(reject, hostname):
+                for reject in dns_passlist_re:
+                    if hostname and reject.search(hostname):
                         included_to_passlist = True
+                        break
 
                 if included_to_passlist:
                     continue
@@ -1633,17 +1647,9 @@ class NetworkAnalysis(Processing):
         winhttp_sessions = net_map.get("winhttp_sessions")
         if winhttp_sessions:
             # Recompute current http host set (includes http/http_ex/https_ex)
-            http_events = (
-                (network.get("http", []) or []) +
-                (network.get("http_ex", []) or []) +
-                (network.get("https_ex", []) or [])
-            )
+            http_events = (network.get("http", []) or []) + (network.get("http_ex", []) or []) + (network.get("https_ex", []) or [])
 
-            existing_hosts = {
-                _norm_domain(h.get("host"))
-                for h in http_events
-                if h.get("host")
-            }
+            existing_hosts = {_norm_domain(h.get("host")) for h in http_events if h.get("host")}
 
             for p in winhttp_sessions:
                 proc_sessions = (p or {}).get("sessions") or {}
