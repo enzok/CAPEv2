@@ -359,7 +359,7 @@ class RunProcessing:
         if processing_list:
             processing_list.sort(key=lambda module: module.order)
             if self.minproc:
-                allowed = {"AnalysisInfo", "BehaviorAnalysis", "Debug"}
+                allowed = {"AnalysisInfo", "BehaviorAnalysis", "CAPE", "Debug"}
                 processing_list = [module for module in processing_list if module.__name__ in allowed]
                 log.info(
                     "minproc enabled for task %s: running minimal processing modules: %s",
