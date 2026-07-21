@@ -200,6 +200,7 @@ crl\.luxtrust\.lu
 crl\.managedpki\.com
 crl\.netsolssl\.com
 crl\.pki\.goog
+c\.pki\.goog
 crl\.quovadisglobal\.com
 crl\.sbca\.telesec\.de
 crl\.serverpass\.telesec\.de
