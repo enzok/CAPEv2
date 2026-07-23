@@ -40,3 +40,17 @@ rule AxolotlLoader
     condition:
         all of them
 }
+
+rule AxolotlLoader_SideloadSettle
+{
+    meta:
+        author = "enzok"
+        description = "Enables loaderlock-settle to yield in the loader hooks and settle the race."
+        cape_options = "loaderlock-settle=1"
+    strings:
+        $guard      = { 48 83 BF ?? ?? ?? ?? FF }
+        $sentinel_a = { 6A FF 8F 87 }
+        $sentinel_b = { 48 C7 87 ?? ?? ?? ?? 01 00 00 00 48 F7 9F }
+    condition:
+        uint16(0) == 0x5A4D and $guard and 1 of ($sentinel_*)
+}
