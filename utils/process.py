@@ -639,7 +639,9 @@ def main():
 
     init_database()
     handlers = init_logging(debug=args.debug)
-    init_modules()
+    # The report processor operates on collected data and never touches the hypervisor,
+    # so skip the libvirt snapshot check that only the scheduler needs.
+    init_modules(check_snapshots=False)
     if args.id == "auto":
         autoprocess(
             parallel=args.parallel,

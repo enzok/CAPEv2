@@ -511,8 +511,11 @@ def init_tasks():
             log.info("Updated running task ID %s status to failed_analysis", task.id)
 
 
-def init_modules():
-    """Initializes plugins."""
+def init_modules(check_snapshots=True):
+    """Initializes plugins.
+    @param check_snapshots: verify VM snapshot state via libvirt (scheduler only; the
+        report processor does not need libvirt and sets this False).
+    """
     log.debug("Importing modules...")
 
     # Import all auxiliary modules.
@@ -541,7 +544,8 @@ def init_modules():
 
     # Import machine manager.
     import_plugin(f"modules.machinery.{cuckoo.cuckoo.machinery}")
-    check_snapshot_state()
+    if check_snapshots:
+        check_snapshot_state()
 
     for category, entries in list_plugins().items():
         log.debug('Imported "%s" modules:', category)
