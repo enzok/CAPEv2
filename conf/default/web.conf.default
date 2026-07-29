@@ -259,8 +259,8 @@ guest_protocol = vnc
 #     <source mode='bind'><clipboard copypaste='yes'/></source>
 #     <target type='virtio' name='com.redhat.spice.0'/>
 #   </channel>
-# Without it, use the console's Clipboard panel "Type to VM" button, which sends the
-# text as keystrokes and needs no guest support. RDP guests need none of this.
+# Until it is in place, neither Ctrl+V into the guest nor the console's Clipboard
+# panel can move text either way. RDP guests need none of this.
 guacd_recording_path = /opt/CAPEv2/storage/guacrecordings
 guest_width = 1280
 guest_height = 1024

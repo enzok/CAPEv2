@@ -10,24 +10,6 @@ const KEYSYM = {
 
 const PASTE_DELAY_MS = 50;
 
-// Pacing for typeToGuest. A synchronous burst overruns the guest's keyboard buffer and the tunnel's
-// output queue, which drops and reorders characters mid-string. HOLD separates a key's press from its
-// release so the guest cannot coalesce or reorder the pair; GAP separates consecutive characters;
-// SHIFT_SETTLE gives a modifier change time to land before the character that depends on it, and is
-// the largest of the three because transitions are the fragile step: mixed-case text such as a
-// PowerShell one-liner can need one every three characters, and QEMU's 16-byte PS/2 queue drops or
-// delays events under load -- a late Shift yields exactly one wrongly-cased character. Multiplied by
-// GuacSession.typeSpeedFactor, which the console's Clipboard panel exposes as a "Slow" toggle.
-const TYPE_HOLD_MS = 8;
-const TYPE_GAP_MS = 12;
-const TYPE_SHIFT_SETTLE_MS = 40;
-const TYPE_SLOW_FACTOR = 3;
-
-// Characters that need Shift held on a US layout. Uppercase letters are handled separately. VNC
-// servers -- QEMU's included -- map a keysym straight to a scancode without synthesising Shift, so
-// without this every one of these arrives as its unshifted twin ('@' as '2', 'A' as 'a').
-const SHIFTED_CHARS = new Set('~!@#$%^&*()_+{}|:"<>?');
-
 const NON_FATAL_STATUS_CODES = new Set([0, 256]);
 
 const ICON_ERROR = 'fas fa-exclamation-circle text-danger';
@@ -41,15 +23,12 @@ class GuacSession {
         this.tunnel = null;
         this.display = null;
         this.keyboard = null;
-        this.input = null;
         this.connected = false;
         this.ctrl = false;
         this.shift = false;
         this.dialogContainer = $(element).find('.guaconsole')[0];
         this.takingSnapshot = false;
         this.remoteClipboard = '';
-        this.typing = false;
-        this.typeSpeedFactor = 1;
 
         this._init();
     }
@@ -126,31 +105,18 @@ class GuacSession {
         mouse.onmousemove = sendState;
     }
 
-    // Browsers only dispatch `paste` at an EDITABLE target, so keyboard focus cannot live on the
-    // Guacamole display (a plain div): a hidden textarea holds it instead. Guacamole.Keyboard reads
-    // its key events, and because onkeydown lets a real paste combo through, the browser delivers a
-    // genuine paste event here for _setupClipboard to forward to the guest. Every other key is
-    // preventDefault()ed, so nothing is ever actually inserted.
-    _createInputSink() {
-        return $('<textarea>')
-            .attr({ 'aria-hidden': 'true', tabindex: -1, autocomplete: 'off' })
-            // position:fixed (not a negative margin/left) so focusing it can never scroll the page.
-            .css({
-                position: 'fixed', top: 0, left: 0, width: '1px', height: '1px',
-                opacity: 0, border: 0, padding: 0, resize: 'none', zIndex: -1,
-            })
-            .appendTo('body');
-    }
-
-    _focusInput() {
+    _focusDisplay() {
         const x = window.scrollX, y = window.scrollY;
-        this.input.focus();
+        $(this.display).focus();
         window.scrollTo(x, y);
     }
 
+    // Keyboard input is read from the display element itself. It was briefly routed through a hidden
+    // textarea so the browser would fire `paste` at an editable target, but that changed which element
+    // receives keystrokes and desynchronised Caps Lock between host and guest. Host->VM paste goes
+    // through the Clipboard panel's own textarea instead, which is editable without touching this path.
     _setupKeyboard() {
-        this.input = this._createInputSink();
-        this.keyboard = new Guacamole.Keyboard(this.input[0]);
+        this.keyboard = new Guacamole.Keyboard(this.display);
 
         this.keyboard.onkeydown = (keysym) => {
             if (keysym === KEYSYM.SHIFT)  this.shift = true;
@@ -164,12 +130,9 @@ class GuacSession {
 
             // Guacamole.Keyboard computes defaultPrevented = !onkeydown(keysym) and calls
             // preventDefault() when that is true, so returning TRUE lets the browser act on the key.
-            // Only an actual paste combo needs that -- it is what makes the browser fire its own paste
-            // event at the input sink. Everything else must be swallowed: Tab would move focus off to
-            // the toolbar controls, and any other key would be INSERTED into the sink textarea, whose
-            // input event Guacamole.Keyboard turns into a second, duplicate keystroke. Note the
-            // modifiers are matched bare while V/Insert are matched only in combination, so plain "v"
-            // is swallowed like any other character.
+            // Only an actual paste combo needs that, so the browser still fires its own paste event.
+            // Everything else is swallowed -- above all Tab, whose default action moves focus off the
+            // display and into the toolbar controls, which is unrecoverable without a mouse.
             return this._isPasteShortcut(keysym)
                 || keysym === KEYSYM.CTRL
                 || keysym === KEYSYM.SHIFT;
@@ -186,26 +149,22 @@ class GuacSession {
             }
         };
 
-        // Focus still follows the pointer over the guest image, but the sink is what holds it, so the
-        // display must NOT carry a tabindex any more -- being focusable would let a click move focus
-        // off the sink and silently kill the keyboard.
-        $(this.display).hover(
-            () => this._focusInput(),
-            () => this.input.blur()
-        );
-        this.input.on('blur', () => this.keyboard.reset());
+        // Focus follows the pointer over the guest image: tabindex makes the display focusable, and a
+        // blur releases every held key so a modifier cannot stay stuck in the guest.
+        $(this.display)
+            .attr('tabindex', 1)
+            .hover(
+                () => this._focusDisplay(),
+                () => $(this.display).blur()
+            )
+            .blur(() => this.keyboard.reset());
 
         // Hover alone cannot always give focus back: no mouseenter fires while the pointer sits
         // still, and _setupScaling letterboxes the display inside #container, so the bars around the
         // guest image are not the display element. Bind on #container -- display clicks bubble to it,
-        // so one handler covers image and bars both. preventDefault stops the browser moving focus to
-        // <body> on the way, which would otherwise blur the sink and reset the keyboard on every
-        // click; Guacamole.Mouse has already handled the event by this point. Modals blur it too.
-        $('#container').on('mousedown', (e) => {
-            e.preventDefault();
-            this._focusInput();
-        });
-        $(document).on('hidden.bs.modal', '.modal', () => this._focusInput());
+        // so one handler covers image and bars both. Modals take focus the same way.
+        $('#container').on('mousedown', () => this._focusDisplay());
+        $(document).on('hidden.bs.modal', '.modal', () => this._focusDisplay());
     }
 
     sendClipboard(text) {
@@ -217,70 +176,13 @@ class GuacSession {
         writer.sendEnd();
     }
 
-    _pause(ms) {
-        return new Promise((resolve) => setTimeout(resolve, ms * this.typeSpeedFactor));
-    }
-
-    _keysymForChar(ch) {
-        const cp = ch.codePointAt(0);
-        // Control characters (CR, Tab, ...) live in the 0xFF00 keysym page.
-        if (cp <= 0x1F || (cp >= 0x7F && cp <= 0x9F)) return 0xFF00 | cp;
-        // ASCII and Latin-1 are keysyms as-is; the rest use the Unicode keysym page.
-        return cp <= 0xFF ? cp : 0x01000000 | cp;
-    }
-
-    // Clipboard-free paste: type the text out as individual keystrokes. The clipboard instructions
-    // sendClipboard/onclipboard use only reach the guest if the hypervisor bridges its clipboard --
-    // QEMU's VNC server does not, unless the domain has a qemu-vdagent channel and the guest runs the
-    // agent (see [guacamole] in web.conf). Keystrokes need none of that, so this always works.
-    //
-    // Deliberately NOT Guacamole.Keyboard.type(): that sends a bare keysym per character with no
-    // Shift (so case and shifted symbols are lost), fires the whole string synchronously (so the
-    // guest drops characters), indexes by UTF-16 unit (so astral characters are emitted twice), and
-    // routes through our own onkeydown -- whose paste-shortcut branch defers by PASTE_DELAY_MS and
-    // would reorder the stream. Going straight to client.sendKeyEvent avoids all four, and also skips
-    // Guacamole.Keyboard's 500ms auto-repeat timers.
-    //
-    // Shifted symbols assume a US layout. Newlines become CR: LF maps to the Linefeed keysym, which
-    // Windows guests ignore, while CR maps to Return.
-    async typeToGuest(text) {
-        if (!text || !this.connected || this.typing) return;
-        this.typing = true;
-        // Latched, not toggled per character: a Shift press/release around every single character
-        // races the character keys once the guest's input queue falls behind, which shifts the WRONG
-        // character (increasingly likely the further into a long string you get). Tracking the state
-        // means Shift moves only when it has to, and each transition gets its own settle delay.
-        let shiftHeld = false;
-        try {
-            for (const ch of text.replace(/\r\n|\n|\r/g, '\r')) {
-                const needShift = SHIFTED_CHARS.has(ch) || (ch >= 'A' && ch <= 'Z');
-                if (needShift !== shiftHeld) {
-                    this.client.sendKeyEvent(needShift ? 1 : 0, KEYSYM.SHIFT);
-                    shiftHeld = needShift;
-                    await this._pause(TYPE_SHIFT_SETTLE_MS);
-                }
-                const keysym = this._keysymForChar(ch);
-                this.client.sendKeyEvent(1, keysym);
-                await this._pause(TYPE_HOLD_MS);
-                this.client.sendKeyEvent(0, keysym);
-                await this._pause(TYPE_GAP_MS);
-            }
-        } finally {
-            // Always unlatch. Leaving Shift down in the guest would make everything the operator
-            // subsequently types by hand come out shifted, and this must survive an early exit.
-            if (shiftHeld) this.client.sendKeyEvent(0, KEYSYM.SHIFT);
-            this.typing = false;
-        }
-    }
-
     _setupClipboard() {
-        // Host -> VM. The paste lands on the input sink, the only editable target in play -- a
-        // document-level handler gated on the display div never fires, because browsers do not
-        // dispatch `paste` at non-editable elements. preventDefault keeps the sink empty; the guest
-        // receives the text via its own clipboard and the Ctrl+V that _setupKeyboard delays by
-        // PASTE_DELAY_MS then makes it paste.
-        this.input.on('paste', (e) => {
-            e.preventDefault();
+        // Host -> VM on Ctrl+V, for browsers that dispatch `paste` at the focused display div (Chrome
+        // does; Firefox only fires it at editable targets). The Clipboard panel's textarea is the
+        // reliable route everywhere, and _setupKeyboard delays the Ctrl+V keystroke by PASTE_DELAY_MS
+        // so the guest reads its clipboard after this write lands.
+        $(document).on('paste', (e) => {
+            if (!$(this.display).is(':focus')) return;
             this.sendClipboard(e.originalEvent.clipboardData.getData('text/plain'));
         });
 

@@ -13,7 +13,7 @@
     <script src="{% static 'js/crypto-js.min.js' %}"></script>
     <!-- ?v= is a manual cache buster: guac-web serves /static/ via django.conf.urls.static with no
          content hash, so without it browsers keep running a stale copy after edits. Bump on change. -->
-    <script src="{% static 'js/guac-main.js' %}?v=6"></script>
+    <script src="{% static 'js/guac-main.js' %}?v=7"></script>
     <script src="{% static 'js/guacamole-1.6.0-all.min.js' %}"></script>
     <script src="{% static 'js/jquery.js' %}"></script>
     <script src="{% static 'js/jquery-ui.min.js' %}"></script>
@@ -180,22 +180,13 @@
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body text-start">
-                    <p class="small text-secondary"><strong>Send</strong> puts the text on the VM's clipboard for Ctrl+V inside the guest &mdash; this needs guest clipboard sharing (see <code>[guacamole]</code> in web.conf). <strong>Type</strong> instead sends it as keystrokes, which always works: click where you want it in the guest first.</p>
+                    <p class="small text-secondary"><strong>Send</strong> puts the text on the VM's clipboard, ready for Ctrl+V inside the guest. Text copied inside the guest shows up here. Both directions need guest clipboard sharing &mdash; see <code>[guacamole]</code> in web.conf for the vdagent channel that provides it.</p>
                     <textarea class="form-control form-control-sm bg-dark text-white border-secondary" id="clipboardText" rows="6" placeholder="Paste text here to send it to the VM..."></textarea>
-                    <div class="form-check form-switch mt-2">
-                        <input class="form-check-input" type="checkbox" role="switch" id="clipboardSlow">
-                        <label class="form-check-label small text-secondary" for="clipboardSlow">
-                            Slow typing &mdash; try this if a character comes out wrong on a loaded or slow guest
-                        </label>
-                    </div>
                     <div id="clipboardStatus" class="small text-secondary mt-2"></div>
                 </div>
                 <div class="modal-footer border-secondary justify-content-between">
                     <button type="button" id="btnClipboardFromVm" class="btn btn-outline-light btn-sm"><i class="fas fa-download me-1"></i> Copy from VM</button>
-                    <div>
-                        <button type="button" id="btnClipboardTypeToVm" class="btn btn-outline-info btn-sm me-2"><i class="fas fa-keyboard me-1"></i> Type to VM</button>
-                        <button type="button" id="btnClipboardToVm" class="btn btn-info btn-sm"><i class="fas fa-upload me-1"></i> Send to VM</button>
-                    </div>
+                    <button type="button" id="btnClipboardToVm" class="btn btn-info btn-sm"><i class="fas fa-upload me-1"></i> Send to VM</button>
                 </div>
             </div>
         </div>
@@ -567,32 +558,6 @@
             document.getElementById("clipboardStatus").textContent = text
                 ? "Sent " + text.length + " characters to the VM clipboard."
                 : "Nothing to send.";
-        });
-
-        document.getElementById("btnClipboardTypeToVm").addEventListener("click", function() {
-            var text = document.getElementById("clipboardText").value;
-            var status = document.getElementById("clipboardStatus");
-            if (!text) {
-                status.textContent = "Nothing to type.";
-                return;
-            }
-            // Typing is paced (see TYPE_DELAY_MS), so it takes real time on a long string: disable the
-            // button for the duration rather than letting a second click interleave two streams.
-            var btn = this;
-            btn.disabled = true;
-            window.guacSession.typeSpeedFactor =
-                document.getElementById("clipboardSlow").checked ? TYPE_SLOW_FACTOR : 1;
-            status.textContent = "Typing " + text.length + " characters into the guest...";
-            window.guacSession.typeToGuest(text)
-                .then(function() {
-                    status.textContent = "Typed " + text.length + " characters into the guest.";
-                })
-                .catch(function(err) {
-                    status.textContent = "Typing failed: " + err;
-                })
-                .then(function() {
-                    btn.disabled = false;
-                });
         });
 
         document.getElementById("btnClipboardFromVm").addEventListener("click", function() {
