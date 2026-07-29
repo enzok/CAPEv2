@@ -11,7 +11,9 @@
     <link href="{% static 'css/all.min.css' %}" rel="stylesheet">
     <link href="{% static 'css/guac-main.css' %}" rel="stylesheet">
     <script src="{% static 'js/crypto-js.min.js' %}"></script>
-    <script src="{% static 'js/guac-main.js' %}"></script>
+    <!-- ?v= is a manual cache buster: guac-web serves /static/ via django.conf.urls.static with no
+         content hash, so without it browsers keep running a stale copy after edits. Bump on change. -->
+    <script src="{% static 'js/guac-main.js' %}?v=3"></script>
     <script src="{% static 'js/guacamole-1.6.0-all.min.js' %}"></script>
     <script src="{% static 'js/jquery.js' %}"></script>
     <script src="{% static 'js/jquery-ui.min.js' %}"></script>

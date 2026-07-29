@@ -8,11 +8,6 @@ const KEYSYM = {
     V_LOWER: 0x0076,
 };
 
-const PASTE_COMPONENT_KEYS = new Set([
-    KEYSYM.SHIFT, KEYSYM.CTRL, KEYSYM.INSERT,
-    KEYSYM.V_UPPER, KEYSYM.V_LOWER,
-]);
-
 const PASTE_DELAY_MS = 50;
 
 const NON_FATAL_STATUS_CODES = new Set([0, 256]);
@@ -28,6 +23,7 @@ class GuacSession {
         this.tunnel = null;
         this.display = null;
         this.keyboard = null;
+        this.input = null;
         this.connected = false;
         this.ctrl = false;
         this.shift = false;
@@ -110,8 +106,31 @@ class GuacSession {
         mouse.onmousemove = sendState;
     }
 
+    // Browsers only dispatch `paste` at an EDITABLE target, so keyboard focus cannot live on the
+    // Guacamole display (a plain div): a hidden textarea holds it instead. Guacamole.Keyboard reads
+    // its key events, and because onkeydown lets a real paste combo through, the browser delivers a
+    // genuine paste event here for _setupClipboard to forward to the guest. Every other key is
+    // preventDefault()ed, so nothing is ever actually inserted.
+    _createInputSink() {
+        return $('<textarea>')
+            .attr({ 'aria-hidden': 'true', tabindex: -1, autocomplete: 'off' })
+            // position:fixed (not a negative margin/left) so focusing it can never scroll the page.
+            .css({
+                position: 'fixed', top: 0, left: 0, width: '1px', height: '1px',
+                opacity: 0, border: 0, padding: 0, resize: 'none', zIndex: -1,
+            })
+            .appendTo('body');
+    }
+
+    _focusInput() {
+        const x = window.scrollX, y = window.scrollY;
+        this.input.focus();
+        window.scrollTo(x, y);
+    }
+
     _setupKeyboard() {
-        this.keyboard = new Guacamole.Keyboard(this.display);
+        this.input = this._createInputSink();
+        this.keyboard = new Guacamole.Keyboard(this.input[0]);
 
         this.keyboard.onkeydown = (keysym) => {
             if (keysym === KEYSYM.SHIFT)  this.shift = true;
@@ -125,10 +144,15 @@ class GuacSession {
 
             // Guacamole.Keyboard computes defaultPrevented = !onkeydown(keysym) and calls
             // preventDefault() when that is true, so returning TRUE lets the browser act on the key.
-            // Only the paste combo needs that -- it is what makes the browser fire its own paste
-            // event, which _setupClipboard listens for. Everything else must be swallowed, Tab above
-            // all: its default action moves focus off the display into the toolbar controls.
-            return PASTE_COMPONENT_KEYS.has(keysym);
+            // Only an actual paste combo needs that -- it is what makes the browser fire its own paste
+            // event at the input sink. Everything else must be swallowed: Tab would move focus off to
+            // the toolbar controls, and any other key would be INSERTED into the sink textarea, whose
+            // input event Guacamole.Keyboard turns into a second, duplicate keystroke. Note the
+            // modifiers are matched bare while V/Insert are matched only in combination, so plain "v"
+            // is swallowed like any other character.
+            return this._isPasteShortcut(keysym)
+                || keysym === KEYSYM.CTRL
+                || keysym === KEYSYM.SHIFT;
         };
 
         this.keyboard.onkeyup = (keysym) => {
@@ -142,24 +166,26 @@ class GuacSession {
             }
         };
 
-        $(this.display)
-            .attr('tabindex', 1)
-            .hover(
-                function () {
-                    const x = window.scrollX, y = window.scrollY;
-                    $(this).focus();
-                    window.scrollTo(x, y);
-                },
-                function () { $(this).blur(); }
-            )
-            .blur(() => this.keyboard.reset());
+        // Focus still follows the pointer over the guest image, but the sink is what holds it, so the
+        // display must NOT carry a tabindex any more -- being focusable would let a click move focus
+        // off the sink and silently kill the keyboard.
+        $(this.display).hover(
+            () => this._focusInput(),
+            () => this.input.blur()
+        );
+        this.input.on('blur', () => this.keyboard.reset());
 
         // Hover alone cannot always give focus back: no mouseenter fires while the pointer sits
         // still, and _setupScaling letterboxes the display inside #container, so the bars around the
         // guest image are not the display element. Bind on #container -- display clicks bubble to it,
-        // so one handler covers image and bars both. Modals steal focus the same way.
-        $('#container').on('mousedown', () => $(this.display).focus());
-        $(document).on('hidden.bs.modal', '.modal', () => $(this.display).focus());
+        // so one handler covers image and bars both. preventDefault stops the browser moving focus to
+        // <body> on the way, which would otherwise blur the sink and reset the keyboard on every
+        // click; Guacamole.Mouse has already handled the event by this point. Modals blur it too.
+        $('#container').on('mousedown', (e) => {
+            e.preventDefault();
+            this._focusInput();
+        });
+        $(document).on('hidden.bs.modal', '.modal', () => this._focusInput());
     }
 
     sendClipboard(text) {
@@ -172,9 +198,13 @@ class GuacSession {
     }
 
     _setupClipboard() {
-        // Host -> VM. Fires only because onkeydown lets the paste combo reach the browser.
-        $(document).on('paste', (e) => {
-            if (!$(this.display).is(':focus')) return;
+        // Host -> VM. The paste lands on the input sink, the only editable target in play -- a
+        // document-level handler gated on the display div never fires, because browsers do not
+        // dispatch `paste` at non-editable elements. preventDefault keeps the sink empty; the guest
+        // receives the text via its own clipboard and the Ctrl+V that _setupKeyboard delays by
+        // PASTE_DELAY_MS then makes it paste.
+        this.input.on('paste', (e) => {
+            e.preventDefault();
             this.sendClipboard(e.originalEvent.clipboardData.getData('text/plain'));
         });
 
