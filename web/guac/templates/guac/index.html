@@ -68,9 +68,6 @@
                 <i class="fas fa-sign-out-alt me-1"></i>Disconnect
             </button>
             {% endif %}
-            <button id="clipboardBtn" class="btn btn-sm btn-outline-secondary ms-2" data-bs-toggle="modal" data-bs-target="#clipboardModal">
-                <i class="fas fa-clipboard me-1"></i>Clipboard
-            </button>
         </div>
         <div id="container">
             <div id="terminal"></div>
@@ -170,27 +167,6 @@
         </div>
     </div>
     {% endif %}
-
-    <!-- Clipboard Modal. Outside the started_by_console guard: task-launched sessions need it too. -->
-    <div class="modal fade text-white" id="clipboardModal" tabindex="-1" aria-labelledby="clipboardModalLabel" aria-hidden="true" style="z-index: 2000;">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content bg-dark border-secondary shadow-lg">
-                <div class="modal-header border-secondary">
-                    <h5 class="modal-title" id="clipboardModalLabel"><i class="fas fa-clipboard text-info me-2"></i> Clipboard</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body text-start">
-                    <p class="small text-secondary"><strong>Send</strong> puts the text on the VM's clipboard, ready for Ctrl+V inside the guest. Text copied inside the guest shows up here. Both directions need guest clipboard sharing &mdash; see <code>[guacamole]</code> in web.conf for the vdagent channel that provides it.</p>
-                    <textarea class="form-control form-control-sm bg-dark text-white border-secondary" id="clipboardText" rows="6" placeholder="Paste text here to send it to the VM..."></textarea>
-                    <div id="clipboardStatus" class="small text-secondary mt-2"></div>
-                </div>
-                <div class="modal-footer border-secondary justify-content-between">
-                    <button type="button" id="btnClipboardFromVm" class="btn btn-outline-light btn-sm"><i class="fas fa-download me-1"></i> Copy from VM</button>
-                    <button type="button" id="btnClipboardToVm" class="btn btn-info btn-sm"><i class="fas fa-upload me-1"></i> Send to VM</button>
-                </div>
-            </div>
-        </div>
-    </div>
     <script>
         {% if task_id and task_id != 0 and task_id != '0' %}
         document.getElementById("stopTask").addEventListener("click", function() {
@@ -546,40 +522,6 @@
         {% endif %}
 
         window.guacSession = GuacMe("html", "{{ session_id }}", "{{ recording_name }}");
-
-        document.getElementById("clipboardBtn").addEventListener("click", function() {
-            document.getElementById("clipboardStatus").textContent = "";
-            document.getElementById("clipboardText").value = window.guacSession.remoteClipboard || "";
-        });
-
-        document.getElementById("btnClipboardToVm").addEventListener("click", function() {
-            var text = document.getElementById("clipboardText").value;
-            window.guacSession.sendClipboard(text);
-            document.getElementById("clipboardStatus").textContent = text
-                ? "Sent " + text.length + " characters to the VM clipboard."
-                : "Nothing to send.";
-        });
-
-        document.getElementById("btnClipboardFromVm").addEventListener("click", function() {
-            var box = document.getElementById("clipboardText");
-            var status = document.getElementById("clipboardStatus");
-            if (!window.guacSession.remoteClipboard) {
-                // Distinguish "nothing copied yet" from a broken browser copy: if the guest had ever
-                // sent clipboard data, onclipboard would have cached it.
-                status.textContent = "The VM has sent no clipboard data. Copy something inside the guest "
-                    + "first; if that still shows nothing, the hypervisor is not bridging the guest "
-                    + "clipboard - see [guacamole] in web.conf.";
-                return;
-            }
-            box.value = window.guacSession.remoteClipboard;
-            box.select();
-            // execCommand rather than navigator.clipboard: this click is the user gesture that lets the
-            // copy work without a secure context, so the VM -> host direction also works over plain HTTP.
-            var ok = document.execCommand("copy");
-            status.textContent = ok
-                ? "Copied the VM clipboard to your clipboard."
-                : "Could not copy automatically - the text is selected, press Ctrl+C.";
-        });
     </script>
 </body>
 </html>

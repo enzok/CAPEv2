@@ -28,7 +28,6 @@ class GuacSession {
         this.shift = false;
         this.dialogContainer = $(element).find('.guaconsole')[0];
         this.takingSnapshot = false;
-        this.remoteClipboard = '';
 
         this._init();
     }
@@ -63,7 +62,6 @@ class GuacSession {
 
         this._setupMouse();
         this._setupKeyboard();
-        this._setupClipboard();
         this._setupErrorHandler();
     }
 
@@ -111,10 +109,6 @@ class GuacSession {
         window.scrollTo(x, y);
     }
 
-    // Keyboard input is read from the display element itself. It was briefly routed through a hidden
-    // textarea so the browser would fire `paste` at an editable target, but that changed which element
-    // receives keystrokes and desynchronised Caps Lock between host and guest. Host->VM paste goes
-    // through the Clipboard panel's own textarea instead, which is editable without touching this path.
     _setupKeyboard() {
         this.keyboard = new Guacamole.Keyboard(this.display);
 
@@ -130,12 +124,10 @@ class GuacSession {
 
             // Guacamole.Keyboard computes defaultPrevented = !onkeydown(keysym) and calls
             // preventDefault() when that is true, so returning TRUE lets the browser act on the key.
-            // Only an actual paste combo needs that, so the browser still fires its own paste event.
+            // Only the bare modifiers are let through, where the browser default is a no-op anyway.
             // Everything else is swallowed -- above all Tab, whose default action moves focus off the
             // display and into the toolbar controls, which is unrecoverable without a mouse.
-            return this._isPasteShortcut(keysym)
-                || keysym === KEYSYM.CTRL
-                || keysym === KEYSYM.SHIFT;
+            return keysym === KEYSYM.CTRL || keysym === KEYSYM.SHIFT;
         };
 
         this.keyboard.onkeyup = (keysym) => {
@@ -165,42 +157,6 @@ class GuacSession {
         // so one handler covers image and bars both. Modals take focus the same way.
         $('#container').on('mousedown', () => this._focusDisplay());
         $(document).on('hidden.bs.modal', '.modal', () => this._focusDisplay());
-    }
-
-    sendClipboard(text) {
-        if (!text || !this.connected) return;
-        const writer = new Guacamole.StringWriter(
-            this.client.createClipboardStream('text/plain')
-        );
-        writer.sendText(text);
-        writer.sendEnd();
-    }
-
-    _setupClipboard() {
-        // Host -> VM on Ctrl+V, for browsers that dispatch `paste` at the focused display div (Chrome
-        // does; Firefox only fires it at editable targets). The Clipboard panel's textarea is the
-        // reliable route everywhere, and _setupKeyboard delays the Ctrl+V keystroke by PASTE_DELAY_MS
-        // so the guest reads its clipboard after this write lands.
-        $(document).on('paste', (e) => {
-            if (!$(this.display).is(':focus')) return;
-            this.sendClipboard(e.originalEvent.clipboardData.getData('text/plain'));
-        });
-
-        // VM -> host. Cached for the clipboard panel, and pushed straight to the host clipboard when
-        // the browser permits it -- navigator.clipboard needs a secure context, so plain-HTTP
-        // deployments fall back to the panel's copy button (a click supplies the required gesture).
-        this.client.onclipboard = (stream, mimetype) => {
-            if (!mimetype.startsWith('text/')) return;
-            const reader = new Guacamole.StringReader(stream);
-            let data = '';
-            reader.ontext = (text) => { data += text; };
-            reader.onend = () => {
-                this.remoteClipboard = data;
-                if (window.isSecureContext && navigator.clipboard) {
-                    navigator.clipboard.writeText(data).catch(() => {});
-                }
-            };
-        };
     }
 
     _showDialog(title, detail, icon) {
