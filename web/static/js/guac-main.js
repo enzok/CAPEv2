@@ -11,8 +11,17 @@ const KEYSYM = {
 const PASTE_DELAY_MS = 50;
 
 // Pacing for typeToGuest. A synchronous burst overruns the guest's keyboard buffer and the tunnel's
-// output queue, which drops and reorders characters mid-string.
-const TYPE_DELAY_MS = 10;
+// output queue, which drops and reorders characters mid-string. HOLD separates a key's press from its
+// release so the guest cannot coalesce or reorder the pair; GAP separates consecutive characters;
+// SHIFT_SETTLE gives a modifier change time to land before the character that depends on it, and is
+// the largest of the three because transitions are the fragile step: mixed-case text such as a
+// PowerShell one-liner can need one every three characters, and QEMU's 16-byte PS/2 queue drops or
+// delays events under load -- a late Shift yields exactly one wrongly-cased character. Multiplied by
+// GuacSession.typeSpeedFactor, which the console's Clipboard panel exposes as a "Slow" toggle.
+const TYPE_HOLD_MS = 8;
+const TYPE_GAP_MS = 12;
+const TYPE_SHIFT_SETTLE_MS = 40;
+const TYPE_SLOW_FACTOR = 3;
 
 // Characters that need Shift held on a US layout. Uppercase letters are handled separately. VNC
 // servers -- QEMU's included -- map a keysym straight to a scancode without synthesising Shift, so
@@ -40,6 +49,7 @@ class GuacSession {
         this.takingSnapshot = false;
         this.remoteClipboard = '';
         this.typing = false;
+        this.typeSpeedFactor = 1;
 
         this._init();
     }
@@ -207,6 +217,10 @@ class GuacSession {
         writer.sendEnd();
     }
 
+    _pause(ms) {
+        return new Promise((resolve) => setTimeout(resolve, ms * this.typeSpeedFactor));
+    }
+
     _keysymForChar(ch) {
         const cp = ch.codePointAt(0);
         // Control characters (CR, Tab, ...) live in the 0xFF00 keysym page.
@@ -232,17 +246,29 @@ class GuacSession {
     async typeToGuest(text) {
         if (!text || !this.connected || this.typing) return;
         this.typing = true;
+        // Latched, not toggled per character: a Shift press/release around every single character
+        // races the character keys once the guest's input queue falls behind, which shifts the WRONG
+        // character (increasingly likely the further into a long string you get). Tracking the state
+        // means Shift moves only when it has to, and each transition gets its own settle delay.
+        let shiftHeld = false;
         try {
             for (const ch of text.replace(/\r\n|\n|\r/g, '\r')) {
+                const needShift = SHIFTED_CHARS.has(ch) || (ch >= 'A' && ch <= 'Z');
+                if (needShift !== shiftHeld) {
+                    this.client.sendKeyEvent(needShift ? 1 : 0, KEYSYM.SHIFT);
+                    shiftHeld = needShift;
+                    await this._pause(TYPE_SHIFT_SETTLE_MS);
+                }
                 const keysym = this._keysymForChar(ch);
-                const shifted = SHIFTED_CHARS.has(ch) || (ch >= 'A' && ch <= 'Z');
-                if (shifted) this.client.sendKeyEvent(1, KEYSYM.SHIFT);
                 this.client.sendKeyEvent(1, keysym);
+                await this._pause(TYPE_HOLD_MS);
                 this.client.sendKeyEvent(0, keysym);
-                if (shifted) this.client.sendKeyEvent(0, KEYSYM.SHIFT);
-                await new Promise((resolve) => setTimeout(resolve, TYPE_DELAY_MS));
+                await this._pause(TYPE_GAP_MS);
             }
         } finally {
+            // Always unlatch. Leaving Shift down in the guest would make everything the operator
+            // subsequently types by hand come out shifted, and this must survive an early exit.
+            if (shiftHeld) this.client.sendKeyEvent(0, KEYSYM.SHIFT);
             this.typing = false;
         }
     }

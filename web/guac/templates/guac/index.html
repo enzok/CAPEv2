@@ -13,7 +13,7 @@
     <script src="{% static 'js/crypto-js.min.js' %}"></script>
     <!-- ?v= is a manual cache buster: guac-web serves /static/ via django.conf.urls.static with no
          content hash, so without it browsers keep running a stale copy after edits. Bump on change. -->
-    <script src="{% static 'js/guac-main.js' %}?v=4"></script>
+    <script src="{% static 'js/guac-main.js' %}?v=6"></script>
     <script src="{% static 'js/guacamole-1.6.0-all.min.js' %}"></script>
     <script src="{% static 'js/jquery.js' %}"></script>
     <script src="{% static 'js/jquery-ui.min.js' %}"></script>
@@ -182,6 +182,12 @@
                 <div class="modal-body text-start">
                     <p class="small text-secondary"><strong>Send</strong> puts the text on the VM's clipboard for Ctrl+V inside the guest &mdash; this needs guest clipboard sharing (see <code>[guacamole]</code> in web.conf). <strong>Type</strong> instead sends it as keystrokes, which always works: click where you want it in the guest first.</p>
                     <textarea class="form-control form-control-sm bg-dark text-white border-secondary" id="clipboardText" rows="6" placeholder="Paste text here to send it to the VM..."></textarea>
+                    <div class="form-check form-switch mt-2">
+                        <input class="form-check-input" type="checkbox" role="switch" id="clipboardSlow">
+                        <label class="form-check-label small text-secondary" for="clipboardSlow">
+                            Slow typing &mdash; try this if a character comes out wrong on a loaded or slow guest
+                        </label>
+                    </div>
                     <div id="clipboardStatus" class="small text-secondary mt-2"></div>
                 </div>
                 <div class="modal-footer border-secondary justify-content-between">
@@ -574,6 +580,8 @@
             // button for the duration rather than letting a second click interleave two streams.
             var btn = this;
             btn.disabled = true;
+            window.guacSession.typeSpeedFactor =
+                document.getElementById("clipboardSlow").checked ? TYPE_SLOW_FACTOR : 1;
             status.textContent = "Typing " + text.length + " characters into the guest...";
             window.guacSession.typeToGuest(text)
                 .then(function() {
