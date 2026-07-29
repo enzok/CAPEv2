@@ -10,6 +10,15 @@ const KEYSYM = {
 
 const PASTE_DELAY_MS = 50;
 
+// Pacing for typeToGuest. A synchronous burst overruns the guest's keyboard buffer and the tunnel's
+// output queue, which drops and reorders characters mid-string.
+const TYPE_DELAY_MS = 10;
+
+// Characters that need Shift held on a US layout. Uppercase letters are handled separately. VNC
+// servers -- QEMU's included -- map a keysym straight to a scancode without synthesising Shift, so
+// without this every one of these arrives as its unshifted twin ('@' as '2', 'A' as 'a').
+const SHIFTED_CHARS = new Set('~!@#$%^&*()_+{}|:"<>?');
+
 const NON_FATAL_STATUS_CODES = new Set([0, 256]);
 
 const ICON_ERROR = 'fas fa-exclamation-circle text-danger';
@@ -30,6 +39,7 @@ class GuacSession {
         this.dialogContainer = $(element).find('.guaconsole')[0];
         this.takingSnapshot = false;
         this.remoteClipboard = '';
+        this.typing = false;
 
         this._init();
     }
@@ -197,15 +207,44 @@ class GuacSession {
         writer.sendEnd();
     }
 
+    _keysymForChar(ch) {
+        const cp = ch.codePointAt(0);
+        // Control characters (CR, Tab, ...) live in the 0xFF00 keysym page.
+        if (cp <= 0x1F || (cp >= 0x7F && cp <= 0x9F)) return 0xFF00 | cp;
+        // ASCII and Latin-1 are keysyms as-is; the rest use the Unicode keysym page.
+        return cp <= 0xFF ? cp : 0x01000000 | cp;
+    }
+
     // Clipboard-free paste: type the text out as individual keystrokes. The clipboard instructions
     // sendClipboard/onclipboard use only reach the guest if the hypervisor bridges its clipboard --
     // QEMU's VNC server does not, unless the domain has a qemu-vdagent channel and the guest runs the
     // agent (see [guacamole] in web.conf). Keystrokes need none of that, so this always works.
-    // Newlines are normalised to CR: Guacamole maps LF to the Linefeed keysym, which Windows guests
-    // ignore, whereas CR maps to Return.
-    typeToGuest(text) {
-        if (!text || !this.connected) return;
-        this.keyboard.type(text.replace(/\r\n|\n|\r/g, '\r'));
+    //
+    // Deliberately NOT Guacamole.Keyboard.type(): that sends a bare keysym per character with no
+    // Shift (so case and shifted symbols are lost), fires the whole string synchronously (so the
+    // guest drops characters), indexes by UTF-16 unit (so astral characters are emitted twice), and
+    // routes through our own onkeydown -- whose paste-shortcut branch defers by PASTE_DELAY_MS and
+    // would reorder the stream. Going straight to client.sendKeyEvent avoids all four, and also skips
+    // Guacamole.Keyboard's 500ms auto-repeat timers.
+    //
+    // Shifted symbols assume a US layout. Newlines become CR: LF maps to the Linefeed keysym, which
+    // Windows guests ignore, while CR maps to Return.
+    async typeToGuest(text) {
+        if (!text || !this.connected || this.typing) return;
+        this.typing = true;
+        try {
+            for (const ch of text.replace(/\r\n|\n|\r/g, '\r')) {
+                const keysym = this._keysymForChar(ch);
+                const shifted = SHIFTED_CHARS.has(ch) || (ch >= 'A' && ch <= 'Z');
+                if (shifted) this.client.sendKeyEvent(1, KEYSYM.SHIFT);
+                this.client.sendKeyEvent(1, keysym);
+                this.client.sendKeyEvent(0, keysym);
+                if (shifted) this.client.sendKeyEvent(0, KEYSYM.SHIFT);
+                await new Promise((resolve) => setTimeout(resolve, TYPE_DELAY_MS));
+            }
+        } finally {
+            this.typing = false;
+        }
     }
 
     _setupClipboard() {

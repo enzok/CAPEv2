@@ -13,7 +13,7 @@
     <script src="{% static 'js/crypto-js.min.js' %}"></script>
     <!-- ?v= is a manual cache buster: guac-web serves /static/ via django.conf.urls.static with no
          content hash, so without it browsers keep running a stale copy after edits. Bump on change. -->
-    <script src="{% static 'js/guac-main.js' %}?v=3"></script>
+    <script src="{% static 'js/guac-main.js' %}?v=4"></script>
     <script src="{% static 'js/guacamole-1.6.0-all.min.js' %}"></script>
     <script src="{% static 'js/jquery.js' %}"></script>
     <script src="{% static 'js/jquery-ui.min.js' %}"></script>
@@ -565,10 +565,26 @@
 
         document.getElementById("btnClipboardTypeToVm").addEventListener("click", function() {
             var text = document.getElementById("clipboardText").value;
-            window.guacSession.typeToGuest(text);
-            document.getElementById("clipboardStatus").textContent = text
-                ? "Typed " + text.length + " characters into the guest."
-                : "Nothing to type.";
+            var status = document.getElementById("clipboardStatus");
+            if (!text) {
+                status.textContent = "Nothing to type.";
+                return;
+            }
+            // Typing is paced (see TYPE_DELAY_MS), so it takes real time on a long string: disable the
+            // button for the duration rather than letting a second click interleave two streams.
+            var btn = this;
+            btn.disabled = true;
+            status.textContent = "Typing " + text.length + " characters into the guest...";
+            window.guacSession.typeToGuest(text)
+                .then(function() {
+                    status.textContent = "Typed " + text.length + " characters into the guest.";
+                })
+                .catch(function(err) {
+                    status.textContent = "Typing failed: " + err;
+                })
+                .then(function() {
+                    btn.disabled = false;
+                });
         });
 
         document.getElementById("btnClipboardFromVm").addEventListener("click", function() {
