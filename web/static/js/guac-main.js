@@ -33,6 +33,7 @@ class GuacSession {
         this.shift = false;
         this.dialogContainer = $(element).find('.guaconsole')[0];
         this.takingSnapshot = false;
+        this.remoteClipboard = '';
 
         this._init();
     }
@@ -122,7 +123,12 @@ class GuacSession {
                 this.client.sendKeyEvent(1, keysym);
             }
 
-            return !PASTE_COMPONENT_KEYS.has(keysym);
+            // Guacamole.Keyboard computes defaultPrevented = !onkeydown(keysym) and calls
+            // preventDefault() when that is true, so returning TRUE lets the browser act on the key.
+            // Only the paste combo needs that -- it is what makes the browser fire its own paste
+            // event, which _setupClipboard listens for. Everything else must be swallowed, Tab above
+            // all: its default action moves focus off the display into the toolbar controls.
+            return PASTE_COMPONENT_KEYS.has(keysym);
         };
 
         this.keyboard.onkeyup = (keysym) => {
@@ -147,15 +153,46 @@ class GuacSession {
                 function () { $(this).blur(); }
             )
             .blur(() => this.keyboard.reset());
+
+        // Hover alone cannot always give focus back: no mouseenter fires while the pointer sits
+        // still, and _setupScaling letterboxes the display inside #container, so the bars around the
+        // guest image are not the display element. Bind on #container -- display clicks bubble to it,
+        // so one handler covers image and bars both. Modals steal focus the same way.
+        $('#container').on('mousedown', () => $(this.display).focus());
+        $(document).on('hidden.bs.modal', '.modal', () => $(this.display).focus());
+    }
+
+    sendClipboard(text) {
+        if (!text || !this.connected) return;
+        const writer = new Guacamole.StringWriter(
+            this.client.createClipboardStream('text/plain')
+        );
+        writer.sendText(text);
+        writer.sendEnd();
     }
 
     _setupClipboard() {
+        // Host -> VM. Fires only because onkeydown lets the paste combo reach the browser.
         $(document).on('paste', (e) => {
-            const text = e.originalEvent.clipboardData.getData('text/plain');
-            if ($(this.display).is(':focus')) {
-                this.client.setClipboard(text);
-            }
+            if (!$(this.display).is(':focus')) return;
+            this.sendClipboard(e.originalEvent.clipboardData.getData('text/plain'));
         });
+
+        // VM -> host. Cached for the clipboard panel, and pushed straight to the host clipboard when
+        // the browser permits it -- navigator.clipboard needs a secure context, so plain-HTTP
+        // deployments fall back to the panel's copy button (a click supplies the required gesture).
+        this.client.onclipboard = (stream, mimetype) => {
+            if (!mimetype.startsWith('text/')) return;
+            const reader = new Guacamole.StringReader(stream);
+            let data = '';
+            reader.ontext = (text) => { data += text; };
+            reader.onend = () => {
+                this.remoteClipboard = data;
+                if (window.isSecureContext && navigator.clipboard) {
+                    navigator.clipboard.writeText(data).catch(() => {});
+                }
+            };
+        };
     }
 
     _showDialog(title, detail, icon) {
