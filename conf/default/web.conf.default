@@ -250,6 +250,17 @@ vnc_host = localhost
 guest_protocol = vnc
 # TIP: For KVM/QEMU, using 'qxl' or 'virtio' video drivers in your VM XML
 # definition provides much better VNC performance than 'vga' or 'cirrus'.
+# CLIPBOARD: copy/paste between your browser and the guest rides the guest's own
+# clipboard, which QEMU's VNC server does NOT expose by default -- guacd's cut-text
+# is simply discarded and the guest never sends any. To enable it, add a vdagent
+# channel to the domain XML and install the agent in the guest (spice-guest-tools on
+# Windows, spice-vdagent on Linux):
+#   <channel type='qemu-vdagent'>
+#     <source mode='bind'><clipboard copypaste='yes'/></source>
+#     <target type='virtio' name='com.redhat.spice.0'/>
+#   </channel>
+# Without it, use the console's Clipboard panel "Type to VM" button, which sends the
+# text as keystrokes and needs no guest support. RDP guests need none of this.
 guacd_recording_path = /opt/CAPEv2/storage/guacrecordings
 guest_width = 1280
 guest_height = 1024

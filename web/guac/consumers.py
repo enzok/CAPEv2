@@ -264,6 +264,9 @@ class GuacamoleWebSocketConsumer(AsyncWebsocketConsumer):
                     extra_args = {
                         "color-depth": vnc_color_depth,
                         "cursor": vnc_cursor,
+                        # RFB cut-text is ISO-8859-1 by default, which mangles any non-latin-1
+                        # clipboard text. Ignored by guacd if the build predates the parameter.
+                        "clipboard-encoding": "UTF-8",
                     }
             else:
                 # Direct VNC connection
@@ -279,6 +282,9 @@ class GuacamoleWebSocketConsumer(AsyncWebsocketConsumer):
                 extra_args = {
                     "color-depth": vnc_color_depth,
                     "cursor": vnc_cursor,
+                    # RFB cut-text is ISO-8859-1 by default, which mangles any non-latin-1
+                    # clipboard text. Ignored by guacd if the build predates the parameter.
+                    "clipboard-encoding": "UTF-8",
                 }
 
             # 6. Connect to guacd

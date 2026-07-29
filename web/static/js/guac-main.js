@@ -197,6 +197,17 @@ class GuacSession {
         writer.sendEnd();
     }
 
+    // Clipboard-free paste: type the text out as individual keystrokes. The clipboard instructions
+    // sendClipboard/onclipboard use only reach the guest if the hypervisor bridges its clipboard --
+    // QEMU's VNC server does not, unless the domain has a qemu-vdagent channel and the guest runs the
+    // agent (see [guacamole] in web.conf). Keystrokes need none of that, so this always works.
+    // Newlines are normalised to CR: Guacamole maps LF to the Linefeed keysym, which Windows guests
+    // ignore, whereas CR maps to Return.
+    typeToGuest(text) {
+        if (!text || !this.connected) return;
+        this.keyboard.type(text.replace(/\r\n|\n|\r/g, '\r'));
+    }
+
     _setupClipboard() {
         // Host -> VM. The paste lands on the input sink, the only editable target in play -- a
         // document-level handler gated on the display div never fires, because browsers do not
