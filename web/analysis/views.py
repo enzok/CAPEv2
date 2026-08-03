@@ -3390,9 +3390,14 @@ category_map = {
 
 
 def _file_search_all_files(search_category: str, search_term: str) -> list:
+    from dev_utils.mongo_hooks import FILE_REF_KEY, denormalize_files_from_reports
+
     path = []
     try:
         projection = {
+            # yara_detected() gates its target branch on the category, so it has to be projected
+            # or the submitted sample is never considered.
+            "target.category": 1,
             "info.parent_sample.path": 1,
             "info.parent_sample.cape_yara.name": 1,
             "target.file.path": 1,
@@ -3403,18 +3408,22 @@ def _file_search_all_files(search_category: str, search_term: str) -> list:
             "procdump.cape_yara.name": 1,
             "CAPE.payloads.path": 1,
             "CAPE.payloads.cape_yara.name": 1,
-            "info.parent_sample.extracted_files_tool.path": 1,
-            "info.parent_sample.extracted_files_tool.cape_yara.name": 1,
-            "target.file.extracted_files_tool.path": 1,
-            "target.file.extracted_files_tool.cape_yara.name": 1,
-            "dropped.extracted_files_tool.path": 1,
-            "dropped.extracted_files_tool.cape_yara.name": 1,
-            "procdump.extracted_files_tool.path": 1,
-            "procdump.extracted_files_tool.cape_yara.name": 1,
-            "CAPE.payloads.extracted_files_tool.path": 1,
-            "CAPE.payloads.extracted_files_tool.cape_yara.name": 1,
         }
+        # Self-extracted files live under <category>.selfextract.<tool>.extracted_files. The tool
+        # name is dynamic, so project the subtree rather than named paths. This replaces ten dead
+        # <category>.extracted_files_tool.* keys: that field held a tool-name string even before
+        # 9fbb0defe, so ".path" never resolved, and the rewrite removed the field entirely.
+        # file_ref is needed so the denormalization below can rejoin the files collection.
+        for category in ("info.parent_sample", "target.file", "dropped", "procdump", "CAPE.payloads"):
+            projection[f"{category}.selfextract"] = 1
+            projection[f"{category}.{FILE_REF_KEY}"] = 1
+
         records = perform_search(search_category, search_term, projection=projection)
+        # normalize_file() moves cape_yara/yara/selfextract out to the files collection, and only
+        # mongo_find has the rejoining hook -- the FILES_COLL aggregation used for hash and
+        # capeyara terms bypasses it. Join explicitly so yara_detected can see those fields.
+        # Idempotent: already-denormalized reports have had file_ref popped.
+        records = list(denormalize_files_from_reports(records))
         search_term = search_term.lower()
         for _, filepath, _, _ in yara_detected(search_term, records):
             if not path_exists(filepath):
