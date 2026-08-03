@@ -397,6 +397,7 @@ def _extracted_files_metadata(
     """
     metadata = []
     filelog = os.path.join(os.path.dirname(destination_folder), "files.json")
+    subdir = os.path.basename(destination_folder.rstrip("\\/"))
     with open(filelog, "a") as f:
         for file in files:
             full_path = os.path.join(folder, file)
@@ -429,12 +430,12 @@ def _extracted_files_metadata(
                 print(
                     json.dumps(
                         {
-                            "path": os.path.join("files", file_info["sha256"]),
+                            "path": os.path.join(subdir, file_info["sha256"]),
                             "filepath": file_info["name"],
                             "pids": [],
                             "ppids": [],
                             "metadata": "",
-                            "category": "files",
+                            "category": subdir,
                         },
                         ensure_ascii=False,
                     ),
