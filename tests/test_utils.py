@@ -241,3 +241,66 @@ def test_is_safelisted_domain():
             utils.store_temp_file(filedata, filename)
         mock_path_mkdir.assert_called_once_with("/tmp/cuckoo-tmp")
 
+
+
+class TestYaraDetected:
+    """utils.yara_detected walks a list of reports and yields matching yara blocks.
+
+    Its sole caller is web.analysis.views._file_search_all_files, which builds the
+    "download all files matching this search" bundle.
+    """
+
+    @staticmethod
+    def _report(target_file=None, payloads=None, dropped=None):
+        report = {}
+        if target_file is not None:
+            report["target"] = {"category": "file", "file": target_file}
+        if payloads is not None:
+            report["CAPE"] = {"payloads": payloads}
+        if dropped is not None:
+            report["dropped"] = dropped
+        return report
+
+    def test_target_file_match_does_not_raise(self):
+        # The branch used to index `results` (the report list) instead of `result`,
+        # which raised TypeError: list indices must be integers.
+        report = self._report(
+            target_file={"path": "/a/binary", "cape_yara": [{"name": "Emotet"}]},
+        )
+        hits = list(utils.yara_detected("Emotet", [report]))
+        assert [(label, path) for label, path, _, _ in hits] == [("sample", "/a/binary")]
+
+    def test_selfextract_files_are_reported(self):
+        # Post-9fbb0defe schema: extracted files live under selfextract[<tool>]["extracted_files"],
+        # not in a flat "extracted_files" list.
+        extracted = {"path": "/a/selfextracted/deadbeef", "cape_yara": [{"name": "Emotet"}]}
+        report = self._report(
+            target_file={
+                "path": "/a/binary",
+                "cape_yara": [],
+                "selfextract": {"SevenZip_unpack": {"extracted_files": [extracted]}},
+            },
+        )
+        hits = list(utils.yara_detected("Emotet", [report]))
+        assert [path for _, path, _, _ in hits] == ["/a/selfextracted/deadbeef"]
+
+    def test_selfextract_under_cape_payload_and_dropped(self):
+        extracted = {"path": "/a/selfextracted/aa", "yara": [{"name": "Zloader"}]}
+        report = self._report(
+            payloads=[{"path": "/a/CAPE/p1", "selfextract": {"UPX_unpack": {"extracted_files": [extracted]}}}],
+            dropped=[{"path": "/a/files/d1", "selfextract": {"MsiExtract": {"extracted_files": [extracted]}}}],
+        )
+        hits = list(utils.yara_detected("Zloader", [report]))
+        assert [path for _, path, _, _ in hits] == ["/a/selfextracted/aa", "/a/selfextracted/aa"]
+
+    def test_non_matching_name_yields_nothing(self):
+        report = self._report(target_file={"path": "/a/binary", "cape_yara": [{"name": "Emotet"}]})
+        assert list(utils.yara_detected("Qakbot", [report])) == []
+
+    def test_missing_selfextract_and_malformed_blocks_are_tolerated(self):
+        report = self._report(
+            target_file={"path": "/a/binary", "cape_yara": [], "selfextract": None},
+            payloads=[{"path": "/a/CAPE/p1"}],
+            dropped=[{"path": "/a/files/d1", "selfextract": {"Tool": {}}}],
+        )
+        assert list(utils.yara_detected("Emotet", [report])) == []

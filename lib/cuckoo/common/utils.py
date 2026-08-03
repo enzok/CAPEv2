@@ -863,18 +863,36 @@ def validate_ttp(ttp: str) -> bool:
     return bool(re.fullmatch(regex, ttp, flags=re.IGNORECASE))
 
 
+def _selfextract_files(block):
+    """Yield the extracted-file dicts the self-extraction tools produced for this block.
+
+    Schema since 9fbb0defe ("rewrite selfextract"): block["selfextract"] is keyed by tool name,
+    each entry holding its own "extracted_files" list. The pre-rewrite flat
+    block["extracted_files"] no longer exists, so reading it silently found nothing.
+    """
+    selfextract = block.get("selfextract") or {}
+    if not isinstance(selfextract, dict):
+        return
+    for toolsblock in selfextract.values():
+        if not isinstance(toolsblock, dict):
+            continue
+        yield from toolsblock.get("extracted_files", []) or []
+
+
 def yara_detected(name, results):
     for result in results:
         target = result.get("target", {})
         if target.get("category") in ("file", "static") and target.get("file"):
+            # `results` is the iterable of reports; this branch must read the current one.
+            file_info = target["file"]
             for keyword in ("cape_yara", "yara"):
-                for yara_block in results["target"]["file"].get(keyword, []):
+                for yara_block in file_info.get(keyword, []):
                     if re.findall(name, yara_block["name"], re.I):
-                        yield "sample", results["target"]["file"]["path"], yara_block, results["target"]["file"]
+                        yield "sample", file_info["path"], yara_block, file_info
 
-            for block in target["file"].get("extracted_files", []):
+            for block in _selfextract_files(file_info):
                 for keyword in ("cape_yara", "yara"):
-                    for yara_block in block[keyword]:
+                    for yara_block in block.get(keyword, []):
                         if re.findall(name, yara_block["name"], re.I):
                             # we can't use here values from set_path
                             yield "sample", block["path"], yara_block, block
@@ -885,9 +903,9 @@ def yara_detected(name, results):
                     if re.findall(name, yara_block["name"], re.I):
                         yield sub_keyword, block["path"], yara_block, block
 
-            for subblock in block.get("extracted_files", []):
+            for subblock in _selfextract_files(block):
                 for keyword in ("cape_yara", "yara"):
-                    for yara_block in subblock[keyword]:
+                    for yara_block in subblock.get(keyword, []):
                         if re.findall(name, yara_block["name"], re.I):
                             yield "sample", subblock["path"], yara_block, block
 
@@ -905,9 +923,9 @@ def yara_detected(name, results):
                             for yara_block in pe.get(sub_keyword, []) or []:
                                 if re.findall(name, yara_block["name"], re.I):
                                     yield "extracted_pe", pe["path"], yara_block, block
-                for subblock in block.get("extracted_files", []):
+                for subblock in _selfextract_files(block):
                     for keyword in ("cape_yara", "yara"):
-                        for yara_block in subblock[keyword]:
+                        for yara_block in subblock.get(keyword, []):
                             if re.findall(name, yara_block["name"], re.I):
                                 yield "sample", subblock["path"], yara_block, block
 
