@@ -1,10 +1,13 @@
+import hashlib
+import json
+import os
 from tempfile import NamedTemporaryFile
 from unittest.mock import ANY, MagicMock, patch
 
 import pytest
 
 from lib.cuckoo.common.objects import File
-from modules.processing.CAPE import CAPE
+from modules.processing.CAPE import CAPE, PARSER_EXTRACTED, PARSER_EXTRACTED_TYPE
 from modules.processing.deduplication import reindex_screenshots
 
 
@@ -13,6 +16,38 @@ def cape_processor():
     retval = CAPE()
     retval._set_dict_keys()
     yield retval
+
+
+@pytest.fixture
+def dumping_processor(tmp_path):
+    """A CAPE processor with just the paths _dump_parser_files needs."""
+    retval = CAPE()
+    retval._set_dict_keys()
+    retval.CAPE_path = str(tmp_path / "CAPE")
+    retval.files_metadata = str(tmp_path / "files.json")
+    yield retval
+
+
+DUMPED_BLOB = b"MZ\x90\x00 parser dumped stage2"
+DUMPED_SHA256 = hashlib.sha256(DUMPED_BLOB).hexdigest()
+PARSER_METADATA = f"{PARSER_EXTRACTED};?;?;?"
+
+
+def assert_no_raw_bytes(node, path="configs"):
+    """The invariant: no bytes value may survive anywhere in the stored configs.
+
+    Raw parser-dumped bytes must only ever exist as a file under CAPE/ -- never in
+    self.cape["configs"], and therefore never in report.json or Mongo.
+    """
+    if isinstance(node, dict):
+        for key, value in node.items():
+            assert not isinstance(key, bytes), f"bytes used as a key at {path}"
+            assert_no_raw_bytes(value, f"{path}[{key!r}]")
+    elif isinstance(node, (list, tuple)):
+        for index, item in enumerate(node):
+            assert_no_raw_bytes(item, f"{path}[{index}]")
+    else:
+        assert not isinstance(node, bytes), f"raw bytes survived at {path}: {node!r}"
 
 
 class TestConfigUpdates:
@@ -76,6 +111,164 @@ class TestConfigUpdates:
         assert hashes[0]["sha256"].startswith("e3b")
         assert hashes[0]["sha512"].startswith("cf8")
         assert hashes[0]["sha3_384"].startswith("0c6")
+
+
+class TestParserDumpedFiles:
+    def test_blob_written_recorded_and_queued(self, dumping_processor, tmp_path):
+        cfg = {"Family": {"C2": ["http://example.tld/gate"], "dump_files": [{"decrypted stage2": DUMPED_BLOB}]}}
+        dumping_processor.update_cape_configs("Family", cfg, MagicMock())
+
+        stored = dumping_processor.cape["configs"][0]["Family"]
+        assert_no_raw_bytes(dumping_processor.cape["configs"])
+        assert "dump_files" not in stored
+        assert "description" not in stored
+        # recorded by hash only, under the non-normalized "raw" key
+        assert stored["raw"][0]["Parsed Files"] == {DUMPED_SHA256: "decrypted stage2"}
+        # normalized fields untouched
+        assert stored["C2"] == ["http://example.tld/gate"]
+
+        # written to CAPE/, not files/, so it satisfies the payload + download contract
+        assert (tmp_path / "CAPE" / DUMPED_SHA256).read_bytes() == DUMPED_BLOB
+
+        entries = [json.loads(line) for line in (tmp_path / "files.json").read_text().splitlines()]
+        assert len(entries) == 1
+        assert entries[0]["path"] == f"CAPE/{DUMPED_SHA256}"
+        assert entries[0]["category"] == "CAPE"
+        assert entries[0]["metadata"] == PARSER_METADATA
+
+        expected_dest = os.path.join(dumping_processor.CAPE_path, DUMPED_SHA256)
+        assert dumping_processor.queued_payloads == [(expected_dest, {"metadata": PARSER_METADATA})]
+
+    def test_parser_raw_fields_and_multiple_blobs_coexist(self, dumping_processor):
+        second_blob = b"a different second stage"
+        second_sha256 = hashlib.sha256(second_blob).hexdigest()
+        cfg = {
+            "Family": {
+                "raw": [{"ParserNote": "recorded by the parser itself"}],
+                "dump_files": [{"stage2": DUMPED_BLOB, "stage3": second_blob}],
+            }
+        }
+        dumping_processor.update_cape_configs("Family", cfg, MagicMock())
+
+        raw = dumping_processor.cape["configs"][0]["Family"]["raw"][0]
+        assert raw["ParserNote"] == "recorded by the parser itself"
+        assert raw["Parsed Files"] == {DUMPED_SHA256: "stage2", second_sha256: "stage3"}
+        assert len(dumping_processor.queued_payloads) == 2
+
+    def test_merge_path_does_not_store_bytes(self, dumping_processor):
+        # The regression this fix exists for: on the second hit of a family,
+        # update_cape_configs merges into the stored dict, so a strip that happened
+        # after the merge left the raw bytes behind in Mongo.
+        dumping_processor.update_cape_configs("Family", {"Family": {"C2": ["first"]}}, MagicMock())
+        dumping_processor.update_cape_configs(
+            "Family", {"Family": {"C2": ["second"], "dump_files": [{"stage2": DUMPED_BLOB}]}}, MagicMock()
+        )
+
+        assert_no_raw_bytes(dumping_processor.cape["configs"])
+        stored = dumping_processor.cape["configs"][0]["Family"]
+        assert "dump_files" not in stored
+        assert stored["raw"][0]["Parsed Files"] == {DUMPED_SHA256: "stage2"}
+
+    def test_malformed_dump_files_is_contained(self, dumping_processor):
+        # A parser that returned dump_files as a list gets double-wrapped to [[{...}]].
+        # That must be logged and stripped, not raised -- an exception here would escape
+        # process_file and make RunProcessing discard the whole CAPE result.
+        cfg = {"Family": {"dump_files": [[{"stage2": DUMPED_BLOB}]]}}
+        dumping_processor.update_cape_configs("Family", cfg, MagicMock())
+
+        stored = dumping_processor.cape["configs"][0]["Family"]
+        assert "dump_files" not in stored
+        assert_no_raw_bytes(dumping_processor.cape["configs"])
+        assert dumping_processor.queued_payloads == []
+
+    def test_write_failure_still_strips_bytes(self, dumping_processor):
+        cfg = {"Family": {"dump_files": [{"stage2": DUMPED_BLOB}]}}
+        with patch("modules.processing.CAPE.Path") as mock_path:
+            mock_path.return_value.write_bytes.side_effect = OSError("no space left on device")
+            dumping_processor.update_cape_configs("Family", cfg, MagicMock())
+
+        stored = dumping_processor.cape["configs"][0]["Family"]
+        assert "dump_files" not in stored
+        assert_no_raw_bytes(dumping_processor.cape["configs"])
+
+    def test_dump_files_without_description_does_not_raise(self, dumping_processor):
+        # The old code did an unconditional del config["description"].
+        cfg = {"Family": {"dump_files": [{"stage2": DUMPED_BLOB}]}}
+        dumping_processor.update_cape_configs("Family", cfg, MagicMock())
+        assert dumping_processor.cape["configs"][0]["Family"]["raw"][0]["Parsed Files"]
+
+    def test_str_blob_is_coerced(self, dumping_processor):
+        # A parser handing back a decoded script rather than bytes still hashes/writes.
+        cfg = {"Family": {"dump_files": [{"decoded script": "plain string stage"}]}}
+        dumping_processor.update_cape_configs("Family", cfg, MagicMock())
+        expected = hashlib.sha256(b"plain string stage").hexdigest()
+        assert dumping_processor.cape["configs"][0]["Family"]["raw"][0]["Parsed Files"] == {
+            expected: "decoded script"
+        }
+
+    def test_same_blob_written_once(self, dumping_processor, tmp_path):
+        for family in ("FamilyA", "FamilyB"):
+            dumping_processor.update_cape_configs(
+                family, {family: {"dump_files": [{"stage2": DUMPED_BLOB}]}}, MagicMock()
+            )
+
+        assert len((tmp_path / "files.json").read_text().splitlines()) == 1
+        assert (tmp_path / "CAPE" / DUMPED_SHA256).read_bytes() == DUMPED_BLOB
+
+
+class TestParserExtractedCapeType:
+    @pytest.fixture
+    def typed_processor(self, cape_processor):
+        cape_processor.options = MagicMock()
+        cape_processor.options.replace_patterns = []
+        yield cape_processor
+
+    def test_neutral_type_seeded_without_a_clobbering_type_string(self, typed_processor):
+        file_info = {"type": "PE32 executable (GUI) Intel 80386, for MS Windows"}
+
+        type_string, append_file = typed_processor._metadata_processing(
+            {"metadata": PARSER_METADATA}, file_info, False
+        )
+
+        # Neutral label -- the blob must not inherit the family of the parser that dumped
+        # it, since one family routinely drops another.
+        assert file_info["cape_type"] == f"{PARSER_EXTRACTED_TYPE}: 32-bit executable"
+        # Crucial: no type_string, so the branch in process_file that assigns
+        # file_info["cape_type"] = type_string *after* the yara loop never runs and cannot
+        # overwrite a family the blob's own CAPE scan identified.
+        assert type_string == ""
+
+    @pytest.mark.parametrize("incoming", [True, False])
+    def test_append_file_passes_through(self, typed_processor, incoming):
+        # The neutral code deliberately isn't in code_mapping, so it must not force
+        # append_file either way; the caller decides. run()'s queue drain passes True, and
+        # on reprocess the CAPE_path walk passes True for a 64-char name.
+        file_info = {"type": "PE32 executable (GUI) Intel 80386, for MS Windows"}
+        _, append_file = typed_processor._metadata_processing(
+            {"metadata": PARSER_METADATA}, file_info, incoming
+        )
+        assert append_file is incoming
+
+    def test_blob_own_yara_family_wins_over_neutral_seed(self, typed_processor):
+        """Regression: the neutral type must not be re-applied on top of a yara hit.
+
+        _cape_type_string() re-applies code_mapping on *every* call, including the call
+        from the yara loop at CAPE.py:394-395. Putting the neutral code in code_mapping
+        therefore clobbered a family the blob's own scan had just identified -- exactly the
+        cross-family mislabelling this is meant to prevent.
+        """
+        file_info = {"type": "PE32+ executable (DLL) (GUI) x86-64, for MS Windows"}
+        typed_processor._metadata_processing({"metadata": PARSER_METADATA}, file_info, True)
+        assert file_info["cape_type"].startswith(PARSER_EXTRACTED_TYPE)
+
+        # Simulate CAPE.py:388 -- a CAPE yara hit on the blob names a different family --
+        # then the bitness pass that follows it at CAPE.py:394-395.
+        file_info["cape_type"] = "OtherFamily Payload"
+        append_file = typed_processor._cape_type_string(file_info["type"].split(), file_info, True)
+
+        assert file_info["cape_type"] == "OtherFamily Payload: 64-bit DLL"
+        assert PARSER_EXTRACTED_TYPE not in file_info["cape_type"]
+        assert append_file is True
 
 
 class TestAnalysisConfigLinks:

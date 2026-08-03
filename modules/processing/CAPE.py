@@ -20,14 +20,13 @@ import os
 import timeit
 from contextlib import suppress
 from pathlib import Path
-from tempfile import mkdtemp
 
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.cape_utils import cape_name_from_yara, is_duplicated_binary, pe_map, static_config_parsers
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.integrations.file_extra_info import DuplicatesType, static_file_info
 from lib.cuckoo.common.objects import File
-from lib.cuckoo.common.path_utils import path_exists
+from lib.cuckoo.common.path_utils import path_exists, path_mkdir
 from lib.cuckoo.common.replace_patterns_utils import _clean_path
 from lib.cuckoo.common.utils import (
     add_family_detection,
@@ -63,6 +62,13 @@ if externalservices_conf.misp.enabled:
 # CAPE output types. To correlate with cape\cape.h in monitor
 COMPRESSION = 2
 TYPE_STRING = 0x100
+# Host-side only: a file handed back by a config parser via "dump_files". Deliberately
+# outside the monitor's range so it can't collide with a code in cape\cape.h.
+PARSER_EXTRACTED = 0x10000
+# Neutral label for such a file. One family routinely drops another, so the blob must not
+# inherit the family of the parser that dumped it -- this only holds until the blob's own
+# CAPE yara scan identifies it, which overwrites it in process_file.
+PARSER_EXTRACTED_TYPE = "Parser Extracted File"
 
 log = logging.getLogger(__name__)
 
@@ -150,6 +156,12 @@ class CAPE(Processing):
 
             elif file_info["cape_type_code"] == COMPRESSION:
                 file_info["cape_type"] = "Decompressed PE Image"
+
+            elif file_info["cape_type_code"] == PARSER_EXTRACTED:
+                # Deliberately not in code_mapping: _cape_type_string() re-applies that map
+                # on every call, including from the yara loop, which would clobber a family
+                # the blob's own CAPE scan identified.
+                file_info["cape_type"] = PARSER_EXTRACTED_TYPE
 
             elif file_info["cape_type_code"] in inject_map:
                 file_info["cape_type"] = inject_map[file_info["cape_type_code"]]
@@ -399,10 +411,6 @@ class CAPE(Processing):
                 self.update_cape_configs(cape_name, tmp_config, file_info)
                 executed_config_parsers[tmp_path].add(cape_name)
 
-                # If config_parser contains a file, write to files dir and add to files_meta file
-                if "dump_files" in tmp_config.get(cape_name, []):
-                    tmp_config[cape_name] = self._dump_parser_files(tmp_config[cape_name])
-
         if type_string:
             file_info["cape_type"] = type_string
             if "config" in type_string.lower():
@@ -435,6 +443,9 @@ class CAPE(Processing):
 
     def _set_dict_keys(self):
         self.cape = {"payloads": [], "configs": []}
+        # Files handed back by config parsers mid-run. Drained at the end of run(), so
+        # they are processed regardless of which stage of the directory walk produced them.
+        self.queued_payloads = []
 
     def run(self):
         """Run analysis.
@@ -510,12 +521,26 @@ class CAPE(Processing):
                             # We set append_file to False as we don't wan't to include
                             # the files by default in the CAPE tab
                             self.process_file(filepath, False, meta.get(filepath, {}), category=category, duplicated=duplicated)
+
+        # Files a config parser handed back while we were walking the folders above. A
+        # queued file may itself yield a config that dumps more files, which re-appends
+        # here; the duplicated["sha256"] check in process_file terminates the chain.
+        while self.queued_payloads:
+            filepath, payload_meta = self.queued_payloads.pop(0)
+            self.process_file(filepath, True, payload_meta, category="CAPE", duplicated=duplicated)
+
         return self.cape
 
     def update_cape_configs(self, cape_name, config, file_obj):
         """Add the given config to self.cape["configs"]."""
         if not config:
             return
+
+        # Relocate any parser-dumped binaries and strip the raw bytes before the config is
+        # stored. This is the only gate into self.cape["configs"], so doing it here covers
+        # every caller and both the merge and the append below.
+        if "dump_files" in config.get(cape_name, {}):
+            config[cape_name] = self._dump_parser_files(config[cape_name])
 
         # look for an existing config matching this cape_name; merge them if found
         for existing_config in self.cape["configs"]:
@@ -563,35 +588,53 @@ class CAPE(Processing):
         for config in self.cape["configs"]:
             config["_associated_analysis_hashes"] = associated_analysis_hashes
 
-    def _dump_parser_files(self, tmp_config):
-        """ Write dump file to task files directory and append to files_meta file
+    def _dump_parser_files(self, config):
+        """Write files handed back by a config parser into the CAPE folder.
+
+        A parser only receives the file data, never the analysis paths, so it returns the
+        raw bytes in "dump_files" ({label: bytes}) and we do the writing. Each blob is
+        named by its own sha256, recorded in the config by hash alone under the "raw" key,
+        and queued so run() processes it as a CAPE payload in this same run.
+
+        The raw bytes are stripped on every path, including failures: they must never reach
+        the stored config, the report or Mongo.
         @return: updated config
         """
-        config = tmp_config
-        description = config.get("description", ["Missing description"])[0]
-        dump_files = tmp_config.get("dump_files", [])
-        if dump_files:
-            config["Parsed Files"] = []
-            for dmp_file in dump_files:
-                for sha256 in dmp_file.keys():
-                    files_path = os.path.join("files", sha256)
-                    file_path = os.path.join(self.dropped_path, sha256)
-                    try:
-                        Path(file_path).write_bytes(dmp_file[sha256])
-                        config["Parsed Files"].append({sha256: description})
+        parsed_files = {}
+        metadata = f"{PARSER_EXTRACTED};?;?;?"
+        try:
+            for dmp_file in config.get("dump_files", []):
+                for label, blob in dmp_file.items():
+                    blob = make_bytes(blob)
+                    sha256 = hashlib.sha256(blob).hexdigest()
+                    dest_path = os.path.join(self.CAPE_path, sha256)
+                    if not path_exists(dest_path):
+                        if not path_exists(self.CAPE_path):
+                            path_mkdir(self.CAPE_path, exist_ok=True)
+                        Path(dest_path).write_bytes(blob)
                         payload = {
-                            "path": files_path,
+                            "path": f"CAPE/{sha256}",
                             "filepath": "",
                             "pids": [],
                             "ppids": [],
-                            "metadata": "",
-                            "category": "files"
+                            "metadata": metadata,
+                            "category": "CAPE",
                         }
                         with open(self.files_metadata, "a") as fh:
                             print(json.dumps(payload, ensure_ascii=False), file=fh)
-                    except Exception as e:
-                        log.error("Failed to write %s file: %s", description, e)
-                        del config["Parsed Files"]
-            del config["dump_files"]
-            del config["description"]
+                    parsed_files[sha256] = label
+                    self.queued_payloads.append((dest_path, {"metadata": metadata}))
+        except Exception as e:
+            log.error("Failed to write parser dumped file: %s", e)
+        finally:
+            # Unconditional: a write failure or a malformed dump_files must not leave bytes behind.
+            config.pop("dump_files", None)
+            config.pop("description", None)
+
+        if parsed_files:
+            # Non-normalized fields belong under "raw". Don't clobber the parser's own raw
+            # fields, or files already recorded by an earlier blob in this same config.
+            raw = config.setdefault("raw", [{}])
+            raw[0].setdefault("Parsed Files", {}).update(parsed_files)
+
         return config
