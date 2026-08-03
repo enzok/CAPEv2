@@ -416,12 +416,16 @@ class CAPE(Processing):
             if "config" in type_string.lower():
                 append_file = False
             cape_name = File.get_cape_name_from_cape_type(type_string)
-            if cape_name and cape_name not in executed_config_parsers and file_data:
+            # Keyed by path, not by family: the same parser legitimately runs for the parent file
+            # and for each extracted file, so membership has to be tested per buffer. file_info["path"]
+            # is the key the yara loop above used for this same buffer.
+            if cape_name and cape_name not in executed_config_parsers[file_info["path"]] and file_data:
                 tmp_config = static_config_parsers(cape_name, file_info["path"], file_data)
                 if tmp_config:
                     cape_names.add(cape_name)
                     log.debug("CAPE: config returned for: %s", cape_name)
                     self.update_cape_configs(cape_name, tmp_config, file_info)
+                executed_config_parsers[file_info["path"]].add(cape_name)
 
         self.link_configs_to_analysis()
         self.add_family_detections(file_info, cape_names)

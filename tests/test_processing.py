@@ -7,7 +7,7 @@ from unittest.mock import ANY, MagicMock, patch
 import pytest
 
 from lib.cuckoo.common.objects import File
-from modules.processing.CAPE import CAPE, PARSER_EXTRACTED, PARSER_EXTRACTED_TYPE
+from modules.processing.CAPE import CAPE, PARSER_EXTRACTED, PARSER_EXTRACTED_TYPE, TYPE_STRING
 from modules.processing.deduplication import reindex_screenshots
 
 
@@ -269,6 +269,115 @@ class TestParserExtractedCapeType:
         assert file_info["cape_type"] == "OtherFamily Payload: 64-bit DLL"
         assert PARSER_EXTRACTED_TYPE not in file_info["cape_type"]
         assert append_file is True
+
+
+class TestConfigParserDedup:
+    """process_file must not run the same config parser twice on the same buffer.
+
+    A payload commonly has both a monitor TYPE_STRING (e.g. "Emotet Config") and a CAPE yara hit
+    (e.g. "Emotet Payload"), which reduce to the same family. executed_config_parsers is keyed by
+    path, so the type_string fallback has to test membership per buffer.
+    """
+
+    def _drive(self, cape_processor, tmp_path, cape_yara, metadata):
+        """Run process_file with the heavy collaborators stubbed.
+
+        Returns the (family, path) tuples static_config_parsers was called with.
+        """
+        target = tmp_path / "payload.bin"
+        target.write_bytes(b"MZ payload")
+        calls = []
+
+        class FakeFile:
+            yara_rules_hash = "yhash"
+            guest_paths = []
+
+            def __init__(self, path, metadata=""):
+                self._path = str(path)
+
+            def get_sha256(self):
+                return "a" * 64
+
+            def get_all(self):
+                return (
+                    {
+                        "sha256": "a" * 64,
+                        "name": "payload.bin",
+                        "path": self._path,
+                        "size": 10,
+                        "type": "PE32 executable (GUI) Intel 80386, for MS Windows",
+                        "cape_yara": list(cape_yara),
+                        "yara": [],
+                    },
+                    None,
+                )
+
+            def get_type(self):
+                return "PE32 executable (GUI) Intel 80386, for MS Windows"
+
+            def get_name(self):
+                return "payload.bin"
+
+            @staticmethod
+            def yara_hit_provides_detection(hit):
+                return True
+
+            @staticmethod
+            def get_cape_name_from_yara_hit(hit):
+                return hit["meta"]["cape_type"].rsplit(" ", 1)[0]
+
+            @staticmethod
+            def get_cape_name_from_cape_type(cape_type):
+                return cape_type.rsplit(" ", 1)[0] if " " in cape_type else ""
+
+        def fake_parsers(cape_name, path, data):
+            calls.append((cape_name, path))
+            return {cape_name: {"SomeKey": "SomeValue"}}
+
+        cape_processor.task = {"id": 1, "category": "CAPE", "target": str(target), "options": ""}
+        cape_processor.results = {}
+        cape_processor.options = MagicMock()
+        cape_processor.options.replace_patterns = []
+        cape_processor.self_extracted = str(tmp_path / "selfextracted")
+        with patch("modules.processing.CAPE.File", FakeFile), patch(
+            "modules.processing.CAPE.static_config_parsers", fake_parsers
+        ), patch("modules.processing.CAPE.static_file_info"), patch(
+            "modules.processing.CAPE.add_family_detection"
+        ), patch("modules.processing.CAPE.mongo_find_one", return_value=None):
+            cape_processor.process_file(
+                str(target), False, metadata, category="CAPE", duplicated={"sha256": set()}
+            )
+        return calls
+
+    def test_same_family_from_yara_and_type_string_parses_once(self, cape_processor, tmp_path):
+        # capemon says "Emotet Config", Emotet.yar says "Emotet Payload" -> both are Emotet.
+        calls = self._drive(
+            cape_processor,
+            tmp_path,
+            cape_yara=[{"name": "Emotet", "meta": {"cape_type": "Emotet Payload"}}],
+            metadata={"metadata": f"{TYPE_STRING};?;?;?Emotet Config;?"},
+        )
+        assert [family for family, _ in calls] == ["Emotet"]
+
+    def test_type_string_alone_still_parses(self, cape_processor, tmp_path):
+        # No yara hit: the fallback is the only source and must still fire.
+        calls = self._drive(
+            cape_processor,
+            tmp_path,
+            cape_yara=[],
+            metadata={"metadata": f"{TYPE_STRING};?;?;?Emotet Config;?"},
+        )
+        assert [family for family, _ in calls] == ["Emotet"]
+
+    def test_different_families_both_parse(self, cape_processor, tmp_path):
+        # The dedup must not over-suppress a genuinely different family.
+        calls = self._drive(
+            cape_processor,
+            tmp_path,
+            cape_yara=[{"name": "Zloader", "meta": {"cape_type": "Zloader Payload"}}],
+            metadata={"metadata": f"{TYPE_STRING};?;?;?Emotet Config;?"},
+        )
+        assert sorted(family for family, _ in calls) == ["Emotet", "Zloader"]
 
 
 class TestAnalysisConfigLinks:
