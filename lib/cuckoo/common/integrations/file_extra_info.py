@@ -585,8 +585,8 @@ def generic_file_extractors(
     # down once by the prefork child; a per-call pool is closed+joined here.
     pool, shared_pool = _acquire_extractor_pool()
     try:
-        # Prefer custom modules over the built-in ones, since only 1 is allowed
-        # to be the extracted_files_tool.
+        # Run custom modules first: executed_tools below skips any funcname already
+        # scheduled, so a custom module sharing a name with a built-in shadows it.
         if extra_info_modules:
             for module in extra_info_modules:
                 func_timeout = int(getattr(module, "timeout", 60))
@@ -643,11 +643,7 @@ def generic_file_extractors(
                 extracted_files = extraction_result.get("extracted_files", [])
                 if not extracted_files:
                     continue
-                old_tool_name = data_dictionary.get("extracted_files_tool")
                 new_tool_name = extraction_result["tool_name"]
-                if old_tool_name:
-                    log.debug("Files already extracted from %s by %s. Also extracted with %s", file, old_tool_name, new_tool_name)
-                    continue
                 metadata = _extracted_files_metadata(tempdir, destination_folder, files=extracted_files, results=results)
                 data_dictionary.setdefault("selfextract", {})
                 data_dictionary["selfextract"][new_tool_name] = {
