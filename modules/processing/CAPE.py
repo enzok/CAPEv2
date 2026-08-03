@@ -108,15 +108,6 @@ class CAPE(Processing):
         if cape_name not in self.results["detections2pid"][pid]:
             self.results["detections2pid"][pid].append(cape_name)
 
-    @staticmethod
-    def ensure_config_key(cape_name, config):
-        """Make sure that the cape_name is the top-level key of the config.
-        Return the resulting config.
-        """
-        if cape_name not in config:
-            config = {cape_name: config}
-        return config
-
     def _cape_type_string(self, type_strings, file_info, append_file):
         if file_info["cape_type_code"] in code_mapping:
             file_info["cape_type"] = code_mapping[file_info["cape_type_code"]]
