@@ -113,6 +113,8 @@ do_not_skip = (
 class AntiRansomware(Processing):
     """Disable processing encrypted files."""
 
+    order = 0  # Run before CAPE (order=1), which consumes ransom_exclude_files
+
     def run(self):
         """Run analysis."""
         self.key = "antiransomware"
@@ -125,7 +127,10 @@ class AntiRansomware(Processing):
             lines = f.readlines()
         for line in lines:
             filename = json.loads(line).get("filepath", "")
-            if filename and "." not in filename:
+            # An empty filepath has no extension to count: "".rsplit(".") is [""], which would
+            # otherwise accumulate under an empty-string extension and, past skip_number, put ""
+            # into ransom_exclude_files.
+            if not filename or "." not in filename:
                 continue
             ext = filename.rsplit(".")
             # do not count interesting extensions

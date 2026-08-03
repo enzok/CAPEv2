@@ -455,24 +455,36 @@ class CAPE(Processing):
         meta = {}
         # Required to control files extracted by integrations.conf as we store them in dropped
         duplicated: DuplicatesType = collections.defaultdict(set)
+        # Guest paths antiransomware flagged as bulk-encrypted. Skipping the metadata alone is not
+        # enough: the folder walk below enumerates the directory, not files.json, so the file would
+        # still be hashed, yara scanned and pushed through static_file_info. Collect the on-disk
+        # paths here and skip them in the walk.
+        ransom_exclude = set(self.results.get("ransom_exclude_files", []))
+        excluded_paths = set()
         if path_exists(self.files_metadata):
             for line in open(self.files_metadata, "rb"):
                 entry = json.loads(line)
+                guest_path = entry.get("filepath", "")
+                # normpath so these keys match the separators os.walk produces below; files.json
+                # paths are written with "/" by the resultserver and the extractors.
+                abs_path = os.path.normpath(os.path.join(self.analysis_path, entry["path"]))
 
                 # ignore ransom files
-                if entry["filepath"] in self.results.get("ransom_exclude_files", []):
+                if guest_path and guest_path in ransom_exclude:
+                    excluded_paths.add(abs_path)
                     continue
 
-                if os.path.basename(entry.get("filepath", "")).lower() == "js_console.log":
+                if os.path.basename(guest_path).lower() == "js_console.log":
                     continue
 
-                filepath = os.path.join(self.analysis_path, entry["path"])
-                meta[filepath] = {
+                meta[abs_path] = {
                     "pids": entry.get("pids"),
                     "ppids": entry.get("ppids"),
-                    "filepath": entry.get("filepath", ""),
+                    "filepath": guest_path,
                     "metadata": entry.get("metadata", {}),
                 }
+        if excluded_paths:
+            log.info("antiransomware: skipping %d encrypted files", len(excluded_paths))
 
         # Pre-scan ClamAV in parallel for every file we're about to process.
         # The sequential single-thread `allmatchscan` over 10-20 dropped /
@@ -487,7 +499,10 @@ class CAPE(Processing):
             if hasattr(self, folder):
                 for dir_name, _, file_names in os.walk(getattr(self, folder)):
                     for file_name in file_names:
-                        prefetch_paths.append(os.path.join(dir_name, file_name))
+                        prefetch_path = os.path.normpath(os.path.join(dir_name, file_name))
+                        if prefetch_path in excluded_paths:
+                            continue
+                        prefetch_paths.append(prefetch_path)
         if prefetch_paths:
             try:
                 from lib.cuckoo.common.integrations.clamav import (
@@ -513,7 +528,9 @@ class CAPE(Processing):
                 # be detected as payloads and trigger config parsing
                 for dir_name, _, file_names in os.walk(getattr(self, folder)):
                     for file_name in file_names:
-                        filepath = os.path.join(dir_name, file_name)
+                        filepath = os.path.normpath(os.path.join(dir_name, file_name))
+                        if filepath in excluded_paths:
+                            continue
                         # We want to exclude duplicate files from display in ui
                         if folder not in ("procdump_path", "dropped_path") and len(file_name) <= 64:
                             self.process_file(filepath, True, meta.get(filepath, {}), category=category, duplicated=duplicated)
