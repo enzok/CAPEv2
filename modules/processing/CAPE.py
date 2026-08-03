@@ -566,8 +566,17 @@ class CAPE(Processing):
         # look for an existing config matching this cape_name; merge them if found
         for existing_config in self.cape["configs"]:
             if cape_name in existing_config:
-                log.debug("CAPE: existing config found for: %s, merging - data loss may occur", cape_name)
-                existing_config[cape_name].update(config[cape_name])
+                log.debug("CAPE: existing config found for: %s, merging", cape_name)
+                incoming = config[cape_name]
+                stored = existing_config[cape_name]
+                # "raw" accumulates rows across files -- notably the Parsed Files map written by
+                # _dump_parser_files, which only ever sees the incoming config. A shallow update
+                # would replace the whole list and drop rows recorded from an earlier file.
+                # Everything else stays last-write-wins, the contract pinned by PR #1357.
+                incoming_raw = incoming.pop("raw", None)
+                stored.update(incoming)
+                if incoming_raw:
+                    self._merge_raw(stored, incoming_raw)
                 config = existing_config
                 self.link_configs_to_hashes(config, file_obj)
                 return
@@ -577,6 +586,26 @@ class CAPE(Processing):
         self.cape["configs"].append(config)
         self.link_configs_to_hashes(config, file_obj)
 
+    @staticmethod
+    def _merge_raw(stored, incoming_raw):
+        """Combine an incoming "raw" list into the stored one.
+
+        Same-index dicts are merged, and their dict values (e.g. the Parsed Files map) are merged
+        rather than replaced. Deliberately limited to "raw": normal config values are list-wrapped
+        by static_config_parsers, so merging those lists would turn {"C2": ["a"]} and {"C2": ["b"]}
+        into ["a", "b"] -- the accumulating behaviour PR #1357 declined.
+        """
+        stored_raw = stored.setdefault("raw", [])
+        for index, entry in enumerate(incoming_raw):
+            if index < len(stored_raw) and isinstance(stored_raw[index], dict) and isinstance(entry, dict):
+                target = stored_raw[index]
+                for key, value in entry.items():
+                    if isinstance(target.get(key), dict) and isinstance(value, dict):
+                        target[key].update(value)
+                    else:
+                        target[key] = value
+            else:
+                stored_raw.append(entry)
 
     def link_configs_to_hashes(self, config, file_obj):
         """Link the config to the hashes it was generated from.

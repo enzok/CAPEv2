@@ -197,6 +197,43 @@ class TestParserDumpedFiles:
         dumping_processor.update_cape_configs("Family", cfg, MagicMock())
         assert dumping_processor.cape["configs"][0]["Family"]["raw"][0]["Parsed Files"]
 
+    def test_merge_keeps_parsed_files_from_both_calls(self, dumping_processor):
+        # Both calls dump: the second must not replace the whole raw list and lose the first
+        # blob's Parsed Files row. This is the case test_merge_path_does_not_store_bytes misses,
+        # because there the first call has no dump_files and so no stored raw to clobber.
+        second_blob = b"a different second stage"
+        second_sha256 = hashlib.sha256(second_blob).hexdigest()
+        dumping_processor.update_cape_configs(
+            "Family", {"Family": {"dump_files": [{"stage1": DUMPED_BLOB}]}}, MagicMock()
+        )
+        dumping_processor.update_cape_configs(
+            "Family", {"Family": {"dump_files": [{"stage2": second_blob}]}}, MagicMock()
+        )
+
+        parsed = dumping_processor.cape["configs"][0]["Family"]["raw"][0]["Parsed Files"]
+        assert parsed == {DUMPED_SHA256: "stage1", second_sha256: "stage2"}
+        assert_no_raw_bytes(dumping_processor.cape["configs"])
+
+    def test_merge_keeps_parser_raw_fields_from_first_call(self, dumping_processor):
+        dumping_processor.update_cape_configs(
+            "Family", {"Family": {"raw": [{"ParserNote": "from the first file"}]}}, MagicMock()
+        )
+        dumping_processor.update_cape_configs(
+            "Family", {"Family": {"dump_files": [{"stage2": DUMPED_BLOB}]}}, MagicMock()
+        )
+
+        raw = dumping_processor.cape["configs"][0]["Family"]["raw"][0]
+        assert raw["ParserNote"] == "from the first file"
+        assert raw["Parsed Files"] == {DUMPED_SHA256: "stage2"}
+
+    def test_merge_does_not_accumulate_normal_list_values(self, dumping_processor):
+        # Guard against over-merging: ordinary config values are list-wrapped by
+        # static_config_parsers and must stay last-write-wins per PR #1357.
+        dumping_processor.update_cape_configs("Family", {"Family": {"C2": ["first"]}}, MagicMock())
+        dumping_processor.update_cape_configs("Family", {"Family": {"C2": ["second"]}}, MagicMock())
+
+        assert dumping_processor.cape["configs"][0]["Family"]["C2"] == ["second"]
+
     def test_str_blob_is_coerced(self, dumping_processor):
         # A parser handing back a decoded script rather than bytes still hashes/writes.
         cfg = {"Family": {"dump_files": [{"decoded script": "plain string stage"}]}}
