@@ -336,6 +336,7 @@ def check_webgui_mongo():
                 ("files", "md5", {"name": "file_md5"}),
                 ("files", "sha1", {"name": "file_sha1"}),
                 ("files", "ssdeep", {"name": "file_ssdeep"}),
+                ("files", "pe.imphash", {"name": "file_pe_imphash"}),
             ])
         if repconf.mongodb.get("index_detections", False):
             index_configs.append(("analysis", [("detections.family", 1), ("_id", -1)], {"name": "detections_family_id_desc"}))

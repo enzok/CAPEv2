@@ -1192,6 +1192,24 @@ hash_searches = {
     "sha3": "sha3_384",
     "sha256": "_id",
     "sha512": "sha512",
+    # Nested under the file's "pe" dict, unlike the others, and not unique per file --
+    # the pipeline unwinds _task_ids across every matching file doc, so that is fine.
+    "imphash": "pe.imphash",
+}
+
+# Terms whose field normalize_file() moves out of the analysis document and into FILES_COLL.
+# They have to be matched in that collection and mapped back to task ids: querying the
+# analysis paths built from search_term_map silently returns nothing, because those keys no
+# longer exist there. Values are field paths within a FILES_COLL document.
+# Indexes for cape_yara.name/yara.name and clamav are created in lib/cuckoo/core/startup.py
+# behind the index_yara / index_clamav options in reporting.conf.
+file_field_searches = {
+    "capeyara": "cape_yara.name",
+    "yaraname": "yara.name",
+    "clamav": "clamav",
+    "die": "die",
+    "trid": "trid",
+    "type": "type",
 }
 
 search_term_map = {
@@ -1280,7 +1298,9 @@ search_term_map_repetetive_blocks = {
     "crc32": "crc32",
     "die": "die",
     "trid": "trid",
-    "imphash": "imphash",
+    # PortableExecutable.run() nests this under the file's "pe" dict (parse_pe.py:991),
+    # so a bare "imphash" resolves to a key that has never existed.
+    "imphash": "pe.imphash",
 }
 
 # ToDo review extracted_files key still the same
@@ -1470,13 +1490,17 @@ def perform_search(
         search_limit = web_cfg.general.get("search_limit", 50)
 
     if repconf.mongodb.enabled and query_val:
-        if term in hash_searches:
-            # The file details are uniq, and we store 1 to many. So where hash type is uniq, IDs are list
-            split_by = "," if "," in query_val else " "
-            query_filter_list = {"$in": [val.strip() for val in query_val.split(split_by)]}
+        if term in hash_searches or term in file_field_searches:
+            if term in hash_searches:
+                # The file details are uniq, and we store 1 to many. So where hash type is uniq, IDs are list
+                split_by = "," if "," in query_val else " "
+                files_match = {hash_searches[term]: {"$in": [val.strip() for val in query_val.split(split_by)]}}
+            else:
+                # query_val already carries the $regex wrapper when the value contains wildcards
+                files_match = {file_field_searches[term]: query_val}
             pipeline = [
                 # Stages 1-5: Find, unwind, group, sort, limit IDs
-                {"$match": {hash_searches[term]: query_filter_list}},
+                {"$match": files_match},
                 {"$unwind": "$_task_ids"},
                 {"$group": {"_id": "$_task_ids"}},
                 {"$sort": {"_id": -1}},
