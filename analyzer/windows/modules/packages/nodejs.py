@@ -2,7 +2,6 @@ import os
 import zipfile
 import logging
 import shutil
-import subprocess
 from pathlib import Path
 
 from lib.common.abstracts import Package
@@ -118,12 +117,18 @@ class NodeJS(Package):
         target_dir = os.path.dirname(path) or "."
         interceptor_path = os.path.join(target_dir, INTERCEPTOR_NAME)
 
-        if os.path.exists(interceptor_path):
+        # Fallback only. The js_console auxiliary module is the primary installer: it runs
+        # before any package, writes the interceptor to this same directory and persists
+        # NODE_OPTIONS with setx. This branch covers the case where js_console is disabled
+        # in analysis.conf and an interceptor was placed beside the sample by hand, so it
+        # must never overwrite a value that is already set.
+        if os.environ.get("NODE_OPTIONS"):
+            log.info("NODE_OPTIONS already set, leaving it alone: %s", os.environ["NODE_OPTIONS"])
+        elif os.path.exists(interceptor_path):
             preload_path = Path(interceptor_path).resolve().as_posix()
             _set_windows_env_var("NODE_OPTIONS", f'--require "{preload_path}"')
             log.info("Node interceptor found at %s. Setting NODE_OPTIONS env var with --require.", interceptor_path)
         else:
-            _set_windows_env_var("NODE_OPTIONS", "")
             log.warning("Node interceptor not found at %s. Running without --require.", interceptor_path)
 
         node_args = ""
