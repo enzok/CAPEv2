@@ -48,7 +48,16 @@
                                                                 {% for subkey, subvalue in dict_item.items %}
                                                                     <tr>
                                                                         <td class="font-weight-bold text-info">{{ subkey }}</td>
-                                                                        <td>{% malware_config subvalue %}</td>
+                                                                        {% if subkey == "Parsed Files" %}
+                                                                            {# {sha256: label} from CAPE._dump_parser_files: pair hash and label on one line rather than in two unlabelled columns. #}
+                                                                            <td>
+                                                                                {% for sha256, label in subvalue.items %}
+                                                                                    <div class="text-break"><span class="text-monospace">{{ sha256 }}</span> &mdash; {{ label }}</div>
+                                                                                {% endfor %}
+                                                                            </td>
+                                                                        {% else %}
+                                                                            <td>{% malware_config subvalue %}</td>
+                                                                        {% endif %}
                                                                     </tr>
                                                                 {% endfor %}
                                                             {% endfor %}

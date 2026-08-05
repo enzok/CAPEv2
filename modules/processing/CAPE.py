@@ -652,6 +652,7 @@ class CAPE(Processing):
                     if not path_exists(dest_path):
                         if not path_exists(self.CAPE_path):
                             path_mkdir(self.CAPE_path, exist_ok=True)
+
                         Path(dest_path).write_bytes(blob)
                         payload = {
                             "path": f"CAPE/{sha256}",
@@ -663,6 +664,7 @@ class CAPE(Processing):
                         }
                         with open(self.files_metadata, "a") as fh:
                             print(json.dumps(payload, ensure_ascii=False), file=fh)
+
                     parsed_files[sha256] = label
                     self.queued_payloads.append((dest_path, {"metadata": metadata}))
         except Exception as e:
