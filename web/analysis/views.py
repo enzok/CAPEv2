@@ -4092,8 +4092,11 @@ def pcapstream(request, task_id, conntuple):
         return render(request, "standalone_error.html", {"error": "Could not find the requested stream"})
 
     try:
-        # if we do, build out the path to it
-        path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "dump_sorted.pcap")
+        # if we do, build out the path to it. When TLS decryption produced a mixed pcap,
+        # the sorted stream offsets were computed from dump_mixed_sorted.pcap, so prefer it.
+        path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "dump_mixed_sorted.pcap")
+        if not path_exists(path):
+            path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "dump_sorted.pcap")
 
         if not path_exists(path) or not _path_safe(path):
             return render(request, "standalone_error.html", {"error": "The required sorted PCAP does not exist"})
