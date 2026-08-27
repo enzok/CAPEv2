@@ -431,10 +431,19 @@ def format_js_event(event):
 
     if event_type in ("tcp_send", "tcp_receive"):
         lines.append(f"Transport: {event.get('transport', '')}")
-        body = _format_body(event.get("body"))
-        if body:
-            lines.append("Data:")
-            lines.append(body)
+        body = event.get("body")
+        if isinstance(body, dict) and "stream" in body:
+            # New format: payload saved to a dropped file; the descriptor carries size/offset and the
+            # processing module resolves the sha256. Legacy logs still inline the payload (else branch).
+            lines.append(f"Data: {body.get('bytes', 0)} bytes")
+            sha256 = event.get("sha256")
+            if sha256:
+                lines.append(f"Saved: {sha256}")
+        else:
+            formatted = _format_body(body)
+            if formatted:
+                lines.append("Data:")
+                lines.append(formatted)
         return "\n".join(lines)
 
     if event_type == "tcp_error":

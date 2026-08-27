@@ -213,6 +213,7 @@ class JSLogProcessing(Processing):
             "console": [],
             "warnings": [],
             "init": [],
+            "buffers": [],
             "dropped_from_js_log": [],
             "dropped_created": 0,
             "dropped_errors": 0,
@@ -235,6 +236,34 @@ class JSLogProcessing(Processing):
             output["parsed_lines"] = parsed_lines
             output["malformed_lines"] = malformed_lines
             output["truncated"] = truncated
+
+            # Load the guest's stream->sha256 manifest. It is a SEPARATE file (not log events) so it
+            # survives the max_entries cap above: every TCP chunk emits a log line, so a noisy sample
+            # can exceed max_entries before the linkage would ever be reached in the event stream.
+            # finish() wrote each TCP buffer to files/<sha256>; use the manifest to link
+            # tcp_send/tcp_receive events to their dropped file and to list the buffers.
+            stream_map = {}
+            manifest_path = os.path.join(self.aux_path, "js_console", "js_buffers.json")
+            if path_exists(manifest_path):
+                try:
+                    manifest = json.loads(path_read_file(manifest_path, mode="text"))
+                    for entry in manifest:
+                        stream = entry.get("stream")
+                        if stream:
+                            stream_map[stream] = {"sha256": entry.get("sha256"), "bytes": entry.get("bytes")}
+                except Exception as e:
+                    log.warning("js_log_processing failed to read buffer manifest %s: %s", manifest_path, e)
+
+            output["buffers"] = [{"stream": stream, **info} for stream, info in stream_map.items()]
+
+            if stream_map:
+                for event in events:
+                    if event.get("event") in ("tcp_send", "tcp_receive"):
+                        body = event.get("body")
+                        if isinstance(body, dict):
+                            info = stream_map.get(body.get("stream"))
+                            if info and info.get("sha256"):
+                                event["sha256"] = info["sha256"]
             output["events"] = events
 
             for event in events:

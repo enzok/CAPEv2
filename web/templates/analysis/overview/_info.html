@@ -223,6 +223,14 @@
                 <h6 class="card-title text-white-50 mb-0">JS Log</h6>
                 <a href="{% url 'file' 'js_log' id 'js_console_log' %}" class="btn btn-sm btn-outline-light"><i class="fas fa-download me-1"></i> Download Full Log</a>
             </div>
+            {% if analysis.js_log.buffers %}
+            <div class="mb-2">
+                <span class="text-white-50 small">TCP buffers:</span>
+                {% for buf in analysis.js_log.buffers %}
+                <a href="{% url 'file' 'dropped' id buf.sha256 %}" class="badge bg-secondary text-decoration-none me-1" title="{{ buf.stream }}">{{ buf.sha256|slice:':12' }} ({{ buf.bytes }} B)</a>
+                {% endfor %}
+            </div>
+            {% endif %}
             {% if analysis.js_log.events %}
             <pre class="mb-0 small">{% for event in analysis.js_log.events %}{{ event|format_js_event }}{% if not forloop.last %}
 
