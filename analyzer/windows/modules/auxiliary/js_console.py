@@ -24,6 +24,7 @@ INTERCEPTOR_TEMPLATE = """ (() => {
   const path = require("path");
   const zlib = require("zlib");
   const MAX_BODY_CHARS = 4096;
+  const MAX_INLINE_BYTES = 4096;   // small text TCP payloads log inline; larger/binary go to a file
   let bufferSeq = 0;
   const bufferBytesWritten = Object.create(null);   // buffer file path -> bytes written so far
   // Per-process tag so buffer files can't collide across processes when Windows reuses a PID.
@@ -156,6 +157,33 @@ INTERCEPTOR_TEMPLATE = """ (() => {
     } catch (e) {
       return { error: safeToString(e), bytes: buf.length };
     }
+  }
+
+  function isProbablyText(buf) {
+    // Cheap heuristic: a NUL byte or a high ratio of control chars (allowing \\t\\n\\v\\f\\r) means binary.
+    const n = buf.length;
+    if (n === 0) return true;
+    let suspicious = 0;
+    for (let i = 0; i < n; i++) {
+      const c = buf[i];
+      if (c === 0) return false;
+      if (c < 0x09 || (c > 0x0d && c < 0x20)) suspicious++;
+    }
+    return suspicious / n < 0.1;
+  }
+
+  function tcpBody(streamName, chunk) {
+    // Small text payloads (handshakes, tiny JSON) log inline so we don't drop a file per chunk;
+    // larger or binary payloads are streamed to a file that finish() saves as files/<sha256>.
+    if (chunk === undefined || chunk === null) return null;
+    let buf;
+    try { buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk); }
+    catch (e) { return { error: safeToString(e) }; }
+    if (buf.length <= MAX_INLINE_BYTES && isProbablyText(buf)) {
+      const t = truncate(buf.toString("utf8"));
+      return { text: t.text, truncated: t.truncated };
+    }
+    return appendBuffer(streamName, buf);
   }
 
   function nodeRequestMeta(input, options) {
@@ -626,7 +654,7 @@ INTERCEPTOR_TEMPLATE = """ (() => {
           source: "js_interceptor",
           event: "tcp_send",
           transport,
-          body: (chunk === undefined || chunk === null) ? null : appendBuffer(sendName, chunk),
+          body: tcpBody(sendName, chunk),
         });
         return originalWrite(chunk, ...rest);
       };
@@ -638,7 +666,7 @@ INTERCEPTOR_TEMPLATE = """ (() => {
         source: "js_interceptor",
         event: "tcp_receive",
         transport,
-        body: (chunk === undefined || chunk === null) ? null : appendBuffer(recvName, chunk),
+        body: tcpBody(recvName, chunk),
       });
     });
     socket.on("error", (err) => {
