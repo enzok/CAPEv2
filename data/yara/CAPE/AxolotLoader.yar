@@ -1,9 +1,9 @@
-rule AxolotlLoader
+rule AxolotLoader
 {
     meta:
         author = "enzok"
-        description = "AxolotlLoader Payload"
-        cape_type = "AxolotlLoader Payload"
+        description = "AxolotLoader Payload"
+        cape_type = "AxolotLoader Payload"
 
     strings:
         $s_api_init_guid = /\/api\/init\/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/ ascii nocase
@@ -32,12 +32,12 @@ rule AxolotlLoader
         2 of ($s_*) and 1 of ($http*) and (4 of ($win*) or 4 of ($wh*))
 }
 
-rule AxolotlLoaderDll
+rule AxolotLoaderDll
 {
     meta:
         author = "enzok"
-        description = "AxolotlLoaderDll Payload"
-        cape_type = "AxolotlLoader Payload"
+        description = "AxolotLoaderDll Payload"
+        cape_type = "AxolotLoader Payload"
 
 strings:
         $resolver_loadlibrary = {E8 0D 00 00 00 4C 6F 61 64 4C 69 62 72 61 72 79 41 00 [1-10] 41 FF 97 ?? ?? ?? 00}
@@ -48,12 +48,12 @@ strings:
         uint16(0) == 0x5A4D and all of them
 }
 
-rule AxolotlLoaderShellCode
+rule AxolotLoaderShellCode
 {
     meta:
         author = "enzok"
-        description = "AxolotlLoaderShellCode Payload"
-        cape_type = "AxolotlLoader Payload"
+        description = "AxolotLoaderShellCode Payload"
+        cape_type = "AxolotLoader Payload"
 
     strings:
         $start = {C0 0F 84 [4] [0-6] FF D8 FF E0 00 10 4A 46 49 46}
