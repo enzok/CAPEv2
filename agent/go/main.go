@@ -2,7 +2,11 @@ package main
 
 import (
 	"archive/zip"
+	"crypto/hmac"
+	"crypto/sha256"
+	"crypto/subtle"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -14,6 +18,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -22,7 +28,7 @@ import (
 )
 
 const (
-	AgentVersion   = "0.20"
+	AgentVersion   = "0.22"
 	Base64Encoding = "base64"
 )
 
@@ -34,13 +40,10 @@ var (
 		"logs",
 		"largefile",
 		"unicodepath",
+		"subdir_upload",
 		"push",
 		"update",
 	}
-)
-
-var (
-	authToken string
 )
 
 func init() {
@@ -154,7 +157,6 @@ func main() {
 	host := flag.String("host", "0.0.0.0", "Host to bind to")
 	port := flag.Int("port", 8000, "Port to bind to")
 	verbose := flag.Bool("v", false, "Verbose logging")
-	flag.StringVar(&authToken, "auth", "", "Optional: Require this token for all requests (Authorization: Bearer <token>)")
 	flag.Parse()
 
 	if !*verbose {
@@ -186,9 +188,6 @@ func main() {
 
 	addr := fmt.Sprintf("%s:%d", *host, *port)
 	fmt.Printf("Starting CAPE Agent on %s\n", addr)
-	if authToken != "" {
-		fmt.Println("Authentication enabled.")
-	}
 
 	server := &http.Server{Addr: addr}
 
@@ -224,8 +223,15 @@ func checkSecurity(w http.ResponseWriter, r *http.Request) bool {
 		clientIP = r.RemoteAddr
 	}
 
+	// Like the Python agent, loopback may POST /status and /browser_extension
+	// (analyzer and browser extension run inside the guest); all else is blocked.
+	isLoopback := clientIP == "127.0.0.1" || clientIP == "::1"
+	if isLoopback && r.Method == "POST" && (r.URL.Path == "/status" || r.URL.Path == "/browser_extension") {
+		return true
+	}
+
 	// Always block loopback
-	if clientIP == "127.0.0.1" || clientIP == "::1" {
+	if isLoopback {
 		// Exception: Status check might be useful locally?
 		// Python agent allowed status/browser_ext from localhost.
 		// Strict mode: Block all.
@@ -247,21 +253,7 @@ func checkSecurity(w http.ResponseWriter, r *http.Request) bool {
 		return false
 	}
 
-	// 2. Auth Token (Defense in depth)
-	if authToken != "" {
-		authHeader := r.Header.Get("Authorization")
-		if authHeader == "" {
-			authHeader = r.FormValue("token")
-		}
-
-		expected := "Bearer " + authToken
-		if authHeader != expected && authHeader != authToken {
-			jsonError(w, 403, "Unauthorized")
-			return false
-		}
-	}
-
-	// 3. IP Pinning (Legacy/Standard Feature)
+	// 2. IP Pinning (Legacy/Standard Feature)
 	state.Lock()
 	defer state.Unlock()
 
@@ -318,6 +310,14 @@ func handleStatus(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	} else if r.Method == "POST" {
+		if expected := os.Getenv("X_CAPE_AUTH_TOKEN"); expected != "" {
+			token := r.Header.Get("X-CAPE-Auth-Token")
+			if subtle.ConstantTimeCompare([]byte(token), []byte(expected)) != 1 {
+				jsonError(w, 403, "Unauthorized")
+				return
+			}
+		}
+
 		status := r.FormValue("status")
 		if status == "" {
 			jsonError(w, 400, "No valid status has been provided")
@@ -336,6 +336,13 @@ func handleStatus(w http.ResponseWriter, r *http.Request) {
 		defer state.Unlock()
 
 		if _, terminal := TerminalStatuses[strings.ToLower(status)]; terminal {
+			// Reject in-guest attempts to set terminal statuses; the final state
+			// comes from the async subprocess exit, not from HTTP POSTs.
+			clientIP, _, _ := net.SplitHostPort(r.RemoteAddr)
+			if clientIP == "127.0.0.1" || clientIP == "::1" {
+				jsonError(w, 403, "Unauthorized")
+				return
+			}
 			state.AsyncSubprocess = nil
 		}
 
@@ -482,6 +489,13 @@ func handleStore(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer file.Close()
+
+	if dirpath := filepath.Dir(filepathStr); dirpath != "." {
+		if err := os.MkdirAll(dirpath, os.ModePerm); err != nil {
+			jsonError(w, 500, fmt.Sprintf("Error storing file: %v", err))
+			return
+		}
+	}
 
 	out, err := os.Create(filepathStr)
 	if err != nil {
@@ -1093,6 +1107,11 @@ func handlePinning(w http.ResponseWriter, r *http.Request) {
 		host = r.RemoteAddr
 	}
 	state.ClientIP = host
+	if token := r.Header.Get("X-CAPE-Auth-Token"); token != "" {
+		os.Setenv("X_CAPE_AUTH_TOKEN", token)
+	} else {
+		fmt.Println("no auth token supplied during pinning; agent authentication is disabled")
+	}
 
 	jsonSuccess(w, "Successfully pinned Agent", map[string]interface{}{
 		"client_ip": host,
@@ -1129,6 +1148,13 @@ func handleBrowserExtension(w http.ResponseWriter, r *http.Request) {
 
 	data := r.FormValue("networkData")
 	if data != "" {
+		if token := os.Getenv("X_CAPE_AUTH_TOKEN"); token != "" {
+			if signed, err := signNetworkData(data, token); err == nil {
+				data = signed
+			} else {
+				fmt.Printf("failed to sign browser extension log: %v\n", err)
+			}
+		}
 		os.WriteFile(agentBrowserExtPath, []byte(data), 0644)
 	}
 
@@ -1158,4 +1184,129 @@ func GetLocalIP() string {
 		}
 	}
 	return ""
+}
+
+// signNetworkData adds an HMAC-SHA256 "signature" over the JSON payload so the
+// guest-side browsermonitor can reject logs the agent did not originate. The
+// canonical form must byte-match Python's
+// json.dumps(data, sort_keys=True, separators=(",", ":")), which it verifies with.
+func signNetworkData(data, token string) (string, error) {
+	dec := json.NewDecoder(strings.NewReader(data))
+	dec.UseNumber()
+	var v interface{}
+	if err := dec.Decode(&v); err != nil {
+		return "", err
+	}
+	if _, err := dec.Token(); err != io.EOF {
+		return "", fmt.Errorf("trailing data after JSON value")
+	}
+	obj, ok := v.(map[string]interface{})
+	if !ok {
+		return data, nil
+	}
+	delete(obj, "signature")
+	var canonical strings.Builder
+	writePyJSON(&canonical, obj)
+	mac := hmac.New(sha256.New, []byte(token))
+	mac.Write([]byte(canonical.String()))
+	obj["signature"] = hex.EncodeToString(mac.Sum(nil))
+	// Written with the same ASCII-only encoder, as Python's json.dumps does.
+	var out strings.Builder
+	writePyJSON(&out, obj)
+	return out.String(), nil
+}
+
+// writePyJSON encodes v like Python's json.dumps with sort_keys=True,
+// separators=(",", ":") and the default ensure_ascii=True.
+func writePyJSON(b *strings.Builder, v interface{}) {
+	switch t := v.(type) {
+	case nil:
+		b.WriteString("null")
+	case bool:
+		b.WriteString(strconv.FormatBool(t))
+	case json.Number:
+		b.WriteString(pyNumber(t))
+	case string:
+		writePyString(b, t)
+	case []interface{}:
+		b.WriteByte('[')
+		for i, e := range t {
+			if i > 0 {
+				b.WriteByte(',')
+			}
+			writePyJSON(b, e)
+		}
+		b.WriteByte(']')
+	case map[string]interface{}:
+		keys := make([]string, 0, len(t))
+		for k := range t {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		b.WriteByte('{')
+		for i, k := range keys {
+			if i > 0 {
+				b.WriteByte(',')
+			}
+			writePyString(b, k)
+			b.WriteByte(':')
+			writePyJSON(b, t[k])
+		}
+		b.WriteByte('}')
+	}
+}
+
+// pyNumber renders a JSON number the way Python re-serializes it: integers
+// verbatim, floats with repr() (exponent form when exp < -4 or >= 16).
+func pyNumber(n json.Number) string {
+	s := n.String()
+	if !strings.ContainsAny(s, ".eE") {
+		return s
+	}
+	f, err := n.Float64()
+	if err != nil {
+		return s
+	}
+	e := strconv.FormatFloat(f, 'e', -1, 64)
+	exp, _ := strconv.Atoi(e[strings.IndexByte(e, 'e')+1:])
+	if exp < -4 || exp >= 16 {
+		return e
+	}
+	s = strconv.FormatFloat(f, 'f', -1, 64)
+	if !strings.Contains(s, ".") {
+		s += ".0"
+	}
+	return s
+}
+
+func writePyString(b *strings.Builder, s string) {
+	b.WriteByte('"')
+	for _, r := range s {
+		switch r {
+		case '"':
+			b.WriteString(`\"`)
+		case '\\':
+			b.WriteString(`\\`)
+		case '\n':
+			b.WriteString(`\n`)
+		case '\r':
+			b.WriteString(`\r`)
+		case '\t':
+			b.WriteString(`\t`)
+		case '\b':
+			b.WriteString(`\b`)
+		case '\f':
+			b.WriteString(`\f`)
+		default:
+			if r >= 0x20 && r <= 0x7e {
+				b.WriteRune(r)
+			} else if r > 0xffff {
+				r -= 0x10000
+				fmt.Fprintf(b, `\u%04x\u%04x`, 0xd800+(r>>10), 0xdc00+(r&0x3ff))
+			} else {
+				fmt.Fprintf(b, `\u%04x`, r)
+			}
+		}
+	}
+	b.WriteByte('"')
 }

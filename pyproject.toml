@@ -134,6 +134,7 @@ optional = [
     "certvalidator",
     "asn1crypto",
     "mscerts",
+    "magika",
 ]
 
 [dependency-groups]

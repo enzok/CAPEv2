@@ -55,7 +55,7 @@ agent.exe -host 0.0.0.0 -port 8000
 ## Features
 - **Zero Dependency**: Runs as a standalone binary.
 - **Stealth**: Can be renamed to anything (e.g., `svchost.exe`).
-- **Compatibility**: Implements the full CAPE Agent API (v0.20).
+- **Compatibility**: Implements the full CAPE Agent API (v0.22).
 - **Python Execution**: executing `.py` analysis scripts requires `python.exe` to be in the system `PATH`.
 
 ## Dev Notes
@@ -63,17 +63,12 @@ agent.exe -host 0.0.0.0 -port 8000
 - **ZipSlip Protection**: Built-in check against path traversal in zip extraction.
 
 ## How to pull file from VM to Host
-### Start Agent with Auth (Optional but Recommended):
-
-* `agent.exe -auth "my-secret-token-123"`
-
 ### Pull a file to HOST (CAPE):
 ```
 # Host-side logic (e.g., in CAPE's auxiliary module)
 requests.post(
     "http://<VM_IP>:8000/push",
-    data={"filepath": "C:\\malware_output.txt", "port": "8000"},
-    headers={"Authorization": "Bearer my-secret-token-123"}
+    data={"filepath": "C:\\malware_output.txt", "port": "8000"}
 )
 # The agent will POST the file back to http://<HOST_IP>:8000/upload
 ```
@@ -98,8 +93,7 @@ import requests
 with open("agent_v2.exe", "rb") as f:
     requests.post(
         "http://<VM_IP>:8000/update",
-        files={"file": f},
-        headers={"Authorization": "Bearer <token>"} # If auth is enabled
+        files={"file": f}
     )
 ```
 The agent will respond with 200 OK and then restart itself immediately.
