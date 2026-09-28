@@ -487,21 +487,21 @@ class CAPE(Processing):
                 if os.path.basename(guest_path).lower() == "js_console.log":
                     continue
 
-                if filepath in meta:
+                if abs_path in meta:
                     for p in entry.get("pids") or []:
-                        if p not in meta[filepath]["pids"]:
-                            meta[filepath]["pids"].append(p)
+                        if p not in meta[abs_path]["pids"]:
+                            meta[abs_path]["pids"].append(p)
                     for p in entry.get("ppids") or []:
-                        if p not in meta[filepath]["ppids"]:
-                            meta[filepath]["ppids"].append(p)
-                    meta[filepath][filepath].append(entry)
+                        if p not in meta[abs_path]["ppids"]:
+                            meta[abs_path]["ppids"].append(p)
+                    meta[abs_path][abs_path].append(entry)
                 else:
                     meta[abs_path] = {
                         "pids": list(entry.get("pids") or []),
                         "ppids": list(entry.get("ppids") or []),
                         "filepath": guest_path,
                         "metadata": entry.get("metadata", {}),
-                        filepath: [entry],
+                        abs_path: [entry],
                     }
         if excluded_paths:
             log.info("antiransomware: skipping %d encrypted files", len(excluded_paths))
