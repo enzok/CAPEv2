@@ -1,7 +1,5 @@
 from collections import deque
-
 from django.template.defaultfilters import register
-
 from lib.cuckoo.common.utils import convert_to_printable
 
 
@@ -28,8 +26,7 @@ def proctreetolist(tree):
             newnode["name"] = node["name"]
             if "module_path" in node:
                 newnode["module_path"] = node["module_path"]
-            for _com_field in ("com_logical_parent_pid", "com_logical_parent_name",
-                               "com_progid", "com_clsid"):
+            for _com_field in ("com_logical_parent_pid", "com_logical_parent_name", "com_progid", "com_clsid"):
                 if _com_field in node:
                     newnode[_com_field] = node[_com_field]
             if "environ" in node and "CommandLine" in node["environ"]:
