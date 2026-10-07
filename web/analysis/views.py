@@ -5005,7 +5005,7 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
         }
         return render(request, "analysis/generic/_file_info.html", context)
 
-    anchor = "overview" if category == "static" else category
+    anchor = "overview" if category in ("static", "target.file") else category
     return redirect(f"/analysis/{task_id}/?sha256={sha256}#{anchor}")
 
 
