@@ -37,7 +37,7 @@ $(function() {
       var urlParams = new URLSearchParams(window.location.search);
       var sha256 = urlParams.get('sha256');
       if (sha256) {
-          var $targetCard = $('#file_' + sha256);
+          var $targetCard = $('#file-info-' + sha256);
           if ($targetCard.length) {
               $targetCard.addClass('card-flash-active');
               setTimeout(function() {
@@ -50,64 +50,40 @@ $(function() {
       }
   }
 
-  // Save clicked tab (supports both standard and ajax-based tabs, and clicks on nested icons)
-  $('a[data-bs-toggle="tab"], a[data-bs-toggle="tabajax"]').on('click', function () {
+  // Save clicked tab (clicks on nested icons included)
+  $('a[data-bs-toggle="tab"]').on('click', function () {
       localStorage.setItem('lastAnalysisTab', $(this).attr('href'));
   });
-  // ajax req for some tabs
-  $('[data-bs-toggle="tabajax"]').click(function(e) {
-    var $this = $(this),
-        url = $(this).attr("data-url"),
-        href = this.hash,
-        $target = $(href);
 
-    if (typeof url !== "undefined") {
-        if ($target.data("loaded")) {
-            $this.tab('show');
-            _scrollToSha256();
-            return false;
-        }
-
-        if ($target.data("loading")) {
-            return false;
-        }
-
-        $target.data("loading", true);
-        $target.load(url, function(_result, status) {
-            $target.data("loading", false);
-            if (status === "success") {
-                $target.data("loaded", true);
-                $this.tab('show');
-                _scrollToSha256();
-            }
-        });
-    } else {
-         $this.tab('show');
-         _scrollToSha256();
-    }
-    return false;
-    });
-    //end
+  // Tabs are loaded by HTMX; once the swapped-in tab contains the target file card, scroll to it
+  document.body.addEventListener('htmx:afterSettle', function (evt) {
+      var sha256 = new URLSearchParams(window.location.search).get('sha256');
+      if (sha256 && evt.detail.target.querySelector('#file-info-' + sha256)) {
+          _scrollToSha256();
+      }
+  });
 
   // Support activating tabs from URL hash on load (e.g. redirected from on-demand URLs)
+  // Native click(): jQuery's .click() does not fire native listeners on links (Bootstrap tab, HTMX)
   var hash = window.location.hash;
   if (hash) {
       var $tabLink = $('a[href="' + hash + '"]');
       if ($tabLink.length) {
-          $tabLink.click();
+          $tabLink[0].click();
       }
   } else if (document.referrer === document.URL || document.referrer.indexOf('/on_demand/') !== -1) {
       var lastAnalysisTab = localStorage.getItem('lastAnalysisTab');
       if (lastAnalysisTab) {
           var $tabLink = $('a[href="' + lastAnalysisTab + '"]');
           if ($tabLink.length) {
-              $tabLink.click();
+              $tabLink[0].click();
           }
       }
   }
 
   // Try scrolling on initial load if the content is already in DOM (e.g. Overview tab)
   _scrollToSha256();
+  //end
 });
 </script>
 <style type="text/css">
@@ -162,25 +138,41 @@ $(function() {
     </li>
     {% if analysis.info.machine.platform == "linux" %}
         <li class="nav-item">
-            <a class="nav-link" id="strace-tab" href="#strace" data-bs-toggle="tabajax" data-url="/analysis/load_files/{{analysis.info.id}}/strace/" role="tab" aria-controls="strace" aria-selected="false">
+            <a class="nav-link" id="strace-tab" href="#strace"
+               hx-get="/analysis/load_files/{{analysis.info.id}}/strace/"
+               hx-target="#strace"
+               hx-trigger="click once"
+               data-bs-toggle="tab" role="tab" aria-controls="strace" aria-selected="false">
                 <i class="fas fa-project-diagram me-2"></i>Behavioral Analysis
             </a>
         </li>
         <li class="nav-item">
-            <a class="nav-link" id="tracee-tab" href="#tracee" data-bs-toggle="tabajax" data-url="/analysis/load_files/{{analysis.info.id}}/tracee/" role="tab" aria-controls="tracee" aria-selected="false">
+            <a class="nav-link" id="tracee-tab" href="#tracee"
+               hx-get="/analysis/load_files/{{analysis.info.id}}/tracee/"
+               hx-target="#tracee"
+               hx-trigger="click once"
+               data-bs-toggle="tab" role="tab" aria-controls="tracee" aria-selected="false">
                 <i class="fas fa-search me-2"></i>Detailed Behaviour (Tracee)
             </a>
         </li>
     {% elif analysis.info.category != "pcap" and analysis.info.category != "static" %}
         <li class="nav-item">
-            <a class="nav-link" id="behavior-tab" href="#behavior" data-bs-toggle="tabajax" data-url="/analysis/load_files/{{analysis.info.id}}/behavior/" role="tab" aria-controls="behavior" aria-selected="false">
+            <a class="nav-link" id="behavior-tab" href="#behavior"
+               hx-get="/analysis/load_files/{{analysis.info.id}}/behavior/"
+               hx-target="#behavior"
+               hx-trigger="click once"
+               data-bs-toggle="tab" role="tab" aria-controls="behavior" aria-selected="false">
                 <i class="fas fa-project-diagram me-2"></i>Behavioral Analysis
             </a>
         </li>
     {% endif %}
     {% if analysis.info.category != "static" %}
         <li class="nav-item">
-            <a class="nav-link" id="network-tab" href="#network" data-bs-toggle="tabajax" data-url="/analysis/load_files/{{analysis.info.id}}/network/" role="tab" aria-controls="network" aria-selected="false">
+            <a class="nav-link" id="network-tab" href="#network"
+               hx-get="/analysis/load_files/{{analysis.info.id}}/network/"
+               hx-target="#network"
+               hx-trigger="click once"
+               data-bs-toggle="tab" role="tab" aria-controls="network" aria-selected="false">
                 <i class="fas fa-network-wired me-2"></i>Network Analysis
             </a>
         </li>
@@ -188,42 +180,66 @@ $(function() {
     {% if analysis.info.category != "pcap" and analysis.info.category != "static" %}
         {% if analysis.dropped %}
             <li class="nav-item">
-                <a class="nav-link" id="dropped-tab" href="#dropped" data-bs-toggle="tabajax" data-url="/analysis/load_files/{{analysis.info.id}}/dropped/" role="tab" aria-controls="dropped" aria-selected="false">
+                <a class="nav-link" id="dropped-tab" href="#dropped"
+                   hx-get="/analysis/load_files/{{analysis.info.id}}/dropped/"
+                   hx-target="#dropped"
+                   hx-trigger="click once"
+                   data-bs-toggle="tab" role="tab" aria-controls="dropped" aria-selected="false">
                     <i class="fas fa-file-download me-2"></i>Dropped Files ({{analysis.dropped}})
                 </a>
             </li>
         {% endif %}
         {% if analysis.procmemory %}
             <li class="nav-item">
-                <a class="nav-link" id="procmemory-tab" href="#procmemory" data-bs-toggle="tabajax" data-url="/analysis/load_files/{{analysis.info.id}}/procmemory/" role="tab" aria-controls="procmemory" aria-selected="false">
+                <a class="nav-link" id="procmemory-tab" href="#procmemory"
+                   hx-get="/analysis/load_files/{{analysis.info.id}}/procmemory/"
+                   hx-target="#procmemory"
+                   hx-trigger="click once"
+                   data-bs-toggle="tab" role="tab" aria-controls="procmemory" aria-selected="false">
                     <i class="fas fa-memory me-2"></i>Process Memory ({{analysis.procmemory}})
                 </a>
             </li>
         {% endif %}
         {% if analysis.memory %}
             <li class="nav-item">
-                <a class="nav-link" id="memory-tab" href="#memory" data-bs-toggle="tabajax" data-url="/analysis/load_files/{{analysis.info.id}}/memory/" role="tab" aria-controls="memory" aria-selected="false">
+                <a class="nav-link" id="memory-tab" href="#memory"
+                   hx-get="/analysis/load_files/{{analysis.info.id}}/memory/"
+                   hx-target="#memory"
+                   hx-trigger="click once"
+                   data-bs-toggle="tab" role="tab" aria-controls="memory" aria-selected="false">
                     <i class="fas fa-microchip me-2"></i>Memory Analysis
                 </a>
             </li>
         {% endif %}
         {% if analysis.procdump %}
             <li class="nav-item">
-                <a class="nav-link" id="procdump-tab" href="#procdump" data-bs-toggle="tabajax" data-url="/analysis/load_files/{{analysis.info.id}}/procdump/" role="tab" aria-controls="procdump" aria-selected="false">
+                <a class="nav-link" id="procdump-tab" href="#procdump"
+                   hx-get="/analysis/load_files/{{analysis.info.id}}/procdump/"
+                   hx-target="#procdump"
+                   hx-trigger="click once"
+                   data-bs-toggle="tab" role="tab" aria-controls="procdump" aria-selected="false">
                     <i class="fas fa-database me-2"></i>Process Dumps ({{analysis.procdump}})
                 </a>
             </li>
         {% endif %}
         {% if analysis.CAPE %}
             <li class="nav-item">
-                <a class="nav-link" id="CAPE-tab" href="#CAPE" data-bs-toggle="tabajax" data-url="/analysis/load_files/{{analysis.info.id}}/CAPE/" role="tab" aria-controls="CAPE" aria-selected="false">
+                <a class="nav-link" id="CAPE-tab" href="#CAPE"
+                   hx-get="/analysis/load_files/{{analysis.info.id}}/CAPE/"
+                   hx-target="#CAPE"
+                   hx-trigger="click once"
+                   data-bs-toggle="tab" role="tab" aria-controls="CAPE" aria-selected="false">
                     <i class="fas fa-bug me-2"></i>Payloads ({{analysis.CAPE}})
                 </a>
             </li>
         {% endif%}
         {% if analysis.debugger_logs %}
             <li class="nav-item">
-                <a class="nav-link" id="debugger-tab" href="#debugger" data-bs-toggle="tabajax" data-url="/analysis/load_files/{{analysis.info.id}}/debugger/" role="tab" aria-controls="debugger" aria-selected="false">
+                <a class="nav-link" id="debugger-tab" href="#debugger"
+                   hx-get="/analysis/load_files/{{analysis.info.id}}/debugger/"
+                   hx-target="#debugger"
+                   hx-trigger="click once"
+                   data-bs-toggle="tab" role="tab" aria-controls="debugger" aria-selected="false">
                     <i class="fas fa-wrench me-2"></i>Debugger
                 </a>
             </li>
@@ -232,9 +248,10 @@ $(function() {
     {% if analysis.sigma or analysis.sysmon or analysis.has_evtx %}
         <li class="nav-item">
             <a class="nav-link" id="eventlogs-tab" href="#eventlogs"
-               data-bs-toggle="tabajax"
-               data-url="/analysis/load_files/{{analysis.info.id}}/eventlogs/"
-               role="tab" aria-controls="eventlogs" aria-selected="false">
+               hx-get="/analysis/load_files/{{analysis.info.id}}/eventlogs/"
+               hx-target="#eventlogs"
+               hx-trigger="click once"
+               data-bs-toggle="tab" role="tab" aria-controls="eventlogs" aria-selected="false">
                 <i class="fas fa-scroll me-2"></i>Event Logs
             </a>
         </li>
@@ -242,9 +259,10 @@ $(function() {
     {% if analysis.has_etw and config.display_etw %}
         <li class="nav-item">
             <a class="nav-link" id="etw-tab" href="#etw"
-               data-bs-toggle="tabajax"
-               data-url="/analysis/load_files/{{analysis.info.id}}/etw/"
-               role="tab" aria-controls="etw" aria-selected="false">
+               hx-get="/analysis/load_files/{{analysis.info.id}}/etw/"
+               hx-target="#etw"
+               hx-trigger="click once"
+               data-bs-toggle="tab" role="tab" aria-controls="etw" aria-selected="false">
                 <i class="fas fa-broadcast-tower me-2"></i>ETW Telemetry
             </a>
         </li>

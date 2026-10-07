@@ -48,7 +48,7 @@ if sys.version_info[:2] < (3, 6):
 #if sys.maxsize > 2**32 and sys.platform == "win32":
 #    sys.exit("You should install python3 x86! not x64")
 
-AGENT_VERSION = "0.22"
+AGENT_VERSION = "0.23"
 AGENT_FEATURES = [
     "execpy",
     "execute",
@@ -803,36 +803,50 @@ def do_execpy():
         return json_exception(f"Error executing Python command: {ex}")
 
 
+def write_file_atomic(path: str, data: str, attempts: int = 5):
+    tmp_path = f"{path}.tmp"
+    with open(tmp_path, "w", encoding="utf-8") as tmp_fd:
+        tmp_fd.write(data)
+    for attempt in range(attempts):
+        try:
+            os.replace(tmp_path, path)
+            return
+        except PermissionError:
+            if attempt == attempts - 1:
+                raise
+            time.sleep(0.05)
+
+
 @app.route("/browser_extension", methods=["POST"])
 def do_browser_ext():
     global AGENT_BROWSER_EXT_PATH
-    AGENT_BROWSER_LOCK.acquire()
-    if not AGENT_BROWSER_EXT_PATH:
-        try:
-            ext_tmpdir = tempfile.mkdtemp(prefix="")
-        except Exception:
-            AGENT_BROWSER_LOCK.release()
-            return json_exception("Error creating temporary directory")
-        ext_filepath = "bext_" + "".join(random.choice(string.ascii_letters) for _ in range(11)) + ".json"
-        AGENT_BROWSER_EXT_PATH = os.path.join(ext_tmpdir, ext_filepath)
     network_data = request.form.get("networkData")
-    if network_data:
-        token = os.environ.get("X_CAPE_AUTH_TOKEN", "")
-        if token:
-            # Sign the payload with an HMAC over its content so the guest-side
-            # collector can reject logs it did not originate.
+    with AGENT_BROWSER_LOCK:
+        if not AGENT_BROWSER_EXT_PATH or not os.path.isdir(os.path.dirname(AGENT_BROWSER_EXT_PATH)):
             try:
-                data = json.loads(network_data)
-                if isinstance(data, dict):
-                    data.pop("signature", None)
-                    canonical = json.dumps(data, sort_keys=True, separators=(",", ":")).encode()
-                    data["signature"] = hmac.new(token.encode(), canonical, hashlib.sha256).hexdigest()
-                    network_data = json.dumps(data)
-            except Exception as exc:
-                print(f"failed to sign browser extension log: {exc}")
-        with open(AGENT_BROWSER_EXT_PATH, "w") as ext_fd:
-            ext_fd.write(network_data)
-    AGENT_BROWSER_LOCK.release()
+                ext_tmpdir = tempfile.mkdtemp(prefix="")
+            except Exception:
+                return json_exception("Error creating temporary directory")
+            ext_filepath = "bext_" + "".join(random.choice(string.ascii_letters) for _ in range(11)) + ".json"
+            AGENT_BROWSER_EXT_PATH = os.path.join(ext_tmpdir, ext_filepath)
+        if network_data:
+            token = os.environ.get("X_CAPE_AUTH_TOKEN", "")
+            if token:
+                # Sign the payload with an HMAC over its content so the guest-side
+                # collector can reject logs it did not originate.
+                try:
+                    data = json.loads(network_data)
+                    if isinstance(data, dict):
+                        data.pop("signature", None)
+                        canonical = json.dumps(data, sort_keys=True, separators=(",", ":")).encode()
+                        data["signature"] = hmac.new(token.encode(), canonical, hashlib.sha256).hexdigest()
+                        network_data = json.dumps(data)
+                except Exception as exc:
+                    print(f"failed to sign browser extension log: {exc}")
+            try:
+                write_file_atomic(AGENT_BROWSER_EXT_PATH, network_data)
+            except Exception:
+                return json_exception("Error writing the browser extension log")
     return json_success("OK")
 
 

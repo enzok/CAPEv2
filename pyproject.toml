@@ -106,10 +106,6 @@ azure = [
     "azure-mgmt-storage",
     "azure-storage-blob",
 ]
-dist = [
-    "fastapi",
-]
-
 libvirt = ["libvirt-python"]
 
 optional = [
@@ -138,6 +134,9 @@ optional = [
 ]
 
 [dependency-groups]
+dist = [
+    "fastapi",
+]
 dev = [
     "black>=24.3.0",
     "isort>=5.10.1",
