@@ -326,7 +326,7 @@
                        hx-get="{% url "on_demand" "flare_capa" id tab_name file.sha256 %}"
                        hx-target="#file-info-{{file.sha256}}"
                        hx-swap="outerHTML"
-                       hx-indicator="#indicator-{{file.sha256}}">Gen CAPA</a>
+                       hx-indicator="#indicator-{{file.sha256}}">Extract: CAPA</a>
                 {% elif file.flare_capa %}
                     <a class="btn btn-sm btn-outline-warning me-2 mb-2" data-bs-toggle="collapse" href="#flare_capa_{{file.sha256}}">View CAPA</a>
                 {% endif %}
@@ -339,7 +339,7 @@
                        hx-get="{% url "on_demand" "strings" id tab_name file.sha256 %}"
                        hx-target="#file-info-{{file.sha256}}"
                        hx-swap="outerHTML"
-                       hx-indicator="#indicator-{{file.sha256}}">Gen Strings</a>
+                       hx-indicator="#indicator-{{file.sha256}}">Extract: Strings</a>
                 {% elif file.strings %}
                     <a class="btn btn-sm btn-outline-light me-2 mb-2" data-bs-toggle="collapse" href="#strings_{{file.sha256}}">Strings</a>
                 {% endif %}
@@ -352,7 +352,7 @@
                        hx-get="{% url "on_demand" "floss" id tab_name file.sha256 %}"
                        hx-target="#file-info-{{file.sha256}}"
                        hx-swap="outerHTML"
-                       hx-indicator="#indicator-{{file.sha256}}">Gen Floss</a>
+                       hx-indicator="#indicator-{{file.sha256}}">Extract: Floss</a>
                 {% else %}
                     <a class="btn btn-sm btn-outline-light me-2 mb-2" data-bs-toggle="collapse" href="#floss_{{file.sha256}}">Floss</a>
                 {% endif %}
@@ -376,7 +376,7 @@
                        hx-get="{% url "on_demand" "bingraph" id tab_name file.sha256 %}"
                        hx-target="#file-info-{{file.sha256}}"
                        hx-swap="outerHTML"
-                       hx-indicator="#indicator-{{file.sha256}}">Gen BinGraph</a>
+                       hx-indicator="#indicator-{{file.sha256}}">Extract: BinGraph</a>
                 {% else %}
                     <a class="btn btn-sm btn-outline-light me-2 mb-2" href="{% url "file_nl" "bingraph" id file.sha256 %}">BinGraph</a>
                 {% endif %}
