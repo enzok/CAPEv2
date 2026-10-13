@@ -831,7 +831,25 @@ class MongoDB(Report):
         try:
             log.debug("Inserting new MongoDB report for Task %s", report["info"]["id"])
             mongo_insert_one("analysis", report)
-        except (OperationFailure, InvalidDocument) as e:
+
+        except OperationFailure as e:
+            # Check for error codes indicating the BSON object was too large
+            # (10334 BSONObjectTooLarge) or the maximum nested object depth was
+            # exceeded (15 Overflow).
+            if e.code in (10334, 15):
+                log.warning("Got MongoDB OperationFailure (code %d); pruning behavior.processtree children", e.code)
+                processtree = report.get("behavior", {}).get("processtree") or []
+                for proc_entry in processtree:
+                    if isinstance(proc_entry, dict):
+                        proc_entry.pop("children", None)
+                try:
+                    mongo_insert_one("analysis", report)
+                except Exception as retry_err:
+                    log.warning("Clearing behavior.processtree after retry failure: %s", retry_err)
+                    if "behavior" in report and isinstance(report["behavior"], dict):
+                        report["behavior"]["processtree"] = []
+                    mongo_insert_one("analysis", report)
+        except InvalidDocument as e:
             if str(e).startswith("cannot encode object") or "must not contain" in str(e):
                 self.loop_saver(report)
                 return

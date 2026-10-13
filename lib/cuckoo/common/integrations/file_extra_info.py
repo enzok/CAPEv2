@@ -343,6 +343,7 @@ def detect_it_easy_info(file_path: str):
             [processing_conf.die.binary, "-j", file_path],
             stderr=subprocess.STDOUT,
             universal_newlines=True,
+            errors="replace",
         )
 
         def get_json() -> dict[str, Any]:
@@ -379,6 +380,7 @@ def trid_info(file_path: str):
             [trid_binary, f"-d:{definitions}", file_path],
             stderr=subprocess.STDOUT,
             universal_newlines=True,
+            errors="replace",
         )
         return output.split("\n")[6:-1]
     except subprocess.CalledProcessError:
