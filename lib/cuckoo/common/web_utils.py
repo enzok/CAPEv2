@@ -1041,6 +1041,7 @@ def download_file(**kwargs):
             tenant_id=kwargs.get("tenant_id"),
             visibility=kwargs.get("visibility", "private"),
             source_url=kwargs.get("source_url", False),
+            attributes=kwargs.get("attributes"),
         )
 
         try:

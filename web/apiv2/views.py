@@ -453,6 +453,7 @@ def tasks_create_static(request):
 
     options = request.data.get("options", "")
     priority = force_int(request.data.get("priority"))
+    attributes = request.data.get("attributes")
 
     resp["error"] = []
     try:
@@ -475,6 +476,7 @@ def tasks_create_static(request):
                     user_id=request.user.id or 0,
                     tenant_id=_tenant_id,
                     visibility=_visibility,
+                    attributes=attributes,
                 )
                 task_ids.extend(task_id)
                 if extra_details.get("erros"):
@@ -529,6 +531,7 @@ def tasks_create_file(request):
             return Response({"error": True, "error_value": "invalid visibility"})
         # Parse potential POST options (see submission/views.py)
         pcap = request.data.get("pcap", "")
+        attributes = request.data.get("attributes")
 
         (
             static,
@@ -565,6 +568,7 @@ def tasks_create_file(request):
             "user_id": request.user.id or 0,
             "tenant_id": _tenant_id,
             "visibility": _visibility,
+            "attributes": attributes,
         }
 
         task_machines = []
@@ -623,11 +627,19 @@ def tasks_create_file(request):
                     user_id=details["user_id"],
                     tenant_id=details["tenant_id"],
                     visibility=details["visibility"],
+                    attributes=attributes,
                 )
                 details["task_ids"].append(task_id)
                 continue
             if static:
-                task_id = db.add_static(file_path=tmp_path, priority=priority, user_id=request.user.id or 0, tenant_id=_tenant_id, visibility=_visibility)
+                task_id = db.add_static(
+                    file_path=tmp_path,
+                    priority=priority,
+                    user_id=request.user.id or 0,
+                    tenant_id=_tenant_id,
+                    visibility=_visibility,
+                    attributes=attributes,
+                )
                 details["task_ids"].append(task_id)
                 continue
             if tmp_path:
@@ -685,6 +697,7 @@ def tasks_create_url(request):
             return Response({"error": True, "error_value": "invalid visibility"})
 
         url = request.data.get("url")
+        attributes = request.data.get("attributes")
         (
             static,
             package,
@@ -764,6 +777,7 @@ def tasks_create_url(request):
                 user_id=request.user.id or 0,
                 tenant_id=_tenant_id,
                 visibility=_visibility,
+                attributes=attributes,
             )
             if task_id:
                 task_ids.append(task_id)
@@ -800,6 +814,7 @@ def tasks_create_dlnexec(request):
         if not url:
             resp = {"error": True, "error_value": "URL value is empty"}
             return Response(resp)
+        attributes = request.data.get("attributes")
 
         (
             static,
@@ -867,6 +882,7 @@ def tasks_create_dlnexec(request):
             "user_id": request.user.id or 0,
             "tenant_id": _tenant_id,
             "visibility": _visibility,
+            "attributes": attributes,
         }
 
         status, tasks_details = download_file(**details)
