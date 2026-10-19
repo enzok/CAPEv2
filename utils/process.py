@@ -45,6 +45,7 @@ from lib.cuckoo.core.data.task import (
     TASK_FAILED_REPORTING,
     TASK_REPORTED
 )
+from lib.cuckoo.core.log import init_json_file_handler, set_log_task_context
 from lib.cuckoo.core.plugins import RunProcessing, RunReporting, RunSignatures
 from lib.cuckoo.core.startup import ConsoleHandler, check_linux_dist, check_webgui_mongo, init_modules
 
@@ -120,7 +121,9 @@ def process(
     task_options = get_options(task_dict.get("options"))
     task_dict["_options_parsed"] = task_options
     # cluster mode
-    main_task_id = task_options.get("main_task_id", 0) if "main_task_id" in task_options else False
+    main_task_id = False
+    if attributes := task_dict.get("attributes"):
+        main_task_id = attributes.get("main_task_id", False)
 
     # ToDo new logger here
     per_analysis_handler = init_per_analysis_logging(tid=str(task_id), debug=debug)
@@ -269,6 +272,14 @@ def init_worker():
         fh = logging.handlers.WatchedFileHandler(path)
         fh.setFormatter(FORMATTER)
         log.handlers.append(fh)
+        init_json_file_handler(
+            log,
+            "process.log",
+            service_name="cape-processor",
+            logconf=logconf,
+            watch_only=True,
+            cuckoo_root=CUCKOO_ROOT,
+        )
     except PermissionError as e:
         log.warning("Failed to restore File handler in worker due to permissions: %s", e)
 
@@ -297,6 +308,7 @@ FORMATTER = logging.Formatter(get_formatter_fmt())
 
 def set_formatter_fmt(task_id=None, main_task_id=None):
     FORMATTER._style._fmt = get_formatter_fmt(task_id, main_task_id)
+    set_log_task_context(task_id=task_id, main_task_id=main_task_id)
 
 
 class ForceClosingTimedRotatingFileHandler(logging.handlers.TimedRotatingFileHandler):
@@ -364,6 +376,14 @@ def init_logging(debug=False):
 
         fh.setFormatter(FORMATTER)
         log.addHandler(fh)
+        init_json_file_handler(
+            log,
+            "process.log",
+            service_name="cape-processor",
+            logconf=logconf,
+            handler_cls=ForceClosingTimedRotatingFileHandler,
+            cuckoo_root=CUCKOO_ROOT,
+        )
     except PermissionError:
         log.critical("PermissionError to create/access log. Probably executed with wrong user.")
         sys.exit(1)
