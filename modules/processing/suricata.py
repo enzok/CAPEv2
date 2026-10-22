@@ -292,6 +292,8 @@ class Suricata(Processing):
         parsed_files = []
         # Collapse repeated alerts (same signature + flow tuple) into one entry with a count
         alert_index = {}
+        # Collapse repeated http events (identical apart from srcport/timestamp) the same way
+        http_index = {}
         for data in datalist:
             for line in data.splitlines():
                 try:
@@ -412,7 +414,13 @@ class Suricata(Processing):
                                     hlog[key] = http_data.get(key_s, None)
                                 except Exception:
                                     hlog[key] = None
-                        suricata["http"].append(hlog)
+                        http_key = tuple(sorted((k, v) for k, v in hlog.items() if k not in ("srcport", "timestamp")))
+                        if http_key in http_index:
+                            http_index[http_key]["count"] += 1
+                        else:
+                            hlog["count"] = 1
+                            http_index[http_key] = hlog
+                            suricata["http"].append(hlog)
 
                     elif parsed["event_type"] == "tls":
                         tlog = {
