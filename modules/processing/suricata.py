@@ -290,6 +290,8 @@ class Suricata(Processing):
         }
 
         parsed_files = []
+        # Collapse repeated alerts (same signature + flow tuple) into one entry with a count
+        alert_index = {}
         for data in datalist:
             for line in data.splitlines():
                 try:
@@ -346,7 +348,13 @@ class Suricata(Processing):
                         alog["timestamp"] = parsed["timestamp"].replace("T", " ")
                         alog["category"] = parsed["alert"]["category"] or None
                         alog["signature"] = parsed["alert"]["signature"]
-                        suricata["alerts"].append(alog)
+                        alert_key = (alog["sid"], alog["srcip"], alog["dstip"], alog["dstport"], alog["protocol"])
+                        if alert_key in alert_index:
+                            alert_index[alert_key]["count"] += 1
+                        else:
+                            alog["count"] = 1
+                            alert_index[alert_key] = alog
+                            suricata["alerts"].append(alog)
 
                     elif parsed["event_type"] == "http":
                         hlog = {

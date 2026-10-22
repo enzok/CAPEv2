@@ -391,7 +391,7 @@ class RunProcessing:
             for file_name in os.listdir(logs):
                 file_path = os.path.join(logs, file_name)
 
-                if os.path.isdir(file_path):
+                if os.path.isdir(file_path) or not file_name.endswith(".bson"):
                     continue
                 # Skipping the current log file if it's too big.
                 if os.stat(file_path).st_size > self.cuckoo_cfg.processing.analysis_size_limit:
