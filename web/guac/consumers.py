@@ -7,6 +7,7 @@ from xml.etree import ElementTree as ET
 
 from asgiref.sync import sync_to_async
 from channels.generic.websocket import AsyncWebsocketConsumer
+from django.conf import settings
 from guacamole.client import GuacamoleClient
 
 from lib.cuckoo.common.config import Config
@@ -88,6 +89,24 @@ def _check_vm_running(vm_label):
     return False
 
 
+def _view_task_with_guest(db, task_id):
+    try:
+        return db.view_task(task_id, details=True)
+    except TypeError:
+        return db.view_task(task_id)
+
+
+def _is_task_active_for_vm(task, vm_label: str) -> bool:
+    if not task or task.status not in ACTIVE_GUAC_TASK_STATUSES:
+        return False
+    guest = getattr(task, "guest", None)
+    if guest is not None:
+        guest_vm = getattr(guest, "label", None) or getattr(guest, "name", None)
+        if guest_vm and guest_vm != vm_label:
+            return False
+    return True
+
+
 class GuacamoleWebSocketConsumer(AsyncWebsocketConsumer):
     subprotocols = ["guacamole"]
 
@@ -136,6 +155,13 @@ class GuacamoleWebSocketConsumer(AsyncWebsocketConsumer):
     async def connect(self):
         """Validate session token, look up VNC server-side, connect to guacd."""
         try:
+            if getattr(settings, "WEB_AUTHENTICATION", False):
+                user = self.scope.get("user")
+                if not getattr(user, "is_authenticated", False):
+                    logger.warning("WebSocket rejected: unauthenticated user")
+                    await self.close()
+                    return
+
             # 1. Read and validate the session cookie
             cookies = self.scope.get("cookies", {})
             token_str = cookies.get("guac_session")
@@ -168,11 +194,11 @@ class GuacamoleWebSocketConsumer(AsyncWebsocketConsumer):
 
             vnc_port = None
             if self.guac_task_id > 0:
-                # 3. Verify task can still host an interactive session
-                task = await sync_to_async(db.view_task)(self.guac_task_id)
-                if not task or task.status not in ACTIVE_GUAC_TASK_STATUSES:
+                # 3. Verify task can still host an interactive session on this VM
+                task = await sync_to_async(_view_task_with_guest)(db, self.guac_task_id)
+                if not _is_task_active_for_vm(task, vm_label):
                     logger.warning(
-                        "WebSocket rejected: task %s is not active for guac", self.guac_task_id
+                        "WebSocket rejected: task %s is not active on VM %s", self.guac_task_id, vm_label
                     )
                     await self._delete_guac_session()
                     await self.close()
@@ -344,11 +370,12 @@ class GuacamoleWebSocketConsumer(AsyncWebsocketConsumer):
                 if not self.guac_task_id:
                     break
                 db = Database()
-                task = await sync_to_async(db.view_task)(self.guac_task_id)
-                if not task or task.status not in ACTIVE_GUAC_TASK_STATUSES:
+                task = await sync_to_async(_view_task_with_guest)(db, self.guac_task_id)
+                if not _is_task_active_for_vm(task, self.vm_label):
                     logger.info(
-                        "Task %s no longer running, disconnecting guac session",
+                        "Task %s no longer active on VM %s, disconnecting guac session",
                         self.guac_task_id,
+                        self.vm_label,
                     )
                     await self._delete_guac_session()
                     await self._close_websocket()

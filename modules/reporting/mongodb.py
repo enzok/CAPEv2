@@ -348,14 +348,12 @@ class MongoDB(Report):
 
         # trick for distributed api
         main_task_id = None
-        if self.task and (attributes := self.task.get("attributes")):
-            if main_task_id := attributes.get("main_task_id"):
-                with suppress(ValueError, TypeError):
-                    report["info"]["id"] = int(main_task_id)
-            if isinstance(task_acl := attributes.get("task_acl"), dict):
-                for k in ("user_id", "tenant_id", "visibility", "visibility_seq"):
-                    if k in task_acl:
-                        report["info"][k] = task_acl[k]
+        attributes = (self.task or {}).get("attributes") or {}
+        if main_task_id := attributes.get("main_task_id"):
+            with suppress(ValueError, TypeError):
+                report["info"]["id"] = int(main_task_id)
+                # Object storage may have renumbered it already and recorded the real local id.
+                report["info"].setdefault("local_task_id", local_task_id)
 
         if "network" not in report:
             report["network"] = {}
@@ -365,12 +363,19 @@ class MongoDB(Report):
 
         from lib.cuckoo.common.hooks import run_report_hooks
 
-        run_report_hooks(report)
+        run_report_hooks(report, task=self.task, stage="mongodb")
 
         # Delete old data just before inserting new one to avoid "missing report" window
-
-        # or data loss if insertion fails during preparation (e.g. OOM)
-        ids_to_delete = {local_task_id, int(report["info"]["id"])}
+        # or data loss if insertion fails during preparation (e.g. OOM).
+        # When main_task_id or object-storage bridging renumbered info.id on a worker, never include
+        # worker-local local_task_id (which collides with an unrelated central task in shared MongoDB).
+        report_id = int(report["info"]["id"])
+        renumbered = bool(
+            main_task_id
+            or report["info"].get("local_task_id") is not None
+            or report["info"].get("_renumbered_from") is not None
+        )
+        ids_to_delete = [report_id] if (renumbered and report_id != local_task_id) else sorted({local_task_id, report_id})
         log.debug("Deleting previous MongoDB data for Task IDs: %s", ids_to_delete)
         mongo_delete_data(list(ids_to_delete))
 
@@ -380,7 +385,8 @@ class MongoDB(Report):
 
         # Store iocs as file
         if reporting_conf.mongodb.dump_iocs:
-            dump_iocs(report, local_task_id)
+            # this node's own task directory, even when the report was renumbered to another server's id
+            dump_iocs(report, int(report["info"].get("local_task_id") or local_task_id))
 
         ensure_valid_utf8(report)
         gc.collect()
@@ -413,6 +419,7 @@ class MongoDB(Report):
         except InvalidDocument as e:
             if str(e).startswith("cannot encode object") or "must not contain" in str(e):
                 self.loop_saver(report)
+                run_report_hooks(report, task=self.task, stage="post_mongodb")
                 return
 
             if self.options.get("chunk_large_docs", True):
@@ -424,3 +431,6 @@ class MongoDB(Report):
                 ) from e
         except Exception as e:
             log.exception("Failed to store report in MongoDB for Task %s: %s", report["info"]["id"], e)
+            return
+
+        run_report_hooks(report, task=self.task, stage="post_mongodb")

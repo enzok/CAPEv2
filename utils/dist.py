@@ -70,6 +70,7 @@ main_server_name = dist_conf.distributed.get("main_server_name", "master")
 CLEANER_MAX_RETRIES = 10
 
 HAVE_GCP = False
+GCS_ENABLED = False
 if gcp_conf.samples_pubsub.enabled:
     from lib.cuckoo.common.gcp import (
         GCP,
@@ -114,13 +115,9 @@ ID2NAME = {}
 SERVER_TAGS = {}
 main_db: _Database = Database()
 
-if getattr(cfg, "multitenancy", {}).get("enabled", False) or getattr(cfg, "object_storage", {}).get("enabled", False):
-    try:
-        from lib.tenancy.hooks import register_core_hooks
+from lib.cuckoo.common.hooks import bootstrap_tenancy, run_report_retrieved_hooks  # noqa: E402
 
-        register_core_hooks()
-    except Exception as e:
-        logging.getLogger(__name__).exception("Failed to initialize lib.tenancy hooks: %s", e)
+bootstrap_tenancy(cfg)
 
 dead_count = 5
 if dist_conf.distributed.dead_count:
@@ -576,10 +573,12 @@ def node_submit_task(task_id, node_id, main_task_id, db=None):
         db = session()
         session_managed = True
 
+    node = None
+    task = None
+    check = False
     try:
         node = db.scalar(select(Node).where(Node.id == node_id))
         task = db.get(Task, task_id)
-        check = False
 
         if node.name == main_server_name:
             if session_managed:
@@ -596,7 +595,7 @@ def node_submit_task(task_id, node_id, main_task_id, db=None):
             from lib.cuckoo.common.hooks import run_report_hooks
 
             acl_probe = {"info": {"id": task.main_task_id}}
-            run_report_hooks(acl_probe)
+            run_report_hooks(acl_probe, stage="acl_probe")
             if len(acl_probe["info"]) > 1:
                 task_attributes["task_acl"] = {
                     k: v
@@ -622,7 +621,7 @@ def node_submit_task(task_id, node_id, main_task_id, db=None):
             platform=task.platform,
             tags=task.tags,
             custom=task.custom,
-            clock=task.clock,
+            clock=task.clock.strftime("%m-%d-%Y %H:%M:%S") if hasattr(task.clock, "strftime") else task.clock,
             memory=task.memory,
             enforce_timeout=task.enforce_timeout,
             route=task.route,
@@ -634,6 +633,19 @@ def node_submit_task(task_id, node_id, main_task_id, db=None):
         # Add timeout to requests
         request_timeout = 300  # 5 minutes for large files
 
+        def _fail_task_submission():
+            task.finished = True
+            task.retrieved = True
+            try:
+                with main_db.session.begin():
+                    main_db.set_status(task.main_task_id, TASK_FAILED_REPORTING)
+                db.commit()
+            except Exception as exc:
+                log.exception(exc)
+                db.rollback()
+            if session_managed:
+                db.close()
+
         if task.category in ("file", "pcap"):
             if task.category == "pcap":
                 data["pcap"] = 1
@@ -642,16 +654,7 @@ def node_submit_task(task_id, node_id, main_task_id, db=None):
             # If the file does not exist anymore, ignore it and move on
             # to the next file.
             if not path_exists(task.path):
-                task.finished = True
-                task.retrieved = True
-                main_db.set_status(task.main_task_id, TASK_FAILED_REPORTING)
-                try:
-                    db.commit()
-                except Exception as e:
-                    log.exception(e)
-                    db.rollback()
-                if session_managed:
-                    db.close()
+                _fail_task_submission()
                 return
             try:
                 # Use context manager for file
@@ -666,34 +669,27 @@ def node_submit_task(task_id, node_id, main_task_id, db=None):
                     )
             except (OSError, requests.RequestException) as e:
                 log.error("Error submitting file task (Main: %d): %s", task.main_task_id, e)
-                task.finished = True
-                task.retrieved = True
-                main_db.set_status(task.main_task_id, TASK_FAILED_REPORTING)
-                try:
-                    db.commit()
-                except Exception as e:
-                    log.exception(e)
-                    db.rollback()
-                if session_managed:
-                    db.close()
+                _fail_task_submission()
                 return
         elif task.category == "url":
             url = urljoin(node.url, "tasks/create/url/")
             try:
                 r = requests.post(
                     url,
-                    data={"url": task.path, "options": task.options, "attributes": attributes_json},
+                    data={**data, "url": task.path},
                     headers={"Authorization": f"Token {apikey}"},
                     verify=False,
                     timeout=request_timeout,
                 )
             except requests.RequestException as e:
                 log.error("Error submitting url task (Main: %d): %s", task.main_task_id, e)
-                if session_managed:
-                    db.close()
+                _fail_task_submission()
                 return
         elif task.category == "static":
             url = urljoin(node.url, "tasks/create/static/")
+            if not path_exists(task.path):
+                _fail_task_submission()
+                return
             try:
                 with open(task.path, "rb") as f:
                     r = requests.post(
@@ -706,8 +702,7 @@ def node_submit_task(task_id, node_id, main_task_id, db=None):
                     )
             except (OSError, requests.RequestException) as e:
                 log.error("Error submitting static task (Main: %d): %s", task.main_task_id, e)
-                if session_managed:
-                    db.close()
+                _fail_task_submission()
                 return
         else:
             log.debug("Target category is: %s", task.category)
@@ -742,7 +737,8 @@ def node_submit_task(task_id, node_id, main_task_id, db=None):
                     r.content,
                 )
                 if b"File too big, enable" in r.content:
-                    main_db.set_status(task.main_task_id, TASK_BANNED)
+                    with main_db.session.begin():
+                        main_db.set_status(task.main_task_id, TASK_BANNED)
             if task.task_id:
                 # log.debug("Submitted task to worker: %s - %d - %d", node.name, task.task_id, task.main_task_id)
                 log.info("[SUBMIT] %-15s <== CAPE ID: %-6d (Worker ID: %d)", node.name, task.main_task_id, task.task_id)
@@ -1163,6 +1159,9 @@ class Retriever(threading.Thread):
                         main_db.set_status(t.main_task_id, TASK_DISTRIBUTED_COMPLETED)
                         # set reported time
                         main_db.set_status(t.main_task_id, TASK_REPORTED)
+                    # The worker stamped the report (already in the shared store) with the ACL dist sent
+                    # it at dispatch. Before the copy and the post-copy steps, any of which can fail.
+                    run_report_retrieved_hooks(t.main_task_id)
 
                     # Fetch each requested report.
                     report_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(t.main_task_id))
@@ -2316,6 +2315,7 @@ def main():
         with main_db.session.begin():
             main_db.set_status(args.force_reported, TASK_DISTRIBUTED_COMPLETED)
             main_db.set_status(args.force_reported, TASK_REPORTED)
+        run_report_retrieved_hooks(args.force_reported)
         sys.exit()
 
     if args.gcs_replay:

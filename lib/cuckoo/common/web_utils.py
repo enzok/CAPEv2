@@ -20,10 +20,10 @@ from django.http import HttpResponse
 
 from dev_utils.mongo_hooks import FILE_REF_KEY, FILES_COLL, NORMALIZED_FILE_FIELDS
 from lib.cuckoo.common.config import Config
-from lib.cuckoo.common.hooks import apply_es_filter
+from lib.cuckoo.common.hooks import apply_es_filter, apply_mongo_filter, apply_route_filter
 from lib.cuckoo.common.integrations.parse_pe import HAVE_PEFILE, IsPEImage, pefile
 from lib.cuckoo.common.objects import File
-from lib.cuckoo.common.path_utils import path_exists, path_mkdir, path_write_file
+from lib.cuckoo.common.path_utils import path_exists, path_get_filename, path_mkdir, path_write_file
 from lib.cuckoo.common.utils import (
     generate_fake_name,
     get_ip_address,
@@ -205,7 +205,6 @@ def load_vms_exits(force: bool = False):
                     print(e)
 
         cached_exits = dict(_all_nodes_exits)
-    from lib.cuckoo.common.hooks import apply_route_filter
 
     allowed_exits = set(apply_route_filter(list(cached_exits.keys()), "exit"))
     return {k: v for k, v in cached_exits.items() if k in allowed_exits}
@@ -633,11 +632,26 @@ def download_from_3rdparty(samples: str, opt_filename: str, details: dict) -> di
     if not path_exists(folder):
         path_mkdir(folder, exist_ok=True)
     for h in get_hash_list(samples):
-        base_dir = tempfile.mkdtemp(prefix="third_party", dir=folder)
+        safe_h = sanitize_filename(path_get_filename(h))
+        if not safe_h or safe_h in (".", ".."):
+            details["errors"].append({h: "Invalid hash"})
+            continue
+
         if opt_filename:
-            filename = f"{base_dir}/{opt_filename}"
+            safe_name = sanitize_filename(path_get_filename(opt_filename))
+            if not safe_name or safe_name in (".", ".."):
+                safe_name = safe_h
         else:
-            filename = f"{base_dir}/{sanitize_filename(h)}"
+            safe_name = safe_h
+
+        base_dir = tempfile.mkdtemp(prefix="third_party", dir=folder)
+        filename = f"{base_dir}/{safe_name}"
+
+        if os.path.dirname(os.path.realpath(filename)) != os.path.realpath(base_dir):
+            with suppress(OSError):
+                os.rmdir(base_dir)
+            details["errors"].append({h: "Invalid filename"})
+            continue
 
         content = False
         details["path"] = filename
@@ -823,11 +837,15 @@ def download_file(**kwargs):
         socks5s_random = ""
         vpn_random = ""
 
-        if routing_conf.socks5.random_socks5 and socks5s:
-            socks5s_random = choice(list(socks5s.keys()))
+        # Only routes the submitter may use (route filter hooks; identity without them).
+        socks5_names = apply_route_filter(list(socks5s.keys()), "socks5") if socks5s else []
+        vpn_names = apply_route_filter(list(vpns.keys()), "vpn") if vpns else []
 
-        if routing_conf.vpn.random_vpn and vpns:
-            vpn_random = choice(list(vpns.keys()))
+        if routing_conf.socks5.random_socks5 and socks5_names:
+            socks5s_random = choice(socks5_names)
+
+        if routing_conf.vpn.random_vpn and vpn_names:
+            vpn_random = choice(vpn_names)
 
         if vpn_random and socks5s_random:
             route = choice((vpn_random, socks5s_random))
@@ -1167,6 +1185,8 @@ def validate_task(tid, status=TASK_REPORTED):
         if m:
             task_id = int(m.group("taskid"))
             task = db.view_task(task_id, details=True)
+            if not task:
+                return {"error": True, "error_value": "Task does not exist"}
 
     if status and status not in ALL_DB_STATUSES:
         return {"error": True, "error_value": "Specified wrong task status"}
@@ -1528,27 +1548,47 @@ def perform_search(
             else:
                 # query_val already carries the $regex wrapper when the value contains wildcards
                 files_match = {file_field_searches[term]: query_val}
+            analysis_scope = apply_mongo_filter("analysis", {})
+            privs_match = None
+            if not privs:
+                if force_bool(web_cfg.general.get("public_searches", True)):
+                    if not force_bool(web_cfg.tlp.get("public_red", False)):
+                        privs_match = {"$or": [{"info.tlp": {"$nin": ["red", "Red", "RED"]}}, {"info.user_id": user_id}]}
+                else:
+                    privs_match = {"info.user_id": user_id}
+
+            limit_after_lookup = bool(analysis_scope or privs_match is not None)
             pipeline = [
-                # Stages 1-5: Find, unwind, group, sort, limit IDs
+                # Stages 1-4: Find, unwind, group, sort IDs
                 {"$match": files_match},
                 {"$unwind": "$_task_ids"},
                 {"$group": {"_id": "$_task_ids"}},
                 {"$sort": {"_id": -1}},
-                {"$limit": search_limit},
-                # Stage 6: Join with the tasks collection
-                {"$lookup": {"from": "analysis", "localField": "_id", "foreignField": "info.id", "as": "task_doc"}},
-                # Stage 7: Unpack the joined doc
-                {"$unwind": "$task_doc"},
-                # Stage 8: Make the task doc the new root
-                {"$replaceRoot": {"newRoot": "$task_doc"}},
             ]
-
-            if not privs:
-                if force_bool(web_cfg.general.get("public_searches", True)):
-                    if not force_bool(web_cfg.tlp.get("public_red", False)):
-                        pipeline.append({"$match": {"$or": [{"info.tlp": {"$nin": ["red", "Red", "RED"]}}, {"info.user_id": user_id}]}})
-                else:
-                    pipeline.append({"$match": {"info.user_id": user_id}})
+            if not limit_after_lookup:
+                pipeline.append({"$limit": search_limit})
+            pipeline.extend(
+                [
+                    # Join with the analysis collection using MongoDB 4.4+ compatible localField/foreignField
+                    {
+                        "$lookup": {
+                            "from": "analysis",
+                            "localField": "_id",
+                            "foreignField": "info.id",
+                            "as": "task_doc",
+                        }
+                    },
+                    {"$unwind": "$task_doc"},
+                    {"$replaceRoot": {"newRoot": "$task_doc"}},
+                ]
+            )
+            if analysis_scope:
+                pipeline.append({"$match": analysis_scope})
+            if privs_match is not None:
+                pipeline.append({"$match": privs_match})
+            if limit_after_lookup:
+                # Limit after scoping/privilege filtering, or a viewer's own older analyses fall outside the window.
+                pipeline.append({"$limit": search_limit})
 
             # Stage 9: Add your custom projection
             pipeline.append({"$project": projection or perform_search_filters})

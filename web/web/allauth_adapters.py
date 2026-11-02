@@ -9,6 +9,8 @@ from allauth.socialaccount.adapter import DefaultSocialAccountAdapter
 from allauth.account.signals import email_confirmed, user_logged_in, user_signed_up
 from django import forms
 from django.conf import settings
+
+from lib.cuckoo.common.hooks import run_login_groups_hooks
 from django.contrib.auth.models import User
 from django.dispatch import receiver
 from django.shortcuts import render
@@ -432,3 +434,15 @@ def _reconcile_sso_user_on_login(sender, request, user, **kwargs):
     extra = getattr(sociallogin.account, "extra_data", None) or {}
     if _apply_idp_roles_and_email(user, extra):
         user.save()
+    # Group membership reconciliation — same absent-claim guard as roles:
+    # only touch tenant membership when the groups claim is actually present.
+    oidc_cfg = getattr(settings, "OIDC_CFG", None) or {}
+    claim = oidc_cfg.get("groups_claim") or "groups"
+    # Normalize first: the openid_connect provider nests claims under
+    # extra["userinfo"], so checking the raw wrapper would treat the groups claim
+    # as absent and skip tenant reconciliation entirely — SSO users would log in
+    # with no tenant/tenant-admin membership. _extract_groups already normalizes.
+    if claim in _claims(extra):
+        # Group/tenant membership is a plugin concern (lib.tenancy maps IdP groups onto
+        # Django groups); a no-op when no plugin is registered.
+        run_login_groups_hooks(user, _extract_groups(extra))

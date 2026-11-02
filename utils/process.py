@@ -143,31 +143,18 @@ def process(
         with db.session.begin():
             RunProcessing(task=task_dict, results=results).run()
         if isinstance(results.get("info"), dict):
-            if (visibility is not None or tenant_id is not None) and task_id:
-                with suppress(Exception):
-                    from cape_tenancy.acl import ensure_acl_schema, set_task_acl
-
-                    ensure_acl_schema(db.engine)
-                    with db.session.begin():
-                        set_task_acl(
-                            db.session,
-                            int(main_task_id or task_id),
-                            user_id=results["info"].get("user_id") or task_dict.get("user_id"),
-                            tenant_id=int(tenant_id) if tenant_id is not None else results["info"].get("tenant_id"),
-                            visibility=visibility if visibility in ("public", "tenant", "private") else (results["info"].get("visibility") or "private"),
-                        )
-            if attributes := task_dict.get("attributes"):
-                if isinstance(task_acl := attributes.get("task_acl"), dict):
-                    for k in ("user_id", "tenant_id", "visibility", "visibility_seq"):
-                        if k in task_acl:
-                            results["info"][k] = task_acl[k]
+            if main_task_id:
+                results["info"].setdefault("local_task_id", task_id)
             from lib.cuckoo.common.hooks import run_report_hooks
 
-            run_report_hooks(results)
-            if visibility in ("public", "tenant", "private"):
-                results["info"]["visibility"] = visibility
-            if tenant_id is not None:
-                results["info"]["tenant_id"] = int(tenant_id)
+            run_report_hooks(
+                results,
+                task=task_dict,
+                db=db,
+                visibility=visibility,
+                tenant_id=tenant_id,
+                stage="process",
+            )
         if memory_debugging:
             gc.collect()
             log.info("(3) GC object counts: %d, %d", len(gc.get_objects()), len(gc.garbage))
@@ -236,6 +223,9 @@ def run_task(task, memory_debugging=False, debug=False):
             sample = db.view_sample(task.sample_id)
             if sample:
                 sample_hash = sample.sha256
+    from lib.cuckoo.common.integrations import file_extra_info
+
+    file_extra_info.enable_shared_extractor_pool()
     try:
         try:
             process(
@@ -254,6 +244,7 @@ def run_task(task, memory_debugging=False, debug=False):
             tb = "".join(traceback.format_exception(type(e), e, e.__traceback__))
             raise RuntimeError(f"{type(e).__module__}.{type(e).__name__}: {e}\n\n{tb}") from None
     finally:
+        file_extra_info.shutdown_shared_extractor_pool()
         set_formatter_fmt()
         setproctitle(original_proctitle)
 
