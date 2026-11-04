@@ -17,6 +17,7 @@ from typing import Dict, List, Optional
 import magic
 import requests
 from django.http import HttpResponse
+from sqlalchemy import select
 
 from dev_utils.mongo_hooks import FILE_REF_KEY, FILES_COLL, NORMALIZED_FILE_FIELDS
 from lib.cuckoo.common.config import Config
@@ -195,14 +196,13 @@ def load_vms_exits(force: bool = False):
             _all_nodes_exits = {}
             if HAVE_DIST and dist_conf.distributed.enabled:
                 try:
-                    db = dist_session()
-                    for node in db.query(Node).all():
-                        if hasattr(node, "exitnodes"):
-                            for exit in node.exitnodes:
-                                _all_nodes_exits.setdefault(exit.name, []).append(node.name)
-                    db.close()
+                    with dist_session() as dist_db, dist_db.begin():
+                        for node in dist_db.scalars(select(Node)).all():
+                            if hasattr(node, "exitnodes"):
+                                for exit in node.exitnodes:
+                                    _all_nodes_exits.setdefault(exit.name, []).append(node.name)
                 except Exception as e:
-                    print(e)
+                    log.error("Failed to load exit nodes from the distributed DB: %s", e)
 
         cached_exits = dict(_all_nodes_exits)
 
@@ -236,17 +236,17 @@ def load_vms_tags(force: bool = False):
             all_tags = []
             if HAVE_DIST and dist_conf.distributed.enabled:
                 try:
-                    db = dist_session()
-                    for vm in db.query(Machine).all():
-                        all_tags += vm.tags
+                    with dist_session() as dist_db, dist_db.begin():
+                        for vm in dist_db.scalars(select(Machine)).all():
+                            all_tags += vm.tags or []
                     all_tags = sorted(filter(None, all_tags))
-                    db.close()
                 except Exception as e:
-                    print(e)
+                    log.error("Failed to load VM tags from the distributed DB: %s", e)
 
-            machines = Database().list_machines(include_reserved=True)
-            for machine in machines:
-                all_tags += [tag.name for tag in machine.tags if tag not in all_tags]
+            main_db = Database()
+            with main_db.transaction():
+                for machine in main_db.list_machines(include_reserved=True):
+                    all_tags += [tag.name for tag in machine.tags if tag not in all_tags]
 
             if all_tags:
                 _all_vms_tags = list(sorted(set(all_tags)))
@@ -500,15 +500,15 @@ def statistics(s_days: int) -> dict:
             details[module_name.split(".")[-1]].setdefault(name, entry)
 
     top_samples = {}
-    added_tasks = (
-        db.session.query(Task).join(Sample, Task.sample_id == Sample.id).filter(Task.added_on.between(date_since, date_till)).all()
-    )
-    tasks = (
-        db.session.query(Task)
-        .join(Sample, Task.sample_id == Sample.id)
-        .filter(Task.completed_on.between(date_since, date_till))
-        .all()
-    )
+    with db.transaction():
+        added_tasks = db.session.scalars(
+            select(Task.added_on).join(Sample, Task.sample_id == Sample.id).where(Task.added_on.between(date_since, date_till))
+        ).all()
+        tasks = db.session.execute(
+            select(Task.completed_on, Task.status, Sample.sha256)
+            .join(Sample, Task.sample_id == Sample.id)
+            .where(Task.completed_on.between(date_since, date_till))
+        ).all()
     details["total"] = len(tasks)
     details["average"] = f"{round(details['total'] / s_days, 2):.2f}"
     details["tasks"] = {}
@@ -521,17 +521,17 @@ def statistics(s_days: int) -> dict:
             details["tasks"][day].setdefault("added", 0)
         if day not in top_samples:
             top_samples.setdefault(day, {})
-        if task.sample.sha256 not in top_samples[day]:
-            top_samples[day].setdefault(task.sample.sha256, 0)
-        top_samples[day][task.sample.sha256] += 1
+        if task.sha256 not in top_samples[day]:
+            top_samples[day].setdefault(task.sha256, 0)
+        top_samples[day][task.sha256] += 1
         # details["tasks"][day]["added"] += 1
         if task.status in ("failed_analysis", "failed_reporting", "failed_processing"):
             details["tasks"][day]["failed"] += 1
         elif task.status == "reported":
             details["tasks"][day]["reported"] += 1
 
-    for added_task in added_tasks or []:
-        day = added_task.added_on.strftime("%Y-%m-%d")
+    for added_on in added_tasks or []:
+        day = added_on.strftime("%Y-%m-%d")
         if day not in details["tasks"]:
             continue
         details["tasks"][day]["added"] += 1
@@ -542,12 +542,10 @@ def statistics(s_days: int) -> dict:
 
     if HAVE_DIST and dist_conf.distributed.enabled:
         details["distributed_tasks"] = {}
-        dist_db = dist_session()
-        dist_tasks = dist_db.query(DTask).filter(DTask.clock.between(date_since, date_till)).all()
-        id2name = {}
-        # load node names
-        for node in dist_db.query(Node).all() or []:
-            id2name.setdefault(node.id, node.name)
+        with dist_session() as dist_db, dist_db.begin():
+            dist_tasks = dist_db.execute(select(DTask.clock, DTask.node_id).where(DTask.clock.between(date_since, date_till))).all()
+            # load node names
+            id2name = dict(dist_db.execute(select(Node.id, Node.name)).all())
 
         for task in dist_tasks or []:
             day = task.clock.strftime("%Y-%m-%d")
@@ -556,7 +554,6 @@ def statistics(s_days: int) -> dict:
             if id2name.get(task.node_id) not in details["distributed_tasks"][day]:
                 details["distributed_tasks"][day].setdefault(id2name[task.node_id], 0)
             details["distributed_tasks"][day][id2name[task.node_id]] += 1
-        dist_db.close()
 
         details["distributed_tasks"] = OrderedDict(sorted(details["distributed_tasks"].items(), key=lambda x: x[0], reverse=True))
 
@@ -1258,10 +1255,24 @@ file_field_searches = {
     "type": "type",
 }
 
+files_searches = {
+    **hash_searches,
+    **file_field_searches,
+    "clamav": "clamav",
+    "yaraname": "yara.name",
+    "capeyara": "cape_yara.name",
+    "imphash": "pe.imphash",
+    "iconhash": "pe.icon_hash",
+    "iconfuzzy": "pe.icon_fuzzy",
+    "dhash": "pe.icon_dhash",
+}
+
 search_term_map = {
     "id": "info.id",
     "ids": "info.id",
+    "options": "info.options",
     "tags_tasks": "info.id",
+    "user_tasks": "info.user_id",
     "package": "info.package",
     "ttp": "ttps.ttp",
     "malscore": "malscore",
@@ -1281,8 +1292,6 @@ search_term_map = {
     "signame": "signatures.name",
     "detections": "detections.family",
     "url": "target.url",
-    "iconhash": "static.pe.icon_hash",
-    "iconfuzzy": "static.pe.icon_fuzzy",
     "surihttp": "suricata.http",
     "suritls": "suricata.tls",
     "surisid": "suricata.alerts.sid",
@@ -1307,17 +1316,16 @@ search_term_map = {
     "tlp": "info.tlp",
     "ja3_hash": "suricata.tls.ja3.hash",
     "ja3_string": "suricata.tls.ja3.string",
-    "dhash": "static.pe.icon_dhash",
     "submitter": "info.options.submitter",
     "dport": ("network.tcp.dport", "network.udp.dport", "network.smtp_ex.dport"),
-    "sport": ("network.tcp.dport", "network.udp.dport", "network.smtp_ex.dport"),
+    "sport": ("network.tcp.sport", "network.udp.sport", "network.smtp_ex.sport"),
     "port": (
         "network.tcp.dport",
         "network.udp.dport",
         "network.smtp_ex.dport",
-        "network.tcp.dport",
-        "network.udp.dport",
-        "network.smtp_ex.dport",
+        "network.tcp.sport",
+        "network.udp.sport",
+        "network.smtp_ex.sport",
     ),
     # ToDo update schema
     # File_extra_info
@@ -1335,7 +1343,7 @@ search_term_map_repetetive_blocks = {
     "clamav": "clamav",
     "yaraname": "yara.name",
     "capeyara": "cape_yara.name",
-    "capetype": "cape_type.name",
+    "capetype": "cape_type",
     "md5": "md5",
     "sha1": "sha1",
     "sha256": "sha256",
@@ -1348,6 +1356,9 @@ search_term_map_repetetive_blocks = {
     # PortableExecutable.run() nests this under the file's "pe" dict (parse_pe.py:991),
     # so a bare "imphash" resolves to a key that has never existed.
     "imphash": "pe.imphash",
+    "iconhash": "pe.icon_hash",
+    "iconfuzzy": "pe.icon_fuzzy",
+    "dhash": "pe.icon_dhash",
 }
 
 # ToDo review extracted_files key still the same
@@ -1475,9 +1486,7 @@ def perform_search(
             ]
         ]
 
-    retval = None
     query_val = False
-    mongo_search_query = None
     search_limit = web_cfg.general.get("search_limit", 50) if web else 0
     if term in normalized_lower_terms:
         query_val = value.lower()
@@ -1490,13 +1499,14 @@ def perform_search(
         try:
             ids = []
             if term == "ids":
-                ids = value
+                if isinstance(value, str):
+                    ids = [int(v.strip()) for v in value.split(",") if v.strip().isdigit()]
+                elif isinstance(value, list):
+                    ids = [int(v) for v in value]
             elif term == "tags_tasks":
                 ids = [int(v.id) for v in db.list_tasks(tags_tasks_like=value, limit=search_limit)]
             elif term == "user_tasks":
-                if not user_id:
-                    ids = 0
-                else:
+                if user_id:
                     # ToDo allow to admin search by user tasks
                     ids = [int(v.id) for v in db.list_tasks(user_id=user_id, limit=search_limit)]
             else:
@@ -1507,17 +1517,17 @@ def perform_search(
                     query_val = {"$in": ids}
                 else:
                     term = "id"
-                    if isinstance(value, list):
-                        value = value[0]
-                    query_val = int(value)
+                    query_val = int(ids[0])
+            else:
+                return []
         except Exception as e:
             print(term, value, e)
+            return []
     elif term == "configs":
         # check if family name is string only maybe?
-        query_val = {f"{search_term_map[term]}.{value}": {"$exist": True}, "$options": "i"}
-    # ToDo proper implementation here
-    # elif term == "extracted_tool":
-    #    query_val = {"$exist": True}
+        query_val = {"$exists": True}
+    elif term == "extracted_tool":
+        query_val = {"$exists": True}
     elif term == "ttp":
         if validate_ttp(value):
             query_val = value.upper()
@@ -1526,7 +1536,8 @@ def perform_search(
     elif term == "malscore":
         query_val = {"$gte": float(value)}
     else:
-        if re.search(r"[\^\$\|\?\*\+\(\)\[\]\{\}]", value):
+        regex_chars = r"[\^\$\|\?\*\(\)\[\]\{\}]" if term == "ssdeep" else r"[\^\$\|\?\*\+\(\)\[\]\{\}]"
+        if re.search(regex_chars, value):
             if len(value) > 256:
                 raise ValueError("Regex too long")
             query_val = {"$regex": value, "$options": "i"}
@@ -1539,15 +1550,23 @@ def perform_search(
     if not search_limit:
         search_limit = web_cfg.general.get("search_limit", 50)
 
+    retval = []
+    mongo_search_query = None
     if repconf.mongodb.enabled and query_val:
-        if term in hash_searches or term in file_field_searches:
-            if term in hash_searches:
-                # The file details are uniq, and we store 1 to many. So where hash type is uniq, IDs are list
+        if not projection:
+            projection = perform_search_filters
+        if "target.file.sha256" in projection:
+            projection = dict(**projection)
+            projection[f"target.file.{FILE_REF_KEY}"] = 1
+
+        if term in files_searches:
+            # The file details are uniq, and we store 1 to many. So where hash type is uniq, IDs are list
+            if term in hash_searches and isinstance(query_val, str):
                 split_by = "," if "," in query_val else " "
-                files_match = {hash_searches[term]: {"$in": [val.strip() for val in query_val.split(split_by)]}}
+                query_filter_list = {"$in": [val.strip() for val in query_val.split(split_by) if val.strip()]}
+                match_query = {files_searches[term]: query_filter_list}
             else:
-                # query_val already carries the $regex wrapper when the value contains wildcards
-                files_match = {file_field_searches[term]: query_val}
+                match_query = {files_searches[term]: query_val}
             analysis_scope = apply_mongo_filter("analysis", {})
             privs_match = None
             if not privs:
@@ -1560,7 +1579,7 @@ def perform_search(
             limit_after_lookup = bool(analysis_scope or privs_match is not None)
             pipeline = [
                 # Stages 1-4: Find, unwind, group, sort IDs
-                {"$match": files_match},
+                {"$match": match_query},
                 {"$unwind": "$_task_ids"},
                 {"$group": {"_id": "$_task_ids"}},
                 {"$sort": {"_id": -1}},
@@ -1591,30 +1610,23 @@ def perform_search(
                 pipeline.append({"$limit": search_limit})
 
             # Stage 9: Add your custom projection
-            pipeline.append({"$project": projection or perform_search_filters})
+            pipeline.append({"$project": projection})
 
             retval = list(mongo_aggregate(FILES_COLL, pipeline))
+            if not retval:
+                return []
         elif term == "configs":
             mongo_search_query = build_configs_query(value, search_limit)
+        elif term == "extracted_tool":
+            mongo_search_query = {"$or": [{f"{search_term}.{value}": query_val} for search_term in search_term_map[term]]}
         elif isinstance(search_term_map[term], str):
             mongo_search_query = {search_term_map[term]: query_val}
-        elif isinstance(search_term_map[term], list):
-            mongo_search_query = {search_term:query_val for search_term in search_term_map[term]}
+        elif isinstance(search_term_map[term], (list, tuple)):
+            mongo_search_query = {"$or": [{search_term: query_val} for search_term in search_term_map[term]]}
         else:
             print(f"Unknown search {term}:{value}")
             return []
 
-        if not retval and not mongo_search_query:
-            return []
-
-        # Allow to overwrite perform_search_filters for custom results
-        if not projection:
-            projection = perform_search_filters
-        if "target.file.sha256" in projection:
-            projection = dict(**projection)
-            projection[f"target.file.{FILE_REF_KEY}"] = 1
-        if term in search_term_map_repetetive_blocks and mongo_search_query:
-            mongo_search_query = {"$or": [{path: condition} for path, condition in mongo_search_query.items()]}
         if not retval and mongo_search_query:
             if not privs:
                 if force_bool(web_cfg.general.get("public_searches", True)):
@@ -1641,7 +1653,18 @@ def perform_search(
 
         user_filter = _build_es_user_filter(privs, user_id)
 
-        if isinstance(search_term_map[term], str):
+        if term == "configs":
+            q = {"query": {"exists": {"field": f"CAPE.configs.{value}"}}}
+            if user_filter:
+                q = {"query": {"bool": {"must": [q["query"]], "filter": [user_filter]}}}
+            return [d["_source"] for d in es.search(index=get_analysis_index(), body=apply_es_filter(q), _source=_source_fields)["hits"]["hits"]]
+        elif term == "extracted_tool":
+            queries = [{"exists": {"field": f"{search_term}.{value}"}} for search_term in search_term_map[term]]
+            q = {"query": {"bool": {"should": queries, "minimum_should_match": 1}}}
+            if user_filter:
+                q["query"]["bool"]["filter"] = [user_filter]
+            return [d["_source"] for d in es.search(index=get_analysis_index(), body=apply_es_filter(q), _source=_source_fields)["hits"]["hits"]]
+        elif isinstance(search_term_map[term], str):
             q = {"query": {"match": {search_term_map[term]: value}}}
             if user_filter:
                 q = {"query": {"bool": {"must": [q["query"]], "filter": [user_filter]}}}
@@ -1656,11 +1679,9 @@ def perform_search(
 
 def force_int(value):
     try:
-        value = int(value)
+        return int(value)
     except Exception:
-        value = 0
-    finally:
-        return value
+        return 0
 
 
 def force_bool(value):
@@ -1671,8 +1692,6 @@ def force_bool(value):
         value: The value to be converted. It can be of any type.
 
     Returns:
-                # Stage 8: Make the task doc the new root (type check to prevent $replaceRoot crashes)
-                {"$match": {"task_doc": {"$type": "object"}}},
         bool: The boolean representation of the input value. Returns True if the value is one of
             ("true", "yes", "on", "1") (case insensitive). Returns False if the value is one of
             ("false", "no", "off", "0") (case insensitive), or if the value is None or empty.

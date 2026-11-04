@@ -46,7 +46,7 @@ from lib.cuckoo.common.path_utils import (
     path_read_file,
     path_write_file,
 )
-from lib.cuckoo.common.utils import get_options, is_text_file
+from lib.cuckoo.common.utils import deduplicate_file_to_storage, get_options, is_text_file
 
 try:
     from sflock import unpack
@@ -413,7 +413,6 @@ def _extracted_files_metadata(
     """
     metadata = []
     filelog = os.path.join(os.path.dirname(destination_folder), "files.json")
-    subdir = os.path.basename(destination_folder.rstrip("\\/"))
     with open(filelog, "a") as f:
         for file in files:
             full_path = os.path.join(folder, file)
@@ -441,17 +440,19 @@ def _extracted_files_metadata(
             file_info["path"] = dest_path
             file_info["guest_paths"] = [file_info["name"]]
             file_info["name"] = os.path.basename(dest_path)
-            if not path_exists(dest_path):
-                shutil.move(full_path, dest_path)
+            dest_existed = path_exists(dest_path)
+            deduplicate_file_to_storage(full_path, file_info["sha256"], dest_path)
+            if not dest_existed:
+                folder_name = os.path.basename(os.path.normpath(destination_folder)) or "selfextracted"
                 print(
                     json.dumps(
                         {
-                            "path": os.path.join(subdir, file_info["sha256"]),
+                            "path": os.path.join(folder_name, file_info["sha256"]),
                             "filepath": file_info["name"],
                             "pids": [],
                             "ppids": [],
                             "metadata": "",
-                            "category": subdir,
+                            "category": folder_name,
                         },
                         ensure_ascii=False,
                     ),
