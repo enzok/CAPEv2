@@ -206,23 +206,11 @@ class CAPE(Processing):
         sorted_opts = json.dumps(opts, sort_keys=True)
         options_hash = hashlib.sha256(sorted_opts.encode()).hexdigest()
 
-        file_cache_opt = str(opts.get("file_cache", "")).strip()
-        if file_cache_opt in {"0", "1"}:
-            file_cache_enabled = file_cache_opt == "1"
-        else:
-            file_cache_enabled = bool(processing_conf.CAPE.file_cache)
-            if file_cache_opt:
-                log.warning(
-                    "Invalid task option file_cache=%s for task %s; expected 0 or 1. Falling back to processing.conf setting.",
-                    file_cache_opt,
-                    self.task.get("id"),
-                )
-
-        if file_cache_enabled or (reporting_conf.mongodb.enabled and category in ("static", "file")):
+        if processing_conf.CAPE.file_cache:
             try:
                 db_file = mongo_find_one("files", {"sha256": sha256})
                 if db_file and (
-                    file_cache_enabled
+                    processing_conf.CAPE.file_cache
                     or self.task.get("id") in db_file.get("_task_ids", [])
                     or bool(db_file.get("static_preview_enriched"))
                 ):

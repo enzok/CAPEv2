@@ -107,6 +107,32 @@ azure = [
     "azure-mgmt-storage",
     "azure-storage-blob",
 ]
+libvirt = ["libvirt-python"]
+
+optional = [
+    "httpreplay @ git+https://github.com/CAPESandbox/httpreplay.git",
+    "bingraph @ git+https://github.com/CAPESandbox/binGraph.git",
+    "batch_deobfuscator @ git+https://github.com/DissectMalware/batch_deobfuscator.git",
+    "pyattck @ git+https://github.com/CAPESandbox/pyattck.git",
+
+    "ImageHash",
+    "pyasyncore",
+    "graphviz>=0.8.4",
+    "pydot>=1.2.4",
+    "pdfminer.six",
+    "urlextract==1.5.0",
+    "pg_activity",
+    "flare-floss",
+    "opencv-python",
+    "goresolver; python_version >= '3.12'",
+    "gographer",
+    "volatility3",
+    "chepy",
+    "certvalidator",
+    "asn1crypto",
+    "mscerts",
+    "magika",
+]
 
 [dependency-groups]
 dist = [
@@ -211,3 +237,6 @@ warn_unused_configs = true
 files = [
     "agent/**/*.py",
 ]
+
+[tool.uv.sources]
+libvirt-python = { path = "/home/cuckoo/libvirt-python-9.10.0" }
