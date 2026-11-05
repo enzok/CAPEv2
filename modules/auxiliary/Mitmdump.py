@@ -57,13 +57,13 @@ def read_pid_from_file(pid_file_path):
             pid = int(pid_str)
             return pid
     except FileNotFoundError:
-        log.error("Error: PID file not found at: %s", pid_file_path)
+        log.warning("PID file not found at: %s", pid_file_path)
         return None
     except ValueError:
-        log.error("Error: Invalid PID format in: %s", pid_file_path)
+        log.warning("Invalid PID format in: %s", pid_file_path)
         return None
     except Exception as e:
-        log.error("An unexpected error occurred: %s", e)
+        log.warning("An unexpected error occurred: %s", e)
         return None
 
 
