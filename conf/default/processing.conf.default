@@ -395,10 +395,6 @@ container_name = binlex-server
 host_storage_prefix = /opt/CAPEv2/storage
 container_storage_prefix = /storage
 
-# Code-similarity engine(s). See conf/integrations.conf [similarity].
-[similarity]
-enabled = no
-
 # Threat-intelligence enrichment. Engine and API settings live in
 # conf/threat_intel.conf.
 [threatintelligence]

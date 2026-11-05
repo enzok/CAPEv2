@@ -31,3 +31,4 @@ docs/book/src/_build
 .gemini/
 .antigravitycli/
 GEMINI.md
+.worktrees/
