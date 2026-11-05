@@ -143,6 +143,9 @@ class MitmdumpThread(Thread):
         """Set stop mitmdump capture."""
         self.do_run = False
 
+        if "mitmdump" not in self.task.options:
+            return
+
         log.info("MitmdumpThread.stop task.options %s", self.task.options)
 
         pidfile_path = os.path.join(self.mitmdump_path, "mitmdump.pid")
