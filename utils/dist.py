@@ -30,8 +30,27 @@ from sqlalchemy import and_, or_, select, func, delete, case, update
 from sqlalchemy.exc import DBAPIError, OperationalError, SQLAlchemyError
 from sqlalchemy.exc import TimeoutError as SQLTimeoutError
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 requests.packages.urllib3.disable_warnings()
+
+http_session = requests.Session()
+http_session.verify = False
+_http_adapter = HTTPAdapter(
+    pool_connections=20,
+    pool_maxsize=20,
+    max_retries=Retry(
+        total=3,
+        connect=3,
+        read=3,
+        backoff_factor=1,
+        allowed_methods=Retry.DEFAULT_ALLOWED_METHODS | {"POST"},
+        raise_on_status=False,
+    ),
+)
+http_session.mount("http://", _http_adapter)
+http_session.mount("https://", _http_adapter)
 
 CUCKOO_ROOT = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..")
 sys.path.append(CUCKOO_ROOT)
@@ -41,7 +60,7 @@ from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.dist_db import ExitNodes, Machine, Node, Task, create_session
 from lib.cuckoo.common.path_utils import path_delete, path_exists, path_get_size, path_mkdir, path_mount_point, path_write_file
 from lib.cuckoo.common.socket_utils import send_socket_command
-from lib.cuckoo.common.utils import get_files_storage_path, get_options
+from lib.cuckoo.common.utils import get_cape_external_dir, get_files_storage_path, get_options
 from lib.cuckoo.core.data.task import (
     TASK_BANNED,
     TASK_DISTRIBUTED,
@@ -214,6 +233,15 @@ if not path_exists(binaries_folder):
     path_mkdir(binaries_folder, mode=0o755)
 
 
+def _save_dist_error_html(content: bytes) -> Optional[str]:
+    """Best-effort dump of HTTP error responses into <tmppath>/cape-external."""
+    with contextlib.suppress(OSError):
+        target = os.path.join(get_cape_external_dir(), "dist_error.html")
+        path_write_file(target, content)
+        return target
+    return None
+
+
 def node_status(url: str, name: str, apikey: str) -> dict:
     """
     Retrieve the status of a CAPE node.
@@ -231,7 +259,7 @@ def node_status(url: str, name: str, apikey: str) -> dict:
             an empty dictionary is returned.
     """
     try:
-        r = requests.get(
+        r = http_session.get(
             os.path.join(url, "cuckoo", "status/"), headers={"Authorization": f"Token {apikey}"}, verify=False, timeout=5
         )
         return r.json().get("data", {})
@@ -259,10 +287,13 @@ def node_fetch_tasks(status, url, apikey, action="fetch", since=0):
         params = dict(status=status, ids=True)
         if action == "fetch":
             params["completed_after"] = since
-        r = requests.get(url, params=params, headers={"Authorization": f"Token {apikey}"}, verify=False, timeout=30)
+        r = http_session.get(url, params=params, headers={"Authorization": f"Token {apikey}"}, verify=False, timeout=30)
         if not r.ok:
-            log.error("Error fetching task list. Status code: %d - %s. Saving error to /tmp/dist_error.html", r.status_code, r.url)
-            _ = path_write_file("/tmp/dist_error.html", r.content)
+            err_path = _save_dist_error_html(r.content)
+            if err_path:
+                log.error("Error fetching task list. Status code: %d - %s. Saving error to %s", r.status_code, r.url, err_path)
+            else:
+                log.error("Error fetching task list. Status code: %d - %s", r.status_code, r.url)
             return None
         return r.json().get("data", [])
     except Exception as e:
@@ -286,7 +317,7 @@ def node_list_machines(url, apikey):
         HTTPException: If the request to the CAPE node fails or returns an error.
     """
     try:
-        r = requests.get(urljoin(url, "machines/list/"), headers={"Authorization": f"Token {apikey}"}, verify=False)
+        r = http_session.get(urljoin(url, "machines/list/"), headers={"Authorization": f"Token {apikey}"}, verify=False)
         for machine in r.json()["data"]:
             yield Machine(name=machine["name"], platform=machine["platform"], tags=machine["tags"])
     except Exception as e:
@@ -308,7 +339,7 @@ def node_list_exitnodes(url, apikey):
         HTTPException: If the request fails or the response is invalid.
     """
     try:
-        r = requests.get(urljoin(url, "exitnodes/"), headers={"Authorization": f"Token {apikey}"}, verify=False)
+        r = http_session.get(urljoin(url, "exitnodes/"), headers={"Authorization": f"Token {apikey}"}, verify=False)
         for exitnode in r.json()["data"]:
             yield exitnode
     except Exception as e:
@@ -334,7 +365,7 @@ def node_get_report(task_id, fmt, url, apikey, stream=False):
     """
     try:
         url = os.path.join(url, "tasks", "get", "report", "%d/" % task_id, fmt)
-        return requests.get(url, stream=stream, headers={"Authorization": f"Token {apikey}"}, verify=False, timeout=800)
+        return http_session.get(url, stream=stream, headers={"Authorization": f"Token {apikey}"}, verify=False, timeout=800)
     except Exception as e:
         log.critical("Error fetching report (task #%d, node %s): %s", task_id, url, e)
 
@@ -553,7 +584,7 @@ def _delete_many(node, ids, nodes):
             log.info("[REMOVE] %-15s ==> CAPE ID: %s (Worker ID: %s)", nodes[node].name, ",".join(map(str, cape_ids)), ids)
         else:
             log.info("[REMOVE] %-15s ==> Worker ID: %s", nodes[node].name, ids)
-        res = requests.post(
+        res = http_session.post(
             url,
             headers={"Authorization": f"Token {apikey}"},
             data={"ids": ids, "delete_mongo": False},
@@ -686,6 +717,7 @@ def node_submit_task(task_id, node_id, main_task_id, db=None):
     r = None
     # Add timeout to requests
     request_timeout = 300  # 5 minutes for large files
+    headers = {"Authorization": f"Token {apikey}"}
 
     if task.category in ("file", "pcap"):
         if task.category == "pcap":
@@ -700,11 +732,11 @@ def node_submit_task(task_id, node_id, main_task_id, db=None):
         try:
             # Use context manager for file
             with open(task.path, "rb") as f:
-                r = requests.post(
+                r = http_session.post(
                     url,
                     data=data,
                     files={"file": f},
-                    headers={"Authorization": f"Token {apikey}"},
+                    headers=headers,
                     verify=False,
                     timeout=request_timeout,
                 )
@@ -715,10 +747,10 @@ def node_submit_task(task_id, node_id, main_task_id, db=None):
     elif task.category == "url":
         url = urljoin(node.url, "tasks/create/url/")
         try:
-            r = requests.post(
+            r = http_session.post(
                 url,
                 data={**data, "url": task.path},
-                headers={"Authorization": f"Token {apikey}"},
+                headers=headers,
                 verify=False,
                 timeout=request_timeout,
             )
@@ -733,11 +765,11 @@ def node_submit_task(task_id, node_id, main_task_id, db=None):
             return
         try:
             with open(task.path, "rb") as f:
-                r = requests.post(
+                r = http_session.post(
                     url,
                     data=data,
                     files={"file": f},
-                    headers={"Authorization": f"Token {apikey}"},
+                    headers=headers,
                     verify=False,
                     timeout=request_timeout,
                 )
@@ -753,8 +785,13 @@ def node_submit_task(task_id, node_id, main_task_id, db=None):
         # encoding problem
         if r is not None and r.status_code == 500 and task.category == "file":
             with open(task.path, "rb") as f:
-                r = requests.post(
-                    url, data=data, files={"file": ("file", f.read())}, verify=False, timeout=request_timeout
+                r = http_session.post(
+                    url,
+                    data=data,
+                    files={"file": ("file", f.read())},
+                    headers=headers,
+                    verify=False,
+                    timeout=request_timeout,
                 )
     except (OSError, requests.RequestException) as e:
         log.error("Error re-submitting file task (Main: %d): %s", task.main_task_id, e)
@@ -784,8 +821,9 @@ def node_submit_task(task_id, node_id, main_task_id, db=None):
             check = True
             log.info("[SUBMIT] %-15s <== CAPE ID: %-6d (Worker ID: %d)", node.name, task.main_task_id, worker_task_id)
     elif r is not None and r.status_code == 500:
-        log.info("Saving error to /tmp/dist_error.html")
-        _ = path_write_file("/tmp/dist_error.html", r.content)
+        err_path = _save_dist_error_html(r.content)
+        if err_path:
+            log.info("Saving error to %s", err_path)
         log.info((r.status_code, r.text[:200]))
 
     elif r is not None and r.status_code == 429:
@@ -862,6 +900,7 @@ class Retriever(threading.Thread):
         self.current_queue = {}
         self.current_two_queue = {}
         self.stop_dist = threading.Event()
+        self.low_disk_space = threading.Event()
 
         # Define the set of threads that should be running
         thread_targets = []
@@ -917,29 +956,79 @@ class Retriever(threading.Thread):
 
         log.info("Retriever supervisor stopping.")
 
+    @staticmethod
+    def _resolve_st_dev(path: str) -> Optional[int]:
+        cur = path
+        while cur:
+            try:
+                return os.stat(cur).st_dev
+            except FileNotFoundError:
+                parent = os.path.dirname(cur)
+                if parent == cur:
+                    return None
+                cur = parent
+            except OSError:
+                return None
+        return None
+
+    def _on_space_state_change(self, need_space: bool, space_available: int) -> None:
+        event = getattr(self, "low_disk_space", None)
+        if need_space:
+            if event is not None:
+                event.set()
+            log.warning("Pausing distributed report retrieval due to low disk space (%d MB free)", space_available)
+        else:
+            if event is not None:
+                event.clear()
+            log.info("Resuming distributed report retrieval; disk space recovered (%d MB free)", space_available)
+
     def free_space_mon(self):
         """
-        Monitors the free disk space in the analysis folder and logs an error
-        message if the available space is below the configured threshold. This
-        check is performed periodically every 10 minutes. The check is ignored
-        if the 'freespace' configuration variable is set to zero.
+        Monitors free disk space in the analysis folder (and external temp dir
+        if located on a separate filesystem) and pauses report retrieval while
+        available space is below the configured threshold.
 
-        The analysis folder path is resolved to its full base path to handle
-        cases where it might be a symbolic link.
+        This check runs every 10 minutes and is skipped when 'freespace' is
+        unset/zero.
 
         Returns:
             None
         """
-        # If not enough free disk space is available, then we print an
-        # error message and wait another round (this check is ignored
-        # when the freespace configuration variable is set to zero).
-        if cfg.cuckoo.freespace:
-            # Resolve the full base path to the analysis folder, just in
-            # case somebody decides to make a symbolic link out of it.
-            dir_path = os.path.join(CUCKOO_ROOT, "storage", "analyses")
-            while True:
-                free_space_monitor(dir_path, analysis=True)
-                time.sleep(600)
+        # If not enough free disk space is available, pause report retrieval and
+        # let cleaners reclaim space (skipped when freespace is zero/disabled).
+        if not cfg.cuckoo.freespace:
+            return
+
+        dir_path = os.path.realpath(os.path.join(CUCKOO_ROOT, "storage", "analyses"))
+        while not (getattr(self, "stop_dist", None) and self.stop_dist.is_set()):
+            try:
+                paths_to_check = [dir_path]
+                try:
+                    ext_tmp_dir = os.path.realpath(get_cape_external_dir())
+                except OSError as e:
+                    log.debug("Unable to resolve external temp dir for space monitoring: %s", e)
+                    ext_tmp_dir = None
+
+                if ext_tmp_dir and ext_tmp_dir != dir_path:
+                    dir_dev = self._resolve_st_dev(dir_path)
+                    ext_dev = self._resolve_st_dev(ext_tmp_dir)
+                    if dir_dev is None or ext_dev is None or ext_dev != dir_dev:
+                        paths_to_check.append(ext_tmp_dir)
+
+                for mon_path in paths_to_check:
+                    if getattr(self, "stop_dist", None) and self.stop_dist.is_set():
+                        break
+                    free_space_monitor(
+                        mon_path,
+                        analysis=True,
+                        on_state_change=self._on_space_state_change,
+                        should_stop=(lambda: bool(getattr(self, "stop_dist", None) and self.stop_dist.is_set())),
+                    )
+            except Exception as e:
+                handle_loop_error("free_space_mon", e)
+            if getattr(self, "stop_dist", None) and self.stop_dist.is_set():
+                break
+            time.sleep(600)
 
     def notification_loop(self):
         """
@@ -975,7 +1064,7 @@ class Retriever(threading.Thread):
             notified = False
             for url in urls:
                 try:
-                    res = requests.post(url, headers=headers, data=json.dumps({"task_id": int(main_task_id)}), timeout=30)
+                    res = http_session.post(url, headers=headers, data=json.dumps({"task_id": int(main_task_id)}), timeout=30)
                     if res is not None and res.ok:
                         notified = True
                     else:
@@ -1069,6 +1158,9 @@ class Retriever(threading.Thread):
         while True:
             if getattr(self, "stop_dist", None) and self.stop_dist.is_set():
                 time.sleep(60)
+                continue
+            if getattr(self, "low_disk_space", None) and self.low_disk_space.is_set():
+                time.sleep(5)
                 continue
             try:
                 self._fetcher_pass(last_checks)
@@ -1191,8 +1283,11 @@ class Retriever(threading.Thread):
         """
         while True:
             # to not exit till cleaner works
-            if self.stop_dist.is_set():
+            if getattr(self, "stop_dist", None) and self.stop_dist.is_set():
                 time.sleep(60)
+                continue
+            if getattr(self, "low_disk_space", None) and self.low_disk_space.is_set():
+                time.sleep(5)
                 continue
             task, node_id = self.fetcher_queue.get()
 

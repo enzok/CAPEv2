@@ -8,7 +8,6 @@ import logging
 import os
 import random
 import sys
-import tempfile
 import textwrap
 from base64 import urlsafe_b64encode
 from contextlib import suppress
@@ -23,7 +22,7 @@ from uuid import NAMESPACE_DNS, uuid3
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.integrations.wildclient import WildFireClient
 from lib.cuckoo.common.integrations.zscalerclient import ZscalerClient
-from lib.cuckoo.common.path_utils import path_delete, path_exists, path_mkdir
+from lib.cuckoo.common.path_utils import path_delete, path_exists
 from lib.cuckoo.common.saztopcap import saz_to_pcap
 from lib.cuckoo.common.utils import get_options, get_user_filename, sanitize_filename, store_temp_file
 from lib.cuckoo.common.web_utils import (
@@ -37,6 +36,7 @@ from lib.cuckoo.common.web_utils import (
     perform_search,
     process_new_dlnexec_task,
     process_new_task_files,
+    stop_analysis_task,
 )
 from lib.cuckoo.core.database import Database
 from lib.cuckoo.core.rooter import _load_socks5_operational, vpns
@@ -291,12 +291,13 @@ def _build_batch_tasks_info(request, task_ids):
         if not task:
             continue
 
-        status = str(task.get("status", "pending"))
+        raw_status = str(task.get("status", "pending"))
+        status = "processing" if raw_status == "completed" else raw_status
         target = task.get("target") or ""
         sample = task.get("sample") or {}
         sha256 = sample.get("sha256", "") if isinstance(sample, dict) else getattr(sample, "sha256", "")
-        is_reported = status in {"reported", "distributed_completed"}
-        is_terminal = status in _BATCH_TERMINAL_STATUSES
+        is_reported = raw_status in {"reported", "distributed_completed"}
+        is_terminal = raw_status in _BATCH_TERMINAL_STATUSES
         if not is_terminal:
             all_terminal = False
 
@@ -624,12 +625,8 @@ def index(request, task_id=None, resubmit_hash=None):
                 if not content:
                     details["errors"].append({hash: f"Can't find {hash} on disk"})
                     continue
-                folder = os.path.join(settings.TEMP_PATH, "cape-resubmit")
-                if not path_exists(folder):
-                    path_mkdir(folder)
-                base_dir = tempfile.mkdtemp(prefix="resubmit_", dir=folder)
                 if opt_filename:
-                    filename = base_dir + "/" + opt_filename
+                    filename = opt_filename
                 else:
                     # Try to recover the original filename from the task
                     original_filename = ""
@@ -637,7 +634,7 @@ def index(request, task_id=None, resubmit_hash=None):
                         task = db.view_task(task_id)
                         if task and task.target:
                             original_filename = sanitize_filename(os.path.basename(task.target))
-                    filename = base_dir + "/" + (original_filename or sanitize_filename(hash))
+                    filename = original_filename or sanitize_filename(hash)
                 path = store_temp_file(content, filename)
                 list_of_tasks.append((content, path, hash))
 
@@ -729,7 +726,10 @@ def index(request, task_id=None, resubmit_hash=None):
                     saz = saz_to_pcap(path)
                     if saz:
                         with suppress(Exception):
+                            parent_dir = os.path.dirname(path)
                             path_delete(path)
+                            with suppress(OSError):
+                                os.rmdir(parent_dir)
                         path = saz
                     else:
                         details["errors"].append({os.path.basename(path): "Conversion from SAZ to PCAP failed."})
@@ -1060,18 +1060,50 @@ def _get_queue_position(request, task) -> int | None:
     return None
 
 
+def _get_static_preview_settings():
+    cfg_section = getattr(web_conf, "static_preview", None)
+    if cfg_section is not None and hasattr(cfg_section, "get"):
+        enabled = bool(cfg_section.get("enabled", False))
+        on_demand = bool(cfg_section.get("on_demand", True))
+        allow_stop = bool(cfg_section.get("allow_stop", True))
+    else:
+        enabled = False
+        on_demand = True
+        allow_stop = True
+    return enabled, on_demand, allow_stop
+
+
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def status(request, task_id):
+    from django.http import HttpResponseForbidden
+
     from submission.static_preview import get_static_preview
 
     task = db.view_task(task_id)
     if not task:
         return render(request, "error.html", {"error": "The specified task doesn't seem to exist."})
 
+    static_preview_enabled, static_preview_on_demand, allow_stop_analysis = _get_static_preview_settings()
+    stop_requested = False
+
+    if request.method == "POST":
+        action = request.POST.get("action", "stop")
+        if action == "stop":
+            if not allow_stop_analysis:
+                return HttpResponseForbidden("Stopping analysis is disabled.")
+            stop_res = stop_analysis_task(task_id, mode="stop")
+            if not stop_res.get("error"):
+                stop_requested = True
+            task = db.view_task(task_id) or task
+
     if request.GET.get("static") == "1":
+        if not (static_preview_enabled or static_preview_on_demand):
+            return HttpResponseForbidden("Static preview is disabled.")
         preview = get_static_preview(task, run_full=True) or {}
         sha256 = preview.get("file", {}).get("sha256", "")
         preview["task_id"] = task_id
+        preview["task_status"] = task.status
+        preview["allow_stop_analysis"] = allow_stop_analysis and task.status in ("pending", "running", "distributed")
         preview["existent_tasks"] = _lookup_existent_tasks(request, sha256, task_id)
         return render(request, "submission/_static_preview.html", preview)
 
@@ -1086,7 +1118,16 @@ def status(request, task_id):
     if status == "completed":
         status = "processing"
 
+    if status == "running" and not stop_requested:
+        with suppress(Exception):
+            if db.guest_get_status(task_id) == "stopping":
+                stop_requested = True
+
     interactive = bool(web_conf.guacamole.enabled and get_options(task.options).get("interactive") == "1")
+    can_stop = bool(allow_stop_analysis and status in ("pending", "running", "distributed") and not stop_requested)
+    has_static_target = getattr(task, "category", "") != "url" and (
+        getattr(task, "category", "") in ("file", "static", "archive") or bool(getattr(task, "sample", None))
+    )
 
     response = {
         "title": "Task Status",
@@ -1098,8 +1139,13 @@ def status(request, task_id):
         "queue_position": _get_queue_position(request, task) if not completed else None,
         "elapsed_time": _format_elapsed_duration(task) if not completed else "",
         "target": task.sample.sha256 if getattr(task, "sample") else task.target,
+        "static_preview_enabled": static_preview_enabled and has_static_target,
+        "static_preview_on_demand": static_preview_on_demand and has_static_target,
+        "allow_stop_analysis": can_stop,
+        "stop_requested": stop_requested,
+        "task_status": task.status,
     }
-    if interactive and task.status == "running":
+    if interactive and task.status == "running" and not stop_requested:
         machine = db.view_machine_by_label(task.machine) if task.machine else None
         if machine:
             guest_ip = machine.ip
@@ -1107,8 +1153,8 @@ def status(request, task_id):
             session_data = urlsafe_b64encode(f"{session_id}|{task.machine}|{guest_ip}".encode("utf8")).decode("utf8")
             response["session_data"] = session_data
 
-    # Populate instant Tier-1 static file info on initial page load (skipped during 5s HTMX #status-card polls).
-    if not request.headers.get("HX-Request"):
+    # Populate instant Tier-1 static file info on initial page load when enabled (skipped during 5s HTMX #status-card polls).
+    if not request.headers.get("HX-Request") and static_preview_enabled:
         preview = get_static_preview(task, run_full=False)
         if preview:
             response.update(preview)

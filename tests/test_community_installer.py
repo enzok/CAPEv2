@@ -125,7 +125,7 @@ def test_core_tracked_files_survives_missing_git(monkeypatch):
     assert community.core_tracked_files() is None
 
 
-def _make_tarball(tmp_path, relpath, payload=b"community version\n"):
+def _make_tarball(tmp_path, relpath, payload=b"community version\n", mode=None):
     import io
     import tarfile
 
@@ -133,9 +133,14 @@ def _make_tarball(tmp_path, relpath, payload=b"community version\n"):
     src.mkdir(parents=True, exist_ok=True)
     (tmp_path / "src" / "community-master" / relpath).write_bytes(payload)
 
+    def _set_mode(tarinfo):
+        if mode is not None and tarinfo.name == f"community-master/{relpath}":
+            tarinfo.mode = mode
+        return tarinfo
+
     archive = tmp_path / "community.tar.gz"
     with tarfile.open(archive, "w:gz") as tar:
-        tar.add(tmp_path / "src" / "community-master", arcname="community-master")
+        tar.add(tmp_path / "src" / "community-master", arcname="community-master", filter=_set_mode)
     assert io  # keep the import meaningful for linters
     return str(archive)
 
@@ -203,4 +208,101 @@ def test_shadow_core_implies_rewrite_for_core_paths(monkeypatch, tmp_path):
     )
 
     assert target.read_bytes() == b"community version\n"
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX mode bits")
+def test_install_preserves_executable_mode_on_fresh_and_rewrite(monkeypatch, tmp_path):
+    relpath = "data/7zz"
+    archive = _make_tarball(tmp_path, relpath, payload=b"\x7fELF...", mode=0o755)
+
+    root = tmp_path / "root"
+    (root / "data").mkdir(parents=True)
+    target = root / relpath
+
+    monkeypatch.setattr(community, "CUCKOO_ROOT", str(root))
+    monkeypatch.setattr(community, "core_tracked_files", lambda: frozenset())
+    monkeypatch.setattr(community, "blocklist", {})
+
+    # Fresh install sets 0755.
+    community.install(["data"], force=True, rewrite=False, filepath=archive)
+    assert target.read_bytes() == b"\x7fELF..."
+    assert (target.stat().st_mode & 0o777) == 0o755
+
+    # Existing 0644 file gets upgraded to 0755 on --rewrite.
+    target.chmod(0o644)
+    community.install(["data"], force=True, rewrite=True, filepath=archive)
+    assert (target.stat().st_mode & 0o777) == 0o755
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX mode bits")
+def test_install_clears_stale_exec_bits_when_archive_member_is_not_executable(monkeypatch, tmp_path):
+    relpath = "modules/signatures/foo.py"
+    archive = _make_tarball(tmp_path, relpath, payload=b"# signature\n", mode=0o644)
+
+    root = tmp_path / "root"
+    (root / "modules" / "signatures").mkdir(parents=True)
+    target = root / relpath
+    target.write_bytes(b"old\n")
+    target.chmod(0o755)
+
+    monkeypatch.setattr(community, "CUCKOO_ROOT", str(root))
+    monkeypatch.setattr(community, "core_tracked_files", lambda: frozenset())
+    monkeypatch.setattr(community, "blocklist", {})
+
+    community.install(["signatures"], force=True, rewrite=True, filepath=archive)
+    assert target.read_bytes() == b"# signature\n"
+    assert (target.stat().st_mode & 0o111) == 0
+
+
+def test_install_skips_non_regular_tar_member_without_truncating_existing_file(monkeypatch, tmp_path):
+    import io
+    import tarfile
+
+    archive = tmp_path / "symlink.tar.gz"
+    with tarfile.open(archive, "w:gz") as tar:
+        root_dir = tarfile.TarInfo("community-master/data")
+        root_dir.type = tarfile.DIRTYPE
+        tar.addfile(root_dir)
+        link = tarfile.TarInfo("community-master/data/7zz")
+        link.type = tarfile.SYMTYPE
+        link.linkname = "/bin/sh"
+        tar.addfile(link, io.BytesIO(b""))
+
+    root = tmp_path / "root"
+    (root / "data").mkdir(parents=True)
+    target = root / "data" / "7zz"
+    target.write_bytes(b"existing binary")
+
+    monkeypatch.setattr(community, "CUCKOO_ROOT", str(root))
+    monkeypatch.setattr(community, "core_tracked_files", lambda: frozenset())
+    monkeypatch.setattr(community, "blocklist", {})
+
+    community.install(["data"], force=True, rewrite=True, filepath=str(archive))
+    assert target.read_bytes() == b"existing binary"
+
+
+def test_install_retries_transient_non_gzip_download(monkeypatch, tmp_path):
+    relpath = "data/mitre/TTPs.json"
+    archive = _make_tarball(tmp_path, relpath, payload=b"{}")
+    valid_bytes = open(archive, "rb").read()
+
+    responses = [
+        type("_Resp", (), {"status": 502, "data": b"<html>502 Bad Gateway</html>"})(),
+        type("_Resp", (), {"status": 200, "data": valid_bytes})(),
+    ]
+
+    class _FakeHTTP:
+        def request(self, method, url, headers=None):
+            return responses.pop(0)
+
+    root = tmp_path / "root"
+    monkeypatch.setattr(community, "CUCKOO_ROOT", str(root))
+    monkeypatch.setattr(community, "core_tracked_files", lambda: frozenset())
+    monkeypatch.setattr(community, "blocklist", {})
+    monkeypatch.setattr(community, "_http_client", lambda proxy=None: _FakeHTTP())
+    monkeypatch.setattr(community.time, "sleep", lambda _: None)
+
+    community.install(["mitre"], force=True, rewrite=True, url="https://github.com/kevoreilly/community/archive/master.tar.gz")
+    assert (root / "data" / "mitre" / "TTPs.json").read_bytes() == b"{}"
+    assert responses == []
 

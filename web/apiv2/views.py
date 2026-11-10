@@ -36,7 +36,7 @@ sys.path.append(settings.CUCKOO_PATH)
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import ANALYSIS_BASE_PATH, CUCKOO_ROOT, CUCKOO_VERSION
-from lib.cuckoo.common.hooks import apply_route_filter
+from lib.cuckoo.common.hooks import apply_route_filter, apply_sql_task_filter
 from lib.cuckoo.common.exceptions import CuckooDemuxError
 from lib.cuckoo.common.path_utils import path_delete, path_exists
 from lib.cuckoo.common.saztopcap import saz_to_pcap
@@ -44,6 +44,7 @@ from lib.cuckoo.common.utils import (
     convert_to_printable,
     create_zip,
     delete_folder,
+    get_cape_external_dir,
     get_options,
     get_user_filename,
     path_get_filename,
@@ -61,6 +62,7 @@ from lib.cuckoo.common.web_utils import (
     process_new_task_files,
     search_term_map,
     statistics,
+    stop_analysis_task,
     validate_task,
 )
 
@@ -116,9 +118,9 @@ if repconf.compression.enabled:
     zlib_compresion = True
 
 USE_SEVENZIP = False
+SEVENZIP_PATH = reporting_conf.compression.sevenzippath.strip() or "/usr/bin/7z"
 if reporting_conf.compression.compressiontool.strip() == "7zip":
     USE_SEVENZIP = True
-    SEVENZIP_PATH = reporting_conf.compression.sevenzippath.strip() or "/usr/bin/7z"
 
 
 if repconf.mongodb.enabled:
@@ -436,7 +438,10 @@ def tasks_create_file(request):
                     saz = saz_to_pcap(tmp_path)
                     if saz:
                         try:
+                            parent_dir = os.path.dirname(tmp_path)
                             path_delete(tmp_path)
+                            with suppress(OSError):
+                                os.rmdir(parent_dir)
                         except Exception as e:
                             print(e, "removing pcap")
                         tmp_path = saz
@@ -1241,24 +1246,31 @@ def tasks_status(request, task_id):
     if request.method == "GET":
         status = task.to_dict()["status"]
         resp = {"error": False, "data": status}
-    elif request.method == "POST" and apiconf.user_stop.enabled and request.data.get("status", "") == "finish":
-        guest = getattr(task, "guest", None)
-        if task.status != TASK_RUNNING or guest is None or not getattr(guest, "name", None):
-            resp = {"error": True, "error_value": "Task is not running"}
-            return Response(resp)
-        machine = db.view_machine(guest.name)
-        if machine and machine.status == "running":
-            try:
-                guest_env = requests.get(f"http://{machine.ip}:8000/environ").json()
-                complete_folder = hashlib.md5(f"cape-{task_id}".encode()).hexdigest()
-                if machine.platform == "windows":
-                    dest_folder = f"{guest_env['environ']['TMP']}\\{complete_folder}"
-                elif machine.platform == "linux":
-                    dest_folder = f"{guest_env['environ'].get('TMP', '/tmp')}/{complete_folder}"
-                r = requests.post(f"http://{machine.ip}:8000/mkdir", data={"dirpath": dest_folder})
-                resp = {"error": r.status_code == 200, "data": r.text}
-            except requests.exceptions.ConnectionError as e:
-                log.error(e)
+    elif request.method == "POST":
+        requested_status = request.data.get("status", "")
+        static_preview_cfg = getattr(web_conf, "static_preview", None)
+        web_allow_stop = bool(static_preview_cfg.get("allow_stop", True)) if (static_preview_cfg and hasattr(static_preview_cfg, "get")) else True
+        if requested_status == "stop" and (apiconf.user_stop.enabled or web_allow_stop):
+            resp = stop_analysis_task(task_id, mode="stop")
+        elif requested_status == "finish" and apiconf.user_stop.enabled:
+            guest = getattr(task, "guest", None)
+            if task.status != TASK_RUNNING or guest is None or not getattr(guest, "name", None):
+                resp = {"error": True, "error_value": "Task is not running"}
+                return Response(resp)
+            machine = db.view_machine(guest.name)
+            if machine and machine.status == "running":
+                try:
+                    guest_env = requests.get(f"http://{machine.ip}:8000/environ").json()
+                    complete_folder = hashlib.md5(f"cape-{task_id}".encode()).hexdigest()
+                    if machine.platform == "windows":
+                        dest_folder = f"{guest_env['environ']['TMP']}\\{complete_folder}"
+                    elif machine.platform == "linux":
+                        dest_folder = f"{guest_env['environ'].get('TMP', '/tmp')}/{complete_folder}"
+                    r = requests.post(f"http://{machine.ip}:8000/mkdir", data={"dirpath": dest_folder})
+                    resp = {"error": r.status_code != 200, "data": r.text}
+                except requests.exceptions.ConnectionError as e:
+                    log.error(e)
+                    resp = {"error": True, "error_value": str(e)}
     return Response(resp)
 
 
@@ -2262,31 +2274,26 @@ def _pcapng_response(task_id):
         return Response({"error": True, "error_value": "dump.pcap does not exist"})
     tls_log_path = os.path.join(adir, "tlsdump", "tlsdump.log")
     ssl_key_log_path = os.path.join(adir, "aux", "sslkeylogfile", "sslkeys.log")
-    tmp = tempfile.NamedTemporaryFile(prefix=f"{task_id}_pcapng_", suffix=".pcapng", delete=False)
+    tmp = tempfile.NamedTemporaryFile(
+        prefix=f"{task_id}_pcapng_", suffix=".pcapng", dir=get_cape_external_dir(), delete=False
+    )
     tmp.close()
     try:
         PcapToNg(pcap_path, tls_log_path, ssl_key_log_path).generate(tmp.name)
         if not path_exists(tmp.name) or os.path.getsize(tmp.name) == 0:
             return Response({"error": True, "error_value": "PCAPNG generation failed"})
         size = os.path.getsize(tmp.name)
-        # Hand the open fd to the streaming response; unlinking the path now
+        # Hand the open fd to the streaming response; unlinking the path in finally
         # keeps the fd alive through streaming and lets the kernel reclaim
         # the inode as soon as the response finishes.
         fd = open(tmp.name, "rb")
-        try:
-            os.unlink(tmp.name)
-        except OSError:
-            pass
         resp = StreamingHttpResponse(FileWrapper(fd, 8192), content_type="application/x-pcapng")
         resp["Content-Length"] = size
         resp["Content-Disposition"] = f"attachment; filename={task_id}_dump.pcapng"
         return resp
-    except Exception:
-        try:
+    finally:
+        with suppress(OSError):
             os.unlink(tmp.name)
-        except OSError:
-            pass
-        raise
 
 
 def _pcapzip_response(task_id):
@@ -2810,17 +2817,29 @@ def file(request, stype, value):
     for sample in paths:
         if request.GET.get("encrypted"):
             # Check if file exists in temp folder
-            zip_path = f"/tmp/{file_hash}.zip"
+            ext_dir = get_cape_external_dir()
+            zip_path = os.path.join(ext_dir, f"{file_hash}.zip")
             file_exists = os.path.isfile(zip_path)
             if file_exists:
                 resp = StreamingHttpResponse(FileWrapper(open(zip_path, "rb"), 8096), content_type="application/zip")
                 resp["Content-Disposition"] = f"attachment; filename={file_hash}.zip"
                 return resp
 
+            tmp_zip_fd = tempfile.NamedTemporaryFile(
+                dir=ext_dir, prefix=f".{file_hash}_", suffix=".zip", delete=False
+            )
+            tmp_zip_path = tmp_zip_fd.name
+            tmp_zip_fd.close()
+            with suppress(OSError):
+                os.unlink(tmp_zip_path)
+
             if USE_SEVENZIP:
                 try:
-                    subprocess.check_call([SEVENZIP_PATH, f"-p{settings.ZIP_PWD.decode()}", "a", zip_path, sample])
-                except subprocess.CalledProcessError:
+                    subprocess.check_call([SEVENZIP_PATH, f"-p{settings.ZIP_PWD.decode()}", "a", tmp_zip_path, sample])
+                    os.replace(tmp_zip_path, zip_path)
+                except (subprocess.CalledProcessError, OSError):
+                    with suppress(OSError):
+                        os.unlink(tmp_zip_path)
                     resp = {"error": True, "error_value": "error compressing file"}
                     return Response(resp)
                 zip_fd = open(zip_path, "rb")
@@ -2829,10 +2848,16 @@ def file(request, stype, value):
                 resp["Content-Disposition"] = f"attachment; filename={file_hash}.zip"
                 return resp
             else:
-                # If files does not exist encrypt and move to tmp folder
-                with pyzipper.AESZipFile(zip_path, "w", encryption=pyzipper.WZ_AES) as zf:
-                    zf.setpassword(b"infected")
-                    zf.write(sample, os.path.basename(sample), zipfile.ZIP_DEFLATED)
+                # If files does not exist encrypt and move to tmp folder atomically
+                try:
+                    with pyzipper.AESZipFile(tmp_zip_path, "w", encryption=pyzipper.WZ_AES) as zf:
+                        zf.setpassword(b"infected")
+                        zf.write(sample, os.path.basename(sample), zipfile.ZIP_DEFLATED)
+                    os.replace(tmp_zip_path, zip_path)
+                except Exception:
+                    with suppress(OSError):
+                        os.unlink(tmp_zip_path)
+                    raise
                 resp = StreamingHttpResponse(FileWrapper(open(zip_path, "rb"), 8096), content_type="application/zip")
                 resp["Content-Disposition"] = f"attachment; filename={file_hash}.zip"
             return resp
@@ -2961,7 +2986,8 @@ def task_x_hours(request):
     """Number of tasks added per hour during the last 24 hours."""
     since = datetime.now() - timedelta(days=1)
     with db.transaction():
-        added = db.session.scalars(select(Task.added_on).where(Task.added_on >= since)).all()
+        stmt = apply_sql_task_filter(select(Task.added_on).where(Task.added_on >= since))
+        added = db.session.scalars(stmt).all()
     results = {}
     for added_on in added:
         bucket = added_on.strftime("%Y-%m-%dT%H:00:00")

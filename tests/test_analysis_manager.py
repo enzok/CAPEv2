@@ -1139,3 +1139,71 @@ class TestAnalysisManager:
         assert set_status_attempts == 2
         assert mock_remove.call_count >= 1
 
+    def test_scheduler_stuck_vm_kills_once_and_respects_guest_started_on_and_upload_grace(
+        self, task: Task, machine: Machine, machinery_manager: MachineryManager, mocker: MockerFixture, tmp_path: pathlib.Path
+    ):
+        import queue
+
+        from lib.cuckoo.core.data.db_common import _utcnow_naive
+        from lib.cuckoo.core.scheduler import Scheduler
+
+        scheduler = Scheduler()
+        scheduler.loop_state = mocker.MagicMock()
+        scheduler.max_analysis_count = 0
+
+        analysis_man = AnalysisManager(task=task, machine=machine, machinery_manager=machinery_manager)
+        task.timeout = 21600
+        # Task started 22160s ago (> 21600 + 60 + 100 + 100 = 21860s),
+        # but guest_started_on was only 21700s ago (< 21600 + 60 + 100 = 21760s) due to a 460s sample upload.
+        now = _utcnow_naive()
+        task.started_on = now - datetime.timedelta(seconds=22160)
+        analysis_man.guest_started_on = now - datetime.timedelta(seconds=21700)
+        mock_gm = mocker.MagicMock()
+        analysis_man.guest_manager = mock_gm
+        mock_stop_machine = mocker.patch.object(machinery_manager, "stop_machine")
+
+        scheduler.analysis_threads = [analysis_man]
+        mocker.patch.object(scheduler, "wait_for_running_analyses_to_finish")
+        mocker.patch.object(scheduler, "is_short_on_disk_space", return_value=False)
+        mocker.patch.object(scheduler, "find_next_serviceable_task", return_value=(None, None))
+
+        # Must NOT kill the VM yet because guest_started_on elapsed is 21700s <= 21760s.
+        scheduler.do_main_loop_work(queue.Queue())
+        assert analysis_man.stuck_vm_killed is False
+        mock_stop_machine.assert_not_called()
+        mock_gm.stop.assert_not_called()
+
+        # Advance guest_started_on past timeout + critical + stuck_seconds (21800s > 21760s).
+        analysis_man.guest_started_on = now - datetime.timedelta(seconds=21800)
+        scheduler.do_main_loop_work(queue.Queue())
+        assert analysis_man.stuck_vm_killed is True
+        mock_stop_machine.assert_called_once_with(machine)
+        mock_gm.stop.assert_called_once()
+
+        # Subsequent scheduler cycles must NOT re-kill or spam stack traces for the same task.
+        scheduler.do_main_loop_work(queue.Queue())
+        assert mock_stop_machine.call_count == 1
+        assert mock_gm.stop.call_count == 1
+
+    def test_stopped_by_user_skips_full_memory_dump(
+        self, task: Task, machine: Machine, machinery_manager: MachineryManager, mocker: MockerFixture
+    ):
+        from lib.cuckoo.core.guest import GuestManager
+
+        analysis_man = AnalysisManager(task=task, machine=machine, machinery_manager=machinery_manager)
+        analysis_man.cfg.cuckoo.memory_dump = True
+        mocker.patch.object(analysis_man, "build_options", return_value={"id": task.id})
+        mocker.patch.object(GuestManager, "start_analysis")
+        mocker.patch.object(GuestManager, "wait_for_completion")
+        mocker.patch.object(GuestManager, "set_status_in_db")
+        mocker.patch.object(GuestManager, "get_status_from_db", side_effect=["starting", "stopping"])
+        mock_dump_mem = mocker.patch.object(machinery_manager.machinery, "dump_memory")
+
+        analysis_man.run_analysis_on_guest()
+        assert analysis_man.stopped_by_user is True
+
+        analysis_man.dump_machine_memory()
+        mock_dump_mem.assert_not_called()
+
+
+

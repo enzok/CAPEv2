@@ -466,5 +466,176 @@ def test_files_clean_before_respects_nested_symlinks_and_prunes_shards(tmp_path,
     assert not os.path.exists(os.path.dirname(master_old))
 
 
+@pytest.mark.skipif(
+    __import__("sys").platform != "linux" or __import__("platform").machine() != "x86_64",
+    reason="data/7zz is a Linux x86_64 binary",
+)
+def test_bundled_7zz_binary_and_sevenzip_unpack(tmp_path):
+    import os
+    import subprocess
+    from lib.cuckoo.common.constants import CUCKOO_ROOT
 
+    bundled_7zz = pathlib.Path(CUCKOO_ROOT) / "data" / "7zz"
+    assert bundled_7zz.is_file()
+    assert os.access(bundled_7zz, os.X_OK)
+
+    payload_file = tmp_path / "sample.txt"
+    payload_file.write_text("bundled 7zz extraction test\n", encoding="utf-8")
+    archive_file = tmp_path / "sample.7z"
+    subprocess.run(
+        [str(bundled_7zz), "a", "-t7z", "-pinfected", "-y", str(archive_file), str(payload_file)],
+        check=True,
+        capture_output=True,
+    )
+
+    extracted = file_extra_info.SevenZip_unpack(
+        file=str(archive_file),
+        filetype="",
+        data_dictionary={"die": ["7-zip Installer data"]},
+        options={"password": "infected"},
+        test=True,
+    )
+    assert extracted is not None
+    assert extracted["result"]["extracted_files"] == ["sample.txt"]
+
+
+@pytest.mark.parametrize(
+    ("have_oletools", "office_enabled", "file_name", "file_type", "package", "expected_called"),
+    [
+        (False, True, "sample.doc", "Composite Document File", "doc", False),
+        (True, False, "sample.doc", "Composite Document File", "doc", False),
+        (True, True, "sample.docm", "Microsoft Word 2007+", "", True),
+        (True, True, "sample.rtf", "ASCII text", "", True),
+        (True, True, "blob.bin", "Rich Text Format data, version 1", "", True),
+        (True, True, "a" * 64, "Microsoft Word 2007+", "", True),
+        (True, True, "a" * 64, "Composite Document File V2 Document, MSI Installer", "", False),
+        (True, True, "sample.xlsm", "Microsoft Excel 2007+", "", True),
+        (True, True, "sample.pptm", "Microsoft PowerPoint 2007+", "", True),
+        (True, True, ["dropped.docm"], "Microsoft Word 2007+", "", True),
+        (True, True, "notes.txt", "ASCII text", "", False),
+    ],
+)
+def test_static_file_info_office_guards_and_extensions(
+    monkeypatch,
+    tmp_path,
+    have_oletools,
+    office_enabled,
+    file_name,
+    file_type,
+    package,
+    expected_called,
+):
+    sample = tmp_path / "payload.bin"
+    sample.write_bytes(b"test office bytes")
+    called = []
+
+    class FakeOffice:
+        def __init__(self, file_path, task_id, sha256, options):
+            called.append((file_path, task_id, sha256))
+            self.extracted_files = []
+
+        def run(self):
+            return {"Metadata": {"HasMacros": "No"}}
+
+    monkeypatch.setattr(file_extra_info, "HAVE_OLETOOLS", have_oletools)
+    monkeypatch.setattr(file_extra_info.integration_conf.general, "office", office_enabled)
+    monkeypatch.setattr(file_extra_info, "HAVE_MALCAT", False)
+    monkeypatch.setattr(file_extra_info, "HAVE_PEFILE", False)
+    monkeypatch.setattr(file_extra_info, "HAVE_FLOSS", False)
+    monkeypatch.setattr(file_extra_info, "HAVE_STRINGS", False)
+    monkeypatch.setattr(file_extra_info, "HAVE_VIRUSTOTAL", False)
+    monkeypatch.setattr(file_extra_info.processing_conf.trid, "enabled", False)
+    monkeypatch.setattr(file_extra_info.processing_conf.die, "enabled", False)
+    monkeypatch.setattr(file_extra_info, "Office", FakeOffice)
+    monkeypatch.setattr(file_extra_info, "generic_file_extractors", lambda *a, **k: None)
+
+    data_dict = {"name": file_name, "type": file_type, "sha256": "a" * 64}
+    file_extra_info.static_file_info(
+        data_dict,
+        str(sample),
+        "12",
+        package,
+        "",
+        str(tmp_path / "selfextracted"),
+        {},
+        {"sha256": set()},
+    )
+    assert bool(called) is expected_called
+
+
+def test_static_file_info_bridges_office_extracted_files_to_selfextract(monkeypatch, tmp_path):
+    from lib.cuckoo.common import utils as cuckoo_utils
+
+    tools_dir = tmp_path / "tools"
+    dest_folder = tmp_path / "storage" / "analyses" / "15" / "selfextracted"
+    sample = tmp_path / "sample.rtf"
+    sample.write_bytes(b"{\\rtf1}")
+
+    payloads = [
+        ("../../evil.exe", b"first-extracted-payload"),
+        ("../../evil.exe", b"second-colliding-payload"),
+        ("..", b"dotdot-fallback-payload"),
+    ]
+
+    class FakeOffice:
+        def __init__(self, file_path, task_id, sha256, options):
+            self.extracted_files = []
+
+        def run(self):
+            self.extracted_files = list(payloads)
+            return {"rtf": {"1": [{"filename": "evil.exe"}]}}
+
+    monkeypatch.setattr(cuckoo_utils, "CUCKOO_ROOT", str(tmp_path))
+    monkeypatch.setattr(file_extra_info, "tools_folder", str(tools_dir))
+    monkeypatch.setattr(file_extra_info, "HAVE_OLETOOLS", True)
+    monkeypatch.setattr(file_extra_info.integration_conf.general, "office", True)
+    monkeypatch.setattr(file_extra_info, "HAVE_MALCAT", False)
+    monkeypatch.setattr(file_extra_info, "HAVE_PEFILE", False)
+    monkeypatch.setattr(file_extra_info, "HAVE_FLOSS", False)
+    monkeypatch.setattr(file_extra_info, "HAVE_STRINGS", False)
+    monkeypatch.setattr(file_extra_info, "HAVE_VIRUSTOTAL", False)
+    monkeypatch.setattr(file_extra_info.processing_conf.trid, "enabled", False)
+    monkeypatch.setattr(file_extra_info.processing_conf.die, "enabled", False)
+    monkeypatch.setattr(file_extra_info, "Office", FakeOffice)
+    monkeypatch.setattr(file_extra_info, "generic_file_extractors", lambda *a, **k: None)
+
+    data_dict = {"name": "sample.rtf", "type": "Rich Text Format", "sha256": "b" * 64}
+    results = {}
+    file_extra_info.static_file_info(
+        data_dict,
+        str(sample),
+        "15",
+        "",
+        "password=infected",
+        str(dest_folder),
+        results,
+        {"sha256": set()},
+    )
+
+    assert "Office" in data_dict.get("selfextract", {})
+    office_selfextract = data_dict["selfextract"]["Office"]
+    assert len(office_selfextract["extracted_files"]) == 3
+    assert office_selfextract["password"] == "infected"
+    assert office_selfextract["extracted_files_time"] >= 0
+    # Tempdir under tools_folder must be cleaned up after metadata generation
+    assert list(tools_dir.iterdir()) == []
+    # Path traversal must not leave any artifacts outside tools_dir/dest_folder
+    assert not (tmp_path / "evil.exe").exists()
+
+
+def test_extractor_ctx_uses_cape_external_dir_by_default(tmp_path, monkeypatch):
+    import os
+    from lib.cuckoo.common.integrations.file_extra_info_modules import extractor_ctx
+
+    ext_dir = tmp_path / "cape-external"
+    explicit_dir = tmp_path / "explicit"
+    monkeypatch.setattr("lib.cuckoo.common.integrations.file_extra_info_modules.get_cape_external_dir", lambda: str(ext_dir))
+
+    with extractor_ctx("sample.bin", "unit_tool", prefix="u_", folder=None) as ctx:
+        assert os.path.dirname(ctx["tempdir"]) == str(ext_dir)
+        assert os.path.basename(ctx["tempdir"]).startswith("u_")
+
+    with extractor_ctx("sample.bin", "unit_tool", prefix="e_", folder=str(explicit_dir)) as ctx:
+        assert os.path.dirname(ctx["tempdir"]) == str(explicit_dir)
+        assert os.path.basename(ctx["tempdir"]).startswith("e_")
 

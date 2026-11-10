@@ -23,12 +23,14 @@ from lib.cuckoo.common.integrations.file_extra_info import (
     PDF,
     PortableExecutable,
     WindowsScriptFile,
+    _is_office_target,
     detect_it_easy_info,
     magika_info,
     parse_msi,
     parse_rdp_file,
     trid_info,
 )
+from lib.cuckoo.common.integrations.shellcode_utils import enrich_static_preview_shellcode
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.path_utils import path_exists, path_get_size, path_read_file
 from lib.cuckoo.common.utils import get_options, is_text_file
@@ -195,9 +197,7 @@ def _run_read_only_static_enrichment(file_info: dict, file_path: str, task_id: s
                     if dotnet_strings:
                         file_info["dotnet_strings"] = dotnet_strings
 
-    elif (HAVE_OLETOOLS and package in {"doc", "ppt", "xls", "pub"} and integrations_conf.general.office) or fname.endswith(
-        (".doc", ".ppt", ".xls", ".pub")
-    ):
+    elif HAVE_OLETOOLS and integrations_conf.general.office and _is_office_target(file_path, file_info, package):
         if "office" not in file_info:
             with suppress(Exception):
                 file_info["office"] = Office(file_path, task_id, file_info.get("sha256", ""), options_dict).run()
@@ -257,6 +257,14 @@ def _run_read_only_static_enrichment(file_info: dict, file_path: str, task_id: s
     ):
         with suppress(Exception):
             file_info["strings"] = extract_strings(file_path, dedup=True)
+
+    enrich_static_preview_shellcode(
+        file_info,
+        file_data,
+        package=package,
+        options_dict=options_dict,
+        sc_cfg=getattr(processing_conf, "static_shellcode_check", None),
+    )
 
 
 def _store_in_memory_cache(sha256: str, file_info: dict, malware_conf: list, enriched: bool):
@@ -434,7 +442,7 @@ def update_static_preview_service(sha256: str, service: str, details) -> dict | 
     if reporting_conf.mongodb.enabled:
         with suppress(Exception):
             update_field = "office.XLMMacroDeobfuscator" if service == "xlsdeobf" else service
-            mongo_update_one("files", {"_id": sha256}, {"$set": {update_field: details}}, upsert=True)
+            mongo_update_one("files", {"_id": sha256}, {"$set": {"sha256": sha256, update_field: details}}, upsert=True)
 
     return updated_file
 
@@ -446,6 +454,7 @@ def _format_preview_context(task, file_info: dict, malware_conf: list, source_ur
         "info": {
             "id": task_id,
             "category": getattr(task, "category", "file"),
+            "package": getattr(task, "package", "") or "",
             "tlp": getattr(task, "tlp", None),
             "has_cents_rules": False,
         },

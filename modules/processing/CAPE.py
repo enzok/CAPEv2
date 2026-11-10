@@ -26,6 +26,11 @@ from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.cape_utils import cape_name_from_yara, is_duplicated_binary, pe_map, static_config_parsers
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.integrations.file_extra_info import DuplicatesType, static_file_info
+from lib.cuckoo.common.integrations.shellcode_utils import (
+    SHELLCODE_CODE_MAPPING,
+    extract_shellcode_payloads,
+    process_file_shellcode,
+)
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.path_utils import path_exists, path_mkdir
 from lib.cuckoo.common.replace_patterns_utils import _clean_path
@@ -33,6 +38,7 @@ from lib.cuckoo.common.utils import (
     add_family_detection,
     convert_to_printable_and_truncate,
     get_clamav_consensus,
+    get_files_storage_path,
     get_options,
     make_bytes,
     texttypes,
@@ -79,6 +85,8 @@ code_mapping = {
     0x1000: "Unpacked PE Image",
     0x6A: "AMSI Buffer",
     0x6B: "AMSI Stream",
+    # recovered statically by static_shellcode_check from a shellcode payload
+    **SHELLCODE_CODE_MAPPING,
 }
 
 inject_map = {
@@ -228,7 +236,7 @@ class CAPE(Processing):
                     options_match = db_file.get("options_hash", "") == options_hash
                     file_info = db_file
                     cached = True
-                    if yara_match and options_match:
+                    if processing_conf.CAPE.file_cache and yara_match and options_match:
                         run_static = False
                         log.info(
                             "CAPE file_cache hit: skipping static_file_info for %s (sha256=%s, category=%s, yara_hash_match=%s, options_hash_match=%s)",
@@ -313,6 +321,10 @@ class CAPE(Processing):
             )
 
         type_string, append_file = self._metadata_processing(metadata, file_info, append_file)
+        if metadata.get("extracted_from"):
+            file_info["extracted_from"] = metadata["extracted_from"]
+        else:
+            file_info.pop("extracted_from", None)
 
         if category in ("static", "file", "pcap"):
             if MISP_HASH_LOOKUP:
@@ -383,7 +395,19 @@ class CAPE(Processing):
                 if file.get("data", b""):
                     extracted_file_data = make_bytes(file["data"])
                 else:
-                    extracted_file_data = Path(file["path"]).read_bytes()
+                    extracted_path = file.get("path", "")
+                    if not (extracted_path and path_exists(extracted_path)) and file.get("sha256"):
+                        candidate = os.path.join(self.self_extracted, file["sha256"]) if self.self_extracted else ""
+                        if candidate and path_exists(candidate):
+                            extracted_path = candidate
+                        else:
+                            with suppress(ValueError):
+                                storage_candidate = get_files_storage_path(file["sha256"])
+                                if path_exists(storage_candidate):
+                                    extracted_path = storage_candidate
+                    if not (extracted_path and path_exists(extracted_path)):
+                        continue
+                    extracted_file_data = Path(extracted_path).read_bytes()
                 for yara in file["cape_yara"]:
                     all_files.append(
                         (
@@ -439,6 +463,17 @@ class CAPE(Processing):
                     self.update_cape_configs(cape_name, tmp_config, file_info)
                 executed_config_parsers[file_info["path"]].add(cape_name)
 
+        shellcode_payloads = process_file_shellcode(
+            file_info,
+            file_data,
+            category=category,
+            task=self.task,
+            opts=opts,
+            results=self.results,
+            detect2pid=self.detect2pid,
+            add_statistic=self.add_statistic_tmp,
+        )
+
         self.link_configs_to_analysis()
         self.add_family_detections(file_info, cape_names)
 
@@ -457,6 +492,20 @@ class CAPE(Processing):
                 self.add_statistic_tmp("flare_capa", "time", pretime=pretime)
             self.cape["payloads"].append(file_info)
 
+        if shellcode_payloads:
+            deferred = getattr(self, "_deferred_shellcode_payloads", None)
+            if deferred is not None:
+                deferred.append((file_info, shellcode_payloads))
+            else:
+                extract_shellcode_payloads(
+                    file_info,
+                    shellcode_payloads,
+                    self_extracted_dir=self.self_extracted,
+                    process_file_cb=lambda path, append, meta: self.process_file(
+                        path, append, meta, category="CAPE", duplicated=duplicated
+                    ),
+                )
+
     def _set_dict_keys(self):
         self.cape = {"payloads": [], "configs": []}
         # Files handed back by config parsers mid-run. Drained at the end of run(), so
@@ -468,6 +517,7 @@ class CAPE(Processing):
         @return: list of CAPE output files with related information.
         """
         self._set_dict_keys()
+        self._deferred_shellcode_payloads = []
         meta = {}
         # Required to control files extracted by integrations.conf as we store them in dropped
         duplicated: DuplicatesType = collections.defaultdict(set)
@@ -598,6 +648,16 @@ class CAPE(Processing):
                             # We set append_file to False as we don't wan't to include
                             # the files by default in the CAPE tab
                             self.process_file(filepath, False, meta.get(filepath, {}), category=category, duplicated=duplicated)
+        deferred, self._deferred_shellcode_payloads = self._deferred_shellcode_payloads, None
+        for parent_info, payloads in deferred:
+            extract_shellcode_payloads(
+                parent_info,
+                payloads,
+                self_extracted_dir=self.self_extracted,
+                process_file_cb=lambda path, append, meta: self.process_file(
+                    path, append, meta, category="CAPE", duplicated=duplicated
+                ),
+            )
 
         # Files a config parser handed back while we were walking the folders above. A
         # queued file may itself yield a config that dumps more files, which re-appends

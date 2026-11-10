@@ -6,6 +6,7 @@ import logging
 import os
 import shutil
 import subprocess
+import tempfile
 from pathlib import Path
 
 from lib.common.abstracts import Package
@@ -19,12 +20,12 @@ from lib.common.constants import (
     OPT_MULTI_PASSWORD,
     OPT_PASSWORD,
     OPT_RECURSION_DEPTH,
+    OPT_MAX_EXECUTABLES,
 )
 from lib.common.exceptions import CuckooPackageError
 from lib.common.zip_utils import (
     attempt_multiple_passwords,
     extract_archive,
-    get_file_names,
     get_interesting_files,
     upload_extracted_files,
     winrar_extractor,
@@ -32,6 +33,9 @@ from lib.common.zip_utils import (
 from modules.packages.dll import DLL_OPTIONS
 
 log = logging.getLogger(__name__)
+
+_MAX_ROOT_COPY_FILES = 100
+_MAX_ROOT_COPY_BYTES = 100 * 1024 * 1024
 
 
 class Archive(Package):
@@ -80,20 +84,30 @@ class Archive(Package):
             self._free_mode_execution_succeeded = True
         return pid
 
-    def execute_files(self, root, interesting_files):
+    def execute_files(self, root, interesting_files, max_executables=None):
         ret_list = []
         last_error = None
         self._free_mode_execution_succeeded = False
+        launched_files = 0
         try:
             for interesting_file in interesting_files:
+                if max_executables is not None and launched_files >= max_executables:
+                    log.info(
+                        "Reached max_executables limit (%d) while auto-executing archive members",
+                        max_executables,
+                    )
+                    break
                 file_path = os.path.join(root, interesting_file)
                 try:
                     pids = self.execute_interesting_file(root, interesting_file, file_path)
                     if pids:
+                        launched_files += 1
                         if isinstance(pids, list):
                             ret_list.extend(pids)
                         else:
                             ret_list.append(pids)
+                    elif self.options.get(OPT_FREE, False) and self._free_mode_execution_succeeded:
+                        launched_files += 1
                 except CuckooPackageError as e:
                     last_error = e
                     log.error("Failed to execute interesting file '%s': %s", interesting_file, e)
@@ -115,9 +129,9 @@ class Archive(Package):
         # if not os.path.exists(seven_zip_path):
         # Let's hope it's in the VM image
         seven_zip_path = self.get_path_app_in_path("7z.exe")
-        password = self.options.get(OPT_PASSWORD, "infected")
+        password = self.options.get(OPT_PASSWORD) or "infected"
         archive_name = Path(path).name
-        recursion_depth = max(0, int(self.options.get(OPT_RECURSION_DEPTH, 0)))
+        recursion_depth = max(0, int(self.options.get(OPT_RECURSION_DEPTH, 0) or 0))
         diec_path = self.get_path_app_in_path("diec.exe") if recursion_depth > 0 else None
 
         # We are extracting the archive to C:\\<archive_name> rather than the TEMP directory because
@@ -131,26 +145,35 @@ class Archive(Package):
 
         os.makedirs(root, exist_ok=True)
 
-        file_names = get_file_names(seven_zip_path, path)
-        if len(file_names):
-            try_multiple_passwords = attempt_multiple_passwords(self.options, password)
+        try_multiple_passwords = attempt_multiple_passwords(self.options, password)
+        seven_zip_error = None
+        try:
             extract_archive(seven_zip_path, path, root, password, try_multiple_passwords)
+        except CuckooPackageError as err:
+            if "Wrong password" in str(err):
+                raise
+            seven_zip_error = err
 
         # Try extract with winrar, in some cases 7z-full fails with .Iso
-        if not file_names:
-            winrar_path = self.get_path_app_in_path("WinRAR.exe")
-            if os.path.exists(winrar_path):
-                file_names = winrar_extractor(winrar_path, root, path)
+        if seven_zip_error is not None or not os.listdir(root):
+            try:
+                winrar_path = self.get_path_app_in_path("WinRAR.exe")
+            except CuckooPackageError:
+                winrar_path = None
+                if seven_zip_error is not None:
+                    raise seven_zip_error
+            if winrar_path and os.path.exists(winrar_path):
+                winrar_extractor(winrar_path, root, path, password, try_multiple_passwords)
+            elif seven_zip_error is not None:
+                raise seven_zip_error
 
-        if not file_names:
-            raise CuckooPackageError("Empty archive")
-
+        nested_dirs = set()
         extracted_files = set()
         extracted_archives = set()
-        for i in range(0, recursion_depth):
+        for _ in range(recursion_depth):
 
             packs = []
-            target_words = {'Archive', 'Image', 'filesystem', 'ZIP', 'RAR', 'SFX'}
+            target_words = ("archive", "compress", "image", "filesystem", "zip", "rar", "sfx")
 
             for r, _, files in os.walk(root):
 
@@ -162,8 +185,15 @@ class Archive(Package):
                     extracted_files.add(file_path)
 
                     try:
-                        result = subprocess.run([diec_path, "-p", file_path], capture_output=True, text=True, check=True, encoding="utf-8")
-                        file_info = result.stdout
+                        result = subprocess.run(
+                            [diec_path, "-p", file_path],
+                            capture_output=True,
+                            text=True,
+                            check=True,
+                            encoding="utf-8",
+                            errors="replace",
+                        )
+                        file_info = result.stdout.replace(file_path, "").lower()
                         for word in target_words:
                             if word in file_info:
                                 packs.append(file_path)
@@ -172,20 +202,18 @@ class Archive(Package):
                         continue
 
             if packs:
-                j = 0
                 for p in packs:
-                    pack_name = os.path.basename(p)
-                    output_dir = os.path.join(root, str(i), str(j), pack_name)
-                    os.makedirs(output_dir, exist_ok=True)
+                    output_dir = tempfile.mkdtemp(prefix="nested-", dir=root)
+                    nested_dirs.add(output_dir)
 
                     try:
                         try_multiple_passwords = attempt_multiple_passwords(self.options, password)
                         extract_archive(seven_zip_path, p, output_dir, password, try_multiple_passwords)
                         extracted_archives.add(p)
                     except Exception as e:
+                        nested_dirs.discard(output_dir)
+                        shutil.rmtree(output_dir, ignore_errors=True)
                         log.warning("Extraction failed for %s: %s", p, e)
-
-                    j += 1
             else:
                 break
 
@@ -194,33 +222,61 @@ class Archive(Package):
         # We have the file names that were actually extracted (files at root)
         # If these values are different, replace all
         log.debug("Extracted archives:%s", extracted_archives)
+        resolved_root = os.path.realpath(root)
         files_at_root = [
             os.path.relpath(p, root)
             for r, _, files in os.walk(root)
             for f in files
             if (p := os.path.join(r, f)) not in extracted_archives
+            and os.path.commonpath((resolved_root, os.path.realpath(p))) == resolved_root
+            and os.path.isfile(os.path.realpath(p))
         ]
         log.debug(files_at_root)
         file_names = files_at_root
 
+        if not file_names:
+            raise CuckooPackageError("Empty archive")
+
         upload_extracted_files(root, files_at_root)
 
+        total_bytes = 0
+        if len(files_at_root) <= _MAX_ROOT_COPY_FILES:
+            for rel_path in files_at_root:
+                try:
+                    total_bytes += os.path.getsize(os.path.join(root, rel_path))
+                except OSError:
+                    continue
+                if total_bytes > _MAX_ROOT_COPY_BYTES:
+                    break
+
         # Copy these files to the root directory, just in case!
-        dirs = []
-        for item in os.listdir(root):
-            d = os.path.join(root, item)
-            if os.path.isdir(d):
-                if d not in dirs:
-                    dirs.append(d)
+        if len(files_at_root) <= _MAX_ROOT_COPY_FILES and total_bytes <= _MAX_ROOT_COPY_BYTES:
+            dirs = []
+            for item in os.listdir(root):
+                d = os.path.join(root, item)
+                resolved_d = os.path.realpath(d)
+                if os.path.commonpath((resolved_root, resolved_d)) != resolved_root:
+                    continue
+                if d in nested_dirs or d in extracted_archives:
+                    continue
+                if os.path.isdir(d):
+                    if d not in dirs:
+                        dirs.append(d)
+                        try:
+                            shutil.copytree(d, os.path.join("C:\\", item), dirs_exist_ok=True)
+                        except Exception as e:
+                            log.warning("Couldn't copy %s to root of C: %s", d, str(e))
+                else:
                     try:
-                        shutil.copytree(d, os.path.join("C:\\", item))
+                        shutil.copy(d, "C:\\")
                     except Exception as e:
                         log.warning("Couldn't copy %s to root of C: %s", d, str(e))
-            else:
-                try:
-                    shutil.copy(d, "C:\\")
-                except Exception as e:
-                    log.warning("Couldn't copy %s to root of C: %s", d, str(e))
+        else:
+            log.info(
+                "Skipping copy of %d archive members (%d bytes) to C:\\",
+                len(files_at_root),
+                total_bytes,
+            )
 
         file_name = self.options.get(OPT_FILE)
         # If no file name is provided via option, discover files to execute.
@@ -232,8 +288,8 @@ class Archive(Package):
                 log.debug("No interesting files found, auto executing the first file: %s", file_names[0])
                 interesting_files.append(file_names[0])
 
+            max_executables = max(1, int(self.options.get(OPT_MAX_EXECUTABLES, 16) or 16))
             log.debug("Missing file option, auto executing: %s", interesting_files)
-            return self.execute_files(root, interesting_files)
+            return self.execute_files(root, interesting_files, max_executables=max_executables)
         else:
-            file_path = os.path.join(root, file_name)
-            return self.execute_interesting_file(root, file_name, file_path)
+            return self.execute_files(root, [file_name])

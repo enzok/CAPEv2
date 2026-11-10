@@ -126,9 +126,11 @@ class TestStaticPreview(SimpleTestCase):
     def test_status_view_initial_and_htmx_static_and_poll(self):
         _, task, sha256, tmp_file = self._create_sample_task()
         orig_existent = web_conf.general.get("existent_tasks", False)
+        orig_preview_enabled = web_conf.static_preview.get("enabled", False)
 
         try:
             web_conf.general.existent_tasks = True
+            web_conf.static_preview.enabled = True
             fake_prior = [{"info": {"id": 999, "started": "2026-01-01 10:00:00"}, "target": {"file": {"sha256": sha256}}, "malfamily": "TestFamily"}]
             with (
                 patch.object(static_preview, "CUCKOO_ROOT", os.path.dirname(tmp_file)),
@@ -170,6 +172,7 @@ class TestStaticPreview(SimpleTestCase):
                     mock_preview.assert_not_called()
         finally:
             web_conf.general.existent_tasks = orig_existent
+            web_conf.static_preview.enabled = orig_preview_enabled
 
     def test_report_view_redirects_in_progress_task_to_submission_status(self):
         _, task, _, _ = self._create_sample_task()
@@ -382,6 +385,79 @@ class TestStaticPreview(SimpleTestCase):
             cape_mod.reporting_conf.mongodb.enabled = orig_mongo
             cape_mod.processing_conf.CAPE.file_cache = orig_cache
 
+    def test_cape_process_file_runs_static_when_file_cache_disabled_and_resolves_selfextract_fallback(self):
+        from modules.processing import CAPE as cape_mod
+
+        _, task, sha256, tmp_file = self._create_sample_task()
+        orig_mongo = cape_mod.reporting_conf.mongodb.enabled
+        orig_cache = cape_mod.processing_conf.CAPE.file_cache
+
+        child_bytes = b"MZ_child_payload"
+        child_sha = hashlib.sha256(child_bytes).hexdigest()
+        storage_child = os.path.join(
+            os.path.dirname(tmp_file), "storage", "files", child_sha[:2], child_sha[2:4], child_sha
+        )
+        os.makedirs(os.path.dirname(storage_child), exist_ok=True)
+        with open(storage_child, "wb") as fh:
+            fh.write(child_bytes)
+
+        options_hash = hashlib.sha256(b"{}").hexdigest()
+        persisted_doc = {
+            "_id": sha256,
+            "sha256": sha256,
+            "size": 27,
+            "type": "PE32 executable (GUI) Intel 80386, for MS Windows",
+            "yara": [],
+            "cape_yara": [],
+            "yara_hash": cape_mod.File.yara_rules_hash,
+            "options_hash": options_hash,
+            "static_preview_enriched": True,
+            "selfextract": {
+                "Unpacker": {
+                    "extracted_files": [
+                        {
+                            "sha256": child_sha,
+                            "path": "/nonexistent/storage/analyses/1/selfextracted/" + child_sha,
+                            "cape_yara": [{"name": "ChildFamily", "meta": {"cape_type": "ChildFamily Payload"}}],
+                        }
+                    ]
+                }
+            },
+        }
+
+        try:
+            cape_mod.reporting_conf.mongodb.enabled = True
+            cape_mod.processing_conf.CAPE.file_cache = False
+
+            processor = cape_mod.CAPE()
+            processor.task = {"id": task.id + 100, "target": tmp_file, "options": "", "package": "exe"}
+            processor.options = cape_mod.processing_conf.CAPE
+            processor.results = {"statistics": {"processing": []}}
+            processor.cape = {"payloads": [], "configs": []}
+            processor.self_extracted = ""
+
+            with (
+                patch.object(cape_mod, "mongo_find_one", return_value=dict(persisted_doc)),
+                patch.object(cape_mod, "get_files_storage_path", return_value=storage_child),
+                patch.object(cape_mod, "static_file_info") as mock_static_info,
+                patch.object(
+                    cape_mod,
+                    "static_config_parsers",
+                    return_value={"ChildFamily": {"C2": ["192.0.2.1:80"]}},
+                ) as mock_cfg_parser,
+            ):
+                processor.process_file(
+                    tmp_file, False, {}, category="file", duplicated={"sha256": set(), "TLSH": set()}
+                )
+                # Even though options_hash and yara_hash match, file_cache=False must still run static_file_info
+                mock_static_info.assert_called_once()
+                # And stale selfextract path must fall back to get_files_storage_path without FileNotFoundError
+                mock_cfg_parser.assert_called_once()
+                self.assertEqual(processor.cape["configs"][0]["ChildFamily"]["C2"], ["192.0.2.1:80"])
+        finally:
+            cape_mod.reporting_conf.mongodb.enabled = orig_mongo
+            cape_mod.processing_conf.CAPE.file_cache = orig_cache
+
     def test_on_demand_rejects_mismatched_sha256_for_unreported_task(self):
         """on_demand must not fall back to storage/binaries/<sha256> when sha256 does not match the task sample."""
         import analysis.views as analysis_views
@@ -415,6 +491,338 @@ class TestStaticPreview(SimpleTestCase):
                 mock_strings.assert_not_called()
         finally:
             analysis_views.processing_cfg.strings.on_demand = orig_strings
+
+    def test_shellcode_on_demand_kwargs_and_preview_package(self):
+        """Shellcode on-demand resolves arch/entry/va hints and tolerates missing SQL tasks."""
+        import analysis.views as analysis_views
+
+        sample_bytes = b"\x90" * 64
+        db, task, sha256, tmp_file = self._create_sample_task(sample_bytes, filename="sc.bin")
+        with db.session.begin():
+            t = db.view_task(task.id)
+            t.package = "shellcode_x64"
+            t.options = "offset=0x100"
+        task = db.view_task(task.id)
+
+        preview = static_preview.get_static_preview(task, run_full=False)
+        self.assertEqual(preview["analysis"]["info"]["package"], "shellcode_x64")
+
+        self.assertEqual(
+            analysis_views._shellcode_on_demand_kwargs(str(task.id), "static", sha256),
+            {"arch": "x64", "entry": "0x100"},
+        )
+        self.assertIsNone(analysis_views._shellcode_on_demand_kwargs(str(task.id), "static", "00" * 32))
+
+        # Distributed / cleaned SQL task: db.view_task returns None, falls back to MongoDB without AttributeError
+        mongo_doc = {
+            "info": {"package": "shellcode", "options": "offset=0x40"},
+            "target": {"file": {"sha256": sha256}},
+            "CAPE": {"payloads": [{"sha256": sha256, "cape_type_code": 9, "virtual_address": "0x00790000"}]},
+        }
+        with (
+            patch.object(analysis_views.db, "view_task", return_value=None),
+            patch.dict(analysis_views.enabledconf, {"mongodb": True}),
+            patch.object(analysis_views, "mongo_find_one", return_value=mongo_doc, create=True),
+            patch.object(analysis_views, "ANALYSIS_BASE_PATH", os.path.dirname(tmp_file)),
+        ):
+            self.assertEqual(analysis_views.get_task_package(999999), "")
+            self.assertEqual(
+                analysis_views._shellcode_on_demand_kwargs("999999", "target.file", sha256),
+                {"arch": "x86", "entry": "0x40"},
+            )
+            self.assertEqual(
+                analysis_views._shellcode_on_demand_kwargs("999999", "CAPE", sha256),
+                {"va": "0x00790000"},
+            )
+
+    def test_static_preview_auto_enriches_shellcode_package(self):
+        """When static_shellcode_check is enabled without on_demand, shellcode packages are enriched in preview."""
+        import lib.cuckoo.common.integrations.shellcode_utils as sc_utils
+
+        if not sc_utils.HAVE_SHELLCODE_CHECK:
+            self.skipTest("Capstone unavailable")
+
+        msf_x64 = bytes.fromhex(
+            "fc4883e4f0e8c0000000415141505251564831d265488b5260488b5218488b5220488b7250480fb74a4a4d31c94831c0ac3c61"
+            "7c022c2041c1c90d4101c1e2ed524151488b52208b423c4801d08b80880000004885c074674801d0508b4818448b40204901d0"
+            "e35648ffc9418b34884801d64d31c94831c0ac41c1c90d4101c138e075f14c034c24084539d175d858448b40244901d066418b"
+            "0c48448b401c4901d0418b04884801d0415841585e595a41584159415a4883ec204152ffe05841595a488b12e957ffffff5d49"
+            "c7c63332000041564989e64c89f141ba4c772607ffd54831c9ba0010000041b80030000041b94000000041ba58a453e5ffd5c3"
+        )
+        db, task, sha256, tmp_file = self._create_sample_task(b"\x90" * 0x20 + msf_x64, filename="stager.bin")
+        with db.session.begin():
+            t = db.view_task(task.id)
+            t.package = "shellcode_x64"
+            t.options = "offset=0x20"
+        task = db.view_task(task.id)
+
+        sc_section = {"enabled": True, "on_demand": False, "submitted_shellcode": True, "shellcode_depth": 65536}
+        with (
+            patch.object(static_preview, "CUCKOO_ROOT", os.path.dirname(tmp_file)),
+            patch.object(static_preview.processing_conf, "static_shellcode_check", sc_section, create=True),
+        ):
+            preview = static_preview.get_static_preview(task, run_full=True)
+            sc = preview["file"].get("static_shellcode_check")
+            self.assertIsNotNone(sc)
+            self.assertEqual(sc["verdict"], "shellcode")
+            self.assertEqual(sc["arch"], "x64")
+            self.assertEqual(sc["entry"], "0x20")
+            self.assertNotIn("_payloads", sc)
+
+    def test_shellcode_templates_render_encoder_capabilities_and_links(self):
+        """Verify _file_info.html and _shellcode_check.html improvements for shellcode display."""
+        from django.template.loader import render_to_string
+
+        parent_sha = "11" * 32
+        child_sha = "22" * 32
+        sc_data = {
+            "verdict": "shellcode",
+            "arch": "x86",
+            "pic": "yes",
+            "score": 12,
+            "scanned": 512,
+            "size": 512,
+            "time_ms": 1.2,
+            "capabilities": {"raw_socket": ["WSAStartup", "connect"]},
+            "encoder": {
+                "name": "x86/shikata_ga_nai x3",
+                "arch": "x86",
+                "layers": 3,
+                "payload": "x86 code",
+                "payload_size": 310,
+                "payload_indicators": "peb_walk, api_hash_loop",
+            },
+            "indicators": [
+                {
+                    "name": f"ind_{idx}",
+                    "group": "decoders",
+                    "confidence": "high",
+                    "description": f"desc {idx}",
+                    "offsets": [f"0x{idx:x}"],
+                }
+                for idx in range(7)
+            ]
+            + [
+                {
+                    "name": "framework_layout",
+                    "group": "framework",
+                    "confidence": "high",
+                    "description": "Donut layout",
+                    "offsets": ["0x0"],
+                }
+            ],
+            "extracted": [
+                {
+                    "sha256": child_sha,
+                    "size": 4096,
+                    "cape_type": "Extracted Shellcode Payload",
+                    "framework": None,
+                    "offset": "0x1b",
+                    "description": "x86/shikata_ga_nai x3 decoded x86 code",
+                }
+            ],
+            "evidence": [{"offset": "0x0", "indicator": "framework_layout", "insn": "Donut"}],
+        }
+        html = render_to_string(
+            "analysis/generic/_file_info.html",
+            {
+                "file": {
+                    "sha256": parent_sha,
+                    "name": "payload.bin",
+                    "size": 512,
+                    "extracted_from": "00" * 32,
+                    "static_shellcode_check": sc_data,
+                },
+                "tab_name": "CAPE",
+                "id": 42,
+                "config": {"static_shellcode_check": True},
+                "on_demand": {"static_shellcode_check": False},
+                "graphs": {"bingraph": {"enabled": False, "content": {}}, "vba2graph": {"enabled": False, "content": {}}},
+                "analysis": {"info": {"id": 42, "package": "exe"}, "target": {"file": {"sha256": "ff" * 32}}},
+                "expand_service": "static_shellcode_check",
+            },
+        )
+        self.assertIn("encoder: x86/shikata_ga_nai x3", html)
+        self.assertIn("peb_walk, api_hash_loop", html)
+        self.assertIn("(WSAStartup, connect)", html)
+        self.assertIn("+2 more", html)
+        self.assertIn("1 payload extracted", html)
+        self.assertIn(f'href="#file-info-{"00" * 32}"', html)
+        self.assertIn(f'href="#file-info-{child_sha}"', html)
+        self.assertNotIn(f'href="#sc-{parent_sha}-framework_layout-0x0"', html)
+        self.assertNotIn("Where it matched", html)
+        self.assertIn(f'class="collapse show mb-3" id="shellcode_check_{parent_sha}"', html)
+
+        # Derived shellcode payload (cape_type_code == 8197 / 0x2005) gets the on-demand button
+        ondemand_html = render_to_string(
+            "analysis/generic/_file_info.html",
+            {
+                "file": {"sha256": child_sha, "name": "derived.bin", "size": 256, "cape_type_code": 8197},
+                "tab_name": "CAPE",
+                "id": 42,
+                "config": {"static_shellcode_check": True},
+                "on_demand": {"static_shellcode_check": True},
+                "graphs": {"bingraph": {"enabled": False, "content": {}}, "vba2graph": {"enabled": False, "content": {}}},
+                "analysis": {"info": {"id": 42, "package": "exe"}, "target": {"file": {"sha256": "ff" * 32}}},
+            },
+        )
+        self.assertIn("Extract: Shellcode Analysis", ondemand_html)
+
+    def test_static_preview_web_conf_enabled_on_demand_and_disabled(self):
+        _, task, sha256, tmp_file = self._create_sample_task()
+        orig_enabled = web_conf.static_preview.get("enabled", False)
+        orig_on_demand = web_conf.static_preview.get("on_demand", True)
+        try:
+            # Verify default config values are disabled for existent_tasks and static_preview.enabled
+            self.assertFalse(bool(web_conf.general.get("existent_tasks", False)))
+            self.assertFalse(bool(orig_enabled))
+            with patch.object(static_preview, "CUCKOO_ROOT", os.path.dirname(tmp_file)):
+                # 1. enabled = False, on_demand = True -> does not auto-load static preview on initial GET, renders Load button
+                web_conf.static_preview.enabled = False
+                web_conf.static_preview.on_demand = True
+                with patch("submission.static_preview.get_static_preview") as mock_get_preview:
+                    resp = self.client.get(f"/submit/status/{task.id}/")
+                    self.assertEqual(resp.status_code, 200)
+                    body = resp.content.decode()
+                    mock_get_preview.assert_not_called()
+                    self.assertIn('id="load-static-preview-btn"', body)
+                    self.assertIn("Load Static Analysis Preview", body)
+                    self.assertNotIn('hx-trigger="load"', body)
+
+                # On-demand ?static=1 request succeeds when on_demand = True
+                with patch.object(
+                    static_preview,
+                    "_extract_static_cape_configs",
+                    return_value=[{"TestMalware": {"URL": ["hxxp://bad.example/cfg"]}, "_associated_config_hashes": [{"sha256": sha256}]}],
+                ):
+                    on_demand_resp = self.client.get(f"/submit/status/{task.id}/?static=1", HTTP_HX_REQUEST="true")
+                    self.assertEqual(on_demand_resp.status_code, 200)
+                    self.assertIn("Malware Configuration (Static)", on_demand_resp.content.decode())
+
+                # 2. enabled = False, on_demand = False -> hides static preview container and rejects ?static=1
+                web_conf.static_preview.enabled = False
+                web_conf.static_preview.on_demand = False
+                resp_disabled = self.client.get(f"/submit/status/{task.id}/")
+                self.assertEqual(resp_disabled.status_code, 200)
+                disabled_body = resp_disabled.content.decode()
+                self.assertNotIn('id="static-preview-container"', disabled_body)
+                self.assertNotIn('id="load-static-preview-btn"', disabled_body)
+
+                forbidden_resp = self.client.get(f"/submit/status/{task.id}/?static=1", HTTP_HX_REQUEST="true")
+                self.assertEqual(forbidden_resp.status_code, 403)
+        finally:
+            web_conf.static_preview.enabled = orig_enabled
+            web_conf.static_preview.on_demand = orig_on_demand
+
+    def test_stop_pending_task_from_status_page_initializes_storage_and_completes(self):
+        import lib.cuckoo.common.constants as cuckoo_constants
+        from lib.cuckoo.core.data.task import TASK_COMPLETED
+
+        db, task, sha256, tmp_file = self._create_sample_task()
+        tmp_root = os.path.dirname(tmp_file)
+
+        with (
+            patch.object(static_preview, "CUCKOO_ROOT", tmp_root),
+            patch.object(cuckoo_constants, "CUCKOO_ROOT", tmp_root),
+        ):
+            # Initial status page shows Stop Dynamic Analysis button
+            get_resp = self.client.get(f"/submit/status/{task.id}/")
+            self.assertEqual(get_resp.status_code, 200)
+            self.assertIn('id="stop-analysis-btn"', get_resp.content.decode())
+
+            # POST action=stop transitions pending task to completed ("processing" in UI) and prepares storage/analyses/<id>
+            post_resp = self.client.post(f"/submit/status/{task.id}/", {"action": "stop"}, HTTP_HX_REQUEST="true")
+            self.assertEqual(post_resp.status_code, 200)
+            post_body = post_resp.content.decode()
+            self.assertIn("PROCESSING", post_body)
+            self.assertNotIn('id="stop-analysis-btn"', post_body)
+
+            updated_task = db.view_task(task.id)
+            self.assertEqual(updated_task.status, TASK_COMPLETED)
+            self.assertIsNotNone(updated_task.started_on)
+            self.assertIsNotNone(updated_task.completed_on)
+
+            analysis_dir = os.path.join(tmp_root, "storage", "analyses", str(task.id))
+            self.assertTrue(os.path.isdir(analysis_dir))
+            self.assertTrue(os.path.isdir(os.path.join(analysis_dir, "logs")))
+            self.assertTrue(os.path.isdir(os.path.join(analysis_dir, "files")))
+            self.assertTrue(os.path.lexists(os.path.join(analysis_dir, "binary")))
+
+    def test_stop_running_task_from_status_page_and_api_sets_guest_stopping(self):
+        from lib.cuckoo.core.data.guests import Guest
+        from lib.cuckoo.core.data.task import TASK_RUNNING, Task
+
+        db, task, sha256, tmp_file = self._create_sample_task()
+        with db.session.begin():
+            t = db.session.get(Task, task.id)
+            t.status = TASK_RUNNING
+            guest = Guest("win10_1", "win10_1", "windows", "KVM", task.id)
+            guest.status = "running"
+            db.session.add(guest)
+
+        with patch.object(static_preview, "CUCKOO_ROOT", os.path.dirname(tmp_file)):
+            # 1. Static preview config card renders "Stop VM & Finalize Report" button while task is running
+            with patch.object(
+                static_preview,
+                "_extract_static_cape_configs",
+                return_value=[{"TestMalware": {"URL": ["hxxp://bad.example/cfg"]}, "_associated_config_hashes": [{"sha256": sha256}]}],
+            ):
+                static_resp = self.client.get(f"/submit/status/{task.id}/?static=1", HTTP_HX_REQUEST="true")
+                self.assertEqual(static_resp.status_code, 200)
+                self.assertIn('id="stop-analysis-config-btn"', static_resp.content.decode())
+
+            # 2. POST /submit/status/<id>/ sets guest status to "stopping" and displays Stopping VM badge
+            post_resp = self.client.post(f"/submit/status/{task.id}/", {"action": "stop"}, HTTP_HX_REQUEST="true")
+            self.assertEqual(post_resp.status_code, 200)
+            self.assertIn("Stopping VM...", post_resp.content.decode())
+            self.assertEqual(db.guest_get_status(task.id), "stopping")
+
+            # Reset guest status to "running" and test POST /apiv2/tasks/status/<id>/ with status="stop"
+            db.guest_set_status(task.id, "running")
+            api_resp = self.client.post(
+                f"/apiv2/tasks/status/{task.id}/",
+                data='{"status": "stop"}',
+                content_type="application/json",
+            )
+            self.assertEqual(api_resp.status_code, 200)
+            api_json = api_resp.json()
+            self.assertFalse(api_json["error"])
+            self.assertEqual(api_json["data"], "stopping")
+            self.assertEqual(db.guest_get_status(task.id), "stopping")
+
+    def test_tenancy_middleware_requires_manage_rights_on_status_stop_post(self):
+        import lib.tenancy.middleware as mw_mod
+        from lib.tenancy.policy import TENANT, ResourceScope, ViewerContext
+        from submission.views import status as status_view
+
+        scope = ResourceScope(owner_id=7, tenant_id=1, visibility=TENANT)
+        owner = ViewerContext(user_id=7, tenant_id=1, is_authenticated=True, tenant_ids=(1,))
+        peer = ViewerContext(user_id=9, tenant_id=1, is_authenticated=True, tenant_ids=(1,))
+
+        def make_mw(viewer):
+            return mw_mod.TenancyMiddleware(
+                lambda r: None,
+                viewer_resolver=lambda _u: viewer,
+                task_scope_resolver=lambda _tid: scope,
+            )
+
+        get_req = type("Req", (), {"path": "/submit/status/42/", "path_info": "/submit/status/42/", "method": "GET", "user": None, "viewer": None, "entitlements": None, "POST": {}, "META": {}})()
+        post_req = type("Req", (), {"path": "/submit/status/42/", "path_info": "/submit/status/42/", "method": "POST", "user": None, "viewer": None, "entitlements": None, "POST": {"action": "stop"}, "META": {}})()
+
+        # Peer in same tenant can GET status page, but cannot POST stop action
+        self.assertIsNone(make_mw(peer).process_view(get_req, status_view, (), {"task_id": 42}))
+        peer_post_res = make_mw(peer).process_view(post_req, status_view, (), {"task_id": 42})
+        self.assertIsNotNone(peer_post_res)
+        self.assertEqual(getattr(peer_post_res, "status_code", None), 404)
+
+        # Task owner can POST stop action (and middleware does not misclassify it as a file submission POST)
+        post_req.viewer = None
+        post_req.entitlements = None
+        self.assertFalse(mw_mod._is_submission_post(post_req, status_view))
+        self.assertIsNone(make_mw(owner).process_view(post_req, status_view, (), {"task_id": 42}))
+
+
+
 
 
 
