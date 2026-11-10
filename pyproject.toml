@@ -164,6 +164,8 @@ package-mode = false
 
 [tool.uv]
 package = false
+# gittoolfetcher (via goresolver -> gostrap) caps requests<2.33; core requires >=2.33.0
+override-dependencies = ["requests>=2.33.0"]
 
 [tool.black]
 line-length = 132
