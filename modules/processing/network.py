@@ -1220,20 +1220,20 @@ class Pcap2:
         return groups
 
     @staticmethod
-    def _build_request_header(method: str, uri: str, version: str, header_lines: list[str]) -> bytes:
+    def _build_request_header(method: str, uri: str, version: str, header_lines: list[str]) -> str:
         lines = [f"{method} {uri} {version or 'HTTP/1.1'}\r\n"] if method else []
         lines.extend(header_lines)
-        return "".join(lines).encode("latin-1", errors="replace")
+        return "".join(lines)
 
     @staticmethod
-    def _build_response_header(version: str, code: str, phrase: str, header_lines: list[str]) -> bytes:
+    def _build_response_header(version: str, code: str, phrase: str, header_lines: list[str]) -> str:
         status_line = f"{version or 'HTTP/1.1'} {code} {phrase}".rstrip() if code else ""
         lines = [f"{status_line}\r\n".replace("  ", " ")] if status_line else []
         lines.extend(header_lines)
-        return "".join(lines).encode("latin-1", errors="replace")
+        return "".join(lines)
 
     @staticmethod
-    def _request_header(layers) -> bytes:
+    def _request_header(layers) -> str:
         """Rebuild the request header block.
 
         http.request.line only holds the header lines, the request line itself has to be
@@ -1245,7 +1245,7 @@ class Pcap2:
         return Pcap2._build_request_header(method, uri, version, Pcap2._all(layers, "http.request.line"))
 
     @staticmethod
-    def _response_header(layers) -> bytes:
+    def _response_header(layers) -> str:
         """Same as _request_header, for the status line and response headers."""
         code = Pcap2._first(layers, "http.response.code") or ""
         phrase = Pcap2._first(layers, "http.response.phrase") or ""
@@ -1311,7 +1311,7 @@ class Pcap2:
             return
 
         if response_header is None:
-            response_header = self._response_header(resp_layers) if resp_layers else b""
+            response_header = self._response_header(resp_layers) if resp_layers else ""
 
         tmp_dict = {
             "src": req["src"],
@@ -1463,7 +1463,7 @@ class Pcap2:
                             "method": "UNKNOWN",
                             "host": srcip,
                             "uri": "",
-                            "request": b"",
+                            "request": "",
                             "body": b"",
                             "secure": bool(self._first(layers, "tls.record.content_type")),
                             "first_seen": ts,
@@ -1518,7 +1518,7 @@ class Pcap2:
                 "method": "UNKNOWN",
                 "host": resp_st["src"],
                 "uri": "",
-                "request": b"",
+                "request": "",
                 "body": b"",
                 "secure": resp_st["secure"],
                 "first_seen": resp_st["first_seen"],

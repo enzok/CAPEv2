@@ -81,3 +81,11 @@ def test_packets_for_stream_supports_pcap_and_pcapng(tmp_path, monkeypatch):
         with open(pcap_file, "rb") as f:
             stream_40001 = list(net.packets_for_stream(f, conns[40001]))
         assert [b64decode(p["raw"]) for p in stream_40001] == [b"other-flow"]
+
+
+def test_pcap2_http_headers_are_str_and_keep_non_ascii():
+    """tshark already hands back text; encoding it to bytes mangled non-ASCII headers downstream."""
+    request = net.Pcap2._build_request_header("GET", "/", "HTTP/1.1", ["Host: example.com\r\n", "X-Test: café ☃\r\n"])
+    response = net.Pcap2._build_response_header("HTTP/1.1", "200", "OK", ["Server: naïve\r\n"])
+    assert request == "GET / HTTP/1.1\r\nHost: example.com\r\nX-Test: café ☃\r\n"
+    assert response == "HTTP/1.1 200 OK\r\nServer: naïve\r\n"

@@ -30,7 +30,7 @@ def comma_join(value):
 def network_rn_func(value):
     """get basename from path"""
     if isinstance(value, bytes):
-        value = value.decode()
+        value = value.decode("utf-8", errors="replace")
     return list(filter(None, value.split("\r\n")))
 
 

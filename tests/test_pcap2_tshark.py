@@ -138,8 +138,8 @@ class TestPcap2Tshark:
         assert get["status"] == 200
         assert get["protocol"] == "http"
         # the request/status line must be present, http.request.line only holds the headers
-        assert get["request"] == b"GET /index.html HTTP/1.1\r\nHost: example.com\r\nUser-Agent: curl/8.0\r\n"
-        assert get["response"].startswith(b"HTTP/1.1 200 OK\r\n")
+        assert get["request"] == "GET /index.html HTTP/1.1\r\nHost: example.com\r\nUser-Agent: curl/8.0\r\n"
+        assert get["response"].startswith("HTTP/1.1 200 OK\r\n")
 
     def test_http_body_is_extracted_verbatim(self, http_pcap, tmp_path):
         """http.file_data is hex encoded; storing it without decoding corrupts every body."""
@@ -163,7 +163,7 @@ class TestPcap2Tshark:
         results = Pcap2(http_pcap, {}, str(tmp_path / "network")).run()
         orphan = next(flow for flow in results["http_ex"] if flow["uri"] == "/orphan")
         assert orphan["status"] == 0
-        assert orphan["response"] == b""
+        assert orphan["response"] == ""
         assert orphan["host"] == "orphan.example"
 
     def test_smtp_session(self, smtp_pcap, tmp_path):
@@ -269,13 +269,13 @@ class TestPcap2Tshark:
         assert len(results["http_ex"]) == 2
         f1, f2 = results["http_ex"]
         assert (f1["method"], f1["host"], f1["uri"], f1["status"]) == ("GET", "one.example", "/one", 200)
-        assert f1["request"] == b"GET /one HTTP/1.1\r\nHost: one.example\r\nUser-Agent: ua1\r\n"
-        assert f1["response"] == b"HTTP/1.1 200 OK\r\nServer: s1\r\nContent-Length: 3\r\n"
+        assert f1["request"] == "GET /one HTTP/1.1\r\nHost: one.example\r\nUser-Agent: ua1\r\n"
+        assert f1["response"] == "HTTP/1.1 200 OK\r\nServer: s1\r\nContent-Length: 3\r\n"
         assert (network_path / f1["resp"]["sha256"]).read_bytes() == b"ONE"
 
         assert (f2["method"], f2["host"], f2["uri"], f2["status"]) == ("POST", "two.example", "/two", 404)
-        assert f2["request"] == b"POST /two HTTP/1.1\r\nHost: two.example\r\nContent-Length: 3\r\n"
-        assert f2["response"] == b"HTTP/1.1 404 Not Found\r\nServer: s2\r\nContent-Length: 3\r\n"
+        assert f2["request"] == "POST /two HTTP/1.1\r\nHost: two.example\r\nContent-Length: 3\r\n"
+        assert f2["response"] == "HTTP/1.1 404 Not Found\r\nServer: s2\r\nContent-Length: 3\r\n"
         assert (network_path / f2["req"]["sha256"]).read_bytes() == b"abc"
         assert (network_path / f2["resp"]["sha256"]).read_bytes() == b"TWO"
 
@@ -738,8 +738,8 @@ class TestPcap2Tshark:
             "/v2/gate",
             200,
         )
-        assert flow["request"] == b"POST /v2/gate HTTP/2\r\nHost: h2.example.test\r\nuser-agent: h2-agent/2.0\r\n"
-        assert flow["response"].startswith(b"HTTP/2 200\r\n")
+        assert flow["request"] == "POST /v2/gate HTTP/2\r\nHost: h2.example.test\r\nuser-agent: h2-agent/2.0\r\n"
+        assert flow["response"].startswith("HTTP/2 200\r\n")
         assert (net_dir / flow["req"]["sha256"]).read_bytes() == b"part1-part2"
         assert (net_dir / flow["resp"]["sha256"]).read_bytes() == b"decrypted-http2-response"
 
