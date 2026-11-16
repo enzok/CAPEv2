@@ -387,18 +387,39 @@ SETTINGS_EXPORT = [
     "HUNT_ENABLED"
 ]
 
-if web_cfg.registration.get("email_confirmation", False):
-    EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
-    EMAIL_HOST = web_cfg.registration.get("email_host", False)
-    EMAIL_HOST_USER = web_cfg.registration.get("email_user", False)
-    EMAIL_HOST_PASSWORD = web_cfg.registration.get("email_password", False)
-    EMAIL_PORT = web_cfg.registration.get("email_port", 465)
-    EMAIL_TLS_SSL = web_cfg.registration.get("use_tls", False)
-    EMAIL_USE_SSL = web_cfg.registration.get("use_ssl", False)
-    SERVER_EMAIL = EMAIL_HOST_USER
-    DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+import django
+
+if django.VERSION >= (6, 1):
+    _mailer = {"BACKEND": "django.core.mail.backends.console.EmailBackend"}
+    if web_cfg.registration.get("email_confirmation", False):
+        _email_user = web_cfg.registration.get("email_user", "") or ""
+        _mailer = {
+            "BACKEND": "django.core.mail.backends.smtp.EmailBackend",
+            "OPTIONS": {
+                "host": web_cfg.registration.get("email_host", "") or "localhost",
+                "username": _email_user,
+                "password": web_cfg.registration.get("email_password", "") or "",
+                "port": web_cfg.registration.get("email_port", 465),
+                "use_tls": bool(web_cfg.registration.get("use_tls", False)),
+                "use_ssl": bool(web_cfg.registration.get("use_ssl", False)),
+            },
+        }
+        SERVER_EMAIL = _email_user
+        DEFAULT_FROM_EMAIL = _email_user
+    MAILERS = {"default": _mailer}
 else:
-    EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+    if web_cfg.registration.get("email_confirmation", False):
+        EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+        EMAIL_HOST = web_cfg.registration.get("email_host", False)
+        EMAIL_HOST_USER = web_cfg.registration.get("email_user", False)
+        EMAIL_HOST_PASSWORD = web_cfg.registration.get("email_password", False)
+        EMAIL_PORT = web_cfg.registration.get("email_port", 465)
+        EMAIL_TLS_SSL = web_cfg.registration.get("use_tls", False)
+        EMAIL_USE_SSL = web_cfg.registration.get("use_ssl", False)
+        SERVER_EMAIL = EMAIL_HOST_USER
+        DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+    else:
+        EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 
 SITE_ID = 1
 
@@ -410,7 +431,13 @@ else:
     ACCOUNT_EMAIL_VERIFICATION = "none"
     SOCIALACCOUNT_EMAIL_VERIFICATION = ACCOUNT_EMAIL_VERIFICATION
 
-ACCOUNT_EMAIL_REQUIRED = web_cfg.registration.get("email_required", False)
+_email_signup_field = (
+    "email*"
+    if (web_cfg.registration.get("email_required", False) or web_cfg.registration.get("email_confirmation", False))
+    else "email"
+)
+ACCOUNT_LOGIN_METHODS = {"username"}
+ACCOUNT_SIGNUP_FIELDS = ["username*", _email_signup_field, "password1*", "password2*"]
 ACCOUNT_EMAIL_SUBJECT_PREFIX = web_cfg.registration.get("email_prefix_subject", False)
 ACCOUNT_RATE_LIMITS = {"login_failed": "3/m"}
 LOGIN_REDIRECT_URL = "/"

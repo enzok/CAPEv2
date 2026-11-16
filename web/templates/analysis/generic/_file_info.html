@@ -98,6 +98,12 @@
                     <td>{{file.virtual_address}}</td>
                 </tr>
             {% endif %}
+            {% if file.dump_trigger %}
+                <tr>
+                    <th class="text-end text-info" style="width: 15%;">Dump Trigger</th>
+                    <td><code>{{file.dump_trigger}}</code></td>
+                </tr>
+            {% endif %}
             {% if file.cape_type_code == 5 %}
                 <tr>
                     <th class="text-end text-info" style="width: 15%;">Section Handle</th>
@@ -489,7 +495,7 @@
 
             {% if file.selfextract %}
                 {% for name, details in file.selfextract.items %}
-                    <a class="btn btn-sm btn-outline-light me-2 mb-2" data-bs-toggle="collapse" href="#selfextract_{{name}}">Extracted: {{name}}</a>
+                    <a class="btn btn-sm btn-outline-light me-2 mb-2" data-bs-toggle="collapse" href="#selfextract_{{file.sha256}}_{{name|slugify}}">Extracted: {{name}}</a>
                 {% endfor %}
             {% endif %}
 
@@ -637,7 +643,7 @@
 
         {% if file.selfextract %}
             {% for name, details in file.selfextract.items %}
-                <div class="collapse mb-3" id="selfextract_{{name}}">
+                <div class="collapse mb-3" id="selfextract_{{file.sha256}}_{{name|slugify}}">
                     <div class="card bg-dark border-secondary">
                         <div class="card-header border-secondary"><h6 class="mb-0 text-white">Archive: {{name}}</h6></div>
                         <div class="card-body">
