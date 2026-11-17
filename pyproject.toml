@@ -112,7 +112,6 @@ libvirt = ["libvirt-python"]
 
 optional = [
     "httpreplay @ git+https://github.com/CAPESandbox/httpreplay.git",
-    "bingraph @ git+https://github.com/CAPESandbox/binGraph.git",
     "batch_deobfuscator @ git+https://github.com/DissectMalware/batch_deobfuscator.git",
     "pyattck @ git+https://github.com/CAPESandbox/pyattck.git",
 
