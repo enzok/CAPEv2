@@ -29,7 +29,7 @@ try:
     )
     from sqlalchemy.types import JSON
 except ImportError:  # pragma: no cover
-    raise CuckooDependencyError("Unable to import sqlalchemy (install with `poetry install`)")
+    raise CuckooDependencyError("Unable to import sqlalchemy (install with `uv sync --locked --no-install-project --inexact`)")
 
 log = logging.getLogger(__name__)
 

@@ -7,7 +7,7 @@ except ImportError:
     try:
         from ratelimit.exceptions import Ratelimited
     except ImportError:
-        print("missed dependency: poetry run pip install django-ratelimit -U")
+        print("missed dependency: uv pip install django-ratelimit -U")
 
 
 from django.urls import resolve, Resolver404
