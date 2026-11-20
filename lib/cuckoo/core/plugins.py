@@ -163,9 +163,10 @@ class RunAuxiliary:
             Stops all enabled auxiliary modules.
     """
 
-    def __init__(self, task, machine):
+    def __init__(self, task, machine, route=None):
         self.task = task
         self.machine = machine
+        self.route = route
         self.cfg = Config("auxiliary")
         self.enabled = []
 
@@ -195,6 +196,8 @@ class RunAuxiliary:
                 current.set_task(self.task)
                 current.set_machine(self.machine)
                 current.set_options(options)
+                if hasattr(current, "set_route"):
+                    current.set_route(self.route)
 
                 try:
                     current.start()
