@@ -499,15 +499,13 @@ def init_tasks():
             log.info("Updated running task ID %s status to failed_analysis", task.id)
 
 
-def init_modules(check_snapshots=True):
-    """Initializes plugins.
-    @param check_snapshots: verify VM snapshot state via libvirt (scheduler only; the
-        report processor does not need libvirt and sets this False).
-    """
+def init_modules(machinery: bool = True, auxiliary: bool = True):
+    """Initializes plugins."""
     log.debug("Importing modules...")
 
-    # Import all auxiliary modules.
-    import_package(modules.auxiliary)
+    if auxiliary:
+        # Import all auxiliary modules.
+        import_package(modules.auxiliary)
     # Import all processing modules.
     import_package(modules.processing)
     # Import all signatures.
@@ -530,9 +528,9 @@ def init_modules(check_snapshots=True):
     # Import all feeds modules.
     import_package(modules.feeds)
 
-    # Import machine manager.
-    import_plugin(f"modules.machinery.{cuckoo.cuckoo.machinery}")
-    if check_snapshots:
+    if machinery:
+        # Import machine manager.
+        import_plugin(f"modules.machinery.{cuckoo.cuckoo.machinery}")
         check_snapshot_state()
 
     from lib.cuckoo.common.hooks import bootstrap_tenancy
