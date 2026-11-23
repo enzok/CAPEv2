@@ -24,7 +24,13 @@ from contextlib import suppress
 from pathlib import Path
 
 from lib.cuckoo.common.abstracts import Processing
-from lib.cuckoo.common.cape_utils import cape_name_from_yara, is_duplicated_binary, pe_map, static_config_parsers
+from lib.cuckoo.common.cape_utils import (
+    cape_name_from_yara,
+    is_duplicated_binary,
+    pe_map,
+    sort_dumps_by_detection,
+    static_config_parsers,
+)
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.integrations.file_extra_info import DuplicatesType, static_file_info
 from lib.cuckoo.common.integrations.shellcode_utils import (
@@ -33,7 +39,8 @@ from lib.cuckoo.common.integrations.shellcode_utils import (
     process_file_shellcode,
 )
 from lib.cuckoo.common.objects import File
-from lib.cuckoo.common.path_utils import path_exists, path_mkdir
+from lib.cuckoo.common.path_utils import path_exists, path_get_size, path_mkdir
+from lib.cuckoo.common.process_timeout import reset_task_budgets
 from lib.cuckoo.common.replace_patterns_utils import _clean_path
 from lib.cuckoo.common.utils import (
     add_family_detection,
@@ -561,7 +568,12 @@ class CAPE(Processing):
                 _ = cape_name_from_yara(file_info, file_info["pid"], self.results)
 
             # ToDo https://github.com/mandiant/capa/issues/2620
-            if HAVE_FLARE_CAPA and ("PE32" in file_info["type"] or "MS-DOS executable" in file_info["type"]):
+            if (
+                HAVE_FLARE_CAPA
+                and "flare_capa" not in file_info
+                and ("PE32" in file_info["type"] or "MS-DOS executable" in file_info["type"])
+                and int(path_get_size(file_path) / (1024 * 1024)) <= int(processing_conf.CAPE.get("max_file_size", 90) or 90)
+            ):
                 pretime = timeit.default_timer()
                 capa_details = flare_capa_details(file_path, "procdump")
                 if capa_details:
@@ -669,7 +681,13 @@ class CAPE(Processing):
 
         if append_file:
             # ToDo https://github.com/mandiant/capa/issues/2620
-            if HAVE_FLARE_CAPA and category == "CAPE" and ("PE32" in file_info["type"] or "MS-DOS executable" in file_info["type"]):
+            if (
+                HAVE_FLARE_CAPA
+                and category == "CAPE"
+                and "flare_capa" not in file_info
+                and ("PE32" in file_info["type"] or "MS-DOS executable" in file_info["type"])
+                and int(path_get_size(file_path) / (1024 * 1024)) <= int(processing_conf.CAPE.get("max_file_size", 90) or 90)
+            ):
                 pretime = timeit.default_timer()
                 capa_details = flare_capa_details(file_path, "cape")
                 if capa_details:
@@ -701,6 +719,7 @@ class CAPE(Processing):
         """Run analysis.
         @return: list of CAPE output files with related information.
         """
+        reset_task_budgets()
         self._set_dict_keys()
         self._deferred_shellcode_payloads = []
         self._dump_triggers = extract_dump_triggers(
@@ -856,6 +875,11 @@ class CAPE(Processing):
             filepath, payload_meta = self.queued_payloads.pop(0)
             self.process_file(filepath, True, payload_meta, category="CAPE", duplicated=duplicated)
 
+        if self.cape.get("payloads"):
+            self.cape["payloads"] = sort_dumps_by_detection(self.cape["payloads"])
+        for category_key in ("procdump", "dropped"):
+            if self.results.get(category_key):
+                self.results[category_key] = sort_dumps_by_detection(self.results[category_key])
         return self.cape
 
     def update_cape_configs(self, cape_name, config, file_obj):

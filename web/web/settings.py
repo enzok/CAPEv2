@@ -131,15 +131,30 @@ USE_TZ = True
 try:
     from .secret_key import SECRET_KEY  # noqa: F401
 except ImportError:
+    import importlib
+
     SETTINGS_DIR = os.path.abspath(os.path.dirname(__file__))
     # Using the same generation schema of Django startproject.
     from django.utils.crypto import get_random_string
 
     key = get_random_string(50, "abcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*(-_=+)")
 
-    # Write secret_key.py
-    _ = Path(os.path.join(SETTINGS_DIR, "secret_key.py")).write_text(f'SECRET_KEY = "{key}"')
+    # Write secret_key.py atomically so concurrent multi-worker boots share one key.
+    secret_key_path = os.path.join(SETTINGS_DIR, "secret_key.py")
+    tmp_secret_key_path = os.path.join(SETTINGS_DIR, f".secret_key.{os.getpid()}.tmp")
+    try:
+        fd = os.open(tmp_secret_key_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh.write(f'SECRET_KEY = "{key}"\n')
+        try:
+            os.link(tmp_secret_key_path, secret_key_path)
+        except FileExistsError:
+            pass
+    finally:
+        with suppress(OSError):
+            os.unlink(tmp_secret_key_path)
 
+    importlib.invalidate_caches()
     # Reload key.
     from .secret_key import SECRET_KEY  # noqa: F401
 
@@ -156,9 +171,9 @@ MEDIA_URL = ""
 # Don't put anything in this directory yourself; store your static files
 # in apps' "static/" subdirectories and in STATICFILES_DIRS.
 # Example: "/home/media/media.lawrence.com/static/"
-# When NGINX is as reverse proxy you need to put next line in local_settings.py
-# python manage.py collectstatic
-STATIC_ROOT = ""
+# `manage.py collectstatic` populates this directory with both web/static/
+# and Django app assets (admin, DRF, etc.) for Granian/Nginx serving.
+STATIC_ROOT = os.path.join(BASE_DIR, "static_collected")
 
 
 # URL prefix for static files.
@@ -166,7 +181,7 @@ STATIC_ROOT = ""
 STATIC_URL = "/static/"
 
 # Additional locations of static files
-STATICFILES_DIRS = (os.path.join(Path.cwd(), "static"),)
+STATICFILES_DIRS = (os.path.join(BASE_DIR, "static"),)
 
 # List of finder classes that know how to find static files in
 # various locations.
@@ -198,6 +213,7 @@ TEMPLATES = [
                 # Surfaces `may_manage_apikeys` for the API Keys link in the user dropdown.
                 "apikey.context_processors.apikey_access",
                 "guac.context_processors.guac_vnc_console",
+                "web.context_processors.cape_version",
             ],
             "loaders": [
                 "django.template.loaders.filesystem.Loader",
@@ -241,7 +257,6 @@ WSGI_APPLICATION = "web.wsgi.application"
 ASGI_APPLICATION = "web.asgi.application"
 
 INSTALLED_APPS = [
-    "daphne",
     "channels",
     "guac",
     "django.contrib.auth",
@@ -492,14 +507,29 @@ LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
     "filters": {"require_debug_false": {"()": "django.utils.log.RequireDebugFalse"}},
+    "formatters": {
+        "cape_web": {
+            "format": "[%(asctime)s] [%(levelname)s] %(name)s: %(message)s",
+        },
+    },
     "handlers": {
-        "mail_admins": {"level": "ERROR", "filters": ["require_debug_false"], "class": "django.utils.log.AdminEmailHandler"}
+        "console": {
+            "level": "INFO",
+            "class": "logging.StreamHandler",
+            "formatter": "cape_web",
+        },
+        "mail_admins": {"level": "ERROR", "filters": ["require_debug_false"], "class": "django.utils.log.AdminEmailHandler"},
     },
     "loggers": {
         "django.request": {
-            "handlers": ["mail_admins"],
+            "handlers": ["console", "mail_admins"],
             "level": "ERROR",
-            "propagate": True,
+            "propagate": False,
+        },
+        "django.security": {
+            "handlers": ["console"],
+            "level": "WARNING",
+            "propagate": False,
         },
     },
 }
@@ -513,7 +543,7 @@ SILENCED_SYSTEM_CHECKS = [
 ALLOWED_HOSTS = ["*"]
 
 # Reverse-proxy TLS termination: when nginx terminates HTTPS and forwards plain
-# HTTP to gunicorn/daphne, Django must be told via X-Forwarded-Proto that the
+# HTTP to granian, Django must be told via X-Forwarded-Proto that the
 # original request was HTTPS — otherwise request.is_secure() is False and the
 # absolute OIDC redirect_uri django-allauth builds comes out as http://…, which
 # the IdP rejects. Requires `proxy_set_header X-Forwarded-Proto $scheme;` in nginx.

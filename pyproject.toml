@@ -7,7 +7,7 @@ authors = [
     { name = "doomedraven", email = "doomedraven@capesandbox.com" },
 ]
 license = { text = "MIT" }
-requires-python = ">=3.10, <4.0"
+requires-python = ">=3.14, <4.0"
 dependencies = [
     "alembic==1.9.4",
     "gevent>=24.2.1",
@@ -74,8 +74,7 @@ dependencies = [
     "paramiko>=5.0.0",
     "psutil>=6.1.1",
     "peepdf-3==5.0.0",
-    "pyre2==0.3.10; python_version < '3.11'",
-    "pyre2>=0.3.14; python_version >= '3.11'",
+    "pyre2>=0.3.14",
     "Werkzeug>=3.1.9",
     "packaging>=24.2",
     "setuptools>=83.0.0",
@@ -86,8 +85,8 @@ dependencies = [
     # guac-session
     "pyguacamole>=0.11",
     "uvicorn[standard]>=0.18.2",
-    "gunicorn>=23.0.0",
-    "channels[daphne]>=4.0.0",
+    "granian[pname]>=2.8.0",
+    "channels>=4.0.0",
     "setproctitle>=1.3.2",
     "CAPE-parsers>=0.1.36",
     "maco==1.1.8",

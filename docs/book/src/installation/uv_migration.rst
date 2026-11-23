@@ -11,12 +11,13 @@ Why migrate
 ===========
 
 * **Decouples CAPE from the host OS Python**: Ubuntu 22.04 ships Python 3.10 (EOL October 2026).
-  ``uv`` downloads a standalone CPython 3.14 build into ``/usr/local/share/uv/python`` without
-  modifying system ``/usr/bin/python3`` or ``apt`` packages.
-* **Security coverage**: Several core dependencies (``Pillow>=13``, ``filelock>=4.2.1``,
-  ``soupsieve>=4``, ``dnspython>=2.9``, ``autobahn>=26.7``) only ship CVE fixes for
-  Python 3.11.5+. Running CAPE on ``uv``-managed Python 3.14 lets every deployment stay on
-  patched releases regardless of host distro.
+  ``uv`` downloads a standalone CPython 3.14 build (security support through October 2030) into
+  ``/usr/local/share/uv/python`` without modifying system ``/usr/bin/python3`` or ``apt`` packages.
+* **Security coverage**: The recent wave of AI-assisted vulnerability discovery has accelerated
+  CVE volume across core Python packages, and upstream security fixes for several dependencies
+  (``Pillow>=13``, ``filelock>=4.2.1``, ``soupsieve>=4``, ``dnspython>=2.9``) require
+  Python 3.11.5+. Running CAPE on an independent, ``uv``-managed Python 3.14 runtime lets every
+  deployment stay on patched releases regardless of host distro.
 * **Single lockfile & faster syncs**: ``uv.lock`` replaces ``poetry.lock`` and installs in
   seconds with deterministic hashes.
 * **Safe service startups**: Systemd units invoke ``/usr/local/bin/uv run --no-sync``, so
@@ -47,20 +48,21 @@ For a custom install directory:
 
 What ``migrate-uv`` does:
 
-1. Saves the list of currently enabled ``cape*`` / ``guac-web`` services and stops them.
+1. Saves the list of currently enabled ``cape*`` / ``guac-web`` services/timers and stops them.
 2. Snapshots the existing Poetry environment to ``/tmp/cape-poetry-freeze.txt`` (if Poetry is
    present) so optional extras (``gcp``, ``s3``, ``azure``, ``yara``, ``mcp``, ``dist``) and
-   packages (``libvirt-python``, ``yara-python``, ``volatility3``) are detected.
+   packages (``libvirt-python``, ``volatility3``) are detected.
 3. Installs ``uv`` to ``/usr/local/bin/uv`` and standalone Python 3.14 to
    ``/usr/local/share/uv/python`` (world-readable so both ``cape`` and ``root`` services share
    one interpreter).
 4. Creates ``$CAPE_ROOT/.venv`` on Python 3.14 owned by ``cape`` and runs
    ``uv sync --locked --no-install-project --inexact``.
-5. Rebuilds native extensions (``libvirt-python``, ``yara-python`` with cuckoo/magic/profiling)
-   and reinstalls ``volatility3`` if previously present.
-6. Updates installed systemd units in ``/lib/systemd/system/`` from Poetry to
-   ``/usr/local/bin/uv run --no-sync``, updates root crontab Poetry commands, reloads systemd,
-   and restarts the previously enabled services.
+5. Installs ``yara-x`` (prebuilt wheel), rebuilds ``libvirt-python`` (on KVM hosts), and
+   reinstalls ``volatility3`` if previously present.
+6. Seeds missing ``conf/*.env`` files from ``conf/default/*.env.default``, updates installed
+   systemd units in ``/lib/systemd/system/`` (and ``/etc/systemd/system/``) to
+   ``/usr/local/bin/uv run --no-sync``, updates root and ``cape`` crontab Poetry commands,
+   reloads systemd, and restarts the previously enabled services.
 7. Leaves ``/etc/poetry`` and old Poetry virtualenvs untouched until you verify and clean up.
 
 Option 2: Manual / Fleet Migration (Ansible, Custom Infra, Distributed Nodes)
@@ -121,11 +123,11 @@ Run as the ``cape`` user (never as ``root``, which breaks ``.venv`` ownership):
 .. code-block:: bash
 
     cd /opt/CAPEv2
-    sudo -u cape env UV_PYTHON_INSTALL_DIR=/usr/local/share/uv/python \
+    sudo -Hu cape env UV_PYTHON_INSTALL_DIR=/usr/local/share/uv/python \
         /usr/local/bin/uv venv --python 3.14 /opt/CAPEv2/.venv
 
     # Base dependencies (add --extra / --group flags matching your deployment)
-    sudo -u cape env UV_PYTHON_INSTALL_DIR=/usr/local/share/uv/python \
+    sudo -Hu cape env UV_PYTHON_INSTALL_DIR=/usr/local/share/uv/python \
         /usr/local/bin/uv sync --locked --no-install-project --inexact --python 3.14
 
 Include optional extras or dependency groups as needed:
@@ -140,8 +142,8 @@ Include optional extras or dependency groups as needed:
 .. important::
 
    Always pass ``--inexact`` to ``uv sync`` on CAPE hosts. Without ``--inexact``, ``uv sync``
-   removes packages installed via ``uv pip install`` (such as ``libvirt-python``, custom-built
-   ``yara-python``, ``volatility3``, and ``extra/optional_dependencies.txt``).
+   removes packages installed via ``uv pip install`` (such as ``libvirt-python``, ``yara-x``,
+   ``volatility3``, and ``extra/optional_dependencies.txt``).
 
 5. Reinstall native & optional packages
 ---------------------------------------
@@ -151,22 +153,22 @@ Inspect ``/tmp/cape-poetry-freeze.txt`` and reinstall any host-built or optional
 
 .. code-block:: bash
 
-    # libvirt-python (KVM hosts — match installed libvirt version)
-    PKG_CONFIG_PATH="$(dirname "$(locate libvirt.pc | head -n1)")"
-    sudo -u cape env PKG_CONFIG_PATH="$PKG_CONFIG_PATH" \
-        /usr/local/bin/uv pip install --python /opt/CAPEv2/.venv/bin/python libvirt-python==11.9.0
+    # libvirt-python (KVM hosts — match the host libvirt version from libvirt.pc;
+    # install libvirt-dev pkg-config first if libvirt.pc is missing on distro KVM hosts)
+    PKG_CONFIG_PATH="$(dirname "$(find /usr/local/lib64 /usr/lib64 /usr/local/lib /usr/lib -maxdepth 4 -name 'libvirt.pc' 2>/dev/null | head -n1)")"
+    LIBVIRT_VER="$(PKG_CONFIG_PATH="$PKG_CONFIG_PATH" pkg-config --modversion libvirt)"
+    sudo -Hu cape env PKG_CONFIG_PATH="$PKG_CONFIG_PATH" \
+        /usr/local/bin/uv pip install --python /opt/CAPEv2/.venv/bin/python "libvirt-python==${LIBVIRT_VER}" \
+        || sudo -Hu cape env PKG_CONFIG_PATH="$PKG_CONFIG_PATH" \
+        /usr/local/bin/uv pip install --python /opt/CAPEv2/.venv/bin/python "libvirt-python<=${LIBVIRT_VER}"
 
-    # yara-python built with CAPE's required flags
-    sudo -u cape /usr/local/bin/uv pip install --python /opt/CAPEv2/.venv/bin/python yara-python \
-        --no-binary :all: \
-        --config-setting="--global-option=build" \
-        --config-setting="--global-option=--enable-cuckoo" \
-        --config-setting="--global-option=--enable-magic" \
-        --config-setting="--global-option=--enable-profiling"
+    # yara-x (prebuilt wheel with cuckoo module included; note YARA-X does not provide
+    # the legacy `magic` module — use `sudo bash installer/cape2.sh yara` if needed)
+    sudo -Hu cape /usr/local/bin/uv pip install --python /opt/CAPEv2/.venv/bin/python yara-x
 
     # Optional: extra dependencies and Volatility 3 (only if used in your deployment)
-    sudo -u cape /usr/local/bin/uv pip install --python /opt/CAPEv2/.venv/bin/python -r extra/optional_dependencies.txt
-    sudo -u cape /usr/local/bin/uv pip install --python /opt/CAPEv2/.venv/bin/python git+https://github.com/volatilityfoundation/volatility3
+    sudo -Hu cape /usr/local/bin/uv pip install --python /opt/CAPEv2/.venv/bin/python -r extra/optional_dependencies.txt
+    sudo -Hu cape /usr/local/bin/uv pip install --python /opt/CAPEv2/.venv/bin/python git+https://github.com/volatilityfoundation/volatility3
 
 6. Update systemd service units
 -------------------------------
@@ -185,7 +187,7 @@ your Ansible/Puppet templates):
    * - ``cape-processor.service``
      - ``/usr/local/bin/uv run --no-sync python utils/process.py``
    * - ``cape-web.service``
-     - ``/usr/local/bin/uv run --no-sync python manage.py runserver_plus 0.0.0.0:8000 --traceback --keep-meta-shutdown`` (or Gunicorn below)
+     - ``/usr/local/bin/uv run --no-sync granian --interface wsgi --no-ws --respawn-failed-workers --access-log --process-name cape-web --static-path-route /static --static-path-mount /opt/CAPEv2/web/static_collected web.wsgi:application`` (runs ``manage.py collectstatic --noinput`` in ``ExecStartPre``; tune via ``conf/cape-web.env``)
    * - ``cape-rooter.service``
      - Remove ``ExecStartPre=...poetry config cache-dir...``; set ``ExecStart=/usr/local/bin/uv run --no-sync python rooter.py -g cape``
    * - ``cape-fstab.service``
@@ -195,7 +197,7 @@ your Ansible/Puppet templates):
    * - ``cape-sigma-update.service``
      - ``/usr/local/bin/uv run --no-sync --project /opt/CAPEv2 python zircolite.py --update-rules``
    * - ``guac-web.service``
-     - ``/usr/local/bin/uv run --no-sync gunicorn --bind 127.0.0.1:8008 web.asgi -t 180 -w 4 -k uvicorn.workers.UvicornWorker --capture-output --enable-stdio-inheritance``
+     - ``/usr/local/bin/uv run --no-sync granian --interface asgi --ws --respawn-failed-workers --access-log --process-name guac-web web.asgi:application`` (tune via ``conf/guac-web.env``)
    * - ``cape-pubsub.service``
      - ``/usr/local/bin/uv run --no-sync python utils/gcp_pubsub_service.py``
 
@@ -206,32 +208,39 @@ Reload systemd and start the services:
     sudo systemctl daemon-reload
     xargs -r sudo systemctl start < /tmp/cape-enabled-services.txt
 
-7. Web UI behind Nginx: uWSGI vs Gunicorn
------------------------------------------
+7. Web UI behind Nginx: Replacing uWSGI / Gunicorn with Granian
+-----------------------------------------------------------------
 
 .. warning::
 
-   The distro package ``uwsgi-plugin-python3`` is compiled against the **host OS**
-   ``libpython`` (for example Python 3.10 on Ubuntu 22.04 or 3.12 on Ubuntu 24.04) and
-   **cannot** load a ``uv``-managed Python 3.14 ``.venv``.
+   ``uWSGI`` (``uwsgi-plugin-python3``) has been removed. The distro plugin links against host
+   OS ``libpython`` and cannot load a ``uv``-managed Python 3.14 ``.venv``.
 
-If you previously served Django via system ``uwsgi``, switch ``cape-web.service`` to Gunicorn
-running inside ``uv`` (Gunicorn is included in ``pyproject.toml``):
+``cape-web.service`` (Django WSGI) and ``guac-web.service`` (Channels ASGI WebSockets) now run
+on **Granian** with built-in worker respawn, RSS/lifetime recycling, access logging, and
+zero-downtime ``SIGHUP`` reloads (``sudo systemctl reload cape-web``).
 
-.. code-block:: ini
+If you previously ran system ``uwsgi`` behind Nginx:
 
-    [Service]
-    WorkingDirectory=/opt/CAPEv2/web
-    ExecStart=/usr/local/bin/uv run --no-sync gunicorn web.wsgi -b 127.0.0.1:8000 -w 4 -t 200 --capture-output --enable-stdio-inheritance
-    User=cape
-    Group=cape
+1. Disable legacy uWSGI configs and stop ``uwsgi``:
 
-Alternatively, if you require uWSGI, build ``uwsgi`` directly inside ``.venv`` so it links
-against the ``uv``-managed Python 3.14 library:
+   .. code-block:: bash
 
-.. code-block:: bash
+       sudo rm -f /etc/uwsgi/apps-enabled/*cape*
+       sudo systemctl disable --now uwsgi 2>/dev/null || true
 
-    sudo -u cape /usr/local/bin/uv pip install --python /opt/CAPEv2/.venv/bin/python uwsgi
+2. Bind Granian to loopback in ``/opt/CAPEv2/conf/cape-web.env`` (or ``custom/conf/cape-web.env``):
+
+   .. code-block:: ini
+
+       GRANIAN_HOST=127.0.0.1
+       GRANIAN_PORT=8000
+       GRANIAN_WORKERS=4
+       GRANIAN_BLOCKING_THREADS=4
+
+3. Update Nginx to use HTTP ``proxy_pass`` to ``127.0.0.1:8000`` (and WebSocket ``proxy_pass``
+   for ``/guac/`` to ``127.0.0.1:8008``) instead of ``uwsgi_pass`` / ``include uwsgi_params``
+   (see ``nginx/cape.conf``), then enable ``cape-web.service``.
 
 8. Update cron jobs, scripts, and monitoring
 --------------------------------------------
@@ -268,10 +277,10 @@ Run these checks after restarting services:
 .. code-block:: bash
 
     # 1. Confirm Python 3.14 inside .venv
-    sudo -u cape /usr/local/bin/uv --directory /opt/CAPEv2 run --no-sync python --version
+    sudo -Hu cape /usr/local/bin/uv --directory /opt/CAPEv2 run --no-sync python --version
 
     # 2. Confirm native extensions import cleanly
-    sudo -u cape /usr/local/bin/uv --directory /opt/CAPEv2 run --no-sync python -c "import yara, libvirt, django, sqlalchemy; print('OK')"
+    sudo -Hu cape /usr/local/bin/uv --directory /opt/CAPEv2 run --no-sync python -c "import yara_x, libvirt, django, sqlalchemy; print('OK')"
 
     # 3. Confirm all services are active and check recent logs
     systemctl status cape cape-processor cape-rooter cape-web --no-pager

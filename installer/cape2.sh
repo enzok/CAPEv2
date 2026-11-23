@@ -146,7 +146,7 @@ UV_PYTHON_DIR="${UV_PYTHON_DIR:-/usr/local/share/uv/python}"
 USE_UV=${USE_UV:-true}
 
 set_python_mgr() {
-    PYTHON_MGR="/usr/local/bin/uv"
+    PYTHON_MGR="${PYTHON_MGR:-/usr/local/bin/uv}"
     PYTHON_MGR_CMD="run --no-sync"
     PYTHON_MGR_PIP="pip"
     PYTHON_MGR_INSTALL_PYPROJECT="sync --locked --no-install-project --inexact --python ${UV_PYTHON_VERSION}"
@@ -155,13 +155,14 @@ set_python_mgr() {
 function install_uv_and_python() {
     if [ ! -x "$PYTHON_MGR" ]; then
         echo "[+] Installing uv"
-        curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR="$(dirname "$PYTHON_MGR")" sh
+        curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR="$(dirname "$PYTHON_MGR")" INSTALLER_NO_MODIFY_PATH=1 sh || return 1
     fi
     echo "[+] Installing uv-managed Python ${UV_PYTHON_VERSION} in ${UV_PYTHON_DIR}"
-    mkdir -p "$UV_PYTHON_DIR"
-    UV_PYTHON_INSTALL_DIR="$UV_PYTHON_DIR" "$PYTHON_MGR" python install "$UV_PYTHON_VERSION"
+    mkdir -p "$UV_PYTHON_DIR" || return 1
+    UV_PYTHON_INSTALL_DIR="$UV_PYTHON_DIR" "$PYTHON_MGR" python install "$UV_PYTHON_VERSION" || return 1
     chmod -R a+rX "$UV_PYTHON_DIR"
     echo "export UV_PYTHON_INSTALL_DIR=${UV_PYTHON_DIR}" > /etc/profile.d/uv-cape.sh
+    chmod 644 /etc/profile.d/uv-cape.sh
 }
 
 # if a config file is present, read it in
@@ -258,10 +259,10 @@ function librenms_sneck_config() {
     fi
     if [ "$MONGO_ENABLE" -ge 1 ]; then
         echo "mongodb|/usr/lib/nagios/plugins/check_mongodb.py $librenms_mongo_args"
-        echo 'cape_web_procs|/usr/lib/nagios/plugins/check_procs --ereg-argument-array "(poetry|uv|\.venv).*bin/python manage.py" 1:'
+        echo 'cape_web_procs|/usr/lib/nagios/plugins/check_procs --ereg-argument-array "(granian.*web\.wsgi|cape-web|(poetry|uv|\.venv).*bin/python manage.py)" 1:'
     else
         echo "#mongodb|/usr/lib/nagios/plugins/check_mongodb.py $librenms_mongo_args"
-        echo 'cape_web_procs|/usr/lib/nagios/plugins/check_procs --ereg-argument-array "(poetry|uv|\.venv).*bin/python manage.py" 0'
+        echo 'cape_web_procs|/usr/lib/nagios/plugins/check_procs --ereg-argument-array "(granian.*web\.wsgi|cape-web|(poetry|uv|\.venv).*bin/python manage.py)" 0'
     fi
 }
 
@@ -700,11 +701,18 @@ function redsocks2() {
 
 function distributed() {
     echo "[+] Configure distributed configuration"
-    sudo apt-get install -y uwsgi uwsgi-plugin-python3 nginx 2>/dev/null
-    sudo -u ${USER} bash -c "cd $CAPE_ROOT && $PYTHON_MGR $PYTHON_MGR_PIP install flask flask-restful flask-sqlalchemy requests"
+    sudo apt-get install -y nginx 2>/dev/null
+    sudo -Hu "${USER}" bash -c "cd '$CAPE_ROOT' && export UV_PYTHON_INSTALL_DIR='$UV_PYTHON_DIR'; $PYTHON_MGR $PYTHON_MGR_INSTALL_PYPROJECT --group dist"
 
-    sudo cp $CAPE_ROOT/uwsgi/capedist.ini /etc/uwsgi/apps-available/cape_dist.ini
-    sudo ln -s /etc/uwsgi/apps-available/cape_dist.ini /etc/uwsgi/apps-enabled
+    sudo cp "$CAPE_ROOT/systemd/cape-dist.service" /lib/systemd/system/cape-dist.service
+    if [ "$CAPE_ROOT" != "/opt/CAPEv2" ]; then
+        sudo sed -i "s|/opt/CAPEv2|$CAPE_ROOT|g" /lib/systemd/system/cape-dist.service
+    fi
+    if [ "$PYTHON_MGR" != "/usr/local/bin/uv" ]; then
+        sudo sed -i "s|/usr/local/bin/uv|$PYTHON_MGR|g" /lib/systemd/system/cape-dist.service
+    fi
+    sudo systemctl daemon-reload
+    sudo systemctl enable cape-dist.service
 
     sudo -u postgres -H sh -c "psql -c \"CREATE DATABASE ${USER}dist\"";
     sudo -u postgres -H sh -c "psql -d \"${USER}\" -c \"GRANT ALL PRIVILEGES ON DATABASE ${USER}dist to ${USER};\""
@@ -812,16 +820,24 @@ EOF
 
 function install_yara_x() {
     echo '[+] Installing Yara-X'
-    sudo -u ${USER} bash -c 'curl https://sh.rustup.rs -sSf | sh'
-    cd /tmp || return
-    # if yara-x exists from previous install remove it
-    if [ -d yara-x ]; then
-        sudo rm -rf yara-x
+    if ! sudo -Hu "${USER}" bash -c 'command -v cargo >/dev/null 2>&1 || [ -x "$HOME/.cargo/bin/cargo" ]'; then
+        sudo -Hu "${USER}" bash -c 'curl https://sh.rustup.rs -sSf | sh -s -- -y'
     fi
-    sudo -u ${USER} git clone https://github.com/VirusTotal/yara-x
-    cd yara-x || return
-    sudo -u ${USER} bash -c 'source "$HOME/.cargo/env" ; cargo install --path cli'
-    sudo -u ${USER} $PYTHON_MGR $PYTHON_MGR_PIP install --python "$CAPE_ROOT/.venv/bin/python" yara-x
+    (
+        cd /tmp || exit 1
+        # if yara-x exists from previous install remove it
+        if [ -d yara-x ]; then
+            sudo rm -rf yara-x
+        fi
+        sudo -Hu "${USER}" git clone https://github.com/VirusTotal/yara-x
+        cd yara-x || exit 1
+        sudo -Hu "${USER}" bash -c '[ -f "$HOME/.cargo/env" ] && source "$HOME/.cargo/env"; cargo install --path cli'
+    )
+    (
+        cd "$CAPE_ROOT" || exit 1
+        sudo -Hu "${USER}" env UV_PYTHON_INSTALL_DIR="$UV_PYTHON_DIR" \
+            "$PYTHON_MGR" "$PYTHON_MGR_PIP" install --python "$CAPE_ROOT/.venv/bin/python" yara-x
+    )
 }
 
 function install_yara_python() {
@@ -837,7 +853,8 @@ function install_yara_python() {
     # This replaces the legacy setup.py build approach
 
     # Install from PyPI
-    sudo -u ${USER} $PYTHON_MGR $PYTHON_MGR_PIP install --python "$CAPE_ROOT/.venv/bin/python" yara-python \
+    sudo -Hu "${USER}" env UV_PYTHON_INSTALL_DIR="$UV_PYTHON_DIR" \
+        "$PYTHON_MGR" "$PYTHON_MGR_PIP" install --python "$CAPE_ROOT/.venv/bin/python" yara-python \
         --no-binary :all: \
         --config-setting="--global-option=build" \
         --config-setting="--global-option=--enable-cuckoo" \
@@ -901,39 +918,119 @@ function install_yara() {
 function install_libvirt() {
     # Refactored from extra/libvirt_installer.sh
     echo '[+] Installing libvirt-python'
-    :'
-    cd /tmp || return
+    local pc_file=""
+    local pc_dir=""
+    find_libvirt_pc() {
+        pc_file=""
+        local prefix="${LIBVIRT_PC_PREFIX:-}"
+        if [ -n "${PKG_CONFIG_PATH:-}" ]; then
+            local pc_dirs=()
+            IFS=":" read -ra pc_dirs <<< "$PKG_CONFIG_PATH"
+            for pc_dir in "${pc_dirs[@]}"; do
+                if [ -f "$pc_dir/libvirt.pc" ]; then
+                    pc_file="$pc_dir/libvirt.pc"
+                    return 0
+                fi
+            done
+        fi
+        if [ -z "$prefix" ] && command -v virsh >/dev/null 2>&1; then
+            local virsh_bin virsh_prefix
+            virsh_bin=$(command -v virsh 2>/dev/null || true)
+            virsh_bin=$(readlink -f "$virsh_bin" 2>/dev/null || echo "$virsh_bin")
+            virsh_prefix=$(dirname "$(dirname "$virsh_bin")")
+            if [ -n "$virsh_prefix" ] && [ "$virsh_prefix" != "/" ] && [ "$virsh_prefix" != "/usr" ] && [ "$virsh_prefix" != "/usr/local" ]; then
+                for pc_dir in \
+                    "${virsh_prefix}/lib64/pkgconfig" \
+                    "${virsh_prefix}/lib/$(uname -m)-linux-gnu/pkgconfig" \
+                    "${virsh_prefix}/lib/pkgconfig"; do
+                    if [ -f "$pc_dir/libvirt.pc" ]; then
+                        pc_file="$pc_dir/libvirt.pc"
+                        return 0
+                    fi
+                done
+            fi
+        fi
+        for pc_dir in \
+            "${prefix}/usr/local/lib64/pkgconfig" \
+            "${prefix}/usr/local/lib/x86_64-linux-gnu/pkgconfig" \
+            "${prefix}/usr/local/lib/aarch64-linux-gnu/pkgconfig" \
+            "${prefix}/usr/local/lib/pkgconfig" \
+            "${prefix}/usr/lib64/pkgconfig" \
+            "${prefix}/usr/lib/x86_64-linux-gnu/pkgconfig" \
+            "${prefix}/usr/lib/aarch64-linux-gnu/pkgconfig" \
+            "${prefix}/usr/lib/pkgconfig"; do
+            if [ -f "$pc_dir/libvirt.pc" ]; then
+                pc_file="$pc_dir/libvirt.pc"
+                return 0
+            fi
+        done
+        local search_roots=()
+        local root
+        for root in \
+            "${prefix}/usr/local/lib64" \
+            "${prefix}/usr/lib64" \
+            "${prefix}/usr/local/lib" \
+            "${prefix}/usr/lib"; do
+            if [ -d "$root" ]; then
+                search_roots+=("$root")
+            fi
+        done
+        if [ ${#search_roots[@]} -gt 0 ]; then
+            pc_file=$(find "${search_roots[@]}" -maxdepth 4 -name 'libvirt.pc' 2>/dev/null | head -n1 || true)
+        fi
+        if [ -z "$pc_file" ] && [ -z "$prefix" ] && command -v pkg-config >/dev/null 2>&1; then
+            pc_dir=$(pkg-config --variable=pcfiledir libvirt 2>/dev/null || true)
+            if [ -n "$pc_dir" ] && [ -f "$pc_dir/libvirt.pc" ]; then
+                pc_file="$pc_dir/libvirt.pc"
+            fi
+        fi
+    }
 
-    if [ ! -f v${LIB_VERSION}.zip ]; then
-        wget "https://github.com/libvirt/libvirt-python/archive/v${LIB_VERSION}.zip"
+    find_libvirt_pc
+    if [ -z "$pc_file" ] && command -v dpkg >/dev/null 2>&1 && dpkg -s libvirt0 >/dev/null 2>&1; then
+        echo '[+] Distro libvirt detected without development headers; installing libvirt-dev and pkg-config'
+        sudo apt-get install -y libvirt-dev pkg-config || true
+        find_libvirt_pc
     fi
 
-    if [ ! -d libvirt-python-${LIB_VERSION} ]; then
-        unzip "v${LIB_VERSION}"
+    if [ -z "$pc_file" ]; then
+        echo "[-] libvirt headers not found, skipping libvirt-python installation. Please install libvirt-dev or run: sudo bash ./kvm-qemu.sh libvirt."
+        return 1
     fi
 
-    cd "libvirt-python-${LIB_VERSION}"
-    sudo chown -R ${USER}:${USER} "/tmp/libvirt-python-${LIB_VERSION}"
-    '
-    sudo apt-get install -y locate && sudo updatedb # used by install_libvirt
-    temp_libvirt_so_path=$(locate libvirt-qemu.so | head -n1 | awk '{print $1;}')
-    temp_export_path=$(locate libvirt.pc | head -n1 | awk '{print $1;}')
-
-    if [ -z "$temp_libvirt_so_path" ] || [ -z "$temp_export_path" ]; then
-        echo "[-] libvirt headers not found, skipping libvirt-python installation. Please install it using: sudo bash ./kvm-qemu.sh libvirt."
-        return
+    if ! command -v pkg-config >/dev/null 2>&1; then
+        sudo apt-get install -y pkg-config
     fi
 
-    libvirt_so_path="${temp_libvirt_so_path%/*}/"
-    if [[ $libvirt_so_path == "/usr/lib/x86_64-linux-gnu/" ]]; then
-        temp_libvirt_so_path=$(locate libvirt-qemu.so | tail -1 | awk '{print $1;}')
-        libvirt_so_path="${temp_libvirt_so_path%/*}/"
+    local export_path
+    export_path=$(dirname "$pc_file")
+    export PKG_CONFIG_PATH="$export_path"
+
+    local detected_ver=""
+    local raw_ver=""
+    raw_ver=$(PKG_CONFIG_PATH="$export_path" pkg-config --modversion libvirt 2>/dev/null || true)
+    if [[ "$raw_ver" =~ ^([0-9]+(\.[0-9]+)+) ]]; then
+        detected_ver="${BASH_REMATCH[1]}"
     fi
 
-    export_path="${temp_export_path%/*}/"
-    export PKG_CONFIG_PATH=$export_path
-
-    sudo -u ${USER} bash -c "export PKG_CONFIG_PATH=$export_path; $PYTHON_MGR $PYTHON_MGR_PIP install --python '$CAPE_ROOT/.venv/bin/python' libvirt-python==${LIB_VERSION}"
+    if [ -n "$detected_ver" ]; then
+        echo "[+] Detected host libvirt ${detected_ver} via ${pc_file}"
+        (
+            cd "$CAPE_ROOT" || exit 1
+            sudo -Hu "${USER}" env PKG_CONFIG_PATH="$export_path" UV_PYTHON_INSTALL_DIR="$UV_PYTHON_DIR" \
+                "$PYTHON_MGR" "$PYTHON_MGR_PIP" install --python "$CAPE_ROOT/.venv/bin/python" "libvirt-python==${detected_ver}" \
+                || sudo -Hu "${USER}" env PKG_CONFIG_PATH="$export_path" UV_PYTHON_INSTALL_DIR="$UV_PYTHON_DIR" \
+                "$PYTHON_MGR" "$PYTHON_MGR_PIP" install --python "$CAPE_ROOT/.venv/bin/python" "libvirt-python<=${detected_ver}"
+        )
+    else
+        (
+            cd "$CAPE_ROOT" || exit 1
+            sudo -Hu "${USER}" env PKG_CONFIG_PATH="$export_path" UV_PYTHON_INSTALL_DIR="$UV_PYTHON_DIR" \
+                "$PYTHON_MGR" "$PYTHON_MGR_PIP" install --python "$CAPE_ROOT/.venv/bin/python" "libvirt-python==${LIB_VERSION}" \
+                || sudo -Hu "${USER}" env PKG_CONFIG_PATH="$export_path" UV_PYTHON_INSTALL_DIR="$UV_PYTHON_DIR" \
+                "$PYTHON_MGR" "$PYTHON_MGR_PIP" install --python "$CAPE_ROOT/.venv/bin/python" libvirt-python
+        )
+    fi
 }
 
 function install_mongo(){
@@ -1073,7 +1170,8 @@ function install_elastic() {
     # echo "deb [signed-by=/etc/apt/keyrings/elasticsearch-keyring.gpg] https://artifacts.elastic.co/packages/8.x/apt stable main" > /etc/apt/sources.list.d/elastic-8.x.list
 
     sudo apt-get update && sudo apt-get install -y elasticsearch
-    sudo -u ${USER} $PYTHON_MGR $PYTHON_MGR_PIP install --python "$CAPE_ROOT/.venv/bin/python" elasticsearch
+    sudo -Hu "${USER}" env UV_PYTHON_INSTALL_DIR="$UV_PYTHON_DIR" \
+        "$PYTHON_MGR" "$PYTHON_MGR_PIP" install --python "$CAPE_ROOT/.venv/bin/python" elasticsearch
 
     systemctl enable elasticsearch
 }
@@ -1110,7 +1208,8 @@ function install_capa() {
     cd capa || return
     git pull
     git submodule update --init rules
-    sudo -u ${USER} $PYTHON_MGR $PYTHON_MGR_PIP install --python "$CAPE_ROOT/.venv/bin/python" /tmp/capa
+    sudo -Hu "${USER}" env UV_PYTHON_INSTALL_DIR="$UV_PYTHON_DIR" \
+        "$PYTHON_MGR" "$PYTHON_MGR_PIP" install --python "$CAPE_ROOT/.venv/bin/python" /tmp/capa
     cd $CAPE_ROOT
     if [ -d /tmp/capa ]; then
         sudo rm -rf /tmp/capa
@@ -1136,15 +1235,13 @@ function dependencies() {
     sudo apt-get install -y innoextract msitools iptables psmisc jq sqlite3 tmux net-tools checkinstall graphviz python3-pydot git numactl python3 python3-dev python3-pip libjpeg-dev zlib1g-dev
     sudo apt-get install -y zpaq upx-ucl wget zip unzip lzip rar unrar unace-nonfree cabextract geoip-database libgeoip-dev libjpeg-dev mono-utils ssdeep libfuzzy-dev exiftool
     sudo DEBIAN_FRONTEND=noninteractive apt-get install -y uthash-dev libconfig-dev libarchive-dev libtool autoconf automake privoxy software-properties-common wkhtmltopdf xvfb xfonts-100dpi tcpdump libcap2-bin wireshark-common tshark
-    sudo apt-get install -y python3-pil subversion uwsgi uwsgi-plugin-python3 python3-pyelftools git curl
+    sudo apt-get install -y subversion git curl
     sudo apt-get install -y openvpn wireguard
     # for bingraph
     sudo apt-get install -y libgraphviz-dev
 
     # Install uv and standalone Python runtime
     install_uv_and_python
-
-    sudo apt-get install -y locate && sudo updatedb # used by install_libvirt
 
     # de4dotEx selfextraction
     de4dot_package_name="de4dotEx-3.12.0-x64.deb"
@@ -1324,13 +1421,13 @@ function install_CAPE() {
     fi
     chown ${USER}:${USER} -R "$CAPE_ROOT"/
     install_uv_and_python
-    sudo -u ${USER} env UV_PYTHON_INSTALL_DIR="$UV_PYTHON_DIR" "$PYTHON_MGR" venv --python "$UV_PYTHON_VERSION" --allow-existing "$CAPE_ROOT/.venv"
+    sudo -Hu "${USER}" env UV_PYTHON_INSTALL_DIR="$UV_PYTHON_DIR" "$PYTHON_MGR" venv --python "$UV_PYTHON_VERSION" --allow-existing "$CAPE_ROOT/.venv"
     #chown -R root:${USER} /usr/var/malheur/
     #chmod -R =rwX,g=rwX,o=X /usr/var/malheur/
     # Adapting owner permissions to the ${USER} path folder
 
     if ! crontab -l 2>/dev/null | grep -q -F 'delete-unused-file-data-in-mongo'; then
-        crontab -l 2>/dev/null | { cat; echo "30 1 * * 0 cd $CAPE_ROOT && sudo -u ${USER} $PYTHON_MGR $PYTHON_MGR_CMD python ./utils/cleaners.py --delete-unused-file-data-in-mongo"; } | crontab -
+        crontab -l 2>/dev/null | { cat; echo "30 1 * * 0 cd $CAPE_ROOT && sudo -Hu ${USER} $PYTHON_MGR $PYTHON_MGR_CMD python ./utils/cleaners.py --delete-unused-file-data-in-mongo"; } | crontab -
     fi
 
     cd "$CAPE_ROOT/" || return
@@ -1338,7 +1435,7 @@ function install_CAPE() {
         echo "[-] pyproject.toml not found in $CAPE_ROOT"
         return
     fi
-    sudo -u ${USER} bash -c "cd $CAPE_ROOT && export UV_PYTHON_INSTALL_DIR='$UV_PYTHON_DIR' PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring CRYPTOGRAPHY_DONT_BUILD_RUST=1; $PYTHON_MGR $PYTHON_MGR_INSTALL_PYPROJECT"
+    sudo -Hu "${USER}" bash -c "cd '$CAPE_ROOT' && export UV_PYTHON_INSTALL_DIR='$UV_PYTHON_DIR' PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring CRYPTOGRAPHY_DONT_BUILD_RUST=1; $PYTHON_MGR $PYTHON_MGR_INSTALL_PYPROJECT"
 
     if [ "$DISABLE_LIBVIRT" -eq 0 ]; then
         # Integrated libvirt install
@@ -1347,10 +1444,12 @@ function install_CAPE() {
         sudo usermod -aG libvirt ${USER}
     fi
 
-    #packages are needed for build options in extra/yara_installer.sh
+    # libmagic / jansson headers needed by python-magic and optional legacy yara-python builds
     sudo apt-get install -y libjansson-dev libmagic1 libmagic-dev
-    # Integrated yara-python install
-    install_yara_python
+    # Install prebuilt yara-x wheel (matches migrate-uv; use `cape2.sh yara` for legacy yara-python)
+    echo "[+] Installing yara-x into ${CAPE_ROOT}/.venv"
+    sudo -Hu "${USER}" env UV_PYTHON_INSTALL_DIR="$UV_PYTHON_DIR" \
+        "$PYTHON_MGR" "$PYTHON_MGR_PIP" install --python "$CAPE_ROOT/.venv/bin/python" yara-x
 
     if [ -d /tmp/yara-python ]; then
         sudo rm -rf /tmp/yara-python
@@ -1381,14 +1480,14 @@ function install_CAPE() {
         crudini --set conf/reporting.conf runstatistics enabled yes
     fi
 
-    sudo -u ${USER} "$PYTHON_MGR" --directory "$CAPE_ROOT" $PYTHON_MGR_CMD python utils/community.py -waf -cr
+    sudo -Hu "${USER}" env UV_PYTHON_INSTALL_DIR="$UV_PYTHON_DIR" "$PYTHON_MGR" --directory "$CAPE_ROOT" $PYTHON_MGR_CMD python utils/community.py -waf -cr
 
     # Configure direct internet connection
     sudo echo "400 ${INTERNET_IFACE}" >> /etc/iproute2/rt_tables
 
 if [ ! -f /etc/sudoers.d/cape ]; then
     cat >> /etc/sudoers.d/cape << EOF
-Cmnd_Alias CAPE_SERVICES = /usr/bin/systemctl restart cape-rooter, /usr/bin/systemctl restart cape-processor, /usr/bin/systemctl restart cape, /usr/bin/systemctl restart cape-web, /usr/bin/systemctl restart cape-dist, /usr/bin/systemctl restart cape-fstab, /usr/bin/systemctl restart suricata, /usr/bin/systemctl restart guac-web, /usr/bin/systemctl restart guacd
+Cmnd_Alias CAPE_SERVICES = /usr/bin/systemctl restart cape-rooter, /usr/bin/systemctl restart cape-processor, /usr/bin/systemctl restart cape, /usr/bin/systemctl restart cape-web, /usr/bin/systemctl reload cape-web, /usr/bin/systemctl reload-or-restart cape-web, /usr/bin/systemctl restart cape-dist, /usr/bin/systemctl restart cape-fstab, /usr/bin/systemctl restart suricata, /usr/bin/systemctl restart guac-web, /usr/bin/systemctl reload guac-web, /usr/bin/systemctl reload-or-restart guac-web, /usr/bin/systemctl restart guacd
 Cmnd_Alias UFW_STATUS = /usr/sbin/ufw status
 ${USER} ALL=(ALL) NOPASSWD:CAPE_SERVICES, UFW_STATUS
 # Allow cape user to fix Nginx permissions for static files
@@ -1452,11 +1551,10 @@ function install_systemd() {
     if [ ! -f "/etc/sudoers.d/cape" ] ; then
         cat > /etc/sudoers.d/cape << EOF
 Cmnd_Alias CAPE_SVC = /usr/bin/systemctl stop cape, /usr/bin/systemctl start cape, /usr/bin/systemctl restart cape
-Cmnd_Alias CAPE_WEB_SVC = /usr/bin/systemctl stop cape-web, /usr/bin/systemctl start cape-web, /usr/bin/systemctl restart cape-web
+Cmnd_Alias CAPE_WEB_SVC = /usr/bin/systemctl stop cape-web, /usr/bin/systemctl start cape-web, /usr/bin/systemctl restart cape-web, /usr/bin/systemctl reload cape-web, /usr/bin/systemctl reload-or-restart cape-web
 Cmnd_Alias CAPE_PROCESSING_SVC = /usr/bin/systemctl stop cape-processor, /usr/bin/systemctl start cape-processor, /usr/bin/systemctl restart cape-processor
 Cmnd_Alias CAPE_ROOTER_SVC = /usr/bin/systemctl stop cape-rooter, /usr/bin/systemctl start cape-rooter, /usr/bin/systemctl restart cape-rooter
 Cmnd_Alias SURICATA = /usr/bin/systemctl stop suricata, /usr/bin/systemctl start suricata, /usr/bin/systemctl restart suricata
-Cmnd_Alias UWSGI = /usr/bin/systemctl stop uwsgi, /usr/bin/systemctl start uwsgi, /usr/bin/systemctl restart uwsgi
 
 # disttributed cape related
 Cmnd_Alias CAPE_FSTAB_SVC = /usr/bin/systemctl stop cape-fstab, /usr/bin/systemctl start cape-fstab, /usr/bin/systemctl restart cape-fstab
@@ -1466,7 +1564,6 @@ Cmnd_Alias CAPE_FSTAB_SVC = /usr/bin/systemctl stop cape-fstab, /usr/bin/systemc
 %${USER} ALL=CAPE_PROCESSING_SVC
 %${USER} ALL=CAPE_ROOTER_SVC
 %${USER} ALL=SURICATA
-%${USER} ALL=UWSGI
 
 %cape ALL=CAPE_FSTAB_SVC
 EOF
@@ -1504,19 +1601,31 @@ function install_node_exporter() {
 function install_volatility3() {
     echo "[+] Installing volatility3"
     sudo apt-get install -y unzip
-    sudo -u ${USER} bash -c "cd $CAPE_ROOT && $PYTHON_MGR $PYTHON_MGR_PIP install --python '$CAPE_ROOT/.venv/bin/python' git+https://github.com/volatilityfoundation/volatility3"
-    vol_path=$(sudo -u ${USER} bash -c "cd $CAPE_ROOT && $PYTHON_MGR $PYTHON_MGR_CMD python -c \"import volatility3.plugins;print(volatility3.__file__.replace('__init__.py', 'symbols/'))\"")
+    (
+        cd "$CAPE_ROOT" || exit 1
+        sudo -Hu "${USER}" env UV_PYTHON_INSTALL_DIR="$UV_PYTHON_DIR" \
+            "$PYTHON_MGR" "$PYTHON_MGR_PIP" install --python "$CAPE_ROOT/.venv/bin/python" git+https://github.com/volatilityfoundation/volatility3
+    )
+    local vol_path
+    vol_path=$(
+        cd "$CAPE_ROOT" || exit 1
+        sudo -Hu "${USER}" env UV_PYTHON_INSTALL_DIR="$UV_PYTHON_DIR" \
+            "$PYTHON_MGR" $PYTHON_MGR_CMD python -c "import volatility3.plugins;print(volatility3.__file__.replace('__init__.py', 'symbols/'))"
+    )
 
     if [ -z "$vol_path" ]; then
         echo "[-] Could not find volatility3 path"
         return
     fi
 
-    cd $vol_path || return
-    wget https://downloads.volatilityfoundation.org/volatility3/symbols/windows.zip -O windows.zip
-    unzip -o windows.zip
-    rm windows.zip
-    chown "${USER}:${USER}" $vol_path -R
+    mkdir -p "$vol_path"
+    (
+        cd "$vol_path" || exit 1
+        wget https://downloads.volatilityfoundation.org/volatility3/symbols/windows.zip -O windows.zip
+        unzip -o windows.zip
+        rm -f windows.zip
+    )
+    chown -R "${USER}:${USER}" "$vol_path"
 }
 
 function install_mitmproxy() {
@@ -1564,9 +1673,6 @@ function install_guacamole() {
     sudo dpkg -i --force-overwrite /tmp/guacamole-"${guacamole_version}"_builded.deb
     sudo ldconfig
 
-    #pip3 install -U 'Twisted[tls,http2]'
-    sudo apt-get install -y python3-twisted
-
     if [ -f "/etc/systemd/system/guacd.service" ] ; then
         sudo rm /etc/systemd/system/guacd.service
     fi
@@ -1592,7 +1698,7 @@ function install_guacamole() {
     sudo usermod www-data -G ${USER}
 
     cd $CAPE_ROOT
-    sudo -u ${USER} bash -c "cd $CAPE_ROOT && export UV_PYTHON_INSTALL_DIR='$UV_PYTHON_DIR' PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring; $PYTHON_MGR $PYTHON_MGR_INSTALL_PYPROJECT"
+    sudo -Hu "${USER}" bash -c "cd '$CAPE_ROOT' && export UV_PYTHON_INSTALL_DIR='$UV_PYTHON_DIR' PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring; $PYTHON_MGR $PYTHON_MGR_INSTALL_PYPROJECT"
     cd ..
 
     systemctl daemon-reload
@@ -1694,46 +1800,123 @@ function install_passivedns() {
     fi
 }
 
+function seed_default_env_files() {
+    # Seed any newly introduced conf/*.env override files without overwriting existing configs
+    local env_default
+    for env_default in "$CAPE_ROOT"/conf/default/*.env.default; do
+        [ -f "$env_default" ] || continue
+        local env_dest="$CAPE_ROOT/conf/$(basename "${env_default%.default}")"
+        if [ ! -f "$env_dest" ]; then
+            cp "$env_default" "$env_dest"
+            chown "${USER}:${USER}" "$env_dest"
+        fi
+    done
+}
+
 function sync_installed_systemd_units() {
-    local systemd_dir="${SYSTEMD_UNIT_DIR:-/lib/systemd/system}"
     local uv_bin="${PYTHON_MGR:-/usr/local/bin/uv}"
     local updated=0
-    for svc_src in "$CAPE_ROOT"/systemd/cape*.service "$CAPE_ROOT"/systemd/guac-web.service; do
-        [ -f "$svc_src" ] || continue
-        local svc_name
-        svc_name=$(basename "$svc_src")
-        local svc_dest="$systemd_dir/$svc_name"
-        [ -f "$svc_dest" ] || continue
+    local unit_dirs=()
+    if [ -n "${SYSTEMD_UNIT_DIR:-}" ]; then
+        unit_dirs=("$SYSTEMD_UNIT_DIR")
+    else
+        unit_dirs=(/lib/systemd/system /etc/systemd/system)
+    fi
 
-        sudo cp "$svc_src" "$svc_dest"
-        if [ "$CAPE_ROOT" != "/opt/CAPEv2" ]; then
-            sudo sed -i "s|/opt/CAPEv2|$CAPE_ROOT|g" "$svc_dest"
-        fi
-        if [ "$uv_bin" != "/usr/local/bin/uv" ]; then
-            sudo sed -i "s|/usr/local/bin/uv|$uv_bin|g" "$svc_dest"
-        fi
-        updated=1
+    local systemd_dir
+    for systemd_dir in "${unit_dirs[@]}"; do
+        [ -d "$systemd_dir" ] || continue
+        for svc_src in "$CAPE_ROOT"/systemd/cape*.service "$CAPE_ROOT"/systemd/guac-web.service; do
+            [ -f "$svc_src" ] || continue
+            local svc_name
+            svc_name=$(basename "$svc_src")
+            local svc_dest="$systemd_dir/$svc_name"
+            [ -f "$svc_dest" ] || continue
+            # Do not overwrite masked unit symlinks (e.g. -> /dev/null) in /etc/systemd/system
+            if [ "$systemd_dir" = "/etc/systemd/system" ] && [ -L "$svc_dest" ]; then
+                continue
+            fi
+
+            local tmp_unit
+            tmp_unit=$(mktemp)
+            cp "$svc_src" "$tmp_unit"
+            if [ "$CAPE_ROOT" != "/opt/CAPEv2" ]; then
+                sed -i "s|/opt/CAPEv2|$CAPE_ROOT|g" "$tmp_unit"
+            fi
+            if [ "$uv_bin" != "/usr/local/bin/uv" ]; then
+                sed -i "s|/usr/local/bin/uv|$uv_bin|g" "$tmp_unit"
+            fi
+            chmod 644 "$tmp_unit"
+            if ! cmp -s "$tmp_unit" "$svc_dest"; then
+                if [ "$systemd_dir" = "/etc/systemd/system" ] || [ "${SYSTEMD_BACKUP_EXISTING:-0}" = "1" ]; then
+                    sudo cp -p "$svc_dest" "${svc_dest}.bak"
+                    echo "[+] Backed up existing unit to ${svc_dest}.bak"
+                fi
+                sudo cp "$tmp_unit" "$svc_dest"
+                updated=1
+            fi
+            rm -f "$tmp_unit"
+        done
     done
     if [ "$updated" -eq 1 ]; then
         sudo systemctl daemon-reload
     fi
+    if [ -z "${SYSTEMD_UNIT_DIR:-}" ]; then
+        local dropin
+        for dropin in /etc/systemd/system/cape*.service.d/*.conf /etc/systemd/system/guac-web.service.d/*.conf; do
+            [ -f "$dropin" ] || continue
+            if grep -qi 'poetry' "$dropin"; then
+                echo "[!] Systemd drop-in still references Poetry: $dropin (update manually and run systemctl daemon-reload)"
+            fi
+        done
+    fi
+}
+
+function rewrite_poetry_crontab_stream() {
+    local cape_root="${CAPE_ROOT:-/opt/CAPEv2}"
+    local cape_user="${USER:-cape}"
+    local uv_bin="${PYTHON_MGR:-/usr/local/bin/uv}"
+    local uv_cmd="${PYTHON_MGR_CMD:-run --no-sync}"
+    local uv_pip="${PYTHON_MGR_PIP:-pip}"
+    local cleaners_cmd="cd ${cape_root} && sudo -Hu ${cape_user} ${uv_bin} ${uv_cmd} python ./utils/cleaners.py --delete-unused-file-data-in-mongo"
+    local community_cmd="cd ${cape_root} && sudo -Hu ${cape_user} ${uv_bin} ${uv_cmd} python utils/community.py -waf -cr && sudo -Hu ${cape_user} ${uv_bin} ${uv_pip} install --python ${cape_root}/.venv/bin/python -U flare-capa && systemctl restart cape-processor 2>/dev/null"
+    local cron_re='^([[:space:]]*(@[[:alpha:]]+[[:space:]]+|[^@[:space:]][^[:space:]]*[[:space:]]+([^[:space:]]+[[:space:]]+){4}))'
+    local line
+    while IFS= read -r line || [ -n "$line" ]; do
+        if [[ "$line" =~ ^[[:space:]]*# ]] || [[ "$line" != *poetry* ]] || ! [[ "$line" =~ $cron_re ]]; then
+            printf '%s\n' "$line"
+            continue
+        fi
+        case "$line" in
+            *cleaners.py*--delete-unused-file-data-in-mongo*)
+                printf '%s%s\n' "${BASH_REMATCH[1]}" "$cleaners_cmd"
+                ;;
+            *community.py*-waf*-cr*)
+                printf '%s%s\n' "${BASH_REMATCH[1]}" "$community_cmd"
+                ;;
+            *)
+                printf '%s\n' "$line"
+                ;;
+        esac
+    done
 }
 
 function update() {
     echo "[+] Updating CAPEv2"
-    sudo systemctl stop "cape*"
+    sudo systemctl stop "cape*.service" "cape*.timer" guac-web.service 2>/dev/null || true
     cd "$CAPE_ROOT" || return
-    sudo -u ${USER} git pull
-    sudo -u ${USER} bash -c "cd $CAPE_ROOT && export UV_PYTHON_INSTALL_DIR='$UV_PYTHON_DIR' PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring CRYPTOGRAPHY_DONT_BUILD_RUST=1; $PYTHON_MGR $PYTHON_MGR_INSTALL_PYPROJECT"
-    if sudo -u ${USER} $PYTHON_MGR --directory "$CAPE_ROOT" $PYTHON_MGR_CMD python web/manage.py migrate --check 2>&1 | grep -Fq "alembic upgrade head"; then
-        sudo -u ${USER} bash -c "cd $CAPE_ROOT/utils/db_migration && $PYTHON_MGR $PYTHON_MGR_CMD alembic upgrade head"
+    sudo -Hu "${USER}" git pull
+    sudo -Hu "${USER}" bash -c "cd '$CAPE_ROOT' && export UV_PYTHON_INSTALL_DIR='$UV_PYTHON_DIR' PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring CRYPTOGRAPHY_DONT_BUILD_RUST=1; $PYTHON_MGR $PYTHON_MGR_INSTALL_PYPROJECT"
+    if sudo -Hu "${USER}" env UV_PYTHON_INSTALL_DIR="$UV_PYTHON_DIR" "$PYTHON_MGR" --directory "$CAPE_ROOT" $PYTHON_MGR_CMD python web/manage.py migrate --check 2>&1 | grep -Fq "alembic upgrade head"; then
+        sudo -Hu "${USER}" bash -c "cd '$CAPE_ROOT/utils/db_migration' && export UV_PYTHON_INSTALL_DIR='$UV_PYTHON_DIR'; $PYTHON_MGR $PYTHON_MGR_CMD alembic upgrade head"
     fi
-    if ! sudo -u ${USER} $PYTHON_MGR --directory "$CAPE_ROOT" $PYTHON_MGR_CMD python web/manage.py migrate --check >/dev/null 2>&1; then
-        sudo -u ${USER} $PYTHON_MGR --directory "$CAPE_ROOT" $PYTHON_MGR_CMD python web/manage.py migrate --noinput
+    if ! sudo -Hu "${USER}" env UV_PYTHON_INSTALL_DIR="$UV_PYTHON_DIR" "$PYTHON_MGR" --directory "$CAPE_ROOT" $PYTHON_MGR_CMD python web/manage.py migrate --check >/dev/null 2>&1; then
+        sudo -Hu "${USER}" env UV_PYTHON_INSTALL_DIR="$UV_PYTHON_DIR" "$PYTHON_MGR" --directory "$CAPE_ROOT" $PYTHON_MGR_CMD python web/manage.py migrate --noinput
     fi
-    sudo -u ${USER} find "$CAPE_ROOT" -name '*.pyc' -delete
+    sudo -Hu "${USER}" find "$CAPE_ROOT" -path "$CAPE_ROOT/.venv" -prune -o -name '*.pyc' -exec rm -f {} +
+    seed_default_env_files
     sync_installed_systemd_units
-    systemctl list-unit-files "cape*" --state=enabled --no-legend | awk '{print $1}' | xargs -r sudo systemctl start
+    systemctl list-unit-files --type=service,timer "cape*" "guac-web*" --state=enabled --no-legend 2>/dev/null | awk '{print $1}' | grep -v '@\.' | xargs -r sudo systemctl start
 }
 
 function migrate_to_uv() {
@@ -1742,53 +1925,96 @@ function migrate_to_uv() {
         echo "[-] pyproject.toml not found in $CAPE_ROOT"
         return 1
     fi
+    cd "$CAPE_ROOT" || return 1
 
     local enabled_services
-    enabled_services=$(systemctl list-unit-files "cape*" "guac-web*" --state=enabled --no-legend 2>/dev/null | awk '{print $1}')
-    sudo systemctl stop "cape*" guac-web 2>/dev/null || true
+    enabled_services=$(systemctl list-unit-files --type=service,timer "cape*" "guac-web*" --state=enabled --no-legend 2>/dev/null | awk '{print $1}' | grep -v '@\.' || true)
+    sudo systemctl stop "cape*.service" "cape*.timer" guac-web.service 2>/dev/null || true
 
-    local freeze_file="/tmp/cape-poetry-freeze.txt"
+    local freeze_file="${FREEZE_FILE:-/tmp/cape-poetry-freeze.txt}"
     local extra_args=""
     local had_volatility3=0
     local had_libvirt=0
-    local had_yara=0
+    local had_batch_deobfuscator=0
+    local poetry_bin=""
     if [ -x /etc/poetry/bin/poetry ]; then
-        echo "[+] Saving Poetry package snapshot to ${freeze_file}"
-        sudo -u ${USER} /etc/poetry/bin/poetry --directory "$CAPE_ROOT" run pip freeze > "$freeze_file" 2>/dev/null || true
-        grep -qi '^google-cloud-storage==' "$freeze_file" && extra_args="$extra_args --extra gcp"
-        grep -qi '^boto3==' "$freeze_file" && extra_args="$extra_args --extra s3"
-        grep -qi '^azure-storage-blob==' "$freeze_file" && extra_args="$extra_args --extra azure"
-        grep -qi '^plyara==' "$freeze_file" && extra_args="$extra_args --extra yara"
-        grep -qi '^fastmcp==' "$freeze_file" && extra_args="$extra_args --extra mcp"
-        grep -qi '^fastapi==' "$freeze_file" && extra_args="$extra_args --group dist"
-        grep -qi '^volatility3==' "$freeze_file" && had_volatility3=1
-        grep -qi '^libvirt-python==' "$freeze_file" && had_libvirt=1
-        grep -qi '^yara-python==' "$freeze_file" && had_yara=1
+        poetry_bin="/etc/poetry/bin/poetry"
+    elif [ -x "/home/${USER}/.local/bin/poetry" ]; then
+        poetry_bin="/home/${USER}/.local/bin/poetry"
+    elif command -v poetry >/dev/null 2>&1; then
+        poetry_bin=$(command -v poetry)
     fi
 
-    install_uv_and_python
+    if [ -n "$poetry_bin" ]; then
+        echo "[+] Saving Poetry package snapshot to ${freeze_file} (using ${poetry_bin})"
+        sudo -Hu "${USER}" "$poetry_bin" --directory "$CAPE_ROOT" run pip freeze > "$freeze_file" 2>/dev/null || true
+        grep -qi '^google-cloud-storage==' "$freeze_file" && extra_args="$extra_args --extra gcp" || true
+        grep -qi '^boto3==' "$freeze_file" && extra_args="$extra_args --extra s3" || true
+        grep -qi '^azure-storage-blob==' "$freeze_file" && extra_args="$extra_args --extra azure" || true
+        grep -qi '^plyara==' "$freeze_file" && extra_args="$extra_args --extra yara" || true
+        grep -qi '^fastmcp==' "$freeze_file" && extra_args="$extra_args --extra mcp" || true
+        grep -qi '^fastapi==' "$freeze_file" && extra_args="$extra_args --group dist" || true
+        grep -qi '^volatility3==' "$freeze_file" && had_volatility3=1 || true
+        grep -qi '^libvirt-python==' "$freeze_file" && had_libvirt=1 || true
+        grep -qiE '^batch[-_]deobfuscator([= @]|$)' "$freeze_file" && had_batch_deobfuscator=1 || true
+    fi
+
+    install_uv_and_python || {
+        echo "[-] Failed to install uv and Python ${UV_PYTHON_VERSION}"
+        return 1
+    }
 
     chown "${USER}:${USER}" "$CAPE_ROOT"
-    sudo -u ${USER} env UV_PYTHON_INSTALL_DIR="$UV_PYTHON_DIR" "$PYTHON_MGR" venv --python "$UV_PYTHON_VERSION" --allow-existing "$CAPE_ROOT/.venv"
-    sudo -u ${USER} bash -c "cd '$CAPE_ROOT' && export UV_PYTHON_INSTALL_DIR='$UV_PYTHON_DIR' PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring CRYPTOGRAPHY_DONT_BUILD_RUST=1; $PYTHON_MGR $PYTHON_MGR_INSTALL_PYPROJECT $extra_args"
+    if [ -d "$CAPE_ROOT/.venv" ]; then
+        chown -R "${USER}:${USER}" "$CAPE_ROOT/.venv"
+    fi
+    sudo -Hu "${USER}" env UV_PYTHON_INSTALL_DIR="$UV_PYTHON_DIR" \
+        "$PYTHON_MGR" venv --python "$UV_PYTHON_VERSION" --allow-existing "$CAPE_ROOT/.venv" || {
+        echo "[-] Failed to create virtual environment at $CAPE_ROOT/.venv"
+        return 1
+    }
+    sudo -Hu "${USER}" bash -c "cd '$CAPE_ROOT' && export UV_PYTHON_INSTALL_DIR='$UV_PYTHON_DIR' PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring CRYPTOGRAPHY_DONT_BUILD_RUST=1; $PYTHON_MGR $PYTHON_MGR_INSTALL_PYPROJECT $extra_args" || {
+        echo "[-] Failed to sync dependencies with uv"
+        return 1
+    }
 
     if [ "$DISABLE_LIBVIRT" -eq 0 ] && { [ "$had_libvirt" -eq 1 ] || command -v virsh >/dev/null 2>&1; }; then
-        install_libvirt
+        if ! install_libvirt; then
+            echo "[!] Failed to install libvirt-python into ${CAPE_ROOT}/.venv."
+            echo "    Ensure libvirt-dev and pkg-config are installed, then re-run: sudo bash ${CAPE_ROOT}/installer/cape2.sh libvirt"
+        fi
     fi
-    if [ "$had_yara" -eq 1 ] || command -v yara >/dev/null 2>&1; then
-        install_yara_python
+
+    echo "[+] Installing yara-x into ${CAPE_ROOT}/.venv"
+    sudo -Hu "${USER}" env UV_PYTHON_INSTALL_DIR="$UV_PYTHON_DIR" \
+        "$PYTHON_MGR" "$PYTHON_MGR_PIP" install --python "$CAPE_ROOT/.venv/bin/python" yara-x
+
+    if [ "$had_batch_deobfuscator" -eq 1 ]; then
+        echo "[+] Reinstalling batch_deobfuscator into ${CAPE_ROOT}/.venv"
+        sudo -Hu "${USER}" env UV_PYTHON_INSTALL_DIR="$UV_PYTHON_DIR" \
+            "$PYTHON_MGR" "$PYTHON_MGR_PIP" install --python "$CAPE_ROOT/.venv/bin/python" -U git+https://github.com/DissectMalware/batch_deobfuscator \
+            || echo "[!] Failed to reinstall batch_deobfuscator"
     fi
+
     if [ "$had_volatility3" -eq 1 ]; then
         install_volatility3
     fi
 
+    seed_default_env_files
+
     sync_installed_systemd_units
 
-    if crontab -l 2>/dev/null | grep -q 'poetry'; then
-        echo "[+] Updating Poetry commands in root crontab to uv"
-        crontab -l 2>/dev/null \
-            | sed -E "s|/etc/poetry/bin/poetry|${PYTHON_MGR}|g; s|([[:space:]])poetry([[:space:]])|\1${PYTHON_MGR}\2|g; s|${PYTHON_MGR}([^|;&]*) run pip |${PYTHON_MGR}\1 pip |g; s|${PYTHON_MGR}([^|;&]*) run |${PYTHON_MGR}\1 run --no-sync |g" \
-            | crontab -
+    if crontab -l 2>/dev/null | grep -Eq '^[^#]*poetry'; then
+        echo "[+] Updating CAPE Poetry entries in root crontab to uv"
+        crontab -l 2>/dev/null | rewrite_poetry_crontab_stream | crontab -
+        if crontab -l 2>/dev/null | grep -Eq '^[^#]*poetry'; then
+            echo "[!] Remaining custom Poetry entries in root crontab (migrate manually):"
+            crontab -l 2>/dev/null | grep -E '^[^#]*poetry'
+        fi
+    fi
+    if crontab -u "${USER}" -l 2>/dev/null | grep -Eq '^[^#]*poetry'; then
+        echo "[!] Custom Poetry entries found in ${USER} crontab (migrate manually):"
+        crontab -u "${USER}" -l 2>/dev/null | grep -E '^[^#]*poetry'
     fi
 
     if [ -n "$enabled_services" ]; then
@@ -1796,14 +2022,19 @@ function migrate_to_uv() {
     fi
 
     echo "[+] Migration complete. Verify Python version and services:"
-    echo "    sudo -u ${USER} ${PYTHON_MGR} --directory ${CAPE_ROOT} run --no-sync python --version"
+    echo "    sudo -Hu ${USER} ${PYTHON_MGR} --directory ${CAPE_ROOT} run --no-sync python --version"
     echo "    systemctl status cape cape-processor cape-rooter cape-web --no-pager"
     if [ -s "$freeze_file" ]; then
         echo "[+] Review ${freeze_file} for any custom/optional packages to reinstall via:"
-        echo "    sudo -u ${USER} ${PYTHON_MGR} pip install --python ${CAPE_ROOT}/.venv/bin/python <pkg>"
+        echo "    sudo -Hu ${USER} ${PYTHON_MGR} pip install --python ${CAPE_ROOT}/.venv/bin/python <pkg>"
     fi
     echo "[+] Once verified, remove Poetry with:"
     echo "    sudo rm -rf /etc/poetry ${CAPE_ROOT}/.cache/pypoetry /home/${USER}/.cache/pypoetry /root/.cache/pypoetry"
+    if ls /etc/uwsgi/apps-enabled/*cape* >/dev/null 2>&1; then
+        echo "[!] Legacy uWSGI CAPE configs detected in /etc/uwsgi/apps-enabled/."
+        echo "    CAPE web/dist now run via Granian/Uvicorn systemd units (cape-web.service, cape-dist.service)."
+        echo "    Disable legacy uWSGI configs and switch Nginx from uwsgi_pass to proxy_pass (see nginx/cape.conf)."
+    fi
 }
 
 # Doesn't work ${$1,,}
@@ -1851,7 +2082,7 @@ case "$COMMAND" in
     # Disabled due to frequent CAPA updates and it breaks it. Users should care about this subject
     # Update FLARE CAPA rules and community every X hours
     # if ! crontab -l | grep -q 'community.py -waf -cr'; then
-    #    crontab -l | { cat; echo "5 0 */1 * * cd $CAPE_ROOT && sudo -u ${USER} $PYTHON_MGR $PYTHON_MGR_CMD python utils/community.py -waf -cr && sudo -u ${USER} $PYTHON_MGR $PYTHON_MGR_PIP install --python $CAPE_ROOT/.venv/bin/python -U flare-capa && systemctl restart cape-processor 2>/dev/null"; } | crontab -
+    #    crontab -l | { cat; echo "5 0 */1 * * cd $CAPE_ROOT && sudo -Hu ${USER} $PYTHON_MGR $PYTHON_MGR_CMD python utils/community.py -waf -cr && sudo -Hu ${USER} $PYTHON_MGR $PYTHON_MGR_PIP install --python $CAPE_ROOT/.venv/bin/python -U flare-capa && systemctl restart cape-processor 2>/dev/null"; } | crontab -
     # fi
     if ! crontab -l | grep -q 'echo signal newnym'; then
         crontab -l | { cat; echo "00 */1 * * * (echo authenticate '""'; echo signal newnym; echo quit) | nc localhost 9051 2>/dev/null"; } | crontab -
@@ -1879,7 +2110,7 @@ case "$COMMAND" in
     fi
     # Update FLARE CAPA rules once per day
     if ! crontab -l 2>/dev/null | grep -q 'community.py -waf -cr'; then
-        crontab -l 2>/dev/null | { cat; echo "5 0 */1 * * cd $CAPE_ROOT && sudo -u ${USER} $PYTHON_MGR $PYTHON_MGR_CMD python utils/community.py -waf -cr && sudo -u ${USER} $PYTHON_MGR $PYTHON_MGR_PIP install --python $CAPE_ROOT/.venv/bin/python -U flare-capa && systemctl restart cape-processor 2>/dev/null"; } | crontab -
+        crontab -l 2>/dev/null | { cat; echo "5 0 */1 * * cd $CAPE_ROOT && sudo -Hu ${USER} $PYTHON_MGR $PYTHON_MGR_CMD python utils/community.py -waf -cr && sudo -Hu ${USER} $PYTHON_MGR $PYTHON_MGR_PIP install --python $CAPE_ROOT/.venv/bin/python -U flare-capa && systemctl restart cape-processor 2>/dev/null"; } | crontab -
     fi
     install_librenms
     if [ "$clamav_enable" -ge 1 ]; then
