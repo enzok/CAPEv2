@@ -703,7 +703,7 @@ requires-dist = [
     { name = "httpx", marker = "extra == 'mcp'" },
     { name = "imagehash", marker = "extra == 'optional'" },
     { name = "jinja2", specifier = ">=3.1.6" },
-    { name = "libvirt-python", marker = "extra == 'libvirt'", directory = "/home/cuckoo/libvirt-python-9.10.0" },
+    { name = "libvirt-python", marker = "extra == 'libvirt'", directory = "/home/cuckoo/libvirt-python-11.10.0" },
     { name = "lnkparse3", specifier = "==1.5.0" },
     { name = "maco", specifier = "==1.1.8" },
     { name = "maco", marker = "extra == 'maco'" },
@@ -2759,8 +2759,8 @@ wheels = [
 
 [[package]]
 name = "libvirt-python"
-version = "9.10.0"
-source = { directory = "/home/cuckoo/libvirt-python-9.10.0" }
+version = "11.10.0"
+source = { directory = "/home/cuckoo/libvirt-python-11.10.0" }
 
 [[package]]
 name = "lief"

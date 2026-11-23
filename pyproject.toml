@@ -244,4 +244,4 @@ extra-paths = ["agent"]
 include = ["agent/**/*.py"]
 
 [tool.uv.sources]
-libvirt-python = { path = "/home/cuckoo/libvirt-python-9.10.0" }
+libvirt-python = { path = "/home/cuckoo/libvirt-python-11.10.0" }
