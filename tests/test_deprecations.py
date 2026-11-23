@@ -26,7 +26,7 @@ def test_procmon_log_parses_events_and_is_truthy(tmp_path):
     )
     plog = ProcmonLog(str(xml_path))
     assert bool(plog) is True
-    events = list(next(plog))
+    events = list(plog)
     assert events == [
         {"Process_Name": "sample.exe", "Operation": "CreateFile"},
         {"Process_Name": "sample.exe", "Operation": "RegOpenKey"},

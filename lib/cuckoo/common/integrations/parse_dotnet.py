@@ -120,7 +120,7 @@ class DotNETExecutable:
             last_exc = None
             for cmd in cmd_variants:
                 try:
-                    subprocess.check_output(cmd, universal_newlines=False, stderr=subprocess.STDOUT)
+                    subprocess.check_output(cmd, text=False, stderr=subprocess.STDOUT)
                     with open(output_path, "rb") as fp:
                         self._il_text = fp.read().decode("latin-1", errors="ignore")
                     if self._il_text:
@@ -136,7 +136,7 @@ class DotNETExecutable:
             )
             for cmd in stdout_variants:
                 try:
-                    out = subprocess.check_output(cmd, universal_newlines=False, stderr=subprocess.STDOUT)
+                    out = subprocess.check_output(cmd, text=False, stderr=subprocess.STDOUT)
                     self._il_text = out.decode("latin-1", errors="ignore")
                     if self._il_text:
                         return self._il_text

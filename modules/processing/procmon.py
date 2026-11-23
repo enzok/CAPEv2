@@ -27,8 +27,7 @@ class ProcmonLog:
                 yield {child.tag: child.text for child in element}
 
     def __bool__(self):
-        if not os.path.exists(self.filepath):
-            return
+        return os.path.exists(self.filepath)
 
 
 class Procmon(Processing):
