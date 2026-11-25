@@ -50,16 +50,28 @@ In the VM, run the agent:
 agent.exe
 or specify host and port. Default is 0.0.0.0:8000
 agent.exe -host 0.0.0.0 -port 8000
+or positionally, like agent.py
+agent.exe 0.0.0.0 8000
 ```
+
+Flags:
+- `-v`: verbose; print output instead of capturing it for `/logs`.
+- `-python <path>`: interpreter used by `/execpy` (analyzer.py). Default: `python.exe` from `PATH`
+  (the Microsoft Store alias stub is skipped), then the usual install folders
+  (`%LOCALAPPDATA%\Python\pythoncore-*`, `%LOCALAPPDATA%\Programs\Python\Python*`,
+  `%ProgramFiles%\Python*`, `%ProgramFiles(x86)%\Python*`, `%HOMEDRIVE%\Python*`), then `py.exe`.
 
 ## Features
 - **Zero Dependency**: Runs as a standalone binary.
 - **Stealth**: Can be renamed to anything (e.g., `svchost.exe`).
-- **Compatibility**: Implements the full CAPE Agent API (v0.22).
-- **Python Execution**: executing `.py` analysis scripts requires `python.exe` to be in the system `PATH`.
+- **Compatibility**: Implements the full CAPE Agent API (v0.25), plus `/push` and `/update`.
+- **Python Execution**: executing `.py` analysis scripts requires a Python install (see `-python`).
 
 ## Dev Notes
-- **Mutexes**: Fully implemented using Windows syscalls.
+- **Mutexes**: Fully implemented using Windows syscalls. All mutex calls run on one locked OS thread, because
+  Windows mutex ownership is per thread; a mutex acquired by `POST /mutex` can be released by a later `DELETE /mutex`.
+- **Localhost guard**: before pinning, requests from loopback are refused except `/status` and `POST /browser_extension`,
+  and requests from the guest's own IP except `/status` (stricter than agent.py). After pinning, both agents behave the same.
 - **ZipSlip Protection**: Built-in check against path traversal in zip extraction.
 
 ## How to pull file from VM to Host

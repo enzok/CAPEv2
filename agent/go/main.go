@@ -2,18 +2,25 @@ package main
 
 import (
 	"archive/zip"
+	"bytes"
+	"context"
 	"crypto/hmac"
 	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
 	"log"
+	"math/rand"
+	"mime"
+	"mime/multipart"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -23,13 +30,16 @@ import (
 	"strings"
 	"sync"
 	"time"
-
-	"github.com/google/shlex"
 )
 
 const (
-	AgentVersion   = "0.22"
+	AgentVersion   = "0.25"
 	Base64Encoding = "base64"
+
+	// Uploaded files larger than this are spilled to a temporary file (same as agent.py).
+	multipartMemoryLimit = 1024 * 1024
+	// Captured agent output kept for /logs.
+	maxLogBytes = 4 * 1024 * 1024
 )
 
 var (
@@ -52,7 +62,7 @@ func init() {
 	}
 }
 
-// Status enums
+// Status enums, ordered by their numeric value in agent.py (init=1 ... exception=5).
 const (
 	StatusInit      = "init"
 	StatusRunning   = "running"
@@ -61,10 +71,109 @@ const (
 	StatusException = "exception"
 )
 
+var statusOrder = []string{StatusInit, StatusRunning, StatusComplete, StatusFailed, StatusException}
+
 var TerminalStatuses = map[string]bool{
 	StatusComplete:  true,
 	StatusFailed:    true,
 	StatusException: true,
+}
+
+// parseStatus accepts a status name (any case) or its numeric value, like agent.py's Status enum.
+func parseStatus(v string) (string, bool) {
+	v = strings.ToLower(v)
+	for i, s := range statusOrder {
+		if v == s || v == strconv.Itoa(i+1) {
+			return s, true
+		}
+	}
+	return "", false
+}
+
+// asyncProcess is a subprocess whose exit is reported through GET /status.
+type asyncProcess struct {
+	cmd      *exec.Cmd
+	done     chan struct{}
+	exitCode int64
+}
+
+func startTracked(cmd *exec.Cmd) (*asyncProcess, error) {
+	if err := cmd.Start(); err != nil {
+		return nil, err
+	}
+	p := &asyncProcess{cmd: cmd, done: make(chan struct{})}
+	go func() {
+		cmd.Wait()
+		p.exitCode = exitCode(cmd.ProcessState)
+		close(p.done)
+	}()
+	return p, nil
+}
+
+// exitCode reports Windows exit codes unsigned like Python (e.g. 0xC0000005),
+// also on 32-bit builds where int would overflow.
+func exitCode(ps *os.ProcessState) int64 {
+	code := ps.ExitCode()
+	if runtime.GOOS == "windows" && code < -1 {
+		return int64(uint32(code))
+	}
+	return int64(code)
+}
+
+// shlexSplit splits a command like Python's shlex.split (POSIX mode, no comments).
+// Inside double quotes a backslash only escapes '"' and '\', so quoted Windows paths survive.
+func shlexSplit(s string) ([]string, error) {
+	var args []string
+	var cur strings.Builder
+	inToken, escaped := false, false
+	var quote rune
+	for _, c := range s {
+		switch {
+		case escaped:
+			if quote == '"' && c != '"' && c != '\\' {
+				cur.WriteRune('\\')
+			}
+			cur.WriteRune(c)
+			escaped = false
+		case quote == '\'':
+			if c == '\'' {
+				quote = 0
+			} else {
+				cur.WriteRune(c)
+			}
+		case quote == '"':
+			if c == '"' {
+				quote = 0
+			} else if c == '\\' {
+				escaped = true
+			} else {
+				cur.WriteRune(c)
+			}
+		case c == '\\':
+			escaped, inToken = true, true
+		case c == '\'' || c == '"':
+			quote, inToken = c, true
+		case strings.ContainsRune(" \t\r\n", c):
+			if inToken {
+				args = append(args, cur.String())
+				cur.Reset()
+				inToken = false
+			}
+		default:
+			cur.WriteRune(c)
+			inToken = true
+		}
+	}
+	if escaped {
+		return nil, errors.New("No escaped character")
+	}
+	if quote != 0 {
+		return nil, errors.New("No closing quotation")
+	}
+	if inToken {
+		args = append(args, cur.String())
+	}
+	return args, nil
 }
 
 // State holds the agent state
@@ -72,7 +181,7 @@ type State struct {
 	sync.Mutex
 	Status          string
 	Description     string
-	AsyncSubprocess *exec.Cmd
+	AsyncSubprocess *asyncProcess
 	ClientIP        string
 }
 
@@ -80,24 +189,15 @@ var state = State{
 	Status: StatusInit,
 }
 
-// AgentMutexes holds handles to Windows mutexes
-var agentMutexes = make(map[string]uintptr)
-var agentMutexesLock sync.Mutex
-
 // Browser Extension
 var agentBrowserExtPath string
 var agentBrowserLock sync.Mutex
 
-// Stdout/Stderr capture (simple memory buffer for now, similar to Python's StringIO approach if not verbose)
-// In a real service, we might want file-based logging or ring buffers.
-// For this port, we'll keep it simple or write to a global buffer if we want to support /logs
-// But capturing stdout/stderr of the *agent itself* is tricky if we are inside the process.
-// The Python agent redirects sys.stdout. We can't easily redirect os.Stdout globally for the http handler to read
-// without pipes. We'll stick to logging to os.Stdout/Stderr and maybe capturing if requested,
-// but strictly speaking, /logs in the python agent returns the *agent's* internal logs.
-// We will omit complex log capturing for this MVP and just return "Not implemented" or simple buffers if needed.
-// Actually, let's implement a simple log buffer.
+// Python interpreter for /execpy (-python flag); auto-detected when empty.
+var pythonPath string
 
+// LogBuffer captures the agent's own output for /logs, like agent.py's StringIO
+// redirection. Only the most recent maxLogBytes are kept.
 type LogBuffer struct {
 	sync.Mutex
 	buf []byte
@@ -107,6 +207,9 @@ func (l *LogBuffer) Write(p []byte) (n int, err error) {
 	l.Lock()
 	defer l.Unlock()
 	l.buf = append(l.buf, p...)
+	if len(l.buf) > maxLogBytes {
+		l.buf = l.buf[len(l.buf)-maxLogBytes:]
+	}
 	return len(p), nil
 }
 
@@ -118,99 +221,327 @@ func (l *LogBuffer) String() string {
 
 var agentLogOut = &LogBuffer{}
 var agentLogErr = &LogBuffer{}
+var verboseMode bool
 
-func init() {
-	// If not verbose, we might want to capture.
-	// For now, let's just use standard log.
-}
+// logOut mirrors agent.py's print() (stdout); logErr its request log (stderr).
+var logOut = log.New(os.Stdout, "", log.LstdFlags)
+var logErr = log.New(os.Stderr, "", log.LstdFlags)
 
-func jsonResponse(w http.ResponseWriter, code int, message string, data map[string]interface{}) {
+func writeJSON(w http.ResponseWriter, code int, message string, data map[string]interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
 	resp := make(map[string]interface{})
 	resp["message"] = message
-	resp["status_code"] = code
 	for k, v := range data {
 		resp[k] = v
 	}
 	if err := json.NewEncoder(w).Encode(resp); err != nil {
-		log.Printf("Error encoding JSON: %v", err)
+		logErr.Printf("Error encoding JSON: %v", err)
 	}
 }
 
-func jsonError(w http.ResponseWriter, code int, message string, args ...interface{}) {
+func jsonError(w http.ResponseWriter, code int, message string, extra ...map[string]interface{}) {
 	data := make(map[string]interface{})
-	if len(args) > 0 {
-		if m, ok := args[0].(map[string]interface{}); ok {
-			data = m
-		}
+	if len(extra) > 0 && extra[0] != nil {
+		data = extra[0]
 	}
 	data["error_code"] = code
-	jsonResponse(w, code, message, data)
+	writeJSON(w, code, message, data)
+}
+
+// jsonException mirrors agent.py's json_exception: a 500 carrying the error as "traceback".
+func jsonException(w http.ResponseWriter, message string, err error) {
+	jsonError(w, 500, message, map[string]interface{}{"traceback": fmt.Sprint(err)})
 }
 
 func jsonSuccess(w http.ResponseWriter, message string, data map[string]interface{}) {
-	jsonResponse(w, 200, message, data)
+	writeJSON(w, 200, message, data)
 }
+
+// upload is a multipart file part, kept in memory up to multipartMemoryLimit
+// and spilled to a temporary file beyond that.
+type upload struct {
+	mem  []byte
+	path string
+	size int64
+}
+
+func spoolUpload(src io.Reader) (*upload, error) {
+	head, err := io.ReadAll(io.LimitReader(src, multipartMemoryLimit+1))
+	if err != nil {
+		return nil, err
+	}
+	if len(head) <= multipartMemoryLimit {
+		return &upload{mem: head, size: int64(len(head))}, nil
+	}
+	f, err := os.CreateTemp("", "cape-part-")
+	if err != nil {
+		return nil, err
+	}
+	u := &upload{path: f.Name()}
+	_, err = f.Write(head)
+	if err == nil {
+		var n int64
+		n, err = io.Copy(f, src)
+		u.size = int64(len(head)) + n
+	}
+	if cerr := f.Close(); err == nil {
+		err = cerr
+	}
+	if err != nil {
+		u.remove()
+		return nil, err
+	}
+	return u, nil
+}
+
+// moveTo writes the upload to dest, renaming the spilled file when possible.
+func (u *upload) moveTo(dest string) error {
+	if u.path == "" {
+		return os.WriteFile(dest, u.mem, 0o666)
+	}
+	if err := os.Rename(u.path, dest); err == nil {
+		u.path = ""
+		return nil
+	}
+	// Different volume: fall back to copying.
+	src, err := os.Open(u.path)
+	if err != nil {
+		return err
+	}
+	defer src.Close()
+	out, err := os.Create(dest)
+	if err != nil {
+		return err
+	}
+	if _, err = io.Copy(out, src); err != nil {
+		out.Close()
+		return err
+	}
+	return out.Close()
+}
+
+func (u *upload) readerAt() (io.ReaderAt, func(), error) {
+	if u.path == "" {
+		return bytes.NewReader(u.mem), func() {}, nil
+	}
+	f, err := os.Open(u.path)
+	if err != nil {
+		return nil, nil, err
+	}
+	return f, func() { f.Close() }, nil
+}
+
+func (u *upload) remove() {
+	if u.path != "" {
+		os.Remove(u.path)
+		u.path = ""
+	}
+}
+
+// agentRequest carries the parsed form, like agent.py's thread-local request object.
+type agentRequest struct {
+	*http.Request
+	clientIP string
+	form     map[string]string
+	files    map[string]*upload
+}
+
+func (r *agentRequest) has(key string) bool {
+	_, ok := r.form[key]
+	return ok
+}
+
+// parseForm reads urlencoded or multipart bodies for any method (net/http skips
+// DELETE bodies). The last value of a repeated field wins and blank urlencoded
+// values are dropped, as in agent.py.
+func parseForm(r *http.Request) (map[string]string, map[string]*upload, error) {
+	form := map[string]string{}
+	files := map[string]*upload{}
+	mediaType, params, _ := mime.ParseMediaType(r.Header.Get("Content-Type"))
+	switch mediaType {
+	case "multipart/form-data":
+		if r.ContentLength == 0 {
+			return form, files, nil
+		}
+		boundary := params["boundary"]
+		if boundary == "" {
+			return nil, nil, errors.New("Missing boundary in multipart/form-data Content-Type")
+		}
+		mr := multipart.NewReader(r.Body, boundary)
+		for {
+			part, err := mr.NextPart()
+			if err == io.EOF {
+				break
+			}
+			if err == nil {
+				err = readPart(part, form, files)
+			}
+			if err != nil {
+				for _, u := range files {
+					u.remove()
+				}
+				return nil, nil, err
+			}
+		}
+	case "application/x-www-form-urlencoded":
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			return nil, nil, err
+		}
+		vals, _ := url.ParseQuery(string(body))
+		for k, v := range vals {
+			for _, val := range v {
+				if val != "" {
+					form[k] = val
+				}
+			}
+		}
+	}
+	return form, files, nil
+}
+
+func readPart(part *multipart.Part, form map[string]string, files map[string]*upload) error {
+	defer part.Close()
+	name := part.FormName()
+	if name == "" {
+		_, err := io.Copy(io.Discard, part)
+		return err
+	}
+	if part.FileName() == "" {
+		b, err := io.ReadAll(part)
+		form[name] = string(b)
+		return err
+	}
+	u, err := spoolUpload(part)
+	if err != nil {
+		return err
+	}
+	if old := files[name]; old != nil {
+		old.remove()
+	}
+	files[name] = u
+	return nil
+}
+
+type handlerFunc func(http.ResponseWriter, *agentRequest)
+
+// routes maps path -> method -> handler; anything else is a JSON 404 like agent.py.
+var routes = map[string]map[string]handlerFunc{
+	"/":                  {"GET": handleIndex},
+	"/status":            {"GET": handleGetStatus, "POST": handlePostStatus},
+	"/logs":              {"GET": handleLogs},
+	"/system":            {"GET": handleSystem},
+	"/environ":           {"GET": handleEnviron},
+	"/path":              {"GET": handlePath},
+	"/mkdir":             {"POST": handleMkdir},
+	"/mktemp":            {"GET": handleMktemp, "POST": handleMktemp},
+	"/mkdtemp":           {"GET": handleMkdtemp, "POST": handleMkdtemp},
+	"/store":             {"POST": handleStore},
+	"/retrieve":          {"POST": handleRetrieve},
+	"/push":              {"POST": handlePush},
+	"/update":            {"POST": handleUpdate},
+	"/extract":           {"POST": handleExtract},
+	"/remove":            {"POST": handleRemove},
+	"/execute":           {"POST": handleExecute},
+	"/execpy":            {"POST": handleExecPy},
+	"/pinning":           {"GET": handlePinning},
+	"/kill":              {"GET": handleKill},
+	"/browser_extension": {"POST": handleBrowserExtension},
+	"/mutex":             {"POST": HandleMutexPlatform, "DELETE": HandleMutexPlatform},
+}
+
+func serveAgent(w http.ResponseWriter, r *http.Request) {
+	clientIP, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		clientIP = r.RemoteAddr
+	}
+	logErr.Printf("%s \"%s %s %s\"", clientIP, r.Method, r.URL.RequestURI(), r.Proto)
+
+	if !checkSecurity(w, r) {
+		return
+	}
+	fn := routes[r.URL.Path][r.Method]
+	if fn == nil {
+		jsonError(w, 404, "Route not found")
+		return
+	}
+
+	req := &agentRequest{Request: r, clientIP: clientIP, form: map[string]string{}, files: map[string]*upload{}}
+	if r.Method == "POST" || r.Method == "DELETE" {
+		form, files, err := parseForm(r)
+		if err != nil {
+			jsonError(w, 400, fmt.Sprintf("Invalid form data: %v", err))
+			return
+		}
+		req.form, req.files = form, files
+		defer func() {
+			for _, u := range files {
+				u.remove()
+			}
+		}()
+	}
+	fn(w, req)
+}
+
+var server *http.Server
+var shutdownOnce sync.Once
+var shutdownDone = make(chan struct{})
 
 func main() {
 	host := flag.String("host", "0.0.0.0", "Host to bind to")
 	port := flag.Int("port", 8000, "Port to bind to")
 	verbose := flag.Bool("v", false, "Verbose logging")
+	python := flag.String("python", "", "Python interpreter used by /execpy (default: auto-detect)")
 	flag.Parse()
 
-	if !*verbose {
-		// In a real scenario, redirect stdout/stderr to our buffers
-		// For now, we print to stdout.
+	// Also accept agent.py's positional form: agent.exe [host] [port]
+	if flag.NArg() > 0 {
+		*host = flag.Arg(0)
+	}
+	if flag.NArg() > 1 {
+		p, err := strconv.Atoi(flag.Arg(1))
+		if err != nil {
+			log.Fatalf("invalid port %q", flag.Arg(1))
+		}
+		*port = p
+	}
+	pythonPath = *python
+	verboseMode = *verbose
+
+	if !verboseMode {
+		logOut.SetOutput(agentLogOut)
+		logErr.SetOutput(agentLogErr)
+		log.SetOutput(agentLogErr)
 	}
 
-	http.HandleFunc("/", handleIndex)
-	http.HandleFunc("/status", handleStatus)
-	http.HandleFunc("/logs", handleLogs)
-	http.HandleFunc("/system", handleSystem)
-	http.HandleFunc("/environ", handleEnviron)
-	http.HandleFunc("/path", handlePath)
-	http.HandleFunc("/mkdir", handleMkdir)
-	http.HandleFunc("/mktemp", handleMktemp)
-	http.HandleFunc("/mkdtemp", handleMkdtemp)
-	http.HandleFunc("/store", handleStore)
-	http.HandleFunc("/retrieve", handleRetrieve)
-	http.HandleFunc("/push", handlePush)
-	http.HandleFunc("/update", handleUpdate)
-	http.HandleFunc("/extract", handleExtract)
-	http.HandleFunc("/remove", handleRemove)
-	http.HandleFunc("/execute", handleExecute)
-	http.HandleFunc("/execpy", handleExecPy)
-	http.HandleFunc("/pinning", handlePinning)
-	http.HandleFunc("/kill", handleKill)
-	http.HandleFunc("/browser_extension", handleBrowserExtension)
-	http.HandleFunc("/mutex", handleMutex)
+	addr := net.JoinHostPort(*host, strconv.Itoa(*port))
+	logOut.Printf("Starting CAPE Agent on %s\n", addr)
 
-	addr := fmt.Sprintf("%s:%d", *host, *port)
-	fmt.Printf("Starting CAPE Agent on %s\n", addr)
-
-	server := &http.Server{Addr: addr}
-
-	// Handle graceful shutdown via /kill
-	// We can run server in a goroutine or just handle it.
+	server = &http.Server{Addr: addr, Handler: http.HandlerFunc(serveAgent)}
 
 	// Retry logic for binding port (useful during self-update restart)
 	var err error
 	for i := 0; i < 10; i++ {
 		err = server.ListenAndServe()
 		if err == http.ErrServerClosed {
+			// /kill: wait for in-flight responses to finish.
+			<-shutdownDone
 			break
 		}
 		if err != nil {
 			// Check for "Address already in use"
 			if strings.Contains(err.Error(), "address already in use") || strings.Contains(err.Error(), "Only one usage of each socket address") {
-				fmt.Printf("Port %d busy, retrying in 1s...\n", *port)
+				logOut.Printf("Port %d busy, retrying in 1s...\n", *port)
 				time.Sleep(1 * time.Second)
 				continue
 			}
 			log.Fatalf("ListenAndServe(): %v", err)
 		}
 		break
+	}
+	if err != nil && err != http.ErrServerClosed {
+		log.Fatalf("ListenAndServe(): %v", err)
 	}
 }
 
@@ -265,10 +596,7 @@ func checkSecurity(w http.ResponseWriter, r *http.Request) bool {
 	return true
 }
 
-func handleIndex(w http.ResponseWriter, r *http.Request) {
-	if !checkSecurity(w, r) {
-		return
-	}
+func handleIndex(w http.ResponseWriter, r *agentRequest) {
 	isAdmin := IsAdmin()
 	jsonSuccess(w, "CAPE Agent!", map[string]interface{}{
 		"version":       AgentVersion,
@@ -277,110 +605,109 @@ func handleIndex(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func handleStatus(w http.ResponseWriter, r *http.Request) {
-	if !checkSecurity(w, r) {
-		return
-	}
+func handleGetStatus(w http.ResponseWriter, r *agentRequest) {
+	state.Lock()
+	defer state.Unlock()
 
-	if r.Method == "GET" {
-		state.Lock()
-		defer state.Unlock()
-
-		// Check async process
-		if state.Status != StatusComplete && state.AsyncSubprocess != nil {
-			// Poll process
-			// In Go, os/exec.Cmd.Process.Signal(syscall.Signal(0)) checks existence,
-			// but waiting is the only way to get exit code.
-			// However, since we started it async, we should have a goroutine waiting on it
-			// that updates the state.
-			// Implementation Detail: When starting async, we'll spawn a goroutine to Wait() and update state.
-
-			// So here we just return current state.
-			jsonSuccess(w, "Analysis status", map[string]interface{}{
-				"status":      state.Status,
-				"description": state.Description,
-				"process_id":  0, // We might store PID in state if needed
-			})
-			return
-		}
-
+	p := state.AsyncSubprocess
+	if state.Status == StatusComplete || p == nil {
 		jsonSuccess(w, "Analysis status", map[string]interface{}{
 			"status":      state.Status,
 			"description": state.Description,
 		})
 		return
-	} else if r.Method == "POST" {
-		if expected := os.Getenv("X_CAPE_AUTH_TOKEN"); expected != "" {
-			token := r.Header.Get("X-CAPE-Auth-Token")
-			if subtle.ConstantTimeCompare([]byte(token), []byte(expected)) != 1 {
-				jsonError(w, 403, "Unauthorized")
-				return
-			}
+	}
+
+	select {
+	case <-p.done:
+		// Process completed; report its exit code once and reset async subprocess state.
+		state.AsyncSubprocess = nil
+		if p.exitCode == 0 {
+			state.Status = StatusComplete
+			state.Description = ""
+		} else {
+			state.Status = StatusFailed
+			state.Description = fmt.Sprintf("Exited with exit code %d", p.exitCode)
 		}
-
-		status := r.FormValue("status")
-		if status == "" {
-			jsonError(w, 400, "No valid status has been provided")
-			return
-		}
-
-		s := strings.ToLower(status)
-		switch s {
-		case StatusInit, StatusRunning, StatusComplete, StatusFailed, StatusException:
-		default:
-			jsonError(w, 400, "Invalid status value provided")
-			return
-		}
-
-		state.Lock()
-		defer state.Unlock()
-
-		if _, terminal := TerminalStatuses[strings.ToLower(status)]; terminal {
-			// Reject in-guest attempts to set terminal statuses; the final state
-			// comes from the async subprocess exit, not from HTTP POSTs.
-			clientIP, _, _ := net.SplitHostPort(r.RemoteAddr)
-			if clientIP == "127.0.0.1" || clientIP == "::1" {
-				jsonError(w, 403, "Unauthorized")
-				return
-			}
-			state.AsyncSubprocess = nil
-		}
-
-		state.Status = strings.ToLower(status)
-		state.Description = r.FormValue("description")
-
-		jsonSuccess(w, "Analysis status updated", nil)
+		jsonSuccess(w, "Analysis status", map[string]interface{}{
+			"status":      state.Status,
+			"description": state.Description,
+			"exitcode":    p.exitCode,
+		})
+	default:
+		state.Status = StatusRunning
+		jsonSuccess(w, "Analysis status", map[string]interface{}{
+			"status":      state.Status,
+			"description": state.Description,
+			"process_id":  p.cmd.Process.Pid,
+		})
 	}
 }
 
-func handleLogs(w http.ResponseWriter, r *http.Request) {
-	if !checkSecurity(w, r) {
+func handlePostStatus(w http.ResponseWriter, r *agentRequest) {
+	if expected := os.Getenv("X_CAPE_AUTH_TOKEN"); expected != "" {
+		token := r.Header.Get("X-CAPE-Auth-Token")
+		if subtle.ConstantTimeCompare([]byte(token), []byte(expected)) != 1 {
+			jsonError(w, 403, "Unauthorized")
+			return
+		}
+	}
+
+	status, ok := parseStatus(r.form["status"])
+	if !ok {
+		jsonError(w, 400, "No valid status has been provided")
 		return
+	}
+
+	state.Lock()
+	defer state.Unlock()
+
+	if TerminalStatuses[status] {
+		// Reject in-guest attempts to set terminal statuses; the final state
+		// comes from the async subprocess exit, not from HTTP POSTs.
+		if r.clientIP == "127.0.0.1" || r.clientIP == "::1" {
+			jsonError(w, 403, "Unauthorized")
+			return
+		}
+		state.AsyncSubprocess = nil
+	}
+
+	state.Status = status
+	state.Description = r.form["description"]
+
+	jsonSuccess(w, "Analysis status updated", nil)
+}
+
+func handleLogs(w http.ResponseWriter, r *agentRequest) {
+	stdout, stderr := "verbose mode, stdout not saved", "verbose mode, stderr not saved"
+	if !verboseMode {
+		stdout, stderr = agentLogOut.String(), agentLogErr.String()
 	}
 	jsonSuccess(w, "Agent logs", map[string]interface{}{
-		"stdout": agentLogOut.String(),
-		"stderr": agentLogErr.String(),
+		"stdout": stdout,
+		"stderr": stderr,
 	})
 }
 
-func handleSystem(w http.ResponseWriter, r *http.Request) {
-	if !checkSecurity(w, r) {
-		return
-	}
+func handleSystem(w http.ResponseWriter, r *agentRequest) {
+	// Same spelling as Python's platform.system(), e.g. "Windows".
 	jsonSuccess(w, "System", map[string]interface{}{
-		"system": runtime.GOOS,
+		"system": strings.ToUpper(runtime.GOOS[:1]) + runtime.GOOS[1:],
 	})
 }
 
-func handleEnviron(w http.ResponseWriter, r *http.Request) {
-	if !checkSecurity(w, r) {
-		return
-	}
+func handleEnviron(w http.ResponseWriter, r *agentRequest) {
 	envMap := make(map[string]string)
 	for _, e := range os.Environ() {
 		pair := strings.SplitN(e, "=", 2)
-		if len(pair) == 2 {
-			envMap[pair[0]] = pair[1]
+		// Skip Windows per-drive entries such as "=C:=C:\".
+		if len(pair) == 2 && pair[0] != "" {
+			key := pair[0]
+			if runtime.GOOS == "windows" {
+				// Python's os.environ upper-cases keys on Windows.
+				key = strings.ToUpper(key)
+			}
+			envMap[key] = pair[1]
 		}
 	}
 	jsonSuccess(w, "Environment variables", map[string]interface{}{
@@ -388,10 +715,7 @@ func handleEnviron(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func handlePath(w http.ResponseWriter, r *http.Request) {
-	if !checkSecurity(w, r) {
-		return
-	}
+func handlePath(w http.ResponseWriter, r *agentRequest) {
 	ex, err := os.Executable()
 	if err != nil {
 		ex = os.Args[0]
@@ -402,63 +726,42 @@ func handlePath(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func handleMkdir(w http.ResponseWriter, r *http.Request) {
-	if !checkSecurity(w, r) {
-		return
-	}
-	if r.Method != "POST" {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-	dirpath := r.FormValue("dirpath")
-	if dirpath == "" {
+func handleMkdir(w http.ResponseWriter, r *agentRequest) {
+	if !r.has("dirpath") {
 		jsonError(w, 400, "No dirpath has been provided")
 		return
 	}
 
-	// mode ignored for now, or we can parse it
-	err := os.MkdirAll(dirpath, 0777)
-	if err != nil {
-		jsonError(w, 500, "Error creating directory", map[string]interface{}{"traceback": err.Error()})
+	mode := 0o777
+	if v, ok := r.form["mode"]; ok {
+		m, err := strconv.Atoi(v)
+		if err != nil {
+			jsonException(w, "Error creating directory", err)
+			return
+		}
+		mode = m
+	}
+	if err := os.MkdirAll(r.form["dirpath"], os.FileMode(mode)); err != nil {
+		jsonException(w, "Error creating directory", err)
 		return
 	}
 	jsonSuccess(w, "Successfully created directory", nil)
 }
 
-func handleMktemp(w http.ResponseWriter, r *http.Request) {
-	if !checkSecurity(w, r) {
-		return
-	}
-	suffix := r.FormValue("suffix")
-	prefix := r.FormValue("prefix")
-	dirpath := r.FormValue("dirpath")
-	if dirpath == "" {
-		dirpath = os.TempDir()
-	}
-
-	f, err := os.CreateTemp(dirpath, prefix+"*"+suffix)
+func handleMktemp(w http.ResponseWriter, r *agentRequest) {
+	f, err := os.CreateTemp(r.form["dirpath"], r.form["prefix"]+"*"+r.form["suffix"])
 	if err != nil {
-		jsonError(w, 500, "Error creating temporary file", map[string]interface{}{"traceback": err.Error()})
+		jsonException(w, "Error creating temporary file", err)
 		return
 	}
 	f.Close()
 	jsonSuccess(w, "Successfully created temporary file", map[string]interface{}{"filepath": f.Name()})
 }
 
-func handleMkdtemp(w http.ResponseWriter, r *http.Request) {
-	if !checkSecurity(w, r) {
-		return
-	}
-	suffix := r.FormValue("suffix")
-	prefix := r.FormValue("prefix")
-	dirpath := r.FormValue("dirpath")
-	if dirpath == "" {
-		dirpath = os.TempDir()
-	}
-
-	d, err := os.MkdirTemp(dirpath, prefix+"*"+suffix)
+func handleMkdtemp(w http.ResponseWriter, r *agentRequest) {
+	d, err := os.MkdirTemp(r.form["dirpath"], r.form["prefix"]+"*"+r.form["suffix"])
 	if err != nil {
-		jsonError(w, 500, "Error creating temporary directory", map[string]interface{}{"traceback": err.Error()})
+		jsonException(w, "Error creating temporary directory", err)
 		return
 	}
 
@@ -468,115 +771,102 @@ func handleMkdtemp(w http.ResponseWriter, r *http.Request) {
 	jsonSuccess(w, "Successfully created temporary directory", map[string]interface{}{"dirpath": d})
 }
 
-func handleStore(w http.ResponseWriter, r *http.Request) {
-	if !checkSecurity(w, r) {
-		return
-	}
-	if r.Method != "POST" {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	filepathStr := r.FormValue("filepath")
-	if filepathStr == "" {
+func handleStore(w http.ResponseWriter, r *agentRequest) {
+	if !r.has("filepath") {
 		jsonError(w, 400, "No filepath has been provided")
 		return
 	}
-
-	file, _, err := r.FormFile("file")
-	if err != nil {
+	file := r.files["file"]
+	if file == nil {
 		jsonError(w, 400, "No file has been provided")
 		return
 	}
-	defer file.Close()
 
+	filepathStr := r.form["filepath"]
 	if dirpath := filepath.Dir(filepathStr); dirpath != "." {
 		if err := os.MkdirAll(dirpath, os.ModePerm); err != nil {
-			jsonError(w, 500, fmt.Sprintf("Error storing file: %v", err))
+			jsonException(w, fmt.Sprintf("Error storing file: %v", err), err)
 			return
 		}
 	}
-
-	out, err := os.Create(filepathStr)
-	if err != nil {
-		jsonError(w, 500, fmt.Sprintf("Error storing file: %v", err))
-		return
-	}
-	defer out.Close()
-
-	_, err = io.Copy(out, file)
-	if err != nil {
-		jsonError(w, 500, fmt.Sprintf("Error storing file: %v", err))
+	if err := file.moveTo(filepathStr); err != nil {
+		jsonException(w, fmt.Sprintf("Error storing file: %v", err), err)
 		return
 	}
 
 	jsonSuccess(w, "Successfully stored file", nil)
 }
 
-func handleRetrieve(w http.ResponseWriter, r *http.Request) {
-	if !checkSecurity(w, r) {
-		return
-	}
-	if r.Method != "POST" {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	filepathStr := r.FormValue("filepath")
-	if filepathStr == "" {
+func handleRetrieve(w http.ResponseWriter, r *agentRequest) {
+	if !r.has("filepath") {
 		jsonError(w, 400, "No filepath has been provided")
 		return
 	}
 
-	// Check if file exists
-	if _, err := os.Stat(filepathStr); os.IsNotExist(err) {
+	filepathStr := r.form["filepath"]
+	fi, err := os.Stat(filepathStr)
+	if err != nil || !fi.Mode().IsRegular() {
 		jsonError(w, 404, "File not found")
 		return
 	}
-
-	// Encoding
-	encoding := r.FormValue("encoding")
-	// Streaming
-	// streaming := r.FormValue("streaming") // Not implementing full streaming for now
-
 	f, err := os.Open(filepathStr)
 	if err != nil {
-		jsonError(w, 500, fmt.Sprintf("Error reading file: %v", err))
+		jsonError(w, 404, "File not found")
 		return
 	}
 	defer f.Close()
 
-	if encoding == Base64Encoding {
-		// Read all and encode
-		data, err := io.ReadAll(f)
-		if err != nil {
-			jsonError(w, 500, fmt.Sprintf("Error reading file: %v", err))
-			return
-		}
+	switch {
+	case r.form["streaming"] == "1":
+		streamFile(w, r, f)
+	case r.form["encoding"] == Base64Encoding:
 		w.WriteHeader(200)
 		encoder := base64.NewEncoder(base64.StdEncoding, w)
-		encoder.Write(data)
+		io.Copy(encoder, f)
 		encoder.Close()
-	} else {
-		// Just serve file
-		http.ServeFile(w, r, filepathStr)
+	default:
+		w.Header().Set("Content-Length", strconv.FormatInt(fi.Size(), 10))
+		w.WriteHeader(200)
+		io.Copy(w, f)
 	}
 }
 
-func handleUpdate(w http.ResponseWriter, r *http.Request) {
-	if !checkSecurity(w, r) {
-		return
+// streamFile follows a growing file like `tail -f` until the client disconnects.
+func streamFile(w http.ResponseWriter, r *agentRequest, f *os.File) {
+	w.WriteHeader(200)
+	flusher, _ := w.(http.Flusher)
+	buf := make([]byte, 64*1024)
+	for {
+		n, err := f.Read(buf)
+		if n > 0 {
+			if _, werr := w.Write(buf[:n]); werr != nil {
+				break
+			}
+			if flusher != nil {
+				flusher.Flush()
+			}
+			continue
+		}
+		if err != nil && err != io.EOF {
+			logErr.Printf("Error reading file %s: %v", f.Name(), err)
+			return
+		}
+		select {
+		case <-r.Context().Done():
+			logErr.Printf("Client disconnected while reading %s", f.Name())
+			return
+		case <-time.After(100 * time.Millisecond):
+		}
 	}
-	if r.Method != "POST" {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-	file, _, err := r.FormFile("file")
-	if err != nil {
+	logErr.Printf("Client disconnected while reading %s", f.Name())
+}
+
+func handleUpdate(w http.ResponseWriter, r *agentRequest) {
+	file := r.files["file"]
+	if file == nil {
 		jsonError(w, 400, "No file provided")
 		return
 	}
-	defer file.Close()
 
 	// 1. Determine paths
 	currentExe, err := os.Executable()
@@ -595,14 +885,7 @@ func handleUpdate(w http.ResponseWriter, r *http.Request) {
 	os.Remove(oldExe)
 
 	// 2. Save new binary
-	out, err := os.Create(newExe)
-	if err != nil {
-		jsonError(w, 500, fmt.Sprintf("Cannot create new file: %v", err))
-		return
-	}
-	_, err = io.Copy(out, file)
-	out.Close()
-	if err != nil {
+	if err := file.moveTo(newExe); err != nil {
 		jsonError(w, 500, fmt.Sprintf("Cannot save new file: %v", err))
 		return
 	}
@@ -648,17 +931,8 @@ func handleUpdate(w http.ResponseWriter, r *http.Request) {
 	}()
 }
 
-func handlePush(w http.ResponseWriter, r *http.Request) {
-	if !checkSecurity(w, r) {
-		return
-	}
-
-	if r.Method != "POST" {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	filepathStr := r.FormValue("filepath")
+func handlePush(w http.ResponseWriter, r *agentRequest) {
+	filepathStr := r.form["filepath"]
 
 	// Security: We only upload back to the Caller (Requestor).
 	// We ignore "target_url" if it points to a different IP.
@@ -678,31 +952,32 @@ func handlePush(w http.ResponseWriter, r *http.Request) {
 	defer f.Close()
 
 	// Determine target
-	clientIP, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err != nil {
-		clientIP = r.RemoteAddr
-	}
+	clientIP := r.clientIP
 
 	// Allow user to specify port?
 	// For simplicity, let's assume standard CAPE resultserver port or provided in "port" param.
-	targetPort := r.FormValue("port")
+	targetPort := r.form["port"]
 	if targetPort == "" {
 		targetPort = "8000"
 	} // Default CAPE port? Usually 2042 or 8000.
 
 	// Allow specific path?
-	uploadPath := r.FormValue("upload_path")
+	uploadPath := r.form["upload_path"]
 	if uploadPath == "" {
 		uploadPath = "/upload"
 	} // Standard path
 
-	targetURL := fmt.Sprintf("http://%s:%s%s", clientIP, targetPort, uploadPath)
+	targetURL := fmt.Sprintf("http://%s%s", net.JoinHostPort(clientIP, targetPort), uploadPath)
 
 	// Do upload
 	req, err := http.NewRequest("POST", targetURL, f)
 	if err != nil {
 		jsonError(w, 500, fmt.Sprintf("Error creating request: %v", err))
 		return
+	}
+	// Send Content-Length instead of chunked encoding, which simple receivers reject.
+	if fi, err := f.Stat(); err == nil {
+		req.ContentLength = fi.Size()
 	}
 	req.Header.Set("Content-Type", "application/octet-stream")
 	req.Header.Set("X-Filename", filepath.Base(filepathStr))
@@ -724,376 +999,279 @@ func handlePush(w http.ResponseWriter, r *http.Request) {
 	jsonSuccess(w, "File uploaded successfully", nil)
 }
 
-func handleExtract(w http.ResponseWriter, r *http.Request) {
-	if !checkSecurity(w, r) {
-		return
-	}
-	if r.Method != "POST" {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	dirpath := r.FormValue("dirpath")
-	if dirpath == "" {
+func handleExtract(w http.ResponseWriter, r *agentRequest) {
+	if !r.has("dirpath") {
 		jsonError(w, 400, "No dirpath has been provided")
 		return
 	}
-
-	file, _, err := r.FormFile("zipfile")
-	if err != nil {
+	file := r.files["zipfile"]
+	if file == nil {
 		jsonError(w, 400, "No zip file has been provided")
 		return
 	}
-	defer file.Close()
 
-	// Create a temp file to store zip content because zip.NewReader needs ReaderAt
-	tmpZip, err := os.CreateTemp("", "capezip-*.zip")
-	if err != nil {
-		jsonError(w, 500, fmt.Sprintf("Error creating temp zip: %v", err))
-		return
+	ra, closeZip, err := file.readerAt()
+	if err == nil {
+		defer closeZip()
+		var zr *zip.Reader
+		if zr, err = zip.NewReader(ra, file.size); err == nil {
+			err = extractZip(zr, r.form["dirpath"])
+		}
 	}
-	defer os.Remove(tmpZip.Name())
-	defer tmpZip.Close()
-
-	_, err = io.Copy(tmpZip, file)
 	if err != nil {
-		jsonError(w, 500, fmt.Sprintf("Error saving temp zip: %v", err))
+		jsonException(w, fmt.Sprintf("Error extracting zip file %v", err), err)
 		return
-	}
-
-	// Re-open for reading
-	zipReader, err := zip.OpenReader(tmpZip.Name())
-	if err != nil {
-		jsonError(w, 500, fmt.Sprintf("Error opening zip: %v", err))
-		return
-	}
-	defer zipReader.Close()
-
-	for _, zf := range zipReader.File {
-		fpath := filepath.Join(dirpath, zf.Name)
-
-		// Check for ZipSlip
-		if !strings.HasPrefix(fpath, filepath.Clean(dirpath)+string(os.PathSeparator)) {
-			continue // Invalid file path
-		}
-
-		if zf.FileInfo().IsDir() {
-			os.MkdirAll(fpath, os.ModePerm)
-			continue
-		}
-
-		if err := os.MkdirAll(filepath.Dir(fpath), os.ModePerm); err != nil {
-			jsonError(w, 500, fmt.Sprintf("Error creating dir: %v", err))
-			return
-		}
-
-		outFile, err := os.OpenFile(fpath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, zf.Mode())
-		if err != nil {
-			jsonError(w, 500, fmt.Sprintf("Error creating file: %v", err))
-			return
-		}
-
-		rc, err := zf.Open()
-		if err != nil {
-			outFile.Close()
-			jsonError(w, 500, fmt.Sprintf("Error extracting file: %v", err))
-			return
-		}
-
-		_, err = io.Copy(outFile, rc)
-		outFile.Close()
-		rc.Close()
-		if err != nil {
-			jsonError(w, 500, fmt.Sprintf("Error writing file: %v", err))
-			return
-		}
 	}
 
 	jsonSuccess(w, "Successfully extracted zip file", nil)
 }
 
-func handleRemove(w http.ResponseWriter, r *http.Request) {
-	if !checkSecurity(w, r) {
-		return
+var invalidWindowsNameChars = strings.NewReplacer(":", "_", "<", "_", ">", "_", "|", "_", "\"", "_", "?", "_", "*", "_")
+
+// extractZip sanitizes member names the way Python's ZipFile.extractall does:
+// drive letters, empty, "." and ".." components are dropped, so no entry can
+// escape dirpath (ZipSlip).
+func extractZip(zr *zip.Reader, dirpath string) error {
+	for _, zf := range zr.File {
+		name := filepath.FromSlash(strings.ReplaceAll(zf.Name, "\\", "/"))
+		name = name[len(filepath.VolumeName(name)):]
+		parts := []string{dirpath}
+		for _, p := range strings.Split(name, string(os.PathSeparator)) {
+			if runtime.GOOS == "windows" {
+				// Also blocks NTFS alternate data streams ("file:stream").
+				p = strings.TrimRight(invalidWindowsNameChars.Replace(p), ". ")
+			}
+			if p != "" && p != "." && p != ".." {
+				parts = append(parts, p)
+			}
+		}
+		if len(parts) == 1 {
+			continue
+		}
+		fpath := filepath.Join(parts...)
+
+		if zf.FileInfo().IsDir() {
+			if err := os.MkdirAll(fpath, os.ModePerm); err != nil {
+				return err
+			}
+			continue
+		}
+		if err := os.MkdirAll(filepath.Dir(fpath), os.ModePerm); err != nil {
+			return err
+		}
+		if err := extractZipFile(zf, fpath); err != nil {
+			return err
+		}
 	}
-	path := r.FormValue("path")
-	if path == "" {
+	return nil
+}
+
+func extractZipFile(zf *zip.File, fpath string) error {
+	rc, err := zf.Open()
+	if err != nil {
+		return err
+	}
+	defer rc.Close()
+	out, err := os.Create(fpath)
+	if err != nil {
+		return err
+	}
+	if _, err = io.Copy(out, rc); err != nil {
+		out.Close()
+		return err
+	}
+	return out.Close()
+}
+
+func handleRemove(w http.ResponseWriter, r *agentRequest) {
+	if !r.has("path") {
 		jsonError(w, 400, "No path has been provided")
 		return
 	}
+	path := r.form["path"]
 
-	// Force remove
-	err := os.RemoveAll(path)
+	fi, err := os.Stat(path)
 	if err != nil {
-		jsonError(w, 500, "Error removing file or directory")
+		jsonError(w, 404, "Path provided does not exist")
 		return
 	}
-	jsonSuccess(w, "Successfully deleted file/directory", nil)
+
+	var message string
+	if fi.IsDir() {
+		// Clear read-only attributes so everything can be deleted.
+		filepath.WalkDir(path, func(p string, d os.DirEntry, err error) error {
+			if err == nil && !d.IsDir() {
+				os.Chmod(p, 0o666)
+			}
+			return nil
+		})
+		err = os.RemoveAll(path)
+		message = "Successfully deleted directory"
+	} else {
+		if err = os.Chmod(path, 0o666); err == nil {
+			err = os.Remove(path)
+		}
+		message = "Successfully deleted file"
+	}
+	if err != nil {
+		jsonException(w, "Error removing file or directory", err)
+		return
+	}
+	jsonSuccess(w, message, nil)
 }
 
-func handleExecute(w http.ResponseWriter, r *http.Request) {
-	if !checkSecurity(w, r) {
-		return
+func outputData(stdout, stderr []byte, b64 bool) map[string]interface{} {
+	if b64 {
+		return map[string]interface{}{
+			"stdout": base64.StdEncoding.EncodeToString(stdout),
+			"stderr": base64.StdEncoding.EncodeToString(stderr),
+		}
 	}
-	if r.Method != "POST" {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
+	return map[string]interface{}{
+		"stdout": string(stdout),
+		"stderr": string(stderr),
 	}
+}
 
-	command := r.FormValue("command")
-	if command == "" {
+func handleExecute(w http.ResponseWriter, r *agentRequest) {
+	if !r.has("command") {
 		jsonError(w, 400, "No command has been provided")
 		return
 	}
+	command := r.form["command"]
 
-	// Security check for execute (same as Python)
+	// Only allow the date command from the guest itself, so malware inside
+	// the VM can't drive the agent (same rule as agent.py).
 	localIP := GetLocalIP()
-	clientIP, _, _ := net.SplitHostPort(r.RemoteAddr)
-	if clientIP == "" {
-		clientIP = r.RemoteAddr
-	}
-
 	allowedCommands := map[string]bool{"date": true, "cmd /c date /t": true}
-
-	isLocal := (clientIP == "127.0.0.1" || clientIP == "::1" || clientIP == localIP)
+	isLocal := r.clientIP == "127.0.0.1" || r.clientIP == "::1" || r.clientIP == localIP
 	if isLocal && !allowedCommands[command] {
-		// In Python agent: if request.client_ip in ("127.0.0.1", local_ip) and command not in allowed: return 500
-		// Wait, this logic in python agent seems to restrict LOCALHOST from executing arbitrary commands?
-		// Ah, "only allow date command from localhost. Even this is just to let it be tested"
-		// So remote hosts CAN execute commands?
-		// Logic in python:
-		// if request.client_ip in ("127.0.0.1", local_ip) and request.form["command"] not in allowed_commands:
-		//    return json_error(500, "Not allowed to execute commands")
-		// This implies remote IPs are fine? That's weird for a sandbox, usually it's the opposite.
-		// But in a sandbox, the controller (Host) calls the Agent (Guest).
-		// If the Agent is exposed to the internet, anyone can run commands.
-		// But usually Agent is on a private network.
-		// The check seems to be preventing *malware inside the VM* (localhost) from using the Agent to escalate?
-		// Yes, that makes sense. Malware running on localhost shouldn't be able to drive the agent.
-
 		jsonError(w, 500, "Not allowed to execute commands")
 		return
 	}
 
-	asyncExec := r.FormValue("async") != ""
-	// shell := r.FormValue("shell") != "" // Go exec.Command doesn't support "shell=True" directly like Python.
-	// We have to wrap in cmd /c or sh -c if we want shell features.
-	// But `shlex.split` in Python splits args.
-	// Here we should probably just execute directly if possible or split args.
-	// For simplicity, let's just attempt to split string.
-
-	// Robust splitting for quoted arguments
-	parts, err := shlex.Split(command)
-	if err != nil {
-		jsonError(w, 400, fmt.Sprintf("Error parsing command: %v", err))
-		return
-	}
-	if len(parts) == 0 {
-		jsonError(w, 400, "Empty command")
-		return
-	}
-
-	cmd := exec.Command(parts[0], parts[1:]...)
-	cwd := r.FormValue("cwd")
-	if cwd != "" {
-		cmd.Dir = cwd
-	}
-
-	if asyncExec {
-		err := cmd.Start()
+	var cmd *exec.Cmd
+	if r.has("shell") {
+		cmd = shellCommand(command)
+	} else {
+		// Robust splitting for quoted arguments
+		parts, err := shlexSplit(command)
 		if err != nil {
-			jsonError(w, 500, fmt.Sprintf("Error executing command: %v", err))
+			jsonError(w, 400, fmt.Sprintf("Error parsing command: %v", err))
 			return
 		}
-		// We need to wait for it somewhere to avoid zombies, but "async" implies fire and forget?
-		// Python agent stores it in `state.async_subprocess`.
-		state.Lock()
-		state.Status = StatusRunning
-		state.Description = ""
-		state.AsyncSubprocess = cmd
-		state.Unlock()
-
-		// Spawn waiter to clean up
-		go func() {
-			cmd.Wait()
-			// Update state on completion?
-			state.Lock()
-			if state.AsyncSubprocess == cmd {
-				state.Status = StatusComplete
-				if !cmd.ProcessState.Success() {
-					state.Status = StatusFailed
-					state.Description = fmt.Sprintf("Exited with code %d", cmd.ProcessState.ExitCode())
-				} else {
-					state.Description = ""
-				}
-				state.AsyncSubprocess = nil
-			}
-			state.Unlock()
-		}()
-
-		jsonSuccess(w, "Successfully executed command", nil)
-		return
+		if len(parts) == 0 {
+			jsonError(w, 400, "Empty command")
+			return
+		}
+		cmd = exec.Command(parts[0], parts[1:]...)
 	}
+	cmd.Dir = r.form["cwd"]
 
-	// Sync exec
-	// Re-create cmd to use separate buffers
-	cmd = exec.Command(parts[0], parts[1:]...)
-	if cwd != "" {
-		cmd.Dir = cwd
-	}
-	var stdoutBuf, stderrBuf strings.Builder
-	cmd.Stdout = &stdoutBuf
-	cmd.Stderr = &stderrBuf
-
-	err = cmd.Run()
-
-	stdoutBytes := []byte(stdoutBuf.String())
-	stderrBytes := []byte(stderrBuf.String())
-
-	var data map[string]interface{}
-	if r.FormValue("encoding") == Base64Encoding {
-		data = map[string]interface{}{
-			"stdout": base64.StdEncoding.EncodeToString(stdoutBytes),
-			"stderr": base64.StdEncoding.EncodeToString(stderrBytes),
+	data := map[string]interface{}{"stdout": nil, "stderr": nil}
+	var err error
+	if r.has("async") {
+		// Like agent.py, not tracked by /status (that would block /execpy of the analyzer).
+		if err = cmd.Start(); err == nil {
+			go cmd.Wait()
 		}
 	} else {
-		data = map[string]interface{}{
-			"stdout": string(stdoutBytes),
-			"stderr": string(stderrBytes),
+		var stdoutBuf, stderrBuf bytes.Buffer
+		cmd.Stdout = &stdoutBuf
+		cmd.Stderr = &stderrBuf
+		err = cmd.Run()
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
+			// A non-zero exit code is not an error, as with Popen.communicate().
+			err = nil
 		}
-	}
-
-	if err != nil {
-		state.Lock()
-		state.Status = StatusFailed
-		state.Description = "Error execute command"
-		state.Unlock()
-		jsonError(w, 500, fmt.Sprintf("Error executing command: %v", err), data)
-		return
+		data = outputData(stdoutBuf.Bytes(), stderrBuf.Bytes(), r.form["encoding"] == Base64Encoding)
 	}
 
 	state.Lock()
-	state.Status = StatusComplete
+	defer state.Unlock()
+	if err != nil {
+		state.Status = StatusFailed
+		state.Description = "Error execute command"
+		jsonException(w, fmt.Sprintf("Error executing command: %v", err), err)
+		return
+	}
+	state.Status = StatusRunning
 	state.Description = ""
-	state.Unlock()
-
 	jsonSuccess(w, "Successfully executed command", data)
 }
 
-func handleExecPy(w http.ResponseWriter, r *http.Request) {
-	if !checkSecurity(w, r) {
-		return
-	}
-	if r.Method != "POST" {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	filepathStr := r.FormValue("filepath")
-	if filepathStr == "" {
+func handleExecPy(w http.ResponseWriter, r *agentRequest) {
+	if !r.has("filepath") {
 		jsonError(w, 400, "No Python file has been provided")
 		return
 	}
 
-	asyncExec := r.FormValue("async") != ""
-	cwd := r.FormValue("cwd")
-
-	// Determine python executable
-	pythonPath := "python" // Default
-	// Could use flag or env var
-
-	cmd := exec.Command(pythonPath, filepathStr)
-	if cwd != "" {
-		cmd.Dir = cwd
+	failed := func(err error) {
+		state.Status = StatusFailed
+		state.Description = "Error executing Python command"
+		jsonException(w, fmt.Sprintf("Error executing Python command: %v", err), err)
 	}
 
-	if asyncExec {
-		state.Lock()
+	state.Lock()
+	defer state.Unlock()
+
+	python, err := findPython()
+	if err != nil {
+		failed(err)
+		return
+	}
+	cmd := exec.Command(python, r.form["filepath"])
+	cmd.Dir = r.form["cwd"]
+
+	if r.has("async") {
 		if state.Status == StatusRunning && state.AsyncSubprocess != nil {
-			state.Unlock()
 			jsonError(w, 400, "Async process already running.")
 			return
 		}
-		state.Unlock()
-
-		err := cmd.Start()
+		p, err := startTracked(cmd)
 		if err != nil {
-			jsonError(w, 500, fmt.Sprintf("Error spawning python: %v", err))
+			failed(err)
 			return
 		}
-
-		state.Lock()
 		state.Status = StatusRunning
 		state.Description = ""
-		state.AsyncSubprocess = cmd
-		state.Unlock()
-
-		go func() {
-			cmd.Wait()
-			state.Lock()
-			if state.AsyncSubprocess == cmd {
-				state.Status = StatusComplete
-				if !cmd.ProcessState.Success() {
-					state.Status = StatusFailed
-					state.Description = "Error executing python command."
-				}
-				state.AsyncSubprocess = nil // Python clears it?
-				// Python: "Process completed; reset async subprocess state." in get_subprocess_status
-			}
-			state.Unlock()
-		}()
-
+		state.AsyncSubprocess = p
 		jsonSuccess(w, "Successfully spawned command", map[string]interface{}{
 			"process_id": cmd.Process.Pid,
 		})
 		return
 	}
 
-	// Sync
-	var stdoutBuf, stderrBuf strings.Builder
+	// Sync: don't hold the state lock while the script runs.
+	state.Unlock()
+	var stdoutBuf, stderrBuf bytes.Buffer
 	cmd.Stdout = &stdoutBuf
 	cmd.Stderr = &stderrBuf
+	err = cmd.Run()
+	state.Lock()
 
-	err := cmd.Run()
-
-	stdout := stdoutBuf.String()
-	stderr := stderrBuf.String()
-
-	if r.FormValue("encoding") == Base64Encoding {
-		stdout = base64.StdEncoding.EncodeToString([]byte(stdout))
-		stderr = base64.StdEncoding.EncodeToString([]byte(stderr))
-	}
-
-	if err != nil {
-		state.Lock()
-		state.Status = StatusFailed
-		state.Description = "Error executing Python command"
-		state.Unlock()
-
-		// Return error but with stdout/stderr
-		jsonError(w, 400, "Error executing python command.", map[string]interface{}{
-			"stdout":   stdout,
-			"stderr":   stderr,
-			"exitcode": cmd.ProcessState.ExitCode(),
-		})
+	var exitErr *exec.ExitError
+	if err != nil && !errors.As(err, &exitErr) {
+		failed(err)
 		return
 	}
-
-	state.Lock()
-	state.Status = StatusComplete
-	state.Description = ""
-	state.Unlock()
-
-	jsonSuccess(w, "Successfully executed command", map[string]interface{}{
-		"stdout": stdout,
-		"stderr": stderr,
-	})
+	data := outputData(stdoutBuf.Bytes(), stderrBuf.Bytes(), r.form["encoding"] == Base64Encoding)
+	if err == nil {
+		state.Status = StatusComplete
+		state.Description = ""
+		jsonSuccess(w, "Successfully executed command", data)
+		return
+	}
+	// Process exited with non-zero result.
+	message := "Error executing python command."
+	state.Status = StatusFailed
+	state.Description = message
+	data["exitcode"] = exitCode(exitErr.ProcessState)
+	jsonError(w, 400, message, data)
 }
 
-func handlePinning(w http.ResponseWriter, r *http.Request) {
-	if !checkSecurity(w, r) {
-		return
-	}
+func handlePinning(w http.ResponseWriter, r *agentRequest) {
 	state.Lock()
 	defer state.Unlock()
 
@@ -1102,71 +1280,90 @@ func handlePinning(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	host, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err != nil {
-		host = r.RemoteAddr
-	}
-	state.ClientIP = host
+	state.ClientIP = r.clientIP
 	if token := r.Header.Get("X-CAPE-Auth-Token"); token != "" {
 		os.Setenv("X_CAPE_AUTH_TOKEN", token)
 	} else {
-		fmt.Println("no auth token supplied during pinning; agent authentication is disabled")
+		logOut.Println("no auth token supplied during pinning; agent authentication is disabled")
 	}
 
 	jsonSuccess(w, "Successfully pinned Agent", map[string]interface{}{
-		"client_ip": host,
+		"client_ip": r.clientIP,
 	})
 }
 
-func handleKill(w http.ResponseWriter, r *http.Request) {
-	if !checkSecurity(w, r) {
-		return
-	}
+func handleKill(w http.ResponseWriter, r *agentRequest) {
 	jsonSuccess(w, "Quit the CAPE Agent", nil)
-	go func() {
-		time.Sleep(100 * time.Millisecond)
-		os.Exit(0)
-	}()
+	if f, ok := w.(http.Flusher); ok {
+		f.Flush()
+	}
+	// Graceful shutdown: stop accepting, let in-flight responses finish, then main() returns.
+	shutdownOnce.Do(func() {
+		go func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			server.Shutdown(ctx)
+			close(shutdownDone)
+		}()
+	})
 }
 
-func handleBrowserExtension(w http.ResponseWriter, r *http.Request) {
-	if !checkSecurity(w, r) {
-		return
-	}
+func handleBrowserExtension(w http.ResponseWriter, r *agentRequest) {
 	agentBrowserLock.Lock()
 	defer agentBrowserLock.Unlock()
 
-	if agentBrowserExtPath == "" {
+	// (Re)create the log folder if it doesn't exist yet or was deleted.
+	if fi, err := os.Stat(filepath.Dir(agentBrowserExtPath)); agentBrowserExtPath == "" || err != nil || !fi.IsDir() {
 		tmpDir, err := os.MkdirTemp("", "")
 		if err != nil {
-			jsonError(w, 500, "Error creating temp dir")
+			jsonException(w, "Error creating temporary directory", err)
 			return
 		}
-		// Random name
-		agentBrowserExtPath = filepath.Join(tmpDir, "bext_random.json")
+		agentBrowserExtPath = filepath.Join(tmpDir, "bext_"+randomLetters(11)+".json")
 	}
 
-	data := r.FormValue("networkData")
+	data := r.form["networkData"]
 	if data != "" {
 		if token := os.Getenv("X_CAPE_AUTH_TOKEN"); token != "" {
 			if signed, err := signNetworkData(data, token); err == nil {
 				data = signed
 			} else {
-				fmt.Printf("failed to sign browser extension log: %v\n", err)
+				logOut.Printf("failed to sign browser extension log: %v\n", err)
 			}
 		}
-		os.WriteFile(agentBrowserExtPath, []byte(data), 0644)
+		if err := writeFileAtomic(agentBrowserExtPath, data); err != nil {
+			jsonException(w, "Error writing the browser extension log", err)
+			return
+		}
 	}
 
 	jsonSuccess(w, "OK", nil)
 }
 
-func handleMutex(w http.ResponseWriter, r *http.Request) {
-	if !checkSecurity(w, r) {
-		return
+func randomLetters(n int) string {
+	const letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+	b := make([]byte, n)
+	for i := range b {
+		b[i] = letters[rand.Intn(len(letters))]
 	}
-	// Wrapper to call platform specific implementation
-	HandleMutexPlatform(w, r)
+	return string(b)
+}
+
+// writeFileAtomic replaces path via a temp file, retrying while a reader
+// (the analyzer's browsermonitor) briefly holds the destination open.
+func writeFileAtomic(path, data string) error {
+	tmp := path + ".tmp"
+	if err := os.WriteFile(tmp, []byte(data), 0o644); err != nil {
+		return err
+	}
+	var err error
+	for attempt := 0; attempt < 5; attempt++ {
+		if err = os.Rename(tmp, path); err == nil {
+			return nil
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	return err
 }
 
 // Helpers

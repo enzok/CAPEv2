@@ -4,6 +4,7 @@ package main
 
 import (
 	"net/http"
+	"os/exec"
 	"runtime"
 )
 
@@ -15,6 +16,20 @@ func ApplyMkdtempPermissions(path string) {
 	// No-op for unix usually, or chmod
 }
 
-func HandleMutexPlatform(w http.ResponseWriter, r *http.Request) {
+func shellCommand(command string) *exec.Cmd {
+	return exec.Command("/bin/sh", "-c", command)
+}
+
+func findPython() (string, error) {
+	if pythonPath != "" {
+		return pythonPath, nil
+	}
+	if p, err := exec.LookPath("python3"); err == nil {
+		return p, nil
+	}
+	return exec.LookPath("python")
+}
+
+func HandleMutexPlatform(w http.ResponseWriter, r *agentRequest) {
 	jsonError(w, 400, "mutex feature not supported on "+runtime.GOOS)
 }
